@@ -1,0 +1,16 @@
+/* touch-action: none evita que el navegador se lleve el gesto de arrastre
+   (scroll, tirón de recarga) antes de que control-apuntado exista -- fijarlo
+   aquí desde el primer bloque evita que se rompa por accidente más tarde. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  background-color: #12141a;
+}
+
+* {
+  box-sizing: border-box;
+}

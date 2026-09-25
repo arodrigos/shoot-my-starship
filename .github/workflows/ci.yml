@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-typecheck-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      # andamiaje-2: el presupuesto de JS se comprueba en cada build, no una
+      # vez -- este job corre en cada push y en cada PR.
+      - run: npm run verificar:presupuesto-bundle
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: lint-typecheck-build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Contra un build de producción local (npm run build && npm run
+      # start), no contra una URL de preview de Vercel: el proyecto de
+      # Vercel se crea en la etapa de traspaso, después de que Gatekeeper
+      # apruebe -- ver playwright.config.ts y las desviaciones del entregable
+      # de este bloque.
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
