@@ -15,15 +15,22 @@ export interface SolucionBalistica {
 // en error de puntería y en una política de arma/objetivo con personalidad
 // es ia-personalidades, que reutiliza esta misma función en vez de
 // reescribir la fórmula.
+//
+// velocidadPxS es opcional (por defecto POTENCIA_MAXIMA_PX_S, el mismo
+// comportamiento de siempre para ia-personalidades y el resto de llamadas
+// existentes): humor-sistemico lo usa con la potencia REAL de un disparo ya
+// hecho para clasificar si su ángulo se aleja mucho de la solución exacta a
+// esa potencia, sin duplicar esta fórmula en otro fichero.
 export function resolverSolucionesBalisticas(
   origenX: number,
   origenY: number,
   objetivoX: number,
   objetivoY: number,
   gravedad: number,
+  velocidadPxS: number = POTENCIA_MAXIMA_PX_S,
 ): SolucionBalistica[] {
   const g = gravedad * GRAVEDAD_REFERENCIA_PX_S2;
-  const v = POTENCIA_MAXIMA_PX_S;
+  const v = velocidadPxS;
   const distanciaX = objetivoX - origenX;
   const distancia = Math.abs(distanciaX);
   if (distancia < 1e-6) {

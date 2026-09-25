@@ -1,3 +1,7 @@
+import type { EventoSimulacion, TipoEventoHumor } from "@/sim/partida/eventos";
+import type { EstadisticasPartida, ParteDeGuerra } from "@/sim/partida/parteDeGuerra";
+import type { EstadoAudio } from "@/juego/audio/motor";
+
 // Punto de observación que los tests de Playwright leen desde fuera del
 // juego (window.__debug.*). Vive en un módulo aparte para que cada bloque
 // añada sus propios campos sin que el núcleo de simulación (src/sim, que no
@@ -27,6 +31,13 @@ export interface DebugUltimoDisparo {
   anguloGrados: number;
   potencia: number;
   impacto: { x: number; y: number };
+  // humor-6: dónde paró REALMENTE la animación cliente (AnimadorProyectil),
+  // no el impacto que calculó el núcleo -- pueden no coincidir en el mismo
+  // píxel exacto (la máscara que ve el cliente ya lleva tallado el cráter de
+  // este mismo disparo antes de que la animación arranque), así que la
+  // repetición se compara contra este valor, el que de verdad se vio en
+  // pantalla, no contra el teórico.
+  impactoReal?: { x: number; y: number };
 }
 
 // control-apuntado: el ajuste vivo del HUD (fuera del lienzo) y lo que ya se
@@ -88,11 +99,40 @@ export interface DebugGlobal {
   // comprobar que el campo de batalla entero cabe sin recorte sin tener que
   // inferirlo de una captura de pantalla.
   camara?: { x: number; y: number; ancho: number; alto: number };
+  // humor-1: la sacudida de cámara es una transformación de la matriz de
+  // render (Camera.shakeEffect), no un desplazamiento de worldView/scroll --
+  // no hay forma de detectarla comparando el rectángulo de cámara entre dos
+  // instantes, así que se expone directamente el isRunning del efecto.
+  sacudiendoCamara?: boolean;
   // render-7: fuerza el fin de partida disparando Despedida con puntería
   // balística exacta -- jugarTurnosGuionizados no sirve para esto porque el
   // enfrentamiento La Contable / Almirante Bisagra no converge a un ganador
   // en un número razonable de turnos (ver desviaciones).
   forzarFinDePartida?: () => void;
+  // humor-1: los eventos de humor del último turno resuelto, para que el
+  // test compruebe QUÉ pasó sin tener que adivinarlo de la pantalla.
+  ultimosEventos?: readonly EventoSimulacion[];
+  // humor-2, humor-4: estado real del AudioContext, para comprobar que un
+  // navegador con el audio mudo o suspendido sigue mostrando la reacción
+  // visual igualmente.
+  estadoAudio?: () => EstadoAudio;
+  // humor-6: dispara la repetición instantánea del último disparo resuelto
+  // (de cualquiera de las dos naves) sin tocar el estado de partida; expone
+  // el punto de impacto que la repetición reproduce para comparar con el
+  // impacto real ya visto en ultimoDisparo.
+  reproducirRepeticion?: () => void;
+  repeticionEnCurso?: boolean;
+  impactoRepeticion?: { x: number; y: number } | null;
+  // humor-7: el parte de guerra publicado al terminar la partida, con las
+  // estadísticas reales que lo sustentan -- para comprobar que el texto no
+  // es un remate fijo disfrazado de dinámico.
+  parteDeGuerra?: (ParteDeGuerra & { estadisticas: EstadisticasPartida }) | null;
+  // humor-2: dispara la reacción real (sacudida, frase, tono) para un tipo de
+  // evento de humor concreto, sin tener que fabricar por juego real las
+  // condiciones de física/IA de cada uno de los 7 -- pasa por el mismo
+  // reaccionarAHumor que usa avanzar() en una partida normal, así que prueba
+  // el camino de producción, no un doble de pruebas.
+  dispararReaccionHumor?: (tipo: TipoEventoHumor) => void;
 }
 
 declare global {
