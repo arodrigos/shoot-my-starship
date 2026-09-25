@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { IdEscena } from "@/juego/main";
+import type { DatosEscenaPartida, IdEscena } from "@/juego/main";
 
 // La importación dinámica con ssr:false solo se puede pedir desde un
 // componente cliente (Next.js no lo admite en un Server Component): por eso
@@ -13,8 +13,9 @@ const PhaserGame = dynamic(() => import("@/juego/PhaserGame").then((m) => m.Phas
 
 interface Props {
   escena?: IdEscena;
+  datosEscena?: DatosEscenaPartida;
 }
 
-export function JuegoLienzo({ escena }: Props = {}) {
-  return <PhaserGame escena={escena} />;
+export function JuegoLienzo({ escena, datosEscena }: Props = {}) {
+  return <PhaserGame escena={escena} datosEscena={datosEscena} />;
 }

@@ -57,6 +57,7 @@ for (const viewport of VIEWPORTS) {
     test.setTimeout(90000);
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await page.getByTestId("boton-jugar").click();
     await capturarSecuenciaDePartida(page, viewport.nombre);
   });
 }

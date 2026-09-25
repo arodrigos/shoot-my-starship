@@ -9,6 +9,7 @@ test("tras perder y recuperar el contexto WebGL, el terreno repintado respeta lo
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true);
 

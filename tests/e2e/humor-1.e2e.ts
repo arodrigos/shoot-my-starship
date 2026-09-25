@@ -11,6 +11,7 @@ test("humor-1: un evento de humor dispara una reacción visible y mueve la cáma
 }) => {
   test.setTimeout(60000);
   await page.goto("/");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {

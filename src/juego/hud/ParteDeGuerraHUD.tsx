@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { obtenerParteDeGuerra, suscribirParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
+import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 
 // Pantalla final (humor-7): se superpone al tablero ya congelado (la
 // partida ha terminado, nadie va a disparar otra vez) mostrando la medalla y
@@ -55,6 +55,24 @@ export function ParteDeGuerraHUD() {
           <dt>Píxeles destruidos</dt>
           <dd>{parte.estadisticas.pixelesDestruidos}</dd>
         </dl>
+        <button
+          type="button"
+          data-testid="otra-partida"
+          onClick={solicitarOtraPartida}
+          style={{
+            marginTop: 16,
+            minHeight: 44,
+            padding: "8px 16px",
+            borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.25)",
+            background: "#ff6b4a",
+            color: "#e8eaf0",
+            font: "14px system-ui, sans-serif",
+            cursor: "pointer",
+          }}
+        >
+          Otra partida
+        </button>
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ test("elegir arma, apuntar por gesto y disparar hace perder píxeles de terreno 
   test.setTimeout(90000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?mapa=calma-de-los-restos");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined && window.__debug.naves !== undefined);
 

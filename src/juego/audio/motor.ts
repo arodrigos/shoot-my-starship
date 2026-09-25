@@ -18,11 +18,12 @@ export function estadoAudioActual(): EstadoAudio {
   return contexto.state === "running" ? "en-marcha" : "suspendido";
 }
 
-// Debe llamarse SOLO desde un gesto real del usuario (el pointerdown de la
-// propia escena, el mismo que empieza a apuntar -- ver Partida.ts y las
-// desviaciones del bloque: no hay una pantalla de bloqueo dedicada): crear o
-// reanudar un AudioContext fuera de un gesto es lo que dispara el aviso de
-// autoplay del navegador (humor-4), incluso si luego no llega a sonar nada.
+// Debe llamarse SOLO desde un gesto real del usuario: el clic en "Jugar" de
+// PantallaInicio (partida-completa, normalmente el primero de la sesión) o,
+// como red de seguridad para gestos posteriores, el pointerdown de la propia
+// escena (Partida.ts). Crear o reanudar un AudioContext fuera de un gesto es
+// lo que dispara el aviso de autoplay del navegador (humor-4), incluso si
+// luego no llega a sonar nada.
 export function desbloquearAudio(): void {
   try {
     if (!contexto) {

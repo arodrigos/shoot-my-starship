@@ -74,3 +74,14 @@ export function buscarMapa(id: string): MapaJuego {
 }
 
 export const MAPA_POR_DEFECTO = DESGUACE_DEL_ECUADOR;
+
+// partida-completa (partida-1): "otra partida" exige un mundo distinto del
+// anterior (semilla, relieve, gravedad y etiqueta de deriva) -- elegir al
+// azar entre los otros dos garantiza eso sin repetir el mismo mapa dos
+// veces seguidas. Vive fuera de src/sim (nucleo-4 exige determinismo ahí
+// dentro; esto es una decisión de presentación, no de simulación).
+export function elegirMapaDistinto(idActual: string): MapaJuego {
+  const candidatos = MAPAS.filter((mapa) => mapa.id !== idActual);
+  const indice = Math.floor(Math.random() * candidatos.length);
+  return candidatos[indice] ?? MAPA_POR_DEFECTO;
+}

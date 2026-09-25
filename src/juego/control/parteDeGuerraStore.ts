@@ -29,3 +29,26 @@ export function suscribirParteDeGuerra(escucha: () => void): () => void {
 export function publicarParteDeGuerra(parte: ParteDeGuerra, estadisticas: EstadisticasPartida): void {
   fijar({ parte: { ...parte, estadisticas } });
 }
+
+// partida-completa: limpia la medalla de la partida anterior al arrancar
+// una nueva escena -- este store es un singleton de módulo, así que sin
+// esto "otra partida" mostraría el parte de guerra ya obsoleto durante el
+// primer fotograma, antes de que la partida nueva pueda haber terminado.
+export function limpiarParteDeGuerra(): void {
+  fijar({ parte: null });
+}
+
+// Señal de "otra partida" (partida-1): el botón vive en React
+// (ParteDeGuerraHUD), pero quien sabe cómo arrancar una escena nueva con un
+// mundo distinto es el componente que monta JuegoLienzo -- mismo patrón de
+// desacoplo que registrarManejadorDisparo en store.ts.
+const escuchasOtraPartida = new Set<() => void>();
+
+export function solicitarOtraPartida(): void {
+  for (const escucha of escuchasOtraPartida) escucha();
+}
+
+export function suscribirOtraPartida(escucha: () => void): () => void {
+  escuchasOtraPartida.add(escucha);
+  return () => escuchasOtraPartida.delete(escucha);
+}

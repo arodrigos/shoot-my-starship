@@ -13,6 +13,7 @@ import { test, expect, type Page } from "@playwright/test";
 async function arrastrarYDispararYLeer(page: Page, viewport: { width: number; height: number }) {
   await page.setViewportSize(viewport);
   await page.goto("/");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined);
 

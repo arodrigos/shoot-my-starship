@@ -1,4 +1,4 @@
-import { decidirTurnoIA } from "@/sim/ia/decidir";
+import { decidirTurnoIA, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import type { Personalidad } from "@/sim/ia/tipos";
 import { naveContraria, type EstadoPartida, type FuenteDeTurno } from "@/sim/partida/tipos";
 
@@ -8,15 +8,17 @@ import { naveContraria, type EstadoPartida, type FuenteDeTurno } from "@/sim/par
 // generador aparte -- es lo que mantiene la partida entera dentro del mismo
 // generador con semilla que nucleo-4 exige.
 //
-// La corrección de ia-5 (el intento anterior contra el mismo objetivo) NO
-// se enhebra aquí: esta fuente no ve el resultado real de su propio disparo
-// -- eso lo resuelve avanzar() después de que jugarTurno ya ha llamado a
-// esta función -- y aproximarlo aquí sería adivinar en vez de usar el dato
-// real. decidirTurnoIA ya soporta `ultimoIntento`; la integración con el
-// resultado real de cada turno es del bloque que construya el bucle de
-// partida en vivo (partida-completa), que sí puede leer el evento de
-// impacto real antes del turno siguiente.
-export function crearFuenteIA(personalidad: Personalidad): FuenteDeTurno {
+// La corrección de ia-5 (el intento anterior contra el mismo objetivo) NO se
+// puede calcular DENTRO de esta función: no ve el resultado real de su
+// propio disparo -- eso lo resuelve avanzar() después de que jugarTurno ya
+// ha llamado a esta función. Por eso se recibe como parámetro en vez de
+// adivinarlo: el lote de simulación (loteAleatorio.ts) y los guiones fijos
+// de depuración (jugarTurnosGuionizados) siguen pasando null (el mismo
+// disparo antes/después de esta función no distingue de quién es el turno
+// entre llamadas), y el bucle de partida en vivo (partida-completa,
+// Partida.ts) sí puede leer el evento de impacto real antes del turno
+// siguiente y pasarlo aquí.
+export function crearFuenteIA(personalidad: Personalidad, ultimoIntento: UltimoIntentoIA | null = null): FuenteDeTurno {
   return (estado: EstadoPartida) => {
     const tirador = estado.turno;
     const objetivoId = naveContraria(tirador);
@@ -31,7 +33,7 @@ export function crearFuenteIA(personalidad: Personalidad): FuenteDeTurno {
       alto: estado.mundo.alto,
       personalidad,
       aleatorio: estado.aleatorio,
-      ultimoIntento: null,
+      ultimoIntento,
     });
 
     return {

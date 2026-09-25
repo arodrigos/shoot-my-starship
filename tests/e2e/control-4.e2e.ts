@@ -31,6 +31,7 @@ test("el retículo y la previsualización quedan a >=60px CSS del punto de conta
   test.setTimeout(60000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {

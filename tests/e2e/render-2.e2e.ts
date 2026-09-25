@@ -10,6 +10,7 @@ test("tras una partida guionizada de 10 turnos, terreno y naves renderizados coi
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true);
 

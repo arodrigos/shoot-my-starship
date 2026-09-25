@@ -18,13 +18,22 @@ import { Nave } from "@/juego/naves/Nave";
 import { IndicadorDeriva } from "@/juego/deriva/IndicadorDeriva";
 import { AnimadorProyectil } from "@/juego/vuelo/AnimadorProyectil";
 import { crearFuenteIA } from "@/sim/ia/fuente";
-import { LA_CONTABLE, ALMIRANTE_BISAGRA } from "@/sim/ia/personalidades";
+import { LA_CONTABLE, ALMIRANTE_BISAGRA, buscarPersonalidad } from "@/sim/ia/personalidades";
+import type { Personalidad } from "@/sim/ia/tipos";
+import { UMBRAL_FALLO_PX, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
-import { publicarDisparoJugadorResuelto, publicarJugable, registrarManejadorDisparo } from "@/juego/control/store";
-import { publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
-import { publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
+import {
+  publicarDisparoJugadorResuelto,
+  publicarJugable,
+  registrarManejadorDisparo,
+  reiniciarControl,
+} from "@/juego/control/store";
+import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
+import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
+import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
+import type { DatosEscenaPartida } from "@/juego/main";
 import "@/debug/tipos";
 
 // humor-sistemico: qué reacción (sacudida, tono, frase) dispara cada disparo
@@ -66,9 +75,10 @@ const INTENSIDAD_SACUDIDA = 0.012;
 // y la máquina la nave 1 -- válido mientras solo haya un humano por partida
 // (brief); el multijugador remoto, si llega, es decisión de otro bloque.
 const ID_JUGADOR: IdNave = 0;
-// Personalidad de la máquina en el bucle de disparo real: La Contable es la
-// que ya usa jugarTurnosGuionizados como referencia. Elegir un rival según
-// mapa/dificultad es tarea de partida-completa (desviación: aquí es fija).
+// Rival por defecto si la escena arranca sin datos de inicio (navegación
+// directa a "/?mapa=..." de los tests e2e de bloques anteriores, que no
+// pasan por la pantalla de inicio): La Contable, el mismo que ya usaba
+// jugarTurnosGuionizados como referencia antes de partida-completa.
 const RIVAL_POR_DEFECTO = LA_CONTABLE;
 // Despedida hace autodaño garantizado (fiabilidad 1) además de daño de área:
 // forzarFinDePartida() la usa a propósito, porque eso pone una cota dura al
@@ -103,6 +113,26 @@ export class Partida extends Phaser.Scene {
   private estado!: EstadoPartida;
   private terreno!: ReturnType<typeof crearTerrenoPhaser>["terreno"];
   private mapa: MapaJuego = MAPA_POR_DEFECTO;
+  private rival: Personalidad = RIVAL_POR_DEFECTO;
+  // ia-5: distancia real del último disparo de la máquina contra el
+  // jugador, para que decidirTurnoIA corrija el siguiente intento -- se iba
+  // a null a propósito en crearFuenteIA (ver fuente.ts) porque esa función
+  // no ve el resultado de su propio disparo; aquí sí se ve, un turno
+  // después, así que este campo es el puente entre los dos.
+  private ultimoIntentoIA: UltimoIntentoIA | null = null;
+  // partida-3/hallazgo: a la distancia real entre naves, el único arco
+  // viable suele ser casi vertical, donde el 0.35x de un solo fallo (ia-5)
+  // no basta para que la máquina converja -- se cuentan los fallos seguidos
+  // contra ESTE objetivo para que decidirTurnoIA componga la corrección
+  // (0.35^n) en vez de repetir la misma que ya ha demostrado que no alcanza.
+  // NUNCA se resetea a 0 con un acierto puntual (partida-3, segundo
+  // hallazgo): un disparo que cae cerca por pura suerte del ruido, antes de
+  // que la corrección haya convergido de verdad, no demuestra que ya no
+  // haga falta corregir -- resetear ahí descartaba toda la racha aprendida y
+  // la máquina volvía a fallar gordo el turno siguiente, en un vaivén que no
+  // converge nunca. Solo crece; ya no hace daño quedarse "de más" precisa.
+  private fallosConsecutivosIA = 0;
+  private datosEscena: DatosEscenaPartida = {};
   private naves!: [Nave, Nave];
   private indicadorDeriva!: IndicadorDeriva;
   private animador!: AnimadorProyectil;
@@ -131,12 +161,37 @@ export class Partida extends Phaser.Scene {
     super("Partida");
   }
 
+  // Recibida de game.scene.add(key, Partida, true, datos) en main.ts. El
+  // parámetro de URL ?mapa= sigue teniendo la última palabra sobre
+  // datosEscena.mapaId: lo usan los tests e2e de bloques anteriores a
+  // partida-completa (render-6, control-1...) que navegan directo con un
+  // mapa concreto sin pasar por la pantalla de inicio.
+  init(data: DatosEscenaPartida = {}): void {
+    this.datosEscena = data;
+  }
+
   create(): void {
     window.__debug = window.__debug ?? {};
+    // "Otra partida" reutiliza los mismos stores de módulo (singletons, no
+    // ligados al ciclo de vida de React) para una escena de Phaser
+    // completamente nueva: sin esto arrastrarían el ajuste, el arma agotada,
+    // la reacción y la medalla de la partida ya terminada.
+    reiniciarControl();
+    limpiarReaccion();
+    limpiarParteDeGuerra();
+    this.ultimoIntentoIA = null;
+    this.fallosConsecutivosIA = 0;
 
     const parametrosUrl = new URLSearchParams(window.location.search);
-    const idMapa = parametrosUrl.get("mapa");
+    const idMapa = parametrosUrl.get("mapa") ?? this.datosEscena.mapaId;
     this.mapa = idMapa ? buscarMapa(idMapa) : MAPA_POR_DEFECTO;
+    this.rival = this.datosEscena.personalidadId ? buscarPersonalidad(this.datosEscena.personalidadId) : RIVAL_POR_DEFECTO;
+    window.__debug.mapa = {
+      id: this.mapa.id,
+      semillaTerreno: this.mapa.semillaTerreno,
+      gravedad: this.mapa.mundo.gravedad,
+      etiquetaDeriva: this.mapa.mundo.etiquetaDeriva,
+    };
 
     const mascara = generarMascara(this.mapa.semillaTerreno, MUNDO_ANCHO, MUNDO_ALTO);
     const xNave0 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_0);
@@ -263,13 +318,12 @@ export class Partida extends Phaser.Scene {
 
   private alPointerDown(evento: PointerEvent): void {
     // humor-4: desbloquearAudio() solo puede llamarse dentro de un gesto real
-    // del usuario -- este listener de "pointerdown" en window es el primer
-    // toque de cualquier partida real (arrastrar para apuntar empieza con
-    // este mismo evento), así que no hace falta una pantalla de bloqueo
-    // aparte: introducir una exigiría que los quince tests e2e ya aceptados
-    // de otros bloques la cerrasen primero, y ninguno de los criterios de
-    // humor-sistemico pide esa pantalla, solo un gesto real (ver
-    // desviaciones).
+    // del usuario. La pantalla de inicio (partida-completa) ya lo hace en el
+    // clic de "Jugar", así que en la práctica el AudioContext suele existir
+    // ya al llegar aquí -- este listener de "pointerdown" en window se deja
+    // como red de seguridad (llamar dos veces es barato, ver desbloquearAudio)
+    // para cualquier entrada que llegue a esta escena sin haber pasado por
+    // ese botón (navegación directa de los tests e2e de bloques anteriores).
     desbloquearAudio();
 
     const fraccion = fraccionDeVentana(evento.clientX, evento.clientY);
@@ -303,6 +357,21 @@ export class Partida extends Phaser.Scene {
     const { estado: estadoDespues, eventos } = avanzar(estadoAntes, entrada);
 
     const eventoImpacto = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto");
+
+    // ia-5: se mide AQUÍ (jugarTurno/avanzar ya ha resuelto el disparo real
+    // de la máquina), no dentro de crearFuenteIA -- esa fuente no puede ver
+    // el resultado de su propio tiro (ver fuente.ts). Se guarda para el
+    // siguiente turno de la máquina, cuando el objetivo sigue siendo el
+    // jugador (el único emparejamiento posible en esta partida real).
+    if (!esJugador) {
+      const objetivoId = naveContraria(tirador);
+      const objetivoX = estadoAntes.naves[objetivoId].x;
+      const puntoDeCaida = eventoImpacto ?? { x: origenX, y: origenY };
+      const distancia = Math.abs(puntoDeCaida.x - objetivoX);
+      if (distancia > UMBRAL_FALLO_PX) this.fallosConsecutivosIA += 1;
+      this.ultimoIntentoIA = { distanciaAlObjetivoPx: distancia, fallosConsecutivos: this.fallosConsecutivosIA };
+    }
+
     window.__debug!.ultimoDisparo = {
       anguloGrados: entrada.anguloGrados,
       potencia: entrada.potencia,
@@ -347,7 +416,7 @@ export class Partida extends Phaser.Scene {
   // circuito completo (elegir, apuntar, disparar, responder) sin que el
   // bloque siguiente (partida-completa) tenga que reconstruir este enganche.
   private dispararTurnoIA(): void {
-    const { entrada, estado } = crearFuenteIA(RIVAL_POR_DEFECTO)(this.estado);
+    const { entrada, estado } = crearFuenteIA(this.rival, this.ultimoIntentoIA)(this.estado);
     this.estado = estado;
     this.dispararEntrada(entrada, false);
   }
@@ -384,6 +453,10 @@ export class Partida extends Phaser.Scene {
       const parte = generarParteDeGuerra(estadisticasGanador);
       publicarParteDeGuerra(parte, estadisticasGanador);
       window.__debug!.parteDeGuerra = { ...parte, estadisticas: estadisticasGanador };
+      // partida-5: intento de guardado best-effort -- si localStorage no
+      // está disponible, guardarUltimaPartida se degrada en silencio (ver
+      // progreso.ts) y la partida ya jugada no se pierde por eso.
+      guardarUltimaPartida(parte, estadisticasGanador);
     }
   }
 
@@ -420,15 +493,13 @@ export class Partida extends Phaser.Scene {
 
   // humor-1, humor-2: sacudida de cámara, tono y frase contextual para cada
   // evento de humor del turno -- la voz que narra es siempre la del rival
-  // actual (RIVAL_POR_DEFECTO), también cuando el evento le ha pasado al
-  // jugador: solo hay un rival cableado en esta partida real (ver la
-  // constante), la selección de rival según personalidad es partida-completa
-  // (desviación interpretativa, ver desviaciones).
+  // elegido (this.rival), también cuando el evento le ha pasado al jugador,
+  // porque solo hay un rival por partida.
   private reaccionarAHumor(eventos: readonly EventoSimulacion[]): void {
     for (const evento of eventos) {
       if (!esEventoHumor(evento)) continue;
       this.cameras.main.shake(DURACION_SACUDIDA_MS, INTENSIDAD_SACUDIDA);
-      const frase = this.selectorFrases.elegir(RIVAL_POR_DEFECTO.id, evento.tipo);
+      const frase = this.selectorFrases.elegir(this.rival.id, evento.tipo);
       publicarReaccion(frase, evento.tipo);
       reproducirTono(evento.tipo);
     }
