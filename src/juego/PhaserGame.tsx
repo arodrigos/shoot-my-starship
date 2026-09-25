@@ -4,16 +4,21 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type Phaser from "phaser";
 import { SinWebGL } from "@/juego/SinWebGL";
 import { hayWebGL } from "@/juego/soporteWebGL";
+import type { IdEscena } from "@/juego/main";
 
 const ID_CONTENEDOR = "game-container";
 
 type Estado = "disponible" | "sin-webgl";
 
+interface Props {
+  escena?: IdEscena;
+}
+
 // El estado inicial se calcula en el propio render, no en un efecto: este
 // componente solo se monta en cliente (ver JuegoLienzo, dynamic ssr:false),
 // así que `document` ya existe la primera vez que se ejecuta esta función y
 // no hace falta esperar a un ciclo de efecto para saber si hay WebGL.
-export function PhaserGame() {
+export function PhaserGame({ escena }: Props) {
   const [estado] = useState<Estado>(() => (hayWebGL() ? "disponible" : "sin-webgl"));
   const juego = useRef<Phaser.Game | null>(null);
 
@@ -24,7 +29,7 @@ export function PhaserGame() {
     let cancelado = false;
     import("@/juego/main").then(({ iniciarJuego }) => {
       if (!cancelado) {
-        juego.current = iniciarJuego(ID_CONTENEDOR);
+        juego.current = iniciarJuego(ID_CONTENEDOR, escena);
       }
     });
     return () => {
@@ -32,7 +37,7 @@ export function PhaserGame() {
       juego.current?.destroy(true);
       juego.current = null;
     };
-  }, [estado]);
+  }, [estado, escena]);
 
   if (estado === "sin-webgl") {
     return <SinWebGL />;

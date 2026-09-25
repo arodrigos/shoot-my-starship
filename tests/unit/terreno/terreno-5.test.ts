@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Terreno, type SuperficieDeTerreno } from "@/juego/terreno/Terreno";
-import { crearMascaraVacia } from "@/sim/terreno/mascara";
+import { crearMascaraVacia, type Mascara } from "@/sim/terreno/mascara";
 import type { RectanguloSucio } from "@/sim/terreno/huella";
 
 // Doble de prueba: no dibuja nada, solo registra con qué rectángulo se le
@@ -9,9 +9,14 @@ import type { RectanguloSucio } from "@/sim/terreno/huella";
 // real -- ver el porqué de la interfaz en Terreno.ts.
 class SuperficieEspia implements SuperficieDeTerreno {
   llamadas: RectanguloSucio[] = [];
+  pintadasCompletas = 0;
 
-  refrescarRectangulo(_mascara: unknown, rectangulo: RectanguloSucio): void {
+  refrescarRectangulo(_mascara: Mascara, rectangulo: RectanguloSucio): void {
     this.llamadas.push(rectangulo);
+  }
+
+  pintarCompleta(): void {
+    this.pintadasCompletas++;
   }
 }
 

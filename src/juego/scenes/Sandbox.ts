@@ -34,7 +34,7 @@ export class Sandbox extends Phaser.Scene {
     }
 
     const texturaCanvas = this.textures.get("terreno-sandbox") as Phaser.Textures.CanvasTexture;
-    exponerDepuracionDeTerreno(terreno, mascara, texturaCanvas);
+    exponerDepuracionDeTerreno(terreno, texturaCanvas);
     window.__debug.terreno!.listo = true;
 
     const marca = this.add.circle(-100, -100, 8, 0xffcc00).setVisible(false);

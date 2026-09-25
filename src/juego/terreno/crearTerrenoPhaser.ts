@@ -2,6 +2,8 @@ import type Phaser from "phaser";
 import type { Mascara } from "@/sim/terreno/mascara";
 import { Terreno } from "@/juego/terreno/Terreno";
 import { SuperficieCanvasPhaser } from "@/juego/terreno/SuperficieCanvasPhaser";
+import type { PaletaTerreno } from "@/juego/paleta";
+import { PALETA_PROVISIONAL } from "@/juego/paleta";
 
 export interface TerrenoPhaser {
   readonly terreno: Terreno;
@@ -17,13 +19,14 @@ export function crearTerrenoPhaser(
   escena: Phaser.Scene,
   mascara: Mascara,
   claveTextura: string,
+  paleta: PaletaTerreno = PALETA_PROVISIONAL,
 ): TerrenoPhaser {
   const textura = escena.textures.createCanvas(claveTextura, mascara.ancho, mascara.alto);
   if (textura === null) {
     throw new Error(`No se pudo crear la textura de terreno "${claveTextura}"`);
   }
 
-  const superficie = new SuperficieCanvasPhaser(textura);
+  const superficie = new SuperficieCanvasPhaser(textura, paleta);
   superficie.pintarCompleta(mascara);
 
   const imagen = escena.add.image(0, 0, claveTextura).setOrigin(0, 0);
