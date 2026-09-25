@@ -22,6 +22,12 @@ jobs:
       # andamiaje-2: el presupuesto de JS se comprueba en cada build, no una
       # vez -- este job corre en cada push y en cada PR.
       - run: npm run verificar:presupuesto-bundle
+      # terreno-1, terreno-2, terreno-4, terreno-5: tests deterministas del
+      # núcleo de simulación, sin navegador.
+      - run: npm run test:unit
+      # terreno-6: comprobación mecánica de que getImageData/putImageData no
+      # aparecen fuera de la lista blanca declarada.
+      - run: node scripts/comprobar-sin-lectura-canvas.mjs
 
   e2e:
     runs-on: ubuntu-latest
