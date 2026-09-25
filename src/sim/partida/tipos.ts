@@ -1,4 +1,5 @@
 import type { EstadoAleatorio } from "@/sim/aleatorio";
+import type { Mascara } from "@/sim/terreno/mascara";
 
 // Solo dos naves por ahora (un jugador contra la máquina, ver brief): el
 // tipo es literal a propósito para que "turno de nadie" sea irrepresentable
@@ -39,9 +40,13 @@ export type ResultadoPartida =
 // referencias a objetos de render, ni el generador aleatorio en forma de
 // closure -- por eso `aleatorio` es EstadoAleatorio (un número que
 // evoluciona) y no un GeneradorAleatorio.
+// mascara viaja en el estado (y no se regenera desde la semilla) porque el
+// terreno es destructible: tras el primer impacto, la semilla ya no basta
+// para reconstruirlo (balistica-armas).
 export interface EstadoPartida {
   readonly version: 1;
   readonly mundo: ParametrosMundo;
+  readonly mascara: Mascara;
   readonly naves: readonly [EstadoNave, EstadoNave];
   readonly turno: IdNave;
   readonly numeroTurno: number;

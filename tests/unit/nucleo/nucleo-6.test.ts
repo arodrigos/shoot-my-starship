@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { crearPartidaInicial, jugarPartida } from "@/sim/partida/motor";
 import type { EntradaDeTurno, FuenteDeTurno } from "@/sim/partida/tipos";
+import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
 const MUNDO = { ancho: 1920, alto: 1080, gravedad: 1.0, deriva: 0, etiquetaDeriva: "prueba" };
 const LIMITE_TURNOS = 300;
@@ -23,7 +24,7 @@ function fuenteHumanoSimulado(cola: readonly EntradaDeTurno[]): FuenteDeTurno {
 // cola, como hará ia-personalidades más adelante. Ángulo y potencia caen a
 // ~15px de la nave contraria dada la distancia entre 300 y 1620.
 const fuenteMaquina: FuenteDeTurno = (estado) => ({
-  entrada: { arma: "referencia", anguloGrados: estado.turno === 0 ? 45 : 135, potencia: 60 },
+  entrada: { arma: "pepinazo-cortesia", anguloGrados: estado.turno === 0 ? 45 : 135, potencia: 60 },
   estado,
 });
 
@@ -37,10 +38,21 @@ function fuenteScriptada(guion: readonly EntradaDeTurno[]): FuenteDeTurno {
 }
 
 test("nucleo-6: FuenteDeTurno soporta humano-vs-máquina, máquina-vs-máquina y dos scriptadas sin tocar el núcleo", () => {
-  // Ángulos que caen dentro del radio de impacto desde x=300 hacia x=1620.
+  // Raíces "de lobo alto" del solucionador balístico exacto para 300->1620
+  // sobre suelo plano (no las de trayectoria rasante: esas rozan el suelo
+  // cerca del cañón y su alcance real es muy sensible al desfase de altura
+  // del cañón, así que "exactas" en la fórmula no significa precisas aquí).
+  // Con daño real en cada impacto, cada nave cráteriza el suelo bajo la
+  // otra -- y por tanto bajo sí misma la próxima vez que dispare desde ahí,
+  // porque origenY se lee de su propia posición en el momento del disparo.
+  // Un guion fijo con ángulos "razonables a ojo" converge en la práctica a
+  // un punto muerto (cada nave falla sistemáticamente su propio blanco en
+  // cuanto el cráter le cambia la altura de lanzamiento). Estas dos raíces
+  // caen a menos de 1px del centro exacto, lo que da mucho más margen antes
+  // de que la deriva del terreno las saque del radio de daño.
   const colaHumano: EntradaDeTurno[] = [
-    { arma: "referencia", anguloGrados: 50, potencia: 65 },
-    { arma: "referencia", anguloGrados: 55, potencia: 60 },
+    { arma: "pepinazo-cortesia", anguloGrados: 76.0, potencia: 100 },
+    { arma: "pepinazo-cortesia", anguloGrados: 69.3, potencia: 80 },
   ];
   // Espejo de colaHumano (180 - ángulo) para disparar desde x=1620 hacia
   // x=300: el mismo guion no sirve para las dos naves porque no apuntan al
@@ -56,8 +68,9 @@ test("nucleo-6: FuenteDeTurno soporta humano-vs-máquina, máquina-vs-máquina y
     ["dos scriptadas", [fuenteScriptada(colaHumano), fuenteScriptada(colaHumanoEspejo)]],
   ];
 
+  const mascara = crearMascaraPlana(MUNDO.ancho, MUNDO.alto, 900);
   for (const [nombre, fuentes] of combinaciones) {
-    const inicial = crearPartidaInicial(MUNDO, 300, 1620, 4242);
+    const inicial = crearPartidaInicial(MUNDO, mascara, 300, 1620, 4242);
     const { estado, agotada } = jugarPartida(inicial, fuentes, LIMITE_TURNOS);
     assert.equal(agotada, false, `${nombre}: la partida no convergió en ${LIMITE_TURNOS} turnos`);
     assert.equal(estado.resultado.tipo, "terminada", `${nombre}: no terminó con un ganador`);

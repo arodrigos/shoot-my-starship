@@ -2,7 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
+import { deserializarEstado, serializarEstado } from "@/sim/partida/serializacion";
 import type { EntradaDeTurno, EstadoPartida, FuenteDeTurno } from "@/sim/partida/tipos";
+import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
 const MUNDO = { ancho: 1920, alto: 1080, gravedad: 1.0, deriva: -60, etiquetaDeriva: "prueba" };
 
@@ -11,7 +13,7 @@ const MUNDO = { ancho: 1920, alto: 1080, gravedad: 1.0, deriva: -60, etiquetaDer
 // No importa si la partida termina antes del turno 20 -- las dos ramas
 // terminan igual, porque son la misma secuencia de decisiones.
 const GUION: EntradaDeTurno[] = Array.from({ length: 20 }, (_, i) => ({
-  arma: "referencia",
+  arma: "pepinazo-cortesia",
   anguloGrados: 30 + (i % 7) * 9,
   potencia: 40 + (i % 5) * 12,
 }));
@@ -42,22 +44,25 @@ function hashDeEstado(estado: EstadoPartida): string {
 }
 
 test("nucleo-2: serializar a mitad de partida y reanudar en un objeto nuevo da el mismo estado final que no interrumpir", () => {
+  const mascara = crearMascaraPlana(MUNDO.ancho, MUNDO.alto, 900);
   const { fuente: fuenteA0 } = fuenteScriptada(0);
   const { fuente: fuenteA1 } = fuenteScriptada(0);
-  const inicialA = crearPartidaInicial(MUNDO, 200, 1720, 13579);
+  const inicialA = crearPartidaInicial(MUNDO, mascara, 200, 1720, 13579);
   const finalIninterrumpido = jugarHastaNTurnos(inicialA, [fuenteA0, fuenteA1], 20);
 
   const { fuente: fuenteB0, indice: indiceB0 } = fuenteScriptada(0);
   const { fuente: fuenteB1, indice: indiceB1 } = fuenteScriptada(0);
-  const inicialB = crearPartidaInicial(MUNDO, 200, 1720, 13579);
+  const inicialB = crearPartidaInicial(MUNDO, mascara, 200, 1720, 13579);
   const trasDiezTurnos = jugarHastaNTurnos(inicialB, [fuenteB0, fuenteB1], 10);
 
-  // JSON.stringify + JSON.parse simula guardar y cargar en un proceso
-  // nuevo: ningún puntero a objeto de render, ninguna función, ninguna
-  // referencia viva sobrevive a esto -- si algo de eso hubiera en el
-  // estado, esta línea o bien fallaría o perdería datos en silencio.
-  const serializado = JSON.stringify(trasDiezTurnos);
-  const reanudado = JSON.parse(serializado) as EstadoPartida;
+  // serializarEstado/deserializarEstado simulan guardar y cargar en un
+  // proceso nuevo: ningún puntero a objeto de render, ninguna función,
+  // ninguna referencia viva sobrevive a esto -- si algo de eso hubiera en el
+  // estado, esta línea o bien fallaría o perdería datos en silencio. No es
+  // JSON.stringify/parse a pelo porque eso no reconstruye el Uint8Array de
+  // la máscara (ver serializacion.ts).
+  const serializado = serializarEstado(trasDiezTurnos);
+  const reanudado = deserializarEstado(serializado);
 
   // Cada fuente lleva su propio contador de turnos JUGADOS POR ELLA (no de
   // turnos totales: las dos naves se alternan, así que tras 10 turnos
