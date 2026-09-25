@@ -32,7 +32,10 @@ test("p95 del frame time de un turno completo se mantiene <=50ms con CPU a 4x en
 
     await pagina.goto("/");
     await pagina.waitForSelector("#game-container canvas");
-    await pagina.waitForFunction(() => window.__debug.terreno?.listo === true);
+    await pagina.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined);
+    if (await pagina.getByTestId("ayuda-cerrar").isVisible()) {
+      await pagina.getByTestId("ayuda-cerrar").click();
+    }
 
     // Arranca la colecta de marcas de tiempo por fotograma ANTES del gesto,
     // para no perder los primeros fotogramas del vuelo -- se detiene sola
@@ -52,6 +55,11 @@ test("p95 del frame time de un turno completo se mantiene <=50ms con CPU a 4x en
       requestAnimationFrame(paso);
     });
 
+    // DESVIACIÓN (control-apuntado): el tirachinas (arrastrar y disparar en
+    // el mismo gesto) que medía este test ya no existe -- se sustituye por
+    // apuntado indirecto con ganancia y un botón explícito de disparo. Se
+    // mide el mismo turno completo animado (vuelo + explosión), solo que
+    // ahora el arrastre apunta y el toque en "Disparar" dispara.
     const viewport = pagina.viewportSize()!;
     const inicio = { x: viewport.width * 0.3, y: viewport.height * 0.85 };
     const fin = { x: viewport.width * 0.6, y: viewport.height * 0.55 };
@@ -59,6 +67,8 @@ test("p95 del frame time de un turno completo se mantiene <=50ms con CPU a 4x en
     await pagina.mouse.down();
     await pagina.mouse.move(fin.x, fin.y, { steps: 10 });
     await pagina.mouse.up();
+    await pagina.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
+    await pagina.getByTestId("disparar").click();
 
     await pagina.waitForFunction(() => window.__debug.animacionEnCurso === true, undefined, { timeout: 10000 });
     await pagina.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 15000 });

@@ -19,14 +19,25 @@ export interface DebugTerreno {
   listo: boolean;
 }
 
-// render-1: lo que produjo el último disparo disparado por gesto (arrastre)
-// o por el guion de pruebas -- ángulo, potencia e impacto EN COORDENADAS DE
-// MUNDO, para comparar entre viewports sin que ninguna coordenada de
-// pantalla se cuele en la comparación.
+// render-1: lo que produjo el último disparo (del jugador o de la máquina)
+// -- ángulo, potencia e impacto EN COORDENADAS DE MUNDO, para comparar entre
+// viewports sin que ninguna coordenada de pantalla se cuele en la
+// comparación.
 export interface DebugUltimoDisparo {
   anguloGrados: number;
   potencia: number;
   impacto: { x: number; y: number };
+}
+
+// control-apuntado: el ajuste vivo del HUD (fuera del lienzo) y lo que ya se
+// disparó de verdad, para que los tests puedan esperar a un estado concreto
+// (issue #151) en vez de a un tiempo fijo.
+export interface DebugControl {
+  ajuste: { anguloGrados: number; potencia: number; armaId: string };
+  ultimoDisparo: { anguloGrados: number; potencia: number; armaId: string } | null;
+  puedeDisparar: boolean;
+  ayudaVisible: boolean;
+  usosPorArma: Readonly<Record<string, number>>;
 }
 
 // render-6: lo que el indicador de deriva dibujó de verdad, no el dato
@@ -50,6 +61,7 @@ export interface DebugGlobal {
   ultimoPunto?: { x: number; y: number };
   terreno?: DebugTerreno;
   ultimoDisparo?: DebugUltimoDisparo;
+  control?: DebugControl;
   deriva?: DebugDeriva;
   naves?: readonly DebugNave[];
   // render-2, render-5: juega N turnos reales (misma avanzar() que un
@@ -62,6 +74,16 @@ export interface DebugGlobal {
   // render-3: true mientras el proyectil está en vuelo, para que el test
   // sepa cuándo empieza y termina el turno animado sin una espera fija.
   animacionEnCurso?: boolean;
+  // control-1: de quién es el turno ahora mismo y cuántos turnos van
+  // resueltos -- para esperar a "el turno ha vuelto al jugador tras el
+  // disparo de la máquina" sin una espera fija (issue #151).
+  turno?: 0 | 1;
+  numeroTurno?: number;
+  // control-1, control-5: la solución balística exacta (deriva 0) para que
+  // el disparo de quien tiene el turno ahora acierte al rival -- deja que
+  // el test arrastre de verdad hasta ese ángulo/potencia en vez de
+  // adivinarlos o de tocar el núcleo por la puerta de atrás.
+  solucionBalisticaJugador?: () => { anguloGrados: number; potencia: number } | null;
   // render-4: el rectángulo de mundo que la cámara muestra ahora mismo, para
   // comprobar que el campo de batalla entero cabe sin recorte sin tener que
   // inferirlo de una captura de pantalla.

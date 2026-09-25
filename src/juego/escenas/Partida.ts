@@ -4,7 +4,7 @@ import { generarMascara } from "@/sim/terreno/generador";
 import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
-import type { EstadoPartida, IdNave } from "@/sim/partida/tipos";
+import type { EntradaDeTurno, EstadoPartida, IdNave } from "@/sim/partida/tipos";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
@@ -18,12 +18,17 @@ import { AnimadorProyectil } from "@/juego/vuelo/AnimadorProyectil";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { LA_CONTABLE, ALMIRANTE_BISAGRA } from "@/sim/ia/personalidades";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
+import { publicarDisparoJugadorResuelto, publicarJugable, registrarManejadorDisparo } from "@/juego/control/store";
 import "@/debug/tipos";
 
-// Arma fija de este bloque: control-apuntado sustituye esto por el
-// selector real. Fijarla aquí (en vez de dejar el gesto sin arma) es lo que
-// permite que render-1..render-6 comprueben un disparo de verdad ya.
-const ARMA_POR_DEFECTO = "pepinazo-cortesia";
+// El jugador local es siempre la nave 0 (la de la izquierda, FRACCION_X_NAVE_0)
+// y la máquina la nave 1 -- válido mientras solo haya un humano por partida
+// (brief); el multijugador remoto, si llega, es decisión de otro bloque.
+const ID_JUGADOR: IdNave = 0;
+// Personalidad de la máquina en el bucle de disparo real: La Contable es la
+// que ya usa jugarTurnosGuionizados como referencia. Elegir un rival según
+// mapa/dificultad es tarea de partida-completa (desviación: aquí es fija).
+const RIVAL_POR_DEFECTO = LA_CONTABLE;
 // Despedida hace autodaño garantizado (fiabilidad 1) además de daño de área:
 // forzarFinDePartida() la usa a propósito, porque eso pone una cota dura al
 // número de turnos hasta que alguien llega a 0 -- ningún matchup de IA
@@ -35,18 +40,6 @@ const TOPE_TURNOS_DESENLACE = 12;
 
 const FRACCION_X_NAVE_0 = 0.15;
 const FRACCION_X_NAVE_1 = 0.85;
-
-// Umbral en píxeles CSS crudos (no de mundo): solo distingue un toque de un
-// arrastre, nunca entra en el cálculo de ángulo/potencia -- por eso puede
-// vivir en espacio de pantalla sin romper la invariancia de render-1.
-const UMBRAL_ARRASTRE_PX = 20;
-
-// Un arrastre de esta magnitud (en fracción del viewport, la misma unidad
-// que usa el gesto) ya es potencia máxima. Se satura, no se sale del rango
-// del control.
-const REFERENCIA_FRACCION_POTENCIA_MAXIMA = 0.5;
-const ANGULO_MINIMO_GRADOS = 2;
-const ANGULO_MAXIMO_GRADOS = 178;
 
 const CANTIDAD_PARTICULAS_EXPLOSION = 24;
 
@@ -73,11 +66,9 @@ export class Partida extends Phaser.Scene {
   private indicadorDeriva!: IndicadorDeriva;
   private animador!: AnimadorProyectil;
   private emisorExplosion!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private inicioArrastre: PuntoFraccion | null = null;
-  private inicioArrastreClienteXY: { x: number; y: number } | null = null;
+  private cancelarManejadorDisparo: (() => void) | null = null;
 
   private readonly manejarPointerDown = (evento: PointerEvent): void => this.alPointerDown(evento);
-  private readonly manejarPointerUp = (evento: PointerEvent): void => this.alPointerUp(evento);
 
   constructor() {
     super("Partida");
@@ -124,7 +115,7 @@ export class Partida extends Phaser.Scene {
     });
 
     window.addEventListener("pointerdown", this.manejarPointerDown);
-    window.addEventListener("pointerup", this.manejarPointerUp);
+    this.cancelarManejadorDisparo = registrarManejadorDisparo((entrada) => this.dispararEntrada(entrada, true));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.limpiarEntrada());
 
     this.game.renderer.on(Phaser.Renderer.Events.RESTORE_WEBGL, () => {
@@ -137,6 +128,7 @@ export class Partida extends Phaser.Scene {
 
     window.__debug.jugarTurnosGuionizados = (numero) => this.jugarTurnosGuionizados(numero);
     window.__debug.forzarFinDePartida = () => this.forzarFinDePartida();
+    window.__debug.solucionBalisticaJugador = () => this.calcularSolucionBalistica(this.estado);
     this.refrescarDebugNaves();
 
     // render-4: la cámara nunca se mueve ni hace zoom en este bloque (no hay
@@ -151,80 +143,52 @@ export class Partida extends Phaser.Scene {
     // gesto a coordenada de mundo), sin necesidad de esperar a ese primer
     // preRender.
     window.__debug.camara = { x: 0, y: 0, ancho: this.scale.width, alto: this.scale.height };
+    window.__debug.turno = this.estado.turno;
+    window.__debug.numeroTurno = this.estado.numeroTurno;
+    publicarJugable(this.puedeJugarAhora());
   }
 
   update(_time: number, delta: number): void {
     this.animador.actualizar(delta);
     window.__debug!.animacionEnCurso = this.animador.enVuelo();
+    publicarJugable(this.puedeJugarAhora());
+  }
+
+  private puedeJugarAhora(): boolean {
+    return this.estado.resultado.tipo !== "terminada" && this.estado.turno === ID_JUGADOR && !this.animador.enVuelo();
   }
 
   private limpiarEntrada(): void {
     window.removeEventListener("pointerdown", this.manejarPointerDown);
-    window.removeEventListener("pointerup", this.manejarPointerUp);
+    this.cancelarManejadorDisparo?.();
+    this.cancelarManejadorDisparo = null;
   }
 
   private alPointerDown(evento: PointerEvent): void {
-    this.inicioArrastre = fraccionDeVentana(evento.clientX, evento.clientY);
-    this.inicioArrastreClienteXY = { x: evento.clientX, y: evento.clientY };
+    const fraccion = fraccionDeVentana(evento.clientX, evento.clientY);
 
     // andamiaje-1: todo toque publica el punto de mundo, arrastre o no --
     // conversión por estiramiento independiente en X/Y (no por zoom
     // uniforme), la única que hace que la misma fracción de viewport
     // produzca la misma coordenada de mundo con cualquier proporción de
-    // pantalla.
-    window.__debug!.ultimoPunto = {
-      x: this.inicioArrastre.x * MUNDO_ANCHO,
-      y: this.inicioArrastre.y * MUNDO_ALTO,
-    };
-  }
-
-  private alPointerUp(evento: PointerEvent): void {
-    const inicio = this.inicioArrastre;
-    const inicioClienteXY = this.inicioArrastreClienteXY;
-    this.inicioArrastre = null;
-    this.inicioArrastreClienteXY = null;
-    if (inicio === null || inicioClienteXY === null) {
-      return;
-    }
-
-    const distanciaPx = Math.hypot(evento.clientX - inicioClienteXY.x, evento.clientY - inicioClienteXY.y);
-    if (distanciaPx < UMBRAL_ARRASTRE_PX) {
-      return;
-    }
-
-    const fin = fraccionDeVentana(evento.clientX, evento.clientY);
-    this.dispararPorGesto(inicio, fin);
-  }
-
-  private dispararPorGesto(inicio: PuntoFraccion, fin: PuntoFraccion): void {
-    if (this.estado.resultado.tipo === "terminada" || this.animador.enVuelo()) {
-      return;
-    }
-
-    // Convención de tirachinas: se dispara en la dirección opuesta al
-    // arrastre (inicio - fin), nunca en la del propio arrastre -- por eso
-    // ninguna de las dos componentes se normaliza por separado con
-    // MUNDO_ANCHO/MUNDO_ALTO, que reintroduciría la dependencia de la
-    // proporción de pantalla que este cálculo evita a propósito.
-    const dx = inicio.x - fin.x;
-    const dyPantalla = inicio.y - fin.y;
-    const dyMundo = -dyPantalla;
-
-    let anguloGrados = (Math.atan2(dyMundo, dx) * 180) / Math.PI;
-    anguloGrados = Math.max(ANGULO_MINIMO_GRADOS, Math.min(ANGULO_MAXIMO_GRADOS, anguloGrados));
-
-    const magnitud = Math.hypot(dx, dyMundo);
-    const potencia = Math.max(0, Math.min(100, (magnitud / REFERENCIA_FRACCION_POTENCIA_MAXIMA) * 100));
-
-    this.dispararTurno({ arma: ARMA_POR_DEFECTO, anguloGrados, potencia });
+    // pantalla. El gesto de apuntado en sí (ganancia, arrastre) vive fuera
+    // del lienzo (ControlHUD/juego/control): no necesita saber dónde está
+    // el terreno, así que aquí solo queda este punto de depuración.
+    window.__debug!.ultimoPunto = { x: fraccion.x * MUNDO_ANCHO, y: fraccion.y * MUNDO_ALTO };
   }
 
   // Resuelve el disparo YA (avanzar es puro y síncrono) y anima el vuelo con
   // la misma integración exacta -- el punto donde la animación deja de
   // moverse coincide con el impacto real porque es literalmente el mismo
-  // cálculo, no una aproximación (ver AnimadorProyectil).
-  private dispararTurno(entrada: { arma: string; anguloGrados: number; potencia: number }): void {
+  // cálculo, no una aproximación (ver AnimadorProyectil). esJugador
+  // distingue el disparo que hay que recordar como "último disparo del
+  // jugador" (control-5) del disparo automático de la máquina.
+  private dispararEntrada(entrada: EntradaDeTurno, esJugador: boolean): void {
     const estadoAntes = this.estado;
+    if (estadoAntes.resultado.tipo === "terminada" || this.animador.enVuelo()) {
+      return;
+    }
+
     const tirador: IdNave = estadoAntes.turno;
     const origenX = estadoAntes.naves[tirador].x;
     const origenY = alturaSuperficie(estadoAntes.mascara, origenX) ?? estadoAntes.mundo.alto - 1;
@@ -237,6 +201,10 @@ export class Partida extends Phaser.Scene {
       potencia: entrada.potencia,
       impacto: eventoImpacto ? { x: eventoImpacto.x, y: eventoImpacto.y } : { x: origenX, y: origenY },
     };
+    if (esJugador) {
+      publicarDisparoJugadorResuelto({ anguloGrados: entrada.anguloGrados, potencia: entrada.potencia, armaId: entrada.arma });
+    }
+    publicarJugable(false);
 
     const rad = (entrada.anguloGrados * Math.PI) / 180;
     const v = velocidadDesdePotencia(entrada.potencia);
@@ -245,7 +213,24 @@ export class Partida extends Phaser.Scene {
 
     this.animador.iniciar(inicial, estadoAntes.mundo.gravedad, estadoAntes.mundo.deriva, detenerse, () => {
       this.aplicarResultadoTurno(estadoDespues, eventos);
+      // Encadenar aquí (y no dentro de aplicarResultadoTurno) es lo que
+      // evita que jugarTurnosGuionizados/forzarFinDePartida -- que también
+      // llaman a aplicarResultadoTurno, pero con su propio guion de
+      // fuentes -- disparen un turno extra no contado por su bucle.
+      if (this.estado.resultado.tipo !== "terminada" && this.estado.turno !== ID_JUGADOR) {
+        this.dispararTurnoIA();
+      }
     });
+  }
+
+  // Tras resolver un disparo del jugador, si la partida sigue y el turno es
+  // de la máquina, la máquina dispara sola -- así control-1 comprueba el
+  // circuito completo (elegir, apuntar, disparar, responder) sin que el
+  // bloque siguiente (partida-completa) tenga que reconstruir este enganche.
+  private dispararTurnoIA(): void {
+    const { entrada, estado } = crearFuenteIA(RIVAL_POR_DEFECTO)(this.estado);
+    this.estado = estado;
+    this.dispararEntrada(entrada, false);
   }
 
   private aplicarResultadoTurno(estadoDespues: EstadoPartida, eventos: readonly EventoSimulacion[]): void {
@@ -260,6 +245,9 @@ export class Partida extends Phaser.Scene {
     this.estado = estadoDespues;
     this.refrescarNaves();
     this.refrescarDebugNaves();
+    window.__debug!.turno = this.estado.turno;
+    window.__debug!.numeroTurno = this.estado.numeroTurno;
+    publicarJugable(this.puedeJugarAhora());
   }
 
   private refrescarNaves(): void {
@@ -302,28 +290,35 @@ export class Partida extends Phaser.Scene {
     }
   }
 
+  // Solución balística exacta (deriva 0) para que quien tiene el turno
+  // acierte al rival -- la misma fórmula que usa el intento inicial de la
+  // capa de IA. Solo es exacta si el mapa tiene deriva 0 (ver
+  // resolverSolucionesBalisticas); con deriva no nula sigue siendo la mejor
+  // aproximación disponible sin física real de más.
+  private calcularSolucionBalistica(estado: EstadoPartida): { anguloGrados: number; potencia: number } | null {
+    const tirador = estado.turno;
+    const objetivoId = naveContraria(tirador);
+    const origenX = estado.naves[tirador].x;
+    const objetivoX = estado.naves[objetivoId].x;
+    const origenSuperficie = alturaSuperficie(estado.mascara, origenX) ?? estado.mundo.alto - 1;
+    const objetivoSuperficie = alturaSuperficie(estado.mascara, objetivoX) ?? estado.mundo.alto - 1;
+    const origenCanonY = origenSuperficie - ALTURA_CANON_PX;
+
+    const soluciones = resolverSolucionesBalisticas(origenX, origenCanonY, objetivoX, objetivoSuperficie, estado.mundo.gravedad);
+    return soluciones[0] ?? null;
+  }
+
   // Solo para forzar la captura de "fin de partida" de render-7: el
   // enfrentamiento de personalidades de jugarTurnosGuionizados no sirve para
   // esto porque La Contable contra Almirante Bisagra no converge (ver
-  // desviaciones), así que aquí se apunta con la solución balística exacta
-  // (deriva 0, la misma que usa la capa de IA para su intento inicial) y se
-  // dispara Despedida, cuyo autodaño garantizado (fiabilidad 1) acota el
+  // desviaciones), así que aquí se apunta con la solución balística exacta y
+  // se dispara Despedida, cuyo autodaño garantizado (fiabilidad 1) acota el
   // número de turnos con independencia de si el impacto acierta al rival.
   private forzarFinDePartida(): void {
     for (let i = 0; i < TOPE_TURNOS_DESENLACE; i++) {
       if (this.estado.resultado.tipo === "terminada") break;
 
-      const tirador = this.estado.turno;
-      const objetivoId = naveContraria(tirador);
-      const origenX = this.estado.naves[tirador].x;
-      const objetivoX = this.estado.naves[objetivoId].x;
-      const origenSuperficie = alturaSuperficie(this.estado.mascara, origenX) ?? this.estado.mundo.alto - 1;
-      const objetivoSuperficie = alturaSuperficie(this.estado.mascara, objetivoX) ?? this.estado.mundo.alto - 1;
-      const origenCanonY = origenSuperficie - ALTURA_CANON_PX;
-
-      const soluciones = resolverSolucionesBalisticas(origenX, origenCanonY, objetivoX, objetivoSuperficie, this.estado.mundo.gravedad);
-      const solucion = soluciones[0] ?? { anguloGrados: 45, potencia: 70 };
-
+      const solucion = this.calcularSolucionBalistica(this.estado) ?? { anguloGrados: 45, potencia: 70 };
       const { estado, eventos } = avanzar(this.estado, {
         arma: ARMA_DESENLACE,
         anguloGrados: solucion.anguloGrados,

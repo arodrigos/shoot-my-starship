@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type Phaser from "phaser";
 import { SinWebGL } from "@/juego/SinWebGL";
 import { hayWebGL } from "@/juego/soporteWebGL";
+import { ControlHUD } from "@/juego/hud/ControlHUD";
 import type { IdEscena } from "@/juego/main";
 
 const ID_CONTENEDOR = "game-container";
@@ -43,5 +44,12 @@ export function PhaserGame({ escena }: Props) {
     return <SinWebGL />;
   }
 
-  return <div id={ID_CONTENEDOR} style={{ width: "100%", height: "100%" }} />;
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <div id={ID_CONTENEDOR} style={{ width: "100%", height: "100%" }} />
+      {/* El sandbox de terreno (/pruebas/terreno) no juega turnos -- el HUD
+          de control no tiene nada que hacer ahí. */}
+      {(escena ?? "partida") === "partida" && <ControlHUD />}
+    </div>
+  );
 }
