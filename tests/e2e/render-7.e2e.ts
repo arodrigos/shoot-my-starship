@@ -11,9 +11,15 @@ const VIEWPORTS = [
 
 async function capturarSecuenciaDePartida(page: Page, prefijo: string) {
   await page.waitForSelector("#game-container canvas");
-  await page.waitForFunction(() => window.__debug.terreno?.listo === true);
+  await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined);
+  if (await page.getByTestId("ayuda-cerrar").isVisible()) {
+    await page.getByTestId("ayuda-cerrar").click();
+  }
   await page.screenshot({ path: `test-results/render-7/${prefijo}-01-inicio.png` });
 
+  // DESVIACIÓN (control-apuntado): el tirachinas (arrastrar y disparar en
+  // el mismo gesto) ya no existe -- se sustituye por apuntado indirecto con
+  // ganancia y un botón explícito de disparo.
   const viewport = page.viewportSize()!;
   const inicio = { x: viewport.width * 0.3, y: viewport.height * 0.85 };
   const fin = { x: viewport.width * 0.6, y: viewport.height * 0.55 };
@@ -21,6 +27,8 @@ async function capturarSecuenciaDePartida(page: Page, prefijo: string) {
   await page.mouse.down();
   await page.mouse.move(fin.x, fin.y, { steps: 10 });
   await page.mouse.up();
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
+  await page.getByTestId("disparar").click();
 
   await page.waitForFunction(() => window.__debug.animacionEnCurso === true);
   await page.waitForTimeout(150);

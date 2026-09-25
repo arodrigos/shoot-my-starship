@@ -103,6 +103,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
       radioAutoHuellaPx: 40,
     },
     fiabilidad: 1,
+    usosMaximos: 1,
   },
 ];
 

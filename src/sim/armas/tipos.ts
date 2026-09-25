@@ -50,4 +50,10 @@ export interface Arma {
   // Eje 5 (fiabilidad): probabilidad de que el arma funcione como se
   // declara. 1 para el catálogo entero salvo el Petardo de Feria (armas-6).
   readonly fiabilidad: number;
+  // Usos totales por partida (control-apuntado, control-6): ausente en el
+  // resto del catálogo porque no tienen límite. resolverDisparo no la lee
+  // -- el límite se aplica en la cáscara (el selector de arma), no en el
+  // núcleo, porque "cuántos usos lleva cada arma" es memoria de partida
+  // (partida-completa), no una propiedad de un disparo individual.
+  readonly usosMaximos?: number;
 }
