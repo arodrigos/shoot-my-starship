@@ -16,6 +16,7 @@ test("el indicador de deriva corresponde a mundo.deriva en los tres mapas", asyn
 
   for (const mapa of MAPAS) {
     await page.goto(`/?mapa=${mapa.id}`);
+    await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");
     await page.waitForFunction(() => window.__debug.deriva !== undefined);
 

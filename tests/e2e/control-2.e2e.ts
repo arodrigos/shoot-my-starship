@@ -4,6 +4,7 @@ import { test, expect } from "@playwright/test";
 // los botones de paso fino miden al menos 24x24 px CSS (WCAG 2.2 SC 2.5.8).
 test("los botones de paso fino miden >=24x24 px CSS y 10 pulsaciones cambian el ángulo 1.0°", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {

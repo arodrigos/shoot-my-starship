@@ -17,6 +17,7 @@ test("humor-2: con el navegador silenciado, la reacción visual y textual aparec
   page.on("pageerror", (error) => erroresDePagina.push(error.message));
 
   await page.goto("/");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {

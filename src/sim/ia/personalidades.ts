@@ -9,6 +9,7 @@ import type { Personalidad } from "@/sim/ia/tipos";
 export const LA_CONTABLE: Personalidad = {
   id: "la-contable",
   nombre: "La Contable",
+  descripcion: "Apenas falla: desviación mínima en ángulo y potencia. La más difícil de las tres.",
   // Banda alta (ia-3): desviación mínima en los dos ejes. El rango exacto
   // sale de medir la tasa de victorias contra fuenteAleatoria (300 partidas,
   // varias semillas) -- entre esto y el siguiente escalón hay un salto de
@@ -44,6 +45,7 @@ export const LA_CONTABLE: Personalidad = {
 export const ALMIRANTE_BISAGRA: Personalidad = {
   id: "almirante-bisagra",
   nombre: "Almirante Bisagra",
+  descripcion: "Se pasa de fuerza casi siempre. Dificultad media: castiga menos que La Contable, pero no regala nada.",
   // Banda media (ia-3): baja en ángulo, alta y sesgada a más potencia en
   // potencia ("se pasa de fuerza" -- el rango es siempre positivo). Medido
   // para caer entre La Contable y Chispa con margen a los dos lados.
@@ -76,6 +78,7 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
 export const CHISPA: Personalidad = {
   id: "chispa",
   nombre: "Chispa",
+  descripcion: "A veces se entierra a sí misma. La más floja de las tres: ideal para la primera partida.",
   // Banda baja (ia-3): desviación alta en los dos ejes. Un rango tan alto
   // como el de la voz ("a veces se entierra a sí misma") la hacía perder
   // casi siempre (~3-5%, por debajo del suelo de ia-3); esto la deja

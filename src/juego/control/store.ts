@@ -154,3 +154,18 @@ export function solicitarDisparo(): void {
   if (!estado.puedeDisparar || !manejadorDisparo) return;
   manejadorDisparo({ arma: estado.ajuste.armaId, anguloGrados: estado.ajuste.anguloGrados, potencia: estado.ajuste.potencia });
 }
+
+// partida-completa: "otra partida" reutiliza el mismo store (es un
+// singleton de módulo, no ligado al ciclo de vida de React) para una nueva
+// escena de Phaser -- sin esto, el ajuste, el arma agotada y el último
+// disparo de la partida ya terminada seguirían vivos en la siguiente. La
+// ayuda inicial NO se reinicia: ya la vio en este navegador, no hay que
+// volver a enseñársela.
+export function reiniciarControl(): void {
+  fijar({
+    ajuste: { anguloGrados: ANGULO_INICIAL_GRADOS, potencia: POTENCIA_INICIAL, armaId: CATALOGO_ARMAS[0].id },
+    usosPorArma: {},
+    ultimoDisparo: null,
+    puedeDisparar: false,
+  });
+}

@@ -133,6 +133,11 @@ export interface DebugGlobal {
   // reaccionarAHumor que usa avanzar() en una partida normal, así que prueba
   // el camino de producción, no un doble de pruebas.
   dispararReaccionHumor?: (tipo: TipoEventoHumor) => void;
+  // partida-1: la huella determinista del mundo actual -- la semilla de
+  // terreno determina el relieve de forma unívoca (generarMascara), así que
+  // comparar esta tupla entre dos partidas equivale a comparar el hash del
+  // terreno sin tener que leer el canvas con getImageData desde el test.
+  mapa?: { id: string; semillaTerreno: number; gravedad: number; etiquetaDeriva: string };
 }
 
 declare global {

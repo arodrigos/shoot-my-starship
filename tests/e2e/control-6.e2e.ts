@@ -7,6 +7,7 @@ import { CATALOGO_ARMAS } from "../../src/sim/armas/catalogo";
 test.describe("control-6", () => {
   test("la ayuda inicial se puede cerrar y no reaparece tras recargar", async ({ page }) => {
     await page.goto("/");
+    await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");
     await page.waitForFunction(() => window.__debug.control !== undefined);
 
@@ -14,7 +15,12 @@ test.describe("control-6", () => {
     await page.getByTestId("ayuda-cerrar").click();
     await expect(page.getByTestId("ayuda-inicial")).toBeHidden();
 
+    // El reload vuelve a la pantalla de inicio (Aplicacion arranca en
+    // fase "inicio"): la ayuda descartada vive en localStorage, no en el
+    // estado de React, así que hay que volver a entrar a la partida para
+    // comprobar que sigue sin reaparecer.
     await page.reload();
+    await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");
     await page.waitForFunction(() => window.__debug.control !== undefined);
     await expect(page.getByTestId("ayuda-inicial")).toBeHidden();
@@ -22,6 +28,7 @@ test.describe("control-6", () => {
 
   test("el selector de armas muestra nombre y descripción de cada una de las 10 armas", async ({ page }) => {
     await page.goto("/");
+    await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");
     await page.waitForFunction(() => window.__debug.control !== undefined);
     if (await page.getByTestId("ayuda-cerrar").isVisible()) {
@@ -44,6 +51,7 @@ test.describe("control-6", () => {
     test.setTimeout(90000);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/?mapa=calma-de-los-restos");
+    await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");
     await page.waitForFunction(() => window.__debug.control !== undefined && window.__debug.naves !== undefined);
     if (await page.getByTestId("ayuda-cerrar").isVisible()) {

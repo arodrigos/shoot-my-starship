@@ -31,6 +31,7 @@ test("p95 del frame time de un turno completo se mantiene <=50ms con CPU a 4x en
     await sesionCDP.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 
     await pagina.goto("/");
+    await pagina.getByTestId("boton-jugar").click();
     await pagina.waitForSelector("#game-container canvas");
     await pagina.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined);
     if (await pagina.getByTestId("ayuda-cerrar").isVisible()) {

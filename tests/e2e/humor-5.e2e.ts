@@ -34,6 +34,7 @@ async function dispararTiroLargo(
 ): Promise<{ x: number; y: number }> {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?mapa=calma-de-los-restos");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined);
   // El tutorial solo se enseña una vez por origen (localStorage) -- en la

@@ -11,6 +11,7 @@ async function tocarYLeerCoordenadaDeMundo(
 ) {
   await page.setViewportSize(viewport);
   await page.goto("/");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
 
   await page.mouse.click(viewport.width * fraccion.x, viewport.height * fraccion.y);

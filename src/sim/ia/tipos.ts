@@ -18,6 +18,10 @@ export interface PerfilDeError {
 export interface Personalidad {
   readonly id: string;
   readonly nombre: string;
+  // Una línea que dice contra qué te vas a enfrentar (partida-4): la
+  // pantalla de inicio la muestra junto al nombre, antes de que el jugador
+  // elija rival.
+  readonly descripcion: string;
   readonly error: PerfilDeError;
   // Qué raíz prefiere cuando las dos son viables (ia-6: es lo que hace que
   // dos personalidades elijan distinto sobre el mismo escenario incluso con

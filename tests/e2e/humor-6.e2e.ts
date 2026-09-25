@@ -24,6 +24,7 @@ test("humor-6: repetir el último disparo reproduce el mismo punto de impacto si
   // objetivo, y así acotar el tiempo del turno del jugador.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?mapa=calma-de-los-restos");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {

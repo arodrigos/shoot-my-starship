@@ -21,6 +21,7 @@ for (const viewport of VIEWPORTS) {
   }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");
     await page.waitForFunction(() => window.__debug.camara !== undefined);
 

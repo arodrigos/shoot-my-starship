@@ -10,6 +10,7 @@ test("humor-7: al terminar la partida aparece el parte de guerra con la medalla 
 }) => {
   test.setTimeout(60000);
   await page.goto("/");
+  await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {

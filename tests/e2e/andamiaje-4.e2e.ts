@@ -16,6 +16,7 @@ test("sin WebGL se muestra un aviso en vez de fallar en silencio", async ({ base
     pagina.on("pageerror", (error) => erroresNoCapturados.push(error.message));
 
     await pagina.goto(baseURL ?? "http://127.0.0.1:3000");
+    await pagina.getByTestId("boton-jugar").click();
 
     // getByRole("alert") a secas también encuentra el anunciador de rutas
     // de Next (mismo role, siempre vacío): se filtra por texto para quedarse
