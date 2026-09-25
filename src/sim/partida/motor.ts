@@ -2,9 +2,11 @@ import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { avanzar } from "@/sim/partida/avanzar";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import type { EstadoNave, EstadoPartida, FuenteDeTurno, ParametrosMundo } from "@/sim/partida/tipos";
+import type { Mascara } from "@/sim/terreno/mascara";
 
 export function crearPartidaInicial(
   mundo: ParametrosMundo,
+  mascara: Mascara,
   xNave0: number,
   xNave1: number,
   semillaAleatorio: number,
@@ -16,6 +18,7 @@ export function crearPartidaInicial(
   return {
     version: 1,
     mundo,
+    mascara,
     naves,
     turno: 0,
     numeroTurno: 0,

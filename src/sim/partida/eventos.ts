@@ -20,6 +20,10 @@ export type EventoSimulacion =
       readonly y: number;
       readonly objetivo: IdNave;
       readonly danio: number;
+      // Solo lo produce el Gravitón de Segunda Mano (balistica-armas):
+      // positivo hacia +x. Opcional para no romper los eventos ya emitidos
+      // por armas sin efecto de empuje.
+      readonly desplazamientoPx?: number;
     }
   | { readonly tipo: "turno-fin"; readonly siguienteTurno: IdNave }
   | { readonly tipo: "partida-fin"; readonly ganador: IdNave };
