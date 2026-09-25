@@ -2,15 +2,19 @@ import type Phaser from "phaser";
 import { esSolido, type Mascara } from "@/sim/terreno/mascara";
 import type { RectanguloSucio } from "@/sim/terreno/huella";
 import type { SuperficieDeTerreno } from "@/juego/terreno/Terreno";
-
-// Color provisional de la chatarra/regolito: render-juego lo sustituye por
-// la paleta real del mapa. Aquí solo hace falta que sólido y aire se
-// distingan por su alfa, que es lo único que terreno-3 comprueba.
-const COLOR_SOLIDO = { r: 0x8a, g: 0x7f, b: 0x6b };
+import type { PaletaTerreno } from "@/juego/paleta";
+import { PALETA_PROVISIONAL } from "@/juego/paleta";
 
 // Implementación de SuperficieDeTerreno sobre una CanvasTexture de Phaser.
+// La paleta llega por parámetro (render-juego, sustituye el color cableado
+// que tenía este módulo en terreno-mascara): sólido y aire siguen
+// distinguiéndose por alfa, que es lo único que terreno-3 comprueba, pero
+// ahora el color de "sólido" lo decide el mapa, no este fichero.
 export class SuperficieCanvasPhaser implements SuperficieDeTerreno {
-  constructor(private readonly textura: Phaser.Textures.CanvasTexture) {}
+  constructor(
+    private readonly textura: Phaser.Textures.CanvasTexture,
+    private readonly paleta: PaletaTerreno = PALETA_PROVISIONAL,
+  ) {}
 
   // Refresco incremental (un impacto): SOLO fillRect/clearRect, nunca
   // getImageData ni putImageData (terreno-6) -- este es el camino que se
@@ -37,7 +41,7 @@ export class SuperficieCanvasPhaser implements SuperficieDeTerreno {
         }
         const anchoTramo = x - inicioTramo + 1;
         if (solido) {
-          contexto.fillStyle = `rgb(${COLOR_SOLIDO.r}, ${COLOR_SOLIDO.g}, ${COLOR_SOLIDO.b})`;
+          contexto.fillStyle = `rgb(${this.paleta.r}, ${this.paleta.g}, ${this.paleta.b})`;
           contexto.fillRect(inicioTramo, y, anchoTramo, 1);
         } else {
           contexto.clearRect(inicioTramo, y, anchoTramo, 1);
@@ -62,9 +66,9 @@ export class SuperficieCanvasPhaser implements SuperficieDeTerreno {
     for (let i = 0; i < mascara.datos.length; i++) {
       const base = i * 4;
       if (mascara.datos[i] === 1) {
-        imagen.data[base] = COLOR_SOLIDO.r;
-        imagen.data[base + 1] = COLOR_SOLIDO.g;
-        imagen.data[base + 2] = COLOR_SOLIDO.b;
+        imagen.data[base] = this.paleta.r;
+        imagen.data[base + 1] = this.paleta.g;
+        imagen.data[base + 2] = this.paleta.b;
         imagen.data[base + 3] = 255;
       } else {
         imagen.data[base + 3] = 0;

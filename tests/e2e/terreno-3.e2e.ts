@@ -6,7 +6,9 @@ import { test, expect } from "@playwright/test";
 // exponerTerreno.ts). Se espera a `listo` en vez de a un timeout fijo
 // (issue #151): el guion de 200 huellas tarda lo que tarde en cada máquina.
 test("máscara y textura del terreno coinciden tras aplicar el guion de huellas", async ({ page }) => {
-  await page.goto("/");
+  // render-juego mudó la escena de pruebas de terreno fuera de la raíz (que
+  // ahora monta la partida real) a esta ruta dedicada.
+  await page.goto("/pruebas/terreno");
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true);
 
