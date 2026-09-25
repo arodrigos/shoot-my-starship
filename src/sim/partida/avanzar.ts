@@ -1,6 +1,13 @@
 import { buscarArma } from "@/sim/armas/catalogo";
-import { resolverDisparo } from "@/sim/armas/resolver";
+import { alturaSuperficie, resolverDisparo } from "@/sim/armas/resolver";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
+import {
+  caeAlVacio,
+  esTiroImposibleAcertado,
+  estaEnterrada,
+  huboDerivaTraiciona,
+  idLiderDerrumbado,
+} from "@/sim/partida/eventosHumor";
 import { naveContraria, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
 
 function conIntegridad(nave: EstadoNave, integridad: number): EstadoNave {
@@ -58,6 +65,13 @@ export function avanzar(
     alto: estado.mundo.alto,
   });
 
+  // humor-sistemico: el arma ha fallado su tirada de fiabilidad. Va antes de
+  // los eventos "impacto" (que igualmente se emiten, con daño 0, para que la
+  // presentación sepa dónde ha caído el petardo mojado).
+  if (resultado.fallo) {
+    eventos.push({ tipo: "arma-falla", nave: tirador, arma: entrada.arma });
+  }
+
   resultado.puntosDeImpacto.forEach((punto, indice) => {
     eventos.push({
       tipo: "impacto",
@@ -78,6 +92,83 @@ export function avanzar(
   if (resultado.danioPropio > 0) {
     tiradorTrasDisparo = conIntegridad(naveTiradora, naveTiradora.integridad - resultado.danioPropio);
     eventos.push({ tipo: "impacto", x: naveTiradora.x, y: resultado.origenY, objetivo: tirador, danio: resultado.danioPropio });
+    eventos.push({ tipo: "autoimpacto", nave: tirador, danio: resultado.danioPropio });
+  }
+
+  // humor-sistemico: derrumbe-bajo-el-lider se evalúa sobre quien iba en
+  // cabeza ANTES de este disparo (más integridad de las dos), en su x de
+  // antes -- ningún evento de humor mueve naves, solo el Gravitón lo hace, y
+  // ese no toca la máscara, así que no hay interferencia entre los dos.
+  const liderDerrumbado = idLiderDerrumbado(
+    estado.naves[0].integridad,
+    estado.naves[1].integridad,
+    estado.naves[0].x,
+    estado.naves[1].x,
+    estado.mascara,
+    resultado.mascara,
+  );
+
+  if ((arma.efecto.tipo === "danio" || arma.efecto.tipo === "danio-y-autodanio") && estado.mundo.deriva !== 0 && !resultado.fallo) {
+    const resultadoSinDeriva = resolverDisparo({
+      mascara: estado.mascara,
+      gravedad: estado.mundo.gravedad,
+      deriva: 0,
+      aleatorio: estado.aleatorio,
+      arma,
+      origenX: naveTiradora.x,
+      anguloGrados: entrada.anguloGrados,
+      potencia: entrada.potencia,
+      objetivoX: naveObjetivo.x,
+      ancho: estado.mundo.ancho,
+      alto: estado.mundo.alto,
+    });
+    if (huboDerivaTraiciona(resultado, resultadoSinDeriva)) {
+      eventos.push({ tipo: "deriva-traiciona", nave: tirador });
+    }
+  }
+
+  if (
+    esTiroImposibleAcertado(
+      naveTiradora.x,
+      resultado.origenY,
+      naveObjetivo.x,
+      alturaSuperficie(estado.mascara, naveObjetivo.x) ?? estado.mundo.alto - 1,
+      estado.mundo.gravedad,
+      entrada.potencia,
+      entrada.anguloGrados,
+      resultado,
+    )
+  ) {
+    eventos.push({ tipo: "tiro-imposible-acertado", nave: tirador, objetivo: objetivoId });
+  }
+
+  if (estaEnterrada(tiradorTrasDisparo.x, estado.mascara, resultado.mascara)) {
+    eventos.push({ tipo: "enterrado", nave: tirador });
+  }
+  if (estaEnterrada(objetivoTrasImpacto.x, estado.mascara, resultado.mascara)) {
+    eventos.push({ tipo: "enterrado", nave: objetivoId });
+  }
+
+  // caida-al-vacio: la columna se ha quedado sin suelo donde antes lo tenía.
+  // Es un evento de humor puro (cámara, texto) -- no fuerza el fin de
+  // partida. El criterio de victoria del núcleo (integridad <= 0) es de
+  // nucleo-turnos/ia-personalidades, ya fijado y probado por nucleo-5 e
+  // ia-3; ningún criterio de humor-sistemico pide cambiarlo, y hacerlo con
+  // el suelo delgado de crearMascaraPlana en los tests de ia-* desequilibra
+  // esos tests ya aceptados sin necesidad (ver desviaciones).
+  const tiradorCae = caeAlVacio(tiradorTrasDisparo.x, estado.mascara, resultado.mascara);
+  if (tiradorCae) {
+    eventos.push({ tipo: "caida-al-vacio", nave: tirador });
+  }
+  const objetivoCae = caeAlVacio(objetivoTrasImpacto.x, estado.mascara, resultado.mascara);
+  if (objetivoCae) {
+    eventos.push({ tipo: "caida-al-vacio", nave: objetivoId });
+  }
+
+  // El derrumbe no se anuncia si ese mismo líder ya ha caído al vacío este
+  // turno: ese evento, más grave, ya se ha emitido arriba.
+  if (liderDerrumbado !== null && !(liderDerrumbado === tirador ? tiradorCae : objetivoCae)) {
+    eventos.push({ tipo: "derrumbe-bajo-el-lider", nave: liderDerrumbado });
   }
 
   const naves: [EstadoNave, EstadoNave] =

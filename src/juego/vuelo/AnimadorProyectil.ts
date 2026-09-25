@@ -60,9 +60,29 @@ export class AnimadorProyectil {
       return;
     }
 
-    const resultado = avanzarConAcumulador(this.proyectil, this.acumulador, deltaMs, (p) =>
-      integrarPasoProyectil(p, this.gravedad, this.deriva, PASO_FIJO_S),
-    );
+    // humor-6 (desviación, ver entregable): avanzarConAcumulador por sí solo
+    // ejecuta TODOS los pasos fijos que quepan en delta antes de que nadie
+    // mire detenerse(), así que un fotograma que agrupa varios pasos puede
+    // colar el proyectil de largo más allá del punto de impacto real -- y
+    // cuánto se cuela varía con el reparto real de fotogramas, que nunca es
+    // igual entre dos repeticiones en vivo del mismo vuelo (la original y la
+    // que dispara reproducirRepeticion). Se corta el avance en cuanto
+    // detenerse() da true DENTRO del propio lote, no después: los pasos
+    // sobrantes del lote se descartan (paso() se vuelve un no-op) para que el
+    // punto final sea el mismo primer cruce fijo, sin importar cuántos pasos
+    // más quedaran acumulados en ese fotograma.
+    const detenerse = this.detenerse;
+    let detenido = false;
+    const resultado = avanzarConAcumulador(this.proyectil, this.acumulador, deltaMs, (p) => {
+      if (detenido) {
+        return p;
+      }
+      const siguiente = integrarPasoProyectil(p, this.gravedad, this.deriva, PASO_FIJO_S);
+      if (detenerse(siguiente)) {
+        detenido = true;
+      }
+      return siguiente;
+    });
     this.proyectil = resultado.estado;
     this.acumulador = resultado.acumulador;
     this.punto.setPosition(this.proyectil.x, this.proyectil.y);

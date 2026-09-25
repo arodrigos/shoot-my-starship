@@ -5,12 +5,14 @@ import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
 import type { EntradaDeTurno, EstadoPartida, IdNave } from "@/sim/partida/tipos";
-import type { EventoSimulacion } from "@/sim/partida/eventos";
+import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { naveContraria } from "@/sim/partida/tipos";
+import { contarPixelesDestruidos } from "@/sim/terreno/estadisticas";
+import { estadisticasIniciales, generarParteDeGuerra, type EstadisticasPartida } from "@/sim/partida/parteDeGuerra";
 import { buscarMapa, MAPA_POR_DEFECTO, type MapaJuego } from "@/juego/mundos/mapas";
 import { Nave } from "@/juego/naves/Nave";
 import { IndicadorDeriva } from "@/juego/deriva/IndicadorDeriva";
@@ -19,7 +21,46 @@ import { crearFuenteIA } from "@/sim/ia/fuente";
 import { LA_CONTABLE, ALMIRANTE_BISAGRA } from "@/sim/ia/personalidades";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
 import { publicarDisparoJugadorResuelto, publicarJugable, registrarManejadorDisparo } from "@/juego/control/store";
+import { publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
+import { publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
+import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
+import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
 import "@/debug/tipos";
+
+// humor-sistemico: qué reacción (sacudida, tono, frase) dispara cada disparo
+// resuelto -- un evento es "de humor" si su tipo está en TIPOS_EVENTO_HUMOR,
+// nunca por una lista propia que pueda desincronizarse de eventos.ts.
+const CONJUNTO_TIPOS_EVENTO_HUMOR = new Set<string>(TIPOS_EVENTO_HUMOR);
+
+function esEventoHumor(evento: EventoSimulacion): evento is Extract<EventoSimulacion, { tipo: TipoEventoHumor }> {
+  return CONJUNTO_TIPOS_EVENTO_HUMOR.has(evento.tipo);
+}
+
+// humor-2: construye un evento mínimo válido de cada tipo de humor, solo
+// para window.__debug.dispararReaccionHumor -- fabricar por juego real las
+// condiciones de los 7 (deriva, derrumbe, entierro, caída al vacío, tiro
+// imposible...) exigiría escenarios de física distintos y frágiles por tipo;
+// el contenido exacto de los campos no importa porque reaccionarAHumor y el
+// selector de frases solo miran evento.tipo (y, para arma-falla, evento.arma,
+// que existe en el catálogo real).
+function crearEventoDePruebaHumor(tipo: TipoEventoHumor): Extract<EventoSimulacion, { tipo: TipoEventoHumor }> {
+  switch (tipo) {
+    case "autoimpacto":
+      return { tipo, nave: 0, danio: 1 };
+    case "arma-falla":
+      return { tipo, nave: 0, arma: "Despedida" };
+    case "tiro-imposible-acertado":
+      return { tipo, nave: 0, objetivo: 1 };
+    case "deriva-traiciona":
+    case "derrumbe-bajo-el-lider":
+    case "enterrado":
+    case "caida-al-vacio":
+      return { tipo, nave: 0 };
+  }
+}
+
+const DURACION_SACUDIDA_MS = 220;
+const INTENSIDAD_SACUDIDA = 0.012;
 
 // El jugador local es siempre la nave 0 (la de la izquierda, FRACCION_X_NAVE_0)
 // y la máquina la nave 1 -- válido mientras solo haya un humano por partida
@@ -65,8 +106,24 @@ export class Partida extends Phaser.Scene {
   private naves!: [Nave, Nave];
   private indicadorDeriva!: IndicadorDeriva;
   private animador!: AnimadorProyectil;
+  // humor-6: instancia SEPARADA del animador real -- reproduce el último
+  // vuelo de nuevo sin tocar this.estado ni this.naves, así que un jugador
+  // puede pedir la repetición sin que eso cuente como un turno.
+  private animadorRepeticion!: AnimadorProyectil;
+  private ultimoVueloParaRepetir: {
+    readonly inicial: EstadoProyectil;
+    readonly gravedad: number;
+    readonly deriva: number;
+    readonly detenerse: (p: EstadoProyectil) => boolean;
+  } | null = null;
+  private selectorFrases!: SelectorFrases;
+  // Estadísticas reales por nave (humor-7): se acumulan turno a turno, nunca
+  // se recalculan a posteriori, para que el parte de guerra final describa
+  // exactamente lo que pasó y no una aproximación.
+  private estadisticas!: [EstadisticasPartida, EstadisticasPartida];
   private emisorExplosion!: Phaser.GameObjects.Particles.ParticleEmitter;
   private cancelarManejadorDisparo: (() => void) | null = null;
+  private cancelarManejadorRepeticion: (() => void) | null = null;
 
   private readonly manejarPointerDown = (evento: PointerEvent): void => this.alPointerDown(evento);
 
@@ -100,6 +157,9 @@ export class Partida extends Phaser.Scene {
     this.refrescarIndicadorDeriva();
 
     this.animador = new AnimadorProyectil(this);
+    this.animadorRepeticion = new AnimadorProyectil(this);
+    this.selectorFrases = crearSelectorFrases(this.mapa.semillaPartida);
+    this.estadisticas = [estadisticasIniciales(), estadisticasIniciales()];
 
     const lienzoParticula = this.make.graphics({ x: 0, y: 0 });
     lienzoParticula.fillStyle(0xffcc66, 1);
@@ -116,7 +176,15 @@ export class Partida extends Phaser.Scene {
 
     window.addEventListener("pointerdown", this.manejarPointerDown);
     this.cancelarManejadorDisparo = registrarManejadorDisparo((entrada) => this.dispararEntrada(entrada, true));
+    this.cancelarManejadorRepeticion = registrarManejadorRepeticion(() => this.reproducirRepeticion());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.limpiarEntrada());
+
+    // humor-5: Phaser ya pausa/reanuda su bucle solo al cambiar de pestaña
+    // (game.loop.pause/resume con suavizado de delta) -- aquí solo hace falta
+    // engancharse a esos mismos eventos para que el audio no siga sonando ni
+    // consumiendo el AudioContext en segundo plano.
+    this.game.events.on(Phaser.Core.Events.PAUSE, pausarAudio);
+    this.game.events.on(Phaser.Core.Events.RESUME, reanudarAudio);
 
     this.game.renderer.on(Phaser.Renderer.Events.RESTORE_WEBGL, () => {
       // render-5: los recursos WebGL (incluida la CanvasTexture del
@@ -129,6 +197,13 @@ export class Partida extends Phaser.Scene {
     window.__debug.jugarTurnosGuionizados = (numero) => this.jugarTurnosGuionizados(numero);
     window.__debug.forzarFinDePartida = () => this.forzarFinDePartida();
     window.__debug.solucionBalisticaJugador = () => this.calcularSolucionBalistica(this.estado);
+    window.__debug.estadoAudio = () => estadoAudioActual();
+    window.__debug.reproducirRepeticion = () => this.reproducirRepeticion();
+    window.__debug.repeticionEnCurso = false;
+    window.__debug.impactoRepeticion = null;
+    window.__debug.parteDeGuerra = null;
+    window.__debug.ultimosEventos = [];
+    window.__debug.dispararReaccionHumor = (tipo) => this.reaccionarAHumor([crearEventoDePruebaHumor(tipo)]);
     this.refrescarDebugNaves();
 
     // render-4: la cámara nunca se mueve ni hace zoom en este bloque (no hay
@@ -150,21 +225,53 @@ export class Partida extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.animador.actualizar(delta);
+    this.animadorRepeticion.actualizar(delta);
     window.__debug!.animacionEnCurso = this.animador.enVuelo();
+    window.__debug!.repeticionEnCurso = this.animadorRepeticion.enVuelo();
+
+    // humor-1: la cámara sacude durante la reacción a un evento de humor --
+    // hay que refrescar el rectángulo visible cada fotograma mientras dura
+    // esa sacudida, no solo una vez en create() (ver el comentario allí sobre
+    // por qué el primer fotograma no sirve).
+    const vista = this.cameras.main.worldView;
+    if (vista.width > 0 && vista.height > 0) {
+      window.__debug!.camara = { x: vista.x, y: vista.y, ancho: vista.width, alto: vista.height };
+    }
+    window.__debug!.sacudiendoCamara = this.cameras.main.shakeEffect.isRunning;
+
     publicarJugable(this.puedeJugarAhora());
   }
 
   private puedeJugarAhora(): boolean {
-    return this.estado.resultado.tipo !== "terminada" && this.estado.turno === ID_JUGADOR && !this.animador.enVuelo();
+    return (
+      this.estado.resultado.tipo !== "terminada" &&
+      this.estado.turno === ID_JUGADOR &&
+      !this.animador.enVuelo() &&
+      !this.animadorRepeticion.enVuelo()
+    );
   }
 
   private limpiarEntrada(): void {
     window.removeEventListener("pointerdown", this.manejarPointerDown);
     this.cancelarManejadorDisparo?.();
     this.cancelarManejadorDisparo = null;
+    this.cancelarManejadorRepeticion?.();
+    this.cancelarManejadorRepeticion = null;
+    this.game.events.off(Phaser.Core.Events.PAUSE, pausarAudio);
+    this.game.events.off(Phaser.Core.Events.RESUME, reanudarAudio);
   }
 
   private alPointerDown(evento: PointerEvent): void {
+    // humor-4: desbloquearAudio() solo puede llamarse dentro de un gesto real
+    // del usuario -- este listener de "pointerdown" en window es el primer
+    // toque de cualquier partida real (arrastrar para apuntar empieza con
+    // este mismo evento), así que no hace falta una pantalla de bloqueo
+    // aparte: introducir una exigiría que los quince tests e2e ya aceptados
+    // de otros bloques la cerrasen primero, y ninguno de los criterios de
+    // humor-sistemico pide esa pantalla, solo un gesto real (ver
+    // desviaciones).
+    desbloquearAudio();
+
     const fraccion = fraccionDeVentana(evento.clientX, evento.clientY);
 
     // andamiaje-1: todo toque publica el punto de mundo, arrastre o no --
@@ -211,7 +318,19 @@ export class Partida extends Phaser.Scene {
     const inicial: EstadoProyectil = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
     const detenerse = detenerseEnSuelo(estadoAntes.mascara, estadoAntes.mundo.ancho, estadoAntes.mundo.alto);
 
-    this.animador.iniciar(inicial, estadoAntes.mundo.gravedad, estadoAntes.mundo.deriva, detenerse, () => {
+    // humor-6: se guarda de CUALQUIER disparo (jugador o IA) el mismo objeto
+    // `inicial` que se le pasa al animador real -- integrarPasoProyectil
+    // devuelve estados nuevos en cada paso (nunca muta el que recibe), así
+    // que esta referencia sigue intacta cuando se pida la repetición.
+    this.ultimoVueloParaRepetir = { inicial, gravedad: estadoAntes.mundo.gravedad, deriva: estadoAntes.mundo.deriva, detenerse };
+
+    this.animador.iniciar(inicial, estadoAntes.mundo.gravedad, estadoAntes.mundo.deriva, detenerse, (final) => {
+      // humor-6: el punto donde la animación se detiene DE VERDAD puede no
+      // coincidir píxel a píxel con eventoImpacto (la máscara que ve el
+      // cliente ya lleva el cráter de este disparo tallado antes de que la
+      // animación arranque) -- se guarda aparte para que la repetición se
+      // compare contra lo que de verdad se vio, no contra el valor teórico.
+      window.__debug!.ultimoDisparo = { ...window.__debug!.ultimoDisparo!, impactoReal: { x: final.x, y: final.y } };
       this.aplicarResultadoTurno(estadoDespues, eventos);
       // Encadenar aquí (y no dentro de aplicarResultadoTurno) es lo que
       // evita que jugarTurnosGuionizados/forzarFinDePartida -- que también
@@ -234,6 +353,16 @@ export class Partida extends Phaser.Scene {
   }
 
   private aplicarResultadoTurno(estadoDespues: EstadoPartida, eventos: readonly EventoSimulacion[]): void {
+    // estadoAntes es this.estado ANTES de reasignarlo más abajo -- se captura
+    // aquí (y no en cada llamador) para que jugarTurnosGuionizados y
+    // forzarFinDePartida, que también pasan por esta función con su propio
+    // guion, acumulen estadísticas y disparen reacciones igual que un disparo
+    // real del jugador o de la IA.
+    const estadoAntes = this.estado;
+    const tirador = estadoAntes.turno;
+    this.actualizarEstadisticas(tirador, estadoAntes, estadoDespues, eventos);
+    window.__debug!.ultimosEventos = eventos;
+
     this.terreno.sincronizarDesde(estadoDespues.mascara);
 
     for (const evento of eventos) {
@@ -241,6 +370,7 @@ export class Partida extends Phaser.Scene {
         this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
       }
     }
+    this.reaccionarAHumor(eventos);
 
     this.estado = estadoDespues;
     this.refrescarNaves();
@@ -248,6 +378,75 @@ export class Partida extends Phaser.Scene {
     window.__debug!.turno = this.estado.turno;
     window.__debug!.numeroTurno = this.estado.numeroTurno;
     publicarJugable(this.puedeJugarAhora());
+
+    if (estadoDespues.resultado.tipo === "terminada") {
+      const estadisticasGanador = this.estadisticas[estadoDespues.resultado.ganador];
+      const parte = generarParteDeGuerra(estadisticasGanador);
+      publicarParteDeGuerra(parte, estadisticasGanador);
+      window.__debug!.parteDeGuerra = { ...parte, estadisticas: estadisticasGanador };
+    }
+  }
+
+  // humor-7: disparos, fallos, autoimpactos, daño hecho y píxeles de mundo
+  // destruidos, atribuidos SIEMPRE a quien tenía el turno en este avanzar()
+  // -- nunca recalculados del estado final, que ya no distingue quién hizo
+  // qué.
+  private actualizarEstadisticas(
+    tirador: IdNave,
+    estadoAntes: EstadoPartida,
+    estadoDespues: EstadoPartida,
+    eventos: readonly EventoSimulacion[],
+  ): void {
+    const previas = this.estadisticas[tirador];
+    const fallo = eventos.some((evento) => evento.tipo === "arma-falla");
+    const autoimpacto = eventos.some((evento) => evento.tipo === "autoimpacto");
+    // El impacto sobre uno mismo (autoimpacto) también emite su propio
+    // evento "impacto" con objetivo === tirador (ver avanzar.ts): excluirlo
+    // aquí es lo que evita contar el autodaño como daño al enemigo.
+    const danioAlEnemigo = eventos.reduce(
+      (total, evento) => (evento.tipo === "impacto" && evento.objetivo !== tirador ? total + evento.danio : total),
+      0,
+    );
+    const pixelesDestruidos = contarPixelesDestruidos(estadoAntes.mascara, estadoDespues.mascara);
+
+    this.estadisticas[tirador] = {
+      disparos: previas.disparos + 1,
+      fallos: previas.fallos + (fallo ? 1 : 0),
+      autoimpactos: previas.autoimpactos + (autoimpacto ? 1 : 0),
+      danioHechoAlEnemigo: previas.danioHechoAlEnemigo + danioAlEnemigo,
+      pixelesDestruidos: previas.pixelesDestruidos + pixelesDestruidos,
+    };
+  }
+
+  // humor-1, humor-2: sacudida de cámara, tono y frase contextual para cada
+  // evento de humor del turno -- la voz que narra es siempre la del rival
+  // actual (RIVAL_POR_DEFECTO), también cuando el evento le ha pasado al
+  // jugador: solo hay un rival cableado en esta partida real (ver la
+  // constante), la selección de rival según personalidad es partida-completa
+  // (desviación interpretativa, ver desviaciones).
+  private reaccionarAHumor(eventos: readonly EventoSimulacion[]): void {
+    for (const evento of eventos) {
+      if (!esEventoHumor(evento)) continue;
+      this.cameras.main.shake(DURACION_SACUDIDA_MS, INTENSIDAD_SACUDIDA);
+      const frase = this.selectorFrases.elegir(RIVAL_POR_DEFECTO.id, evento.tipo);
+      publicarReaccion(frase, evento.tipo);
+      reproducirTono(evento.tipo);
+    }
+  }
+
+  // humor-6: reproduce el ÚLTIMO vuelo real (de cualquiera de las dos naves)
+  // con una instancia de animador completamente aparte -- no toca
+  // this.estado, this.naves ni el terreno, así que pedir una repetición no
+  // cuenta como jugar un turno ni puede desincronizar la partida.
+  private reproducirRepeticion(): void {
+    if (!this.ultimoVueloParaRepetir || this.animadorRepeticion.enVuelo()) {
+      return;
+    }
+    const { inicial, gravedad, deriva, detenerse } = this.ultimoVueloParaRepetir;
+    window.__debug!.impactoRepeticion = null;
+    this.animadorRepeticion.iniciar(inicial, gravedad, deriva, detenerse, (final) => {
+      window.__debug!.impactoRepeticion = { x: final.x, y: final.y };
+    });
   }
 
   private refrescarNaves(): void {

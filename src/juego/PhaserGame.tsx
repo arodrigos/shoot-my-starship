@@ -5,6 +5,8 @@ import type Phaser from "phaser";
 import { SinWebGL } from "@/juego/SinWebGL";
 import { hayWebGL } from "@/juego/soporteWebGL";
 import { ControlHUD } from "@/juego/hud/ControlHUD";
+import { ReaccionHUD } from "@/juego/hud/ReaccionHUD";
+import { ParteDeGuerraHUD } from "@/juego/hud/ParteDeGuerraHUD";
 import type { IdEscena } from "@/juego/main";
 
 const ID_CONTENEDOR = "game-container";
@@ -49,7 +51,13 @@ export function PhaserGame({ escena }: Props) {
       <div id={ID_CONTENEDOR} style={{ width: "100%", height: "100%" }} />
       {/* El sandbox de terreno (/pruebas/terreno) no juega turnos -- el HUD
           de control no tiene nada que hacer ahí. */}
-      {(escena ?? "partida") === "partida" && <ControlHUD />}
+      {(escena ?? "partida") === "partida" && (
+        <>
+          <ControlHUD />
+          <ReaccionHUD />
+          <ParteDeGuerraHUD />
+        </>
+      )}
     </div>
   );
 }
