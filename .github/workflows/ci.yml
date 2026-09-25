@@ -28,6 +28,12 @@ jobs:
       # terreno-6: comprobación mecánica de que getImageData/putImageData no
       # aparecen fuera de la lista blanca declarada.
       - run: node scripts/comprobar-sin-lectura-canvas.mjs
+      # nucleo-3: src/sim no puede importar phaser/react/next ni referenciar
+      # globals de navegador -- el test de Node no probaría nada si pudiera.
+      - run: node scripts/comprobar-frontera-nucleo.mjs
+      # nucleo-4: Math.random rompería el determinismo del que dependen las
+      # repeticiones, el guardado/reanudado y el multijugador por entradas.
+      - run: node scripts/comprobar-sin-math-random.mjs
 
   e2e:
     runs-on: ubuntu-latest
