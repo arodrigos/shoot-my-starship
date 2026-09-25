@@ -32,17 +32,28 @@ export interface ResultadoDisparo {
   readonly origenY: number;
 }
 
+// Altura del cañón sobre el punto de apoyo: la resta ia-personalidades
+// también aplica antes de trazar, para que el punto de partida del vuelo
+// simulado sea el mismo que el que usa un disparo real (ia-2, ia-4).
+export const ALTURA_CANON_PX = 26;
+
 function clonarMascara(mascara: Mascara): Mascara {
   return { ancho: mascara.ancho, alto: mascara.alto, datos: new Uint8Array(mascara.datos) };
 }
 
-function alturaSuperficie(mascara: Mascara, x: number): number | null {
+// Exportada para que ia-personalidades calcule el mismo origen/objetivo en
+// altura que usará el disparo real, sin duplicar la lectura de la máscara.
+export function alturaSuperficie(mascara: Mascara, x: number): number | null {
   const columna = Math.round(Math.min(mascara.ancho - 1, Math.max(0, x)));
   const resultado = resolverCaida(mascara, columna);
   return resultado.tipo === "reposo" ? resultado.y : null;
 }
 
-function detenerseEnSuelo(mascara: Mascara, ancho: number, alto: number) {
+// Exportada porque ia-2 exige EXACTAMENTE la misma condición de parada para
+// el trazado que descarta soluciones bloqueadas y para el disparo real: dos
+// implementaciones que "deberían" coincidir es como se cuela el desajuste
+// que el criterio quiere atrapar.
+export function detenerseEnSuelo(mascara: Mascara, ancho: number, alto: number) {
   return (p: EstadoProyectil): boolean => {
     if (p.y >= alto || p.x < 0 || p.x >= ancho) {
       return true;
@@ -212,10 +223,9 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
   }
 
   const origenY = alturaSuperficie(mascara, params.origenX) ?? params.alto - 1;
-  const alturaCanon = 26;
   const rad = (params.anguloGrados * Math.PI) / 180;
   const v = velocidadDesdePotencia(params.potencia);
-  const inicial = crearProyectil(params.origenX, origenY - alturaCanon, v * Math.cos(rad), -v * Math.sin(rad));
+  const inicial = crearProyectil(params.origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
 
   const puntosDeImpacto = resolverPuntosDeImpacto(
     arma,
