@@ -34,6 +34,13 @@ export function crearFuenteIA(personalidad: Personalidad, ultimoIntento: UltimoI
       personalidad,
       aleatorio: estado.aleatorio,
       ultimoIntento,
+      // Opcionales y aditivos (ia-multipozo): estado.planetas solo existe en
+      // partidas de espacio abierto (Partida.ts, colocacion-naves) -- el
+      // lote de simulación y los guiones de depuración en terreno llano
+      // nunca lo tienen, así que decidirTurnoIA sigue su camino de siempre.
+      origenY: estado.naves[tirador].y,
+      objetivoY: estado.naves[objetivoId].y,
+      planetas: estado.planetas,
     });
 
     return {
