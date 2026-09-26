@@ -37,6 +37,9 @@ jobs:
       # ia-4: src/sim/ia solo propone una EntradaDeTurno, nunca resuelve el
       # disparo ni toca la máscara directamente.
       - run: node scripts/comprobar-frontera-ia.mjs
+      # nav-4: la gravedad de N cuerpos tira de los proyectiles en vuelo,
+      # nunca de las naves -- ver el guion para el porqué.
+      - run: node scripts/comprobar-gravedad-solo-vuelo.mjs
 
   e2e:
     runs-on: ubuntu-latest
