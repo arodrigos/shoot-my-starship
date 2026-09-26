@@ -72,5 +72,11 @@ export type EventoSimulacion =
   // El ángulo/potencia disparados se alejan mucho de la solución balística
   // exacta para esa potencia y aun así el disparo ha dado en el objetivo.
   | { readonly tipo: "tiro-imposible-acertado"; readonly nave: IdNave; readonly objetivo: IdNave }
+  // grav-6 / render-espacio (esp-1, esp-6): el proyectil ha agotado el
+  // presupuesto de vuelo multipozo sin cumplir nunca su condición de parada
+  // -- una órbita estable de facto. No es un fallo de fiabilidad (arma-falla,
+  // que sí tiene punto de caída): aquí no hay ningún punto de impacto que
+  // mostrar, el turno pasa igual.
+  | { readonly tipo: "proyectil-perdido"; readonly nave: IdNave }
   | { readonly tipo: "turno-fin"; readonly siguienteTurno: IdNave }
   | { readonly tipo: "partida-fin"; readonly ganador: IdNave };

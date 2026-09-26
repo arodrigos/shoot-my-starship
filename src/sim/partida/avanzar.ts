@@ -12,11 +12,11 @@ import {
 import { naveContraria, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
 
 function conIntegridad(nave: EstadoNave, integridad: number): EstadoNave {
-  return { x: nave.x, integridad: Math.min(100, Math.max(0, integridad)) };
+  return { ...nave, integridad: Math.min(100, Math.max(0, integridad)) };
 }
 
 function conDesplazamiento(nave: EstadoNave, desplazamientoPx: number, anchoMundo: number): EstadoNave {
-  return { x: Math.min(anchoMundo, Math.max(0, nave.x + desplazamientoPx)), integridad: nave.integridad };
+  return { ...nave, x: Math.min(anchoMundo, Math.max(0, nave.x + desplazamientoPx)) };
 }
 
 // El núcleo de este bloque, con la firma que describe la arquitectura del
@@ -59,6 +59,7 @@ export function avanzar(
     aleatorio: estado.aleatorio,
     arma,
     origenX: naveTiradora.x,
+    origenY: naveTiradora.y,
     anguloGrados: entrada.anguloGrados,
     potencia: entrada.potencia,
     objetivoX: naveObjetivo.x,
@@ -79,6 +80,9 @@ export function avanzar(
   // presentación sepa dónde ha caído el petardo mojado).
   if (resultado.fallo) {
     eventos.push({ tipo: "arma-falla", nave: tirador, arma: entrada.arma });
+  }
+  if (resultado.proyectilPerdido) {
+    eventos.push({ tipo: "proyectil-perdido", nave: tirador });
   }
 
   resultado.puntosDeImpacto.forEach((punto, indice) => {
@@ -125,6 +129,7 @@ export function avanzar(
       aleatorio: estado.aleatorio,
       arma,
       origenX: naveTiradora.x,
+      origenY: naveTiradora.y,
       anguloGrados: entrada.anguloGrados,
       potencia: entrada.potencia,
       objetivoX: naveObjetivo.x,
@@ -142,7 +147,7 @@ export function avanzar(
       naveTiradora.x,
       resultado.origenY,
       naveObjetivo.x,
-      alturaSuperficie(estado.mascara, naveObjetivo.x) ?? estado.mundo.alto - 1,
+      naveObjetivo.y ?? alturaSuperficie(estado.mascara, naveObjetivo.x) ?? estado.mundo.alto - 1,
       estado.mundo.gravedad,
       entrada.potencia,
       entrada.anguloGrados,

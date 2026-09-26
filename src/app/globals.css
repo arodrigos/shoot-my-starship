@@ -1,3 +1,26 @@
+/* esp-5: el cromado (paneles, menús, textos del HUD, FUERA del lienzo) cambia
+   con prefers-color-scheme; el lienzo del juego (SuperficieEspacio, fondo
+   estrellado) no lee estas variables y se queda oscuro en los dos esquemas,
+   por decisión declarada del criterio. Fondos con alfa 1 (no rgba con
+   transparencia, que llevaba este HUD hasta ahora): con transparencia el
+   contraste real depende de qué haya detrás en el lienzo en ese instante, y
+   esp-5 exige 4,5:1 medible sin ambigüedad contra el propio fondo del panel. */
+:root {
+  --color-cromado-fondo: #0a0c14;
+  --color-cromado-texto: #e8eaf0;
+  --color-cromado-boton: #1e2230;
+  --color-cromado-borde: rgba(255, 255, 255, 0.25);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-cromado-fondo: #f4f1ea;
+    --color-cromado-texto: #14151a;
+    --color-cromado-boton: #ffffff;
+    --color-cromado-borde: rgba(0, 0, 0, 0.2);
+  }
+}
+
 /* touch-action: none evita que el navegador se lleve el gesto de arrastre
    (scroll, tirón de recarga) antes de que control-apuntado exista -- fijarlo
    aquí desde el primer bloque evita que se rompa por accidente más tarde. */

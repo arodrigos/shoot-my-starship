@@ -2,9 +2,15 @@ import Phaser from "phaser";
 import { MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { generarMascara } from "@/sim/terreno/generador";
 import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
+import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPhaser";
+import { crearFondoEspacial } from "@/juego/fondo/FondoEspacial";
+import { generarSistema } from "@/sim/sistema/generador";
+import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
+import { colocarNaves } from "@/sim/naves/colocacion";
+import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
-import type { EntradaDeTurno, EstadoPartida, IdNave } from "@/sim/partida/tipos";
+import type { EntradaDeTurno, EstadoPartida, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
@@ -13,7 +19,7 @@ import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { naveContraria } from "@/sim/partida/tipos";
 import { contarPixelesDestruidos } from "@/sim/terreno/estadisticas";
 import { estadisticasIniciales, generarParteDeGuerra, type EstadisticasPartida } from "@/sim/partida/parteDeGuerra";
-import { buscarMapa, MAPA_POR_DEFECTO, type MapaJuego } from "@/juego/mundos/mapas";
+import { buscarMapa, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { Nave } from "@/juego/naves/Nave";
 import { IndicadorDeriva } from "@/juego/deriva/IndicadorDeriva";
 import { AnimadorProyectil } from "@/juego/vuelo/AnimadorProyectil";
@@ -23,6 +29,7 @@ import type { Personalidad } from "@/sim/ia/tipos";
 import { UMBRAL_FALLO_PX, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
 import {
+  fijarModoEspacial,
   publicarDisparoJugadorResuelto,
   publicarJugable,
   registrarManejadorDisparo,
@@ -30,11 +37,31 @@ import {
 } from "@/juego/control/store";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
+import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
 import type { DatosEscenaPartida } from "@/juego/main";
 import "@/debug/tipos";
+
+// render-espacio (esp-6): el texto del panel "resultado del turno" -- un
+// mensaje propio para "proyectil perdido en órbita" (grav-6), porque ese
+// turno no tiene ni impacto ni fallo que describir con el resto de casos.
+function resumenTurno(eventos: readonly EventoSimulacion[]): string {
+  if (eventos.some((evento) => evento.tipo === "proyectil-perdido")) {
+    return "Tu disparo se ha quedado atrapado en órbita, sin caer nunca. El turno pasa igual.";
+  }
+  if (eventos.some((evento) => evento.tipo === "arma-falla")) {
+    return "El arma ha fallado: ni huella ni daño este turno.";
+  }
+  const impacto = eventos.find(
+    (evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto",
+  );
+  if (impacto) {
+    return impacto.danio > 0 ? `Impacto directo: ${impacto.danio} de daño.` : "El disparo ha caído sin hacer daño.";
+  }
+  return "Turno resuelto.";
+}
 
 // humor-sistemico: qué reacción (sacudida, tono, frase) dispara cada disparo
 // resuelto -- un evento es "de humor" si su tipo está en TIPOS_EVENTO_HUMOR,
@@ -112,7 +139,6 @@ function fraccionDeVentana(clienteX: number, clienteY: number): PuntoFraccion {
 export class Partida extends Phaser.Scene {
   private estado!: EstadoPartida;
   private terreno!: ReturnType<typeof crearTerrenoPhaser>["terreno"];
-  private mapa: MapaJuego = MAPA_POR_DEFECTO;
   private rival: Personalidad = RIVAL_POR_DEFECTO;
   // ia-5: distancia real del último disparo de la máquina contra el
   // jugador, para que decidirTurnoIA corrija el siguiente intento -- se iba
@@ -145,6 +171,7 @@ export class Partida extends Phaser.Scene {
     readonly gravedad: number;
     readonly deriva: number;
     readonly detenerse: (p: EstadoProyectil) => boolean;
+    readonly planetas?: RegistroPlanetas;
   } | null = null;
   private selectorFrases!: SelectorFrases;
   // Estadísticas reales por nave (humor-7): se acumulan turno a turno, nunca
@@ -179,41 +206,106 @@ export class Partida extends Phaser.Scene {
     reiniciarControl();
     limpiarReaccion();
     limpiarParteDeGuerra();
+    reiniciarResultadoTurno();
     this.ultimoIntentoIA = null;
     this.fallosConsecutivosIA = 0;
 
     const parametrosUrl = new URLSearchParams(window.location.search);
     const idMapa = parametrosUrl.get("mapa") ?? this.datosEscena.mapaId;
-    this.mapa = idMapa ? buscarMapa(idMapa) : MAPA_POR_DEFECTO;
     this.rival = this.datosEscena.personalidadId ? buscarPersonalidad(this.datosEscena.personalidadId) : RIVAL_POR_DEFECTO;
-    window.__debug.mapa = {
-      id: this.mapa.id,
-      semillaTerreno: this.mapa.semillaTerreno,
-      gravedad: this.mapa.mundo.gravedad,
-      etiquetaDeriva: this.mapa.mundo.etiquetaDeriva,
-    };
 
-    const mascara = generarMascara(this.mapa.semillaTerreno, MUNDO_ANCHO, MUNDO_ALTO);
-    const xNave0 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_0);
-    const xNave1 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_1);
-    this.estado = crearPartidaInicial(this.mapa.mundo, mascara, xNave0, xNave1, this.mapa.semillaPartida);
+    if (idMapa) {
+      // Modo de suelo plano de siempre (atajo ?mapa=, tests e2e de bloques
+      // anteriores a render-espacio).
+      fijarModoEspacial(false);
+      window.__debug.modoEspacial = false;
 
-    const { terreno } = crearTerrenoPhaser(this, mascara, "terreno-partida", this.mapa.paleta);
-    this.terreno = terreno;
+      const mapa = buscarMapa(idMapa);
+      window.__debug.mapa = {
+        id: mapa.id,
+        semillaTerreno: mapa.semillaTerreno,
+        gravedad: mapa.mundo.gravedad,
+        etiquetaDeriva: mapa.mundo.etiquetaDeriva,
+      };
+
+      const mascara = generarMascara(mapa.semillaTerreno, MUNDO_ANCHO, MUNDO_ALTO);
+      const xNave0 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_0);
+      const xNave1 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_1);
+      this.estado = crearPartidaInicial(mapa.mundo, mascara, xNave0, xNave1, mapa.semillaPartida);
+
+      const { terreno } = crearTerrenoPhaser(this, mascara, "terreno-partida", mapa.paleta);
+      this.terreno = terreno;
+      this.selectorFrases = crearSelectorFrases(mapa.semillaPartida);
+    } else {
+      // Hito jugable render-espacio: sistema planetario generado, naves
+      // flotando entre planetas (colocacion-naves) -- sin la comodidad de
+      // crearPartidaInicial (solo sabe de xNave0/xNave1 en suelo plano), el
+      // EstadoPartida se ensambla a mano con lo que ya trae colocarNaves.
+      fijarModoEspacial(true);
+      window.__debug.modoEspacial = true;
+
+      const semillaSistema = this.datosEscena.semillaSistema ?? SEMILLA_SISTEMA_POR_DEFECTO;
+      const sistema = generarSistema(semillaSistema, MUNDO_ANCHO, MUNDO_ALTO);
+      // Sin gravedad ni deriva ambiental: en el vacío, lo único que tira de
+      // un proyectil es la gravedad de los planetas (simularVuelo, grav-*)
+      // -- una deriva uniforme aquí no representa nada físico, a diferencia
+      // del "viento" narrativo de los mapas de suelo plano.
+      const mundoEspacial: ParametrosMundo = {
+        ancho: MUNDO_ANCHO,
+        alto: MUNDO_ALTO,
+        gravedad: 0,
+        deriva: 0,
+        etiquetaDeriva: "Vacío: aquí no empuja nada que no sea un planeta",
+      };
+      window.__debug.mapa = {
+        id: `sistema-${semillaSistema}`,
+        semillaTerreno: semillaSistema,
+        gravedad: mundoEspacial.gravedad,
+        etiquetaDeriva: mundoEspacial.etiquetaDeriva,
+      };
+
+      const colocacion = colocarNaves(sistema, mundoEspacial, crearEstadoAleatorio(semillaSistema));
+      this.estado = {
+        version: 1,
+        mundo: mundoEspacial,
+        mascara: sistema.mascara,
+        naves: colocacion.naves,
+        turno: 0,
+        numeroTurno: 0,
+        aleatorio: colocacion.aleatorio,
+        resultado: { tipo: "en-curso" },
+        planetas: sistema.planetas,
+      };
+
+      const { terreno } = crearTerrenoEspacioPhaser(this, sistema.mascara, "terreno-partida", sistema.planetas);
+      this.terreno = terreno;
+      // esp-3: se hornea una sola vez aquí, en create() -- ninguna otra
+      // ruta de este fichero vuelve a llamar a crearFondoEspacial, así que
+      // window.__debug.fondoEspacial.bakes se queda en 1 para siempre.
+      crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial");
+      window.__debug.fondoEspacial = { bakes: 1 };
+      this.selectorFrases = crearSelectorFrases(semillaSistema);
+    }
+
     const texturaCanvas = this.textures.get("terreno-partida") as Phaser.Textures.CanvasTexture;
-    exponerDepuracionDeTerreno(terreno, texturaCanvas);
+    exponerDepuracionDeTerreno(this.terreno, texturaCanvas);
     window.__debug.terreno!.listo = true;
 
-    const y0 = alturaSuperficie(mascara, xNave0) ?? MUNDO_ALTO - 1;
-    const y1 = alturaSuperficie(mascara, xNave1) ?? MUNDO_ALTO - 1;
-    this.naves = [new Nave(this, 0, xNave0, y0, true, 45), new Nave(this, 1, xNave1, y1, false, 135)];
+    // Universal desde colocacion-naves (nav-1): con nave.y presente (modo
+    // espacial) se usa tal cual -- no hay ninguna columna de terreno bajo
+    // una nave flotando de la que derivar su altura -- y con nave.y ausente
+    // (suelo plano de siempre) se sigue derivando en vivo con
+    // alturaSuperficie, exactamente como antes de este bloque.
+    const [nave0, nave1] = this.estado.naves;
+    const y0 = nave0.y ?? alturaSuperficie(this.estado.mascara, nave0.x) ?? MUNDO_ALTO - 1;
+    const y1 = nave1.y ?? alturaSuperficie(this.estado.mascara, nave1.x) ?? MUNDO_ALTO - 1;
+    this.naves = [new Nave(this, 0, nave0.x, y0, true, 45), new Nave(this, 1, nave1.x, y1, false, 135)];
 
     this.indicadorDeriva = new IndicadorDeriva(this, 90, 40);
     this.refrescarIndicadorDeriva();
 
     this.animador = new AnimadorProyectil(this);
     this.animadorRepeticion = new AnimadorProyectil(this);
-    this.selectorFrases = crearSelectorFrases(this.mapa.semillaPartida);
     this.estadisticas = [estadisticasIniciales(), estadisticasIniciales()];
 
     const lienzoParticula = this.make.graphics({ x: 0, y: 0 });
@@ -259,6 +351,8 @@ export class Partida extends Phaser.Scene {
     window.__debug.parteDeGuerra = null;
     window.__debug.ultimosEventos = [];
     window.__debug.dispararReaccionHumor = (tipo) => this.reaccionarAHumor([crearEventoDePruebaHumor(tipo)]);
+    window.__debug.forzarProyectilPerdido = () =>
+      this.aplicarResultadoTurno(this.estado, [{ tipo: "proyectil-perdido", nave: this.estado.turno }]);
     this.refrescarDebugNaves();
 
     // render-4: la cámara nunca se mueve ni hace zoom en este bloque (no hay
@@ -351,8 +445,9 @@ export class Partida extends Phaser.Scene {
     }
 
     const tirador: IdNave = estadoAntes.turno;
-    const origenX = estadoAntes.naves[tirador].x;
-    const origenY = alturaSuperficie(estadoAntes.mascara, origenX) ?? estadoAntes.mundo.alto - 1;
+    const naveTiradora = estadoAntes.naves[tirador];
+    const origenX = naveTiradora.x;
+    const origenY = naveTiradora.y ?? alturaSuperficie(estadoAntes.mascara, origenX) ?? estadoAntes.mundo.alto - 1;
 
     const { estado: estadoDespues, eventos } = avanzar(estadoAntes, entrada);
 
@@ -391,9 +486,20 @@ export class Partida extends Phaser.Scene {
     // `inicial` que se le pasa al animador real -- integrarPasoProyectil
     // devuelve estados nuevos en cada paso (nunca muta el que recibe), así
     // que esta referencia sigue intacta cuando se pida la repetición.
-    this.ultimoVueloParaRepetir = { inicial, gravedad: estadoAntes.mundo.gravedad, deriva: estadoAntes.mundo.deriva, detenerse };
+    this.ultimoVueloParaRepetir = {
+      inicial,
+      gravedad: estadoAntes.mundo.gravedad,
+      deriva: estadoAntes.mundo.deriva,
+      detenerse,
+      planetas: estadoAntes.planetas,
+    };
 
-    this.animador.iniciar(inicial, estadoAntes.mundo.gravedad, estadoAntes.mundo.deriva, detenerse, (final) => {
+    this.animador.iniciar(
+      inicial,
+      estadoAntes.mundo.gravedad,
+      estadoAntes.mundo.deriva,
+      detenerse,
+      (final) => {
       // humor-6: el punto donde la animación se detiene DE VERDAD puede no
       // coincidir píxel a píxel con eventoImpacto (la máscara que ve el
       // cliente ya lleva el cráter de este disparo tallado antes de que la
@@ -408,7 +514,9 @@ export class Partida extends Phaser.Scene {
       if (this.estado.resultado.tipo !== "terminada" && this.estado.turno !== ID_JUGADOR) {
         this.dispararTurnoIA();
       }
-    });
+      },
+      estadoAntes.planetas,
+    );
   }
 
   // Tras resolver un disparo del jugador, si la partida sigue y el turno es
@@ -440,6 +548,7 @@ export class Partida extends Phaser.Scene {
       }
     }
     this.reaccionarAHumor(eventos);
+    publicarResultadoTurno(resumenTurno(eventos));
 
     this.estado = estadoDespues;
     this.refrescarNaves();
@@ -513,16 +622,23 @@ export class Partida extends Phaser.Scene {
     if (!this.ultimoVueloParaRepetir || this.animadorRepeticion.enVuelo()) {
       return;
     }
-    const { inicial, gravedad, deriva, detenerse } = this.ultimoVueloParaRepetir;
+    const { inicial, gravedad, deriva, detenerse, planetas } = this.ultimoVueloParaRepetir;
     window.__debug!.impactoRepeticion = null;
-    this.animadorRepeticion.iniciar(inicial, gravedad, deriva, detenerse, (final) => {
-      window.__debug!.impactoRepeticion = { x: final.x, y: final.y };
-    });
+    this.animadorRepeticion.iniciar(
+      inicial,
+      gravedad,
+      deriva,
+      detenerse,
+      (final) => {
+        window.__debug!.impactoRepeticion = { x: final.x, y: final.y };
+      },
+      planetas,
+    );
   }
 
   private refrescarNaves(): void {
     for (const [indice, naveEstado] of this.estado.naves.entries()) {
-      const y = alturaSuperficie(this.estado.mascara, naveEstado.x) ?? this.estado.mundo.alto - 1;
+      const y = naveEstado.y ?? alturaSuperficie(this.estado.mascara, naveEstado.x) ?? this.estado.mundo.alto - 1;
       this.naves[indice].posicionarEn(naveEstado.x, y);
       this.naves[indice].actualizarIntegridad(naveEstado.integridad);
     }
@@ -532,13 +648,13 @@ export class Partida extends Phaser.Scene {
     window.__debug!.naves = this.estado.naves.map((nave, indice) => ({
       id: indice as 0 | 1,
       x: nave.x,
-      y: alturaSuperficie(this.estado.mascara, nave.x) ?? this.estado.mundo.alto - 1,
+      y: nave.y ?? alturaSuperficie(this.estado.mascara, nave.x) ?? this.estado.mundo.alto - 1,
       integridad: nave.integridad,
     }));
   }
 
   private refrescarIndicadorDeriva(): void {
-    const dibujado = this.indicadorDeriva.actualizar(this.mapa.mundo.deriva, this.mapa.mundo.etiquetaDeriva);
+    const dibujado = this.indicadorDeriva.actualizar(this.estado.mundo.deriva, this.estado.mundo.etiquetaDeriva);
     window.__debug!.deriva = dibujado;
   }
 
@@ -568,10 +684,12 @@ export class Partida extends Phaser.Scene {
   private calcularSolucionBalistica(estado: EstadoPartida): { anguloGrados: number; potencia: number } | null {
     const tirador = estado.turno;
     const objetivoId = naveContraria(tirador);
-    const origenX = estado.naves[tirador].x;
-    const objetivoX = estado.naves[objetivoId].x;
-    const origenSuperficie = alturaSuperficie(estado.mascara, origenX) ?? estado.mundo.alto - 1;
-    const objetivoSuperficie = alturaSuperficie(estado.mascara, objetivoX) ?? estado.mundo.alto - 1;
+    const naveTiradora = estado.naves[tirador];
+    const naveObjetivo = estado.naves[objetivoId];
+    const origenX = naveTiradora.x;
+    const objetivoX = naveObjetivo.x;
+    const origenSuperficie = naveTiradora.y ?? alturaSuperficie(estado.mascara, origenX) ?? estado.mundo.alto - 1;
+    const objetivoSuperficie = naveObjetivo.y ?? alturaSuperficie(estado.mascara, objetivoX) ?? estado.mundo.alto - 1;
     const origenCanonY = origenSuperficie - ALTURA_CANON_PX;
 
     const soluciones = resolverSolucionesBalisticas(origenX, origenCanonY, objetivoX, objetivoSuperficie, estado.mundo.gravedad);

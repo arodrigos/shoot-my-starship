@@ -19,6 +19,10 @@ const LISTA_BLANCA = new Set([
   // (refrescarRectangulo, en el mismo fichero, que solo usa fillRect y
   // clearRect).
   "src/juego/terreno/SuperficieCanvasPhaser.ts",
+  // render-espacio: mismo contrato que SuperficieCanvasPhaser, mismo motivo
+  // -- pintarCompleta es la única pasada íntegra, refrescarRectangulo (en el
+  // mismo fichero) solo usa fillRect/clearRect.
+  "src/juego/terreno/SuperficieEspacio.ts",
   // Puente de depuración para Playwright (comprobarPuntos): una sola
   // lectura del lienzo por lote de puntos, nunca en el camino de colisión
   // del juego real.

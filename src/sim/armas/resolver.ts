@@ -31,6 +31,11 @@ export interface ResultadoDisparo {
   // necesita avanzar() para situar el evento de autodaño de Despedida, que
   // no tiene su propio punto de impacto (la huella se aplica en el origen).
   readonly origenY: number;
+  // grav-6 / render-espacio: true cuando simularVuelo ha agotado el
+  // presupuesto de vuelo multipozo sin que el proyectil llegara a detenerse
+  // (órbita estable). puntosDeImpacto viaja vacío en ese caso -- no hay
+  // ningún punto real que impactar ni huella que aplicar.
+  readonly proyectilPerdido: boolean;
 }
 
 // Altura del cañón sobre el punto de apoyo: la resta ia-personalidades
@@ -119,6 +124,11 @@ function resolverRodadura(mascara: Mascara, xInicial: number, distanciaMaximaPx:
 // el mismo tirón de N cuerpos que el disparo que los generó -- nunca una
 // gravedad distinta a mitad de vuelo (grav-4, congelada hasta que el turno
 // cierra en avanzar()).
+interface ResultadoPuntosDeImpacto {
+  readonly puntos: readonly PuntoDeImpacto[];
+  readonly perdido: boolean;
+}
+
 function resolverSubmuniciones(
   inicial: EstadoProyectil,
   gravedad: number,
@@ -129,25 +139,41 @@ function resolverSubmuniciones(
   cantidad: number,
   dispersionPxS: number,
   planetas?: RegistroPlanetas,
-): PuntoDeImpacto[] {
+): ResultadoPuntosDeImpacto {
   const detenerse = detenerseEnSuelo(mascara, ancho, alto);
-  const { proyectil: apice, pasos } = simularVuelo(inicial, gravedad, deriva, (p) => p.vy >= 0 || detenerse(p), { planetas });
+  const {
+    proyectil: apice,
+    pasos,
+    perdido: apicePerdido,
+  } = simularVuelo(inicial, gravedad, deriva, (p) => p.vy >= 0 || detenerse(p), { planetas });
+
+  // grav-6: el propio ápice se ha perdido en órbita antes de cruzar vy>=0 --
+  // no hay desde dónde repartir submuniciones.
+  if (apicePerdido) {
+    return { puntos: [], perdido: true };
+  }
 
   if (pasos === 0 || detenerse(apice)) {
     // El disparo tocó tierra antes de alcanzar el ápice (ángulo casi
     // horizontal apuntando cuesta abajo): no hay altura para repartir, así
     // que se resuelve como un impacto único en vez de partir en el vacío.
-    return [{ x: apice.x, y: apice.y }];
+    return { puntos: [{ x: apice.x, y: apice.y }], perdido: false };
   }
 
   const puntos: PuntoDeImpacto[] = [];
   for (let i = 0; i < cantidad; i++) {
     const offset = (i - (cantidad - 1) / 2) * (dispersionPxS / Math.max(1, cantidad - 1));
     const subInicial: EstadoProyectil = { x: apice.x, y: apice.y, vx: apice.vx + offset, vy: apice.vy };
-    const { proyectil } = simularVuelo(subInicial, gravedad, deriva, detenerse, { planetas });
-    puntos.push({ x: proyectil.x, y: proyectil.y });
+    const { proyectil, perdido } = simularVuelo(subInicial, gravedad, deriva, detenerse, { planetas });
+    // Una submunición individual perdida en órbita simplemente no aporta
+    // punto de impacto -- el resto de la andanada, si aterriza, sigue
+    // contando (grav-6 no exige que TODAS se pierdan para declarar el
+    // disparo entero perdido).
+    if (!perdido) {
+      puntos.push({ x: proyectil.x, y: proyectil.y });
+    }
   }
-  return puntos;
+  return { puntos, perdido: puntos.length === 0 };
 }
 
 function resolverPuntosDeImpacto(
@@ -159,7 +185,7 @@ function resolverPuntosDeImpacto(
   ancho: number,
   alto: number,
   planetas?: RegistroPlanetas,
-): PuntoDeImpacto[] {
+): ResultadoPuntosDeImpacto {
   const detenerse = detenerseEnSuelo(mascara, ancho, alto);
 
   if (arma.comportamiento.tipo === "submuniciones") {
@@ -176,14 +202,17 @@ function resolverPuntosDeImpacto(
     );
   }
 
-  const { proyectil } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas });
+  const { proyectil, perdido } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas });
+  if (perdido) {
+    return { puntos: [], perdido: true };
+  }
 
   if (arma.comportamiento.tipo === "rodante") {
     const punto = resolverRodadura(mascara, proyectil.x, arma.comportamiento.distanciaMaximaPx, arma.comportamiento.pasoPx);
-    return [punto];
+    return { puntos: [punto], perdido: false };
   }
 
-  return [{ x: proyectil.x, y: proyectil.y }];
+  return { puntos: [{ x: proyectil.x, y: proyectil.y }], perdido: false };
 }
 
 function aplicarHuellaDeArma(mascara: Mascara, arma: Arma, punto: PuntoDeImpacto): void {
@@ -209,6 +238,12 @@ export interface ParametrosResolverDisparo {
   readonly aleatorio: EstadoAleatorio;
   readonly arma: Arma;
   readonly origenX: number;
+  // Opcional y aditivo (render-espacio, nav-1): con una nave flotando entre
+  // planetas ya no hay ninguna columna de terreno bajo ella de la que
+  // derivar la altura -- si se recibe, se usa tal cual; si no (todo llamante
+  // anterior a este bloque, terreno de suelo plano de siempre), se sigue
+  // derivando con alturaSuperficie exactamente como antes.
+  readonly origenY?: number;
   readonly anguloGrados: number;
   readonly potencia: number;
   readonly objetivoX: number;
@@ -233,12 +268,12 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     fallo = paso.valor >= arma.fiabilidad;
   }
 
-  const origenY = alturaSuperficie(mascara, params.origenX) ?? params.alto - 1;
+  const origenY = params.origenY ?? alturaSuperficie(mascara, params.origenX) ?? params.alto - 1;
   const rad = (params.anguloGrados * Math.PI) / 180;
   const v = velocidadDesdePotencia(params.potencia);
   const inicial = crearProyectil(params.origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
 
-  const puntosDeImpacto = resolverPuntosDeImpacto(
+  const { puntos: puntosDeImpacto, perdido: proyectilPerdido } = resolverPuntosDeImpacto(
     arma,
     inicial,
     params.gravedad,
@@ -249,7 +284,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     params.planetas,
   );
 
-  if (fallo) {
+  if (fallo || proyectilPerdido) {
     const danioPorPunto = puntosDeImpacto.map(() => 0);
     return {
       mascara,
@@ -261,6 +296,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
       desplazamientoObjetivoPx: 0,
       puntosDeImpacto,
       origenY,
+      proyectilPerdido,
     };
   }
 
@@ -289,5 +325,16 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
 
   const danioObjetivo = danioPorPunto.reduce((total, danio) => total + danio, 0);
 
-  return { mascara, aleatorio, fallo, danioObjetivo, danioPorPunto, danioPropio, desplazamientoObjetivoPx, puntosDeImpacto, origenY };
+  return {
+    mascara,
+    aleatorio,
+    fallo,
+    danioObjetivo,
+    danioPorPunto,
+    danioPropio,
+    desplazamientoObjetivoPx,
+    puntosDeImpacto,
+    origenY,
+    proyectilPerdido,
+  };
 }

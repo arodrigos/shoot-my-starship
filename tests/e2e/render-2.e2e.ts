@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test";
 test("tras una partida guionizada de 10 turnos, terreno y naves renderizados coinciden con el estado", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?mapa=desguace-del-ecuador");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true);

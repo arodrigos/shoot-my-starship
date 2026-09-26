@@ -138,6 +138,26 @@ export interface DebugGlobal {
   // comparar esta tupla entre dos partidas equivale a comparar el hash del
   // terreno sin tener que leer el canvas con getImageData desde el test.
   mapa?: { id: string; semillaTerreno: number; gravedad: number; etiquetaDeriva: string };
+  // render-espacio: true en el hito jugable nuevo (naves flotando entre
+  // planetas), false en el modo de suelo plano de siempre -- así los tests
+  // no tienen que inferir el modo comparando la forma de `mapa` o de
+  // `naves`.
+  modoEspacial?: boolean;
+  // esp-3: cuántas veces se ha horneado el fondo de estrellas/nebulosa desde
+  // que arrancó esta escena -- tiene que quedarse en 1 para siempre, también
+  // después de varios turnos e impactos, porque el fondo no es terreno y
+  // ningún redibujado por rectángulo sucio debería tocarlo.
+  fondoEspacial?: { bakes: number };
+  // esp-6: el resultado del turno que acaba de cerrarse -- incluye el caso
+  // "proyectil perdido en órbita" con su propio texto (qué ha pasado y qué
+  // hacer), no solo el genérico de impacto/fallo.
+  resultadoTurno?: string;
+  // esp-6: fuerza el cierre de turno con un evento "proyectil-perdido" real
+  // (mismo aplicarResultadoTurno que usa un disparo de verdad), sin depender
+  // de encontrar por gesto una órbita estable de un sistema planetario
+  // concreto -- ese evento no es de humor (no está en TIPOS_EVENTO_HUMOR), así
+  // que dispararReaccionHumor no sirve para forzarlo.
+  forzarProyectilPerdido?: () => void;
 }
 
 declare global {

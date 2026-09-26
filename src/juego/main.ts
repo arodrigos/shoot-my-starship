@@ -11,6 +11,10 @@ export type IdEscena = "partida" | "sandbox";
 export interface DatosEscenaPartida {
   readonly mapaId?: string;
   readonly personalidadId?: string;
+  // render-espacio: semilla del sistema planetario para el hito espacial --
+  // aditiva y mutuamente excluyente con mapaId (si llega mapaId, gana el
+  // modo de suelo plano de siempre; ver Partida.ts create()).
+  readonly semillaSistema?: number;
 }
 
 // FIT + CENTER_BOTH (render-4, sustituye el RESIZE de andamiaje-1): el

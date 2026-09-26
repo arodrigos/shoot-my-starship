@@ -75,6 +75,14 @@ export function buscarMapa(id: string): MapaJuego {
 
 export const MAPA_POR_DEFECTO = DESGUACE_DEL_ECUADOR;
 
+// render-espacio (esp visto desde render-1): la primera carga sin `?mapa=`
+// tiene que producir SIEMPRE el mismo sistema planetario -- semilla fija,
+// nunca Math.random -- para que dos cargas frescas seguidas den el mismo
+// mundo (render-1.e2e.ts). Solo "otra partida" (partida-1) rompe esta
+// semilla concreta y sortea una nueva, ya en la cáscara de React
+// (Aplicacion.tsx), nunca aquí.
+export const SEMILLA_SISTEMA_POR_DEFECTO = 20260926;
+
 // partida-completa (partida-1): "otra partida" exige un mundo distinto del
 // anterior (semilla, relieve, gravedad y etiqueta de deriva) -- elegir al
 // azar entre los otros dos garantiza eso sin repetir el mismo mapa dos

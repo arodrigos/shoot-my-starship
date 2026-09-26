@@ -28,6 +28,7 @@ function resultado(parcial: Partial<ResultadoDisparo>): ResultadoDisparo {
     desplazamientoObjetivoPx: 0,
     origenY: 0,
     fallo: false,
+    proyectilPerdido: false,
     ...parcial,
   };
 }
