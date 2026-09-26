@@ -59,11 +59,19 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # Contra un build de producción local (npm run build && npm run
-      # start), no contra una URL de preview de Vercel: el proyecto de
-      # Vercel se crea en la etapa de traspaso, después de que Gatekeeper
-      # apruebe -- ver playwright.config.ts y las desviaciones del entregable
-      # de este bloque.
+      # Build como paso propio, separado del arranque que hace
+      # playwright.config.ts (antes "npm run build && npm run start" en el
+      # mismo comando de webServer): recién hecho un npm ci, el proceso de
+      # "next start" arrancado inmediatamente a continuación de "next build"
+      # en el mismo shell fallaba de forma intermitente con "Cannot find
+      # module '@next/env'" pese a que el fichero existe en disco -- una
+      # frontera de proceso/paso de CI entre build y start lo evita.
+      - run: npm run build
+      # Contra un servidor de producción local (npm run start), no contra
+      # una URL de preview de Vercel: el proyecto de Vercel se crea en la
+      # etapa de traspaso, después de que Gatekeeper apruebe -- ver
+      # playwright.config.ts y las desviaciones del entregable de este
+      # bloque.
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
