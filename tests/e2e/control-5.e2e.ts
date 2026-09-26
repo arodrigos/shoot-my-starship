@@ -12,10 +12,9 @@ import { test, expect } from "@playwright/test";
 test("repetir último disparo precarga el ángulo, la potencia y el arma del disparo que de verdad se hizo", async ({
   page,
 }) => {
-  // Ver control-1 y control-4: dos turnos animados bajo WebGL por software y
-  // contención de CPU pueden tardar más que los timeouts por defecto sin que
-  // haya nada roto.
-  test.setTimeout(120000);
+  // Ver control-1: dos turnos animados bajo WebGL por software pueden tardar
+  // más que los timeouts por defecto sin que haya nada roto.
+  test.setTimeout(90000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByTestId("boton-jugar").click();
