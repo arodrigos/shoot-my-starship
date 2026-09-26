@@ -17,6 +17,14 @@ export interface EstadoNave {
   // 0-100. Nunca negativa (criterio nucleo-5): resolverImpacto la deja
   // siempre en Math.max(0, ...).
   readonly integridad: number;
+  // Opcional y aditivo (colocacion-naves, nav-1): en el modo de suelo plano
+  // de siempre, la altura de una nave se sigue derivando en el momento con
+  // alturaSuperficie(mascara, x) y este campo no existe. En el modo de
+  // espacio abierto (naves flotando entre planetas) la posición vertical no
+  // se puede derivar de ninguna columna del terreno -- no hay "suelo" bajo
+  // una nave en vacío -- así que viaja aquí, fija, hasta que algo la mueva
+  // explícitamente (un empuje de arma).
+  readonly y?: number;
 }
 
 // Parámetros de un mapa concreto (decisión de ambientación de esta
