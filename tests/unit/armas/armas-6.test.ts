@@ -31,6 +31,7 @@ function secuenciaDeFallos(semilla: number): boolean[] {
       anguloGrados: 45,
       potencia: 50,
       objetivoX: 900,
+      objetivoY: 900,
       ancho: ANCHO,
       alto: ALTO,
     });

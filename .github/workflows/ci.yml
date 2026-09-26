@@ -40,6 +40,10 @@ jobs:
       # nav-4: la gravedad de N cuerpos tira de los proyectiles en vuelo,
       # nunca de las naves -- ver el guion para el porqué.
       - run: node scripts/comprobar-gravedad-solo-vuelo.mjs
+      # imp-8: UN SOLO ORÁCULO DE TIRO -- ningún fichero de
+      # src/sim/balistica puede montarse su propia condición de parada de
+      # vuelo por fuera de resolverDisparo.
+      - run: node scripts/comprobar-un-solo-oraculo-tiro.mjs
       # esp-7: render-3.e2e.ts (el presupuesto p95<=50ms con GPU real) debe
       # seguir intacto, con su skip de CI, aunque aquí no se ejecute.
       - run: node scripts/comprobar-render-3.mjs

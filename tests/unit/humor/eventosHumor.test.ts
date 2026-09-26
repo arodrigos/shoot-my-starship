@@ -25,6 +25,7 @@ function resultado(parcial: Partial<ResultadoDisparo>): ResultadoDisparo {
     danioPorPunto: [],
     danioObjetivo: 0,
     danioPropio: 0,
+    impactoPropio: null,
     desplazamientoObjetivoPx: 0,
     origenY: 0,
     fallo: false,

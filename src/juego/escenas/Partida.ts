@@ -4,7 +4,6 @@ import { generarMascara } from "@/sim/terreno/generador";
 import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
 import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPhaser";
 import { crearFondoEspacial } from "@/juego/fondo/FondoEspacial";
-import { generarSistema } from "@/sim/sistema/generador";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
@@ -13,6 +12,7 @@ import { avanzar } from "@/sim/partida/avanzar";
 import type { EntradaDeTurno, EstadoPartida, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
+import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
@@ -120,6 +120,9 @@ const FRACCION_X_NAVE_0 = 0.15;
 const FRACCION_X_NAVE_1 = 0.85;
 
 const CANTIDAD_PARTICULAS_EXPLOSION = 24;
+// imp-12: bastantes menos partículas y sin color de fuego -- un vistazo
+// basta para distinguir "no ha hecho nada" de un impacto directo.
+const CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO = 8;
 
 interface PuntoFraccion {
   readonly x: number;
@@ -128,6 +131,18 @@ interface PuntoFraccion {
 
 function fraccionDeVentana(clienteX: number, clienteY: number): PuntoFraccion {
   return { x: clienteX / window.innerWidth, y: clienteY / window.innerHeight };
+}
+
+// impacto-naves: solo cosmético, no toca la física. En modo espacial nave.y
+// YA es el centro real del círculo de colisión (colocarNaves lo valida así) y
+// se usa tal cual. En suelo plano (nave.y ausente) alturaSuperficie sigue
+// devolviendo la altura de los PIES, como siempre -- pero el contenedor de
+// Nave ahora nace centrado en su casco (geometriaCasco), así que sin este
+// desplazamiento de RADIO_CASCO_NAVE_PX la nave se dibujaría hundida hasta la
+// mitad en el terreno. window.__debug.naves NO aplica este ajuste: sigue
+// reportando la misma altura que usa avanzar() para la colisión real.
+function alturaRenderNave(naveY: number | undefined, alturaDerivada: number): number {
+  return naveY ?? alturaDerivada - RADIO_CASCO_NAVE_PX;
 }
 
 // Escena real del juego (render-juego). El gesto de apuntado se resuelve
@@ -179,6 +194,11 @@ export class Partida extends Phaser.Scene {
   // exactamente lo que pasó y no una aproximación.
   private estadisticas!: [EstadisticasPartida, EstadisticasPartida];
   private emisorExplosion!: Phaser.GameObjects.Particles.ParticleEmitter;
+  // imp-12: un impacto sin daño necesita distinguirse a simple vista de uno
+  // que sí daña -- mismo evento "impacto", pero un fogonazo aparte (menos
+  // partículas, gris humo en vez de naranja) en vez de reutilizar el mismo
+  // emisor con el mismo aspecto para los dos casos.
+  private emisorExplosionSinDanio!: Phaser.GameObjects.Particles.ParticleEmitter;
   private cancelarManejadorDisparo: (() => void) | null = null;
   private cancelarManejadorRepeticion: (() => void) | null = null;
 
@@ -245,7 +265,6 @@ export class Partida extends Phaser.Scene {
       window.__debug.modoEspacial = true;
 
       const semillaSistema = this.datosEscena.semillaSistema ?? SEMILLA_SISTEMA_POR_DEFECTO;
-      const sistema = generarSistema(semillaSistema, MUNDO_ANCHO, MUNDO_ALTO);
       // Sin gravedad ni deriva ambiental: en el vacío, lo único que tira de
       // un proyectil es la gravedad de los planetas (simularVuelo, grav-*)
       // -- una deriva uniforme aquí no representa nada físico, a diferencia
@@ -264,7 +283,12 @@ export class Partida extends Phaser.Scene {
         etiquetaDeriva: mundoEspacial.etiquetaDeriva,
       };
 
-      const colocacion = colocarNaves(sistema, mundoEspacial, crearEstadoAleatorio(semillaSistema));
+      // impacto-naves (imp-9): colocarNaves puede regenerar el sistema si
+      // ninguna disposición sobre el original resulta viable con casco real
+      // -- el `sistema` que se renderiza tiene que ser el mismo que el que
+      // colocarNaves acabó usando de verdad, nunca uno generado aparte.
+      const colocacion = colocarNaves(semillaSistema, mundoEspacial, crearEstadoAleatorio(semillaSistema));
+      const sistema = colocacion.sistema;
       this.estado = {
         version: 1,
         mundo: mundoEspacial,
@@ -297,8 +321,8 @@ export class Partida extends Phaser.Scene {
     // (suelo plano de siempre) se sigue derivando en vivo con
     // alturaSuperficie, exactamente como antes de este bloque.
     const [nave0, nave1] = this.estado.naves;
-    const y0 = nave0.y ?? alturaSuperficie(this.estado.mascara, nave0.x) ?? MUNDO_ALTO - 1;
-    const y1 = nave1.y ?? alturaSuperficie(this.estado.mascara, nave1.x) ?? MUNDO_ALTO - 1;
+    const y0 = alturaRenderNave(nave0.y, alturaSuperficie(this.estado.mascara, nave0.x) ?? MUNDO_ALTO - 1);
+    const y1 = alturaRenderNave(nave1.y, alturaSuperficie(this.estado.mascara, nave1.x) ?? MUNDO_ALTO - 1);
     this.naves = [new Nave(this, 0, nave0.x, y0, true, 45), new Nave(this, 1, nave1.x, y1, false, 135)];
 
     this.indicadorDeriva = new IndicadorDeriva(this, 90, 40);
@@ -317,6 +341,21 @@ export class Partida extends Phaser.Scene {
       lifespan: 400,
       speed: { min: 40, max: 180 },
       scale: { start: 1, end: 0 },
+      quantity: 0,
+      emitting: false,
+    });
+
+    // imp-12: mismo procedimiento que la explosión con daño, pero gris humo
+    // y más pequeña -- un fogonazo apagado en vez de una detonación.
+    const lienzoParticulaSinDanio = this.make.graphics({ x: 0, y: 0 });
+    lienzoParticulaSinDanio.fillStyle(0x8a8a8a, 1);
+    lienzoParticulaSinDanio.fillCircle(2, 2, 2);
+    lienzoParticulaSinDanio.generateTexture("particula-explosion-sin-danio", 4, 4);
+    lienzoParticulaSinDanio.destroy();
+    this.emisorExplosionSinDanio = this.add.particles(0, 0, "particula-explosion-sin-danio", {
+      lifespan: 250,
+      speed: { min: 15, max: 60 },
+      scale: { start: 0.6, end: 0 },
       quantity: 0,
       emitting: false,
     });
@@ -544,7 +583,13 @@ export class Partida extends Phaser.Scene {
 
     for (const evento of eventos) {
       if (evento.tipo === "impacto") {
-        this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
+        if (evento.danio > 0) {
+          this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
+          window.__debug!.ultimoTipoExplosion = "danio";
+        } else {
+          this.emisorExplosionSinDanio.explode(CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO, evento.x, evento.y);
+          window.__debug!.ultimoTipoExplosion = "sin-danio";
+        }
       }
     }
     this.reaccionarAHumor(eventos);
@@ -638,7 +683,10 @@ export class Partida extends Phaser.Scene {
 
   private refrescarNaves(): void {
     for (const [indice, naveEstado] of this.estado.naves.entries()) {
-      const y = naveEstado.y ?? alturaSuperficie(this.estado.mascara, naveEstado.x) ?? this.estado.mundo.alto - 1;
+      const y = alturaRenderNave(
+        naveEstado.y,
+        alturaSuperficie(this.estado.mascara, naveEstado.x) ?? this.estado.mundo.alto - 1,
+      );
       this.naves[indice].posicionarEn(naveEstado.x, y);
       this.naves[indice].actualizarIntegridad(naveEstado.integridad);
     }
