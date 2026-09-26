@@ -158,6 +158,10 @@ export interface DebugGlobal {
   // concreto -- ese evento no es de humor (no está en TIPOS_EVENTO_HUMOR), así
   // que dispararReaccionHumor no sirve para forzarlo.
   forzarProyectilPerdido?: () => void;
+  // imp-12: qué fogonazo se disparó de verdad en el último impacto resuelto
+  // -- para que el test compruebe la distinción visual hit/sin-daño sin
+  // tener que leer píxeles de pantalla.
+  ultimoTipoExplosion?: "danio" | "sin-danio";
 }
 
 declare global {

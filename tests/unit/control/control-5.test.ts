@@ -29,6 +29,7 @@ test("control-5: mismo arma/ángulo/potencia/origen/deriva -> mismo impacto, sin
     anguloGrados: 45,
     potencia: 62,
     objetivoX: 500,
+    objetivoY: 400,
     ancho: ANCHO,
     alto: ALTO,
   };

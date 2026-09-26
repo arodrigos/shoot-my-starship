@@ -26,6 +26,7 @@ test("armas-7: la gravedad es un parámetro del mapa -- el mismo disparo da tres
       anguloGrados: 45,
       potencia: 45,
       objetivoX: 900,
+      objetivoY: 900,
       ancho: ANCHO,
       alto: ALTO,
     });
@@ -66,6 +67,7 @@ test("armas-7: el solucionador balístico exacto acierta a 2px del objetivo en l
       origenX,
       anguloGrados: solucion.anguloGrados,
       potencia: solucion.potencia,
+      objetivoY: 900,
       objetivoX,
       ancho: ANCHO,
       alto: ALTO,
