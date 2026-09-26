@@ -26,9 +26,11 @@ async function distanciasEnPunto(page: Page, punto: { x: number; y: number }): P
 test("el retículo y la previsualización quedan a >=60px CSS del punto de contacto en la mitad inferior", async ({
   page,
 }) => {
-  // Ver control-1: WebGL por software en este host puede dejar 30s por
-  // defecto justos para 10 gestos, sin que haya nada roto.
-  test.setTimeout(60000);
+  // Ver control-1 y control-5: WebGL por software bajo contención de CPU
+  // puede dejar 60s justos para 10 gestos sin que haya nada roto (confirmado
+  // en impacto-naves: el mismo fallo reproduce igual en dev, antes de este
+  // bloque, luego no es una regresión de la colisión nueva).
+  test.setTimeout(90000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByTestId("boton-jugar").click();
