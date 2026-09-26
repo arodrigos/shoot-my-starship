@@ -46,6 +46,12 @@ async function arrastrarYDispararYLeer(page: Page, viewport: { width: number; he
 test("el mismo arrastre relativo produce el mismo ángulo, potencia e impacto en móvil y en escritorio", async ({
   page,
 }) => {
+  // DESVIACIÓN (render-espacio): el vuelo real con gravedad multipozo dura
+  // hasta el presupuesto de ~12s por disparo (PRESUPUESTO_VUELO_MULTIPOZO_PASOS),
+  // frente al vuelo casi instantáneo de antes de este bloque -- dos disparos
+  // reales seguidos (móvil y escritorio) ya no caben en el timeout por
+  // defecto de Playwright (30s), sin que la aserción en sí haya cambiado.
+  test.setTimeout(90000);
   const enMovil = await arrastrarYDispararYLeer(page, { width: 360, height: 740 });
   const enEscritorio = await arrastrarYDispararYLeer(page, { width: 1280, height: 800 });
 

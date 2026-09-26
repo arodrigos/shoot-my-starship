@@ -15,12 +15,16 @@ import {
   suscribirControl,
   terminarArrastre,
 } from "@/juego/control/store";
+import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import "@/debug/tipos";
 
 // La cáscara React del control (fuera del lienzo, ver arquitectura): todo lo
 // de aquí es matemática de pantalla o de UI, nunca de terreno -- si algo
 // necesitase saber dónde está el suelo, iría dentro de Partida.ts, no aquí.
-const TAMANO_MINIMO_BOTON_PX = 24;
+// esp-4: 44px (WCAG 2.2 SC 2.5.5), no los 24px de SC 2.5.8 que ya cubre
+// control-2 -- este hito exige el umbral más alto para los controles que de
+// verdad se disparan con el pulgar en 360x640.
+const TAMANO_MINIMO_BOTON_PX = 44;
 
 function fraccionDeVentana(clienteX: number, clienteY: number): { x: number; y: number } {
   return { x: clienteX / window.innerWidth, y: clienteY / window.innerHeight };
@@ -42,6 +46,7 @@ function trayectoriaPreviaSVG(anguloGrados: number, potencia: number): string {
 
 export function ControlHUD() {
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
+  const resultadoTurno = useSyncExternalStore(suscribirResultadoTurno, obtenerResultadoTurno, obtenerResultadoTurno);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
 
   useEffect(() => {
@@ -53,7 +58,13 @@ export function ControlHUD() {
       ayudaVisible: estado.ayudaVisible,
       usosPorArma: estado.usosPorArma,
     };
+    window.__debug.modoEspacial = estado.modoEspacial;
   }, [estado]);
+
+  useEffect(() => {
+    window.__debug = window.__debug ?? {};
+    window.__debug.resultadoTurno = resultadoTurno.texto;
+  }, [resultadoTurno]);
 
   const armaSeleccionada = CATALOGO_ARMAS.find((arma) => arma.id === estado.ajuste.armaId) ?? CATALOGO_ARMAS[0];
 
@@ -78,16 +89,35 @@ export function ControlHUD() {
       data-testid="superficie-arrastre"
     >
       <div
+        role="status"
+        data-testid="resultado-turno"
+        style={{
+          position: "fixed",
+          top: 8,
+          left: 8,
+          zIndex: 10,
+          maxWidth: 160,
+          background: "var(--color-cromado-fondo)",
+          borderRadius: 10,
+          padding: "6px 10px",
+          color: "var(--color-cromado-texto)",
+          font: "11px system-ui, sans-serif",
+        }}
+      >
+        {resultadoTurno.texto}
+      </div>
+
+      <div
         style={{
           position: "fixed",
           top: 8,
           left: "50%",
           transform: "translateX(-50%)",
           zIndex: 10,
-          background: "rgba(10,12,20,0.72)",
+          background: "var(--color-cromado-fondo)",
           borderRadius: 10,
           padding: "6px 10px",
-          color: "#e8eaf0",
+          color: "var(--color-cromado-texto)",
           font: "12px system-ui, sans-serif",
           textAlign: "center",
         }}
@@ -169,12 +199,12 @@ export function ControlHUD() {
         {selectorAbierto && (
           <div
             style={{
-              background: "rgba(10,12,20,0.9)",
+              background: "var(--color-cromado-fondo)",
               borderRadius: 8,
               padding: 6,
               maxHeight: 260,
               overflowY: "auto",
-              color: "#e8eaf0",
+              color: "var(--color-cromado-texto)",
               font: "12px system-ui, sans-serif",
             }}
           >
@@ -242,8 +272,8 @@ export function ControlHUD() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "rgba(4,5,10,0.78)",
-            color: "#e8eaf0",
+            background: "var(--color-cromado-fondo)",
+            color: "var(--color-cromado-texto)",
             font: "14px system-ui, sans-serif",
             textAlign: "center",
             padding: 24,
@@ -254,6 +284,12 @@ export function ControlHUD() {
               Arrastra en la mitad inferior de la pantalla para apuntar: el retículo de arriba se mueve con tu
               gesto, sin que el dedo lo tape. Usa +0.1°/-0.1° para el ajuste fino, elige arma y pulsa Disparar.
             </p>
+            {estado.modoEspacial && (
+              <p data-testid="ayuda-espacial">
+                Los planetas curvan la trayectoria de tu disparo -- apunta pensando en su tirón, no en línea recta.
+                Un disparo puede quedarse en órbita y perderse: si pasa, el turno sigue igual.
+              </p>
+            )}
             <button type="button" data-testid="ayuda-cerrar" onClick={cerrarAyuda} style={botonEstilo}>
               Entendido
             </button>
@@ -269,9 +305,9 @@ const botonEstilo: React.CSSProperties = {
   minHeight: TAMANO_MINIMO_BOTON_PX,
   padding: "6px 10px",
   borderRadius: 8,
-  border: "1px solid rgba(255,255,255,0.25)",
-  background: "rgba(30,34,46,0.9)",
-  color: "#e8eaf0",
+  border: "1px solid var(--color-cromado-borde)",
+  background: "var(--color-cromado-boton)",
+  color: "var(--color-cromado-texto)",
   font: "12px system-ui, sans-serif",
   cursor: "pointer",
 };

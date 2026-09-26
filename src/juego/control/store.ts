@@ -29,6 +29,10 @@ export interface EstadoControl {
   // animación de vuelo -- el HUD no reimplementa esa condición por su cuenta.
   readonly puedeDisparar: boolean;
   readonly ayudaVisible: boolean;
+  // render-espacio: qué frase extra añade la ayuda inicial (planetas,
+  // trayectoria curva) -- lo fija la escena en create(), antes de que el
+  // HUD pinte el primer fotograma.
+  readonly modoEspacial: boolean;
 }
 
 const CLAVE_AYUDA_VISTA = "control-apuntado:ayuda-vista";
@@ -57,6 +61,7 @@ let estado: EstadoControl = {
   ultimoDisparo: null,
   puedeDisparar: false,
   ayudaVisible: !ayudaYaVista(),
+  modoEspacial: false,
 };
 
 const escuchas = new Set<() => void>();
@@ -125,6 +130,10 @@ export function publicarJugable(valor: boolean): void {
   if (estado.puedeDisparar !== valor) fijar({ puedeDisparar: valor });
 }
 
+export function fijarModoEspacial(valor: boolean): void {
+  if (estado.modoEspacial !== valor) fijar({ modoEspacial: valor });
+}
+
 // Llamado por Partida.ts cuando el disparo del jugador ha terminado de
 // resolverse (no al pulsar "Disparar", que solo entrega la intención): así
 // "repetir último disparo" siempre precarga un tiro que de verdad ocurrió.
@@ -167,5 +176,6 @@ export function reiniciarControl(): void {
     usosPorArma: {},
     ultimoDisparo: null,
     puedeDisparar: false,
+    modoEspacial: false,
   });
 }
