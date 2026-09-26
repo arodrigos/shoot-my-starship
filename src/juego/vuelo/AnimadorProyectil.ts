@@ -4,6 +4,7 @@ import { acumuladorInicial, avanzarConAcumulador, PASO_FIJO_MS, type EstadoAcumu
 import { calcularAceleracionGravitatoria } from "@/sim/gravedad/nCuerpos";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { PRESUPUESTO_VUELO_MULTIPOZO_PASOS } from "@/sim/fisica/vuelo";
+import type { RastreadorImpactoNaves } from "@/sim/naves/impacto";
 
 const PASO_FIJO_S = PASO_FIJO_MS / 1000;
 
@@ -35,6 +36,13 @@ export class AnimadorProyectil {
   private pasos = 0;
   private detenerse: ((p: EstadoProyectil) => boolean) | null = null;
   private alTerminar: ((p: EstadoProyectil) => void) | null = null;
+  // impacto-naves (desviación, ver entregable): sin esto la vista no sabía
+  // que un casco puede terminar el vuelo antes que el suelo o el
+  // presupuesto -- seguía animando hasta agotar el presupuesto multipozo
+  // (~12s simulados) aunque el núcleo ya hubiera resuelto el impacto de
+  // casco muchos pasos antes, congelando el turno en cliente con WebGL por
+  // software.
+  private rastreadorNaves: RastreadorImpactoNaves | undefined;
 
   constructor(escena: Phaser.Scene) {
     this.punto = escena.add.circle(0, 0, RADIO_PROYECTIL_PX, COLOR_PROYECTIL).setVisible(false).setDepth(50);
@@ -51,6 +59,7 @@ export class AnimadorProyectil {
     detenerse: (p: EstadoProyectil) => boolean,
     alTerminar: (p: EstadoProyectil) => void,
     planetas?: RegistroPlanetas,
+    rastreadorNaves?: RastreadorImpactoNaves,
   ): void {
     this.proyectil = inicial;
     this.gravedad = gravedad;
@@ -59,6 +68,7 @@ export class AnimadorProyectil {
     this.pasos = 0;
     this.detenerse = detenerse;
     this.alTerminar = alTerminar;
+    this.rastreadorNaves = rastreadorNaves;
     this.acumulador = acumuladorInicial();
     this.punto.setPosition(inicial.x, inicial.y).setVisible(true);
   }
@@ -89,8 +99,10 @@ export class AnimadorProyectil {
     // más quedaran acumulados en ese fotograma.
     const detenerse = this.detenerse;
     const planetas = this.planetas;
+    const rastreadorNaves = this.rastreadorNaves;
     let detenido = false;
     let agotado = false;
+    let huboImpactoNave = false;
     const resultado = avanzarConAcumulador(this.proyectil, this.acumulador, deltaMs, (p) => {
       if (detenido) {
         return p;
@@ -117,6 +129,14 @@ export class AnimadorProyectil {
         : ([this.gravedad, this.deriva] as const);
       const siguiente = integrarPasoProyectil(p, gravedadPaso, derivaPaso, PASO_FIJO_S);
       if (planetas) this.pasos++;
+      // Mismo orden que simularVuelo: el casco se comprueba en cada paso,
+      // por delante del propio detenerse() de terreno -- así el impacto de
+      // casco siempre gana cuando el mismo paso cruza los dos.
+      if (rastreadorNaves?.comprobarPaso(p, siguiente)) {
+        detenido = true;
+        huboImpactoNave = true;
+        return siguiente;
+      }
       if (detenerse(siguiente)) {
         detenido = true;
       }
@@ -126,7 +146,7 @@ export class AnimadorProyectil {
     this.acumulador = resultado.acumulador;
     this.punto.setPosition(this.proyectil.x, this.proyectil.y);
 
-    if (agotado || this.detenerse(this.proyectil)) {
+    if (agotado || huboImpactoNave || this.detenerse(this.proyectil)) {
       const final = this.proyectil;
       const callback = this.alTerminar;
       this.proyectil = null;

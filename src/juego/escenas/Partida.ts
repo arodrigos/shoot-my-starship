@@ -12,7 +12,7 @@ import { avanzar } from "@/sim/partida/avanzar";
 import type { EntradaDeTurno, EstadoPartida, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { RADIO_CASCO_NAVE_PX, crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
@@ -187,6 +187,14 @@ export class Partida extends Phaser.Scene {
     readonly deriva: number;
     readonly detenerse: (p: EstadoProyectil) => boolean;
     readonly planetas?: RegistroPlanetas;
+    // impacto-naves (desviación, ver entregable): se guardan los INSUMOS del
+    // rastreador, no una instancia -- un rastreador es con estado (guarda si
+    // la gracia del propio casco ya se consumió) y la repetición puede
+    // pedirse varias veces, así que cada reproducción necesita el suyo
+    // propio, fresco, en vez de reutilizar uno ya consumido por el vuelo
+    // real o por una repetición anterior.
+    readonly navesParaRastreador?: readonly { readonly id: IdNave; readonly x: number; readonly y: number }[];
+    readonly tiradorId: IdNave;
   } | null = null;
   private selectorFrases!: SelectorFrases;
   // Estadísticas reales por nave (humor-7): se acumulan turno a turno, nunca
@@ -521,6 +529,21 @@ export class Partida extends Phaser.Scene {
     const inicial: EstadoProyectil = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
     const detenerse = detenerseEnSuelo(estadoAntes.mascara, estadoAntes.mundo.ancho, estadoAntes.mundo.alto);
 
+    // impacto-naves: mismo criterio que avanzar.ts para decidir si hay
+    // cuerpo de colisión de casco -- modo espacial (las dos naves con `y`) y
+    // solo naves vivas. Sin este rastreador, la vista no sabía que un casco
+    // podía terminar el vuelo antes que el suelo o el presupuesto (ver
+    // AnimadorProyectil.ts).
+    const naveObjetivoAntes = estadoAntes.naves[naveContraria(tirador)];
+    const modoEspacial = naveTiradora.y !== undefined && naveObjetivoAntes.y !== undefined;
+    const navesVivas = modoEspacial
+      ? estadoAntes.naves
+          .map((nave, id) => ({ id: id as IdNave, nave }))
+          .filter(({ nave }) => nave.integridad > 0)
+          .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }))
+      : undefined;
+    const rastreadorNaves = navesVivas ? crearRastreadorImpactoNaves(navesVivas, tirador) : undefined;
+
     // humor-6: se guarda de CUALQUIER disparo (jugador o IA) el mismo objeto
     // `inicial` que se le pasa al animador real -- integrarPasoProyectil
     // devuelve estados nuevos en cada paso (nunca muta el que recibe), así
@@ -531,6 +554,8 @@ export class Partida extends Phaser.Scene {
       deriva: estadoAntes.mundo.deriva,
       detenerse,
       planetas: estadoAntes.planetas,
+      navesParaRastreador: navesVivas,
+      tiradorId: tirador,
     };
 
     this.animador.iniciar(
@@ -555,6 +580,7 @@ export class Partida extends Phaser.Scene {
       }
       },
       estadoAntes.planetas,
+      rastreadorNaves,
     );
   }
 
@@ -667,7 +693,11 @@ export class Partida extends Phaser.Scene {
     if (!this.ultimoVueloParaRepetir || this.animadorRepeticion.enVuelo()) {
       return;
     }
-    const { inicial, gravedad, deriva, detenerse, planetas } = this.ultimoVueloParaRepetir;
+    const { inicial, gravedad, deriva, detenerse, planetas, navesParaRastreador, tiradorId } = this.ultimoVueloParaRepetir;
+    // Rastreador fresco en cada repetición: es con estado (gracia del propio
+    // casco) y no puede reutilizar la instancia del vuelo real ni la de una
+    // repetición anterior.
+    const rastreadorNaves = navesParaRastreador ? crearRastreadorImpactoNaves(navesParaRastreador, tiradorId) : undefined;
     window.__debug!.impactoRepeticion = null;
     this.animadorRepeticion.iniciar(
       inicial,
@@ -678,6 +708,7 @@ export class Partida extends Phaser.Scene {
         window.__debug!.impactoRepeticion = { x: final.x, y: final.y };
       },
       planetas,
+      rastreadorNaves,
     );
   }
 
