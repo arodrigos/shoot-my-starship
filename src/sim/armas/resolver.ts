@@ -3,6 +3,7 @@ import { simularVuelo } from "@/sim/fisica/vuelo";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import type { Arma } from "@/sim/armas/tipos";
+import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { resolverCaida } from "@/sim/terreno/caida";
 import { esSolido, type Mascara } from "@/sim/terreno/mascara";
 import { aplicarHuellaCapsula, aplicarHuellaCircular } from "@/sim/terreno/huella";
@@ -112,6 +113,12 @@ function resolverRodadura(mascara: Mascara, xInicial: number, distanciaMaximaPx:
 // reparte en `cantidad` sub-proyectiles con dispersión simétrica en vx,
 // cada uno resuelto con la MISMA simularVuelo que el disparo real -- nunca
 // una física de submunición aparte.
+// `planetas`, igual que en simularVuelo, es opcional y aditivo (nucleo-
+// gravedad): las submuniciones son "la MISMA simularVuelo que el disparo
+// real" también en esto, así que el ápice y cada sub-proyectil vuelan con
+// el mismo tirón de N cuerpos que el disparo que los generó -- nunca una
+// gravedad distinta a mitad de vuelo (grav-4, congelada hasta que el turno
+// cierra en avanzar()).
 function resolverSubmuniciones(
   inicial: EstadoProyectil,
   gravedad: number,
@@ -121,9 +128,10 @@ function resolverSubmuniciones(
   alto: number,
   cantidad: number,
   dispersionPxS: number,
+  planetas?: RegistroPlanetas,
 ): PuntoDeImpacto[] {
   const detenerse = detenerseEnSuelo(mascara, ancho, alto);
-  const { proyectil: apice, pasos } = simularVuelo(inicial, gravedad, deriva, (p) => p.vy >= 0 || detenerse(p));
+  const { proyectil: apice, pasos } = simularVuelo(inicial, gravedad, deriva, (p) => p.vy >= 0 || detenerse(p), { planetas });
 
   if (pasos === 0 || detenerse(apice)) {
     // El disparo tocó tierra antes de alcanzar el ápice (ángulo casi
@@ -136,7 +144,7 @@ function resolverSubmuniciones(
   for (let i = 0; i < cantidad; i++) {
     const offset = (i - (cantidad - 1) / 2) * (dispersionPxS / Math.max(1, cantidad - 1));
     const subInicial: EstadoProyectil = { x: apice.x, y: apice.y, vx: apice.vx + offset, vy: apice.vy };
-    const { proyectil } = simularVuelo(subInicial, gravedad, deriva, detenerse);
+    const { proyectil } = simularVuelo(subInicial, gravedad, deriva, detenerse, { planetas });
     puntos.push({ x: proyectil.x, y: proyectil.y });
   }
   return puntos;
@@ -150,6 +158,7 @@ function resolverPuntosDeImpacto(
   mascara: Mascara,
   ancho: number,
   alto: number,
+  planetas?: RegistroPlanetas,
 ): PuntoDeImpacto[] {
   const detenerse = detenerseEnSuelo(mascara, ancho, alto);
 
@@ -163,10 +172,11 @@ function resolverPuntosDeImpacto(
       alto,
       arma.comportamiento.cantidad,
       arma.comportamiento.dispersionPxS,
+      planetas,
     );
   }
 
-  const { proyectil } = simularVuelo(inicial, gravedad, deriva, detenerse);
+  const { proyectil } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas });
 
   if (arma.comportamiento.tipo === "rodante") {
     const punto = resolverRodadura(mascara, proyectil.x, arma.comportamiento.distanciaMaximaPx, arma.comportamiento.pasoPx);
@@ -204,6 +214,7 @@ export interface ParametrosResolverDisparo {
   readonly objetivoX: number;
   readonly ancho: number;
   readonly alto: number;
+  readonly planetas?: RegistroPlanetas;
 }
 
 // Resuelve un disparo de principio a fin: vuelo (con el comportamiento del
@@ -235,6 +246,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     mascara,
     params.ancho,
     params.alto,
+    params.planetas,
   );
 
   if (fallo) {

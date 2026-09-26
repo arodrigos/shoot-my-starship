@@ -1,4 +1,5 @@
 import type { EstadoAleatorio } from "@/sim/aleatorio";
+import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { Mascara } from "@/sim/terreno/mascara";
 
 // Solo dos naves por ahora (un jugador contra la máquina, ver brief): el
@@ -43,6 +44,12 @@ export type ResultadoPartida =
 // mascara viaja en el estado (y no se regenera desde la semilla) porque el
 // terreno es destructible: tras el primer impacto, la semilla ya no basta
 // para reconstruirlo (balistica-armas).
+// `planetas` es opcional a propósito (nucleo-gravedad): ausente, una partida
+// se comporta exactamente como antes de este bloque (gravedad uniforme,
+// ningún registro que mantener). Presente, avanzar() lo recalcula al cerrar
+// cada turno desde la máscara resultante -- nunca dentro del vuelo (grav-4)
+// -- y viaja en el propio EstadoPartida para que serializarEstado no
+// necesite saber nada especial de él (grav-9): son solo números.
 export interface EstadoPartida {
   readonly version: 1;
   readonly mundo: ParametrosMundo;
@@ -52,6 +59,7 @@ export interface EstadoPartida {
   readonly numeroTurno: number;
   readonly aleatorio: EstadoAleatorio;
   readonly resultado: ResultadoPartida;
+  readonly planetas?: RegistroPlanetas;
 }
 
 // El arma es un identificador de texto y nada más: el catálogo declarativo

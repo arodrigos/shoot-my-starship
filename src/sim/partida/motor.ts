@@ -2,14 +2,19 @@ import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { avanzar } from "@/sim/partida/avanzar";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import type { EstadoNave, EstadoPartida, FuenteDeTurno, ParametrosMundo } from "@/sim/partida/tipos";
+import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { Mascara } from "@/sim/terreno/mascara";
 
+// `planetas` es opcional y el último parámetro a propósito (nucleo-gravedad):
+// todo llamante anterior a este bloque sigue compilando y produciendo
+// exactamente la misma partida de siempre sin tocarse.
 export function crearPartidaInicial(
   mundo: ParametrosMundo,
   mascara: Mascara,
   xNave0: number,
   xNave1: number,
   semillaAleatorio: number,
+  planetas?: RegistroPlanetas,
 ): EstadoPartida {
   const naves: [EstadoNave, EstadoNave] = [
     { x: xNave0, integridad: 100 },
@@ -24,6 +29,7 @@ export function crearPartidaInicial(
     numeroTurno: 0,
     aleatorio: crearEstadoAleatorio(semillaAleatorio),
     resultado: { tipo: "en-curso" },
+    ...(planetas ? { planetas } : {}),
   };
 }
 
