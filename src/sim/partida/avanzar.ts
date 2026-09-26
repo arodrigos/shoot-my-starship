@@ -1,5 +1,6 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, resolverDisparo } from "@/sim/armas/resolver";
+import { recalcularRegistro } from "@/sim/gravedad/planetas";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import {
   caeAlVacio,
@@ -63,7 +64,15 @@ export function avanzar(
     objetivoX: naveObjetivo.x,
     ancho: estado.mundo.ancho,
     alto: estado.mundo.alto,
+    planetas: estado.planetas,
   });
+
+  // LA DECISIÓN DECLARADA: la masa viaja congelada durante todo el vuelo
+  // (resolverDisparo la usó tal cual estaba en estado.planetas) y se
+  // recalcula aquí, una sola vez, al cerrar el turno -- nunca dentro del
+  // bucle de integración (grav-4). Fuerza bruta sobre la máscara resultante:
+  // es un coste por turno, no por paso de física.
+  const planetasTrasDisparo = estado.planetas ? recalcularRegistro(estado.planetas, resultado.mascara) : estado.planetas;
 
   // humor-sistemico: el arma ha fallado su tirada de fiabilidad. Va antes de
   // los eventos "impacto" (que igualmente se emiten, con daño 0, para que la
@@ -121,6 +130,7 @@ export function avanzar(
       objetivoX: naveObjetivo.x,
       ancho: estado.mundo.ancho,
       alto: estado.mundo.alto,
+      planetas: estado.planetas,
     });
     if (huboDerivaTraiciona(resultado, resultadoSinDeriva)) {
       eventos.push({ tipo: "deriva-traiciona", nave: tirador });
@@ -188,6 +198,7 @@ export function avanzar(
         naves,
         aleatorio: resultado.aleatorio,
         resultado: { tipo: "terminada", ganador },
+        planetas: planetasTrasDisparo,
       },
       eventos,
     };
@@ -202,6 +213,7 @@ export function avanzar(
       aleatorio: resultado.aleatorio,
       turno: objetivoId,
       numeroTurno: estado.numeroTurno + 1,
+      planetas: planetasTrasDisparo,
     },
     eventos,
   };
