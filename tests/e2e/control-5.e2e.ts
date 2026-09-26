@@ -12,9 +12,14 @@ import { test, expect } from "@playwright/test";
 test("repetir último disparo precarga el ángulo, la potencia y el arma del disparo que de verdad se hizo", async ({
   page,
 }) => {
-  // Ver control-1: dos turnos animados bajo WebGL por software pueden tardar
-  // más que los timeouts por defecto sin que haya nada roto.
-  test.setTimeout(90000);
+  // Ver control-1 y esp-1: dos turnos animados bajo WebGL por software
+  // pueden tardar más que los timeouts por defecto sin que haya nada roto --
+  // NO es el mismo cuelgue que control-4 (comprobado aparte: el arrastre y
+  // mouse.down() aquí terminan bien, con el ángulo/potencia ya reflejados en
+  // window.__debug.control.ajuste; el tiempo se va en la resolución real del
+  // turno bajo software rendering, medido hasta ~90s reales bajo contención
+  // alta para este gesto concreto).
+  test.setTimeout(150000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByTestId("boton-jugar").click();
@@ -42,7 +47,7 @@ test("repetir último disparo precarga el ángulo, la potencia y el arma del dis
   await page.waitForFunction(
     () => window.__debug.turno === 0 && (window.__debug.numeroTurno ?? 0) >= 2 && window.__debug.animacionEnCurso === false,
     undefined,
-    { timeout: 60000 },
+    { timeout: 120000 },
   );
 
   // Se desajusta a propósito antes de repetir, para que el resultado no

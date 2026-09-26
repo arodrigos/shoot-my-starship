@@ -26,7 +26,12 @@ test("imp-11: un disparo bien apuntado reduce la integridad del rival según el 
   // dos respuestas de la máquina) bajo WebGL por software (ver hueco de
   // render-3): el doble de carga que control-1, que ya necesita más que el
   // timeout por defecto para dos.
-  test.setTimeout(150000);
+  //
+  // impacto-naves (desviación, ver entregable): 60s por disparo no bastó en
+  // la práctica bajo contención alta (medido: colgado hasta agotar ese
+  // timeout sin resolver, pero terminando bien con más margen) -- mismo
+  // síntoma que control-5/esp-1/esp-2, se sube al doble por el mismo motivo.
+  test.setTimeout(280000);
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto("/?mapa=calma-de-los-restos");
   await page.getByTestId("boton-jugar").click();
@@ -64,7 +69,7 @@ test("imp-11: un disparo bien apuntado reduce la integridad del rival según el 
     await arrastrarHasta(anguloObjetivo, potenciaObjetivo);
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
     await page.getByTestId("disparar").click();
-    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) >= n + 1, numeroAntes, { timeout: 60000 });
+    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) >= n + 1, numeroAntes, { timeout: 120000 });
   }
 
   // Rama 1: disparo bien apuntado -- la solución balística exacta (deriva 0)
@@ -85,7 +90,7 @@ test("imp-11: un disparo bien apuntado reduce la integridad del rival según el 
   // Deja que la respuesta de la máquina termine del todo antes de que el
   // jugador vuelva a apuntar (puedeDisparar solo será true de nuevo cuando
   // sea su turno).
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 120000 });
 
   // Rama 2: disparo deliberadamente vertical y de poca potencia -- sube casi
   // recto y cae junto al propio tirador, muy por encima del radio de daño

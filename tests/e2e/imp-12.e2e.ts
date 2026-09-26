@@ -18,8 +18,9 @@ test("imp-12: el impacto y el fallo se distinguen visualmente, y el panel de res
   page,
 }) => {
   // Ver imp-11: cuatro vuelos animados de punta a punta (dos disparos del
-  // jugador y las dos respuestas de la máquina) bajo WebGL por software.
-  test.setTimeout(150000);
+  // jugador y las dos respuestas de la máquina) bajo WebGL por software --
+  // mismo ajuste de timeouts que imp-11 (desviación, ver entregable).
+  test.setTimeout(280000);
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto("/?mapa=calma-de-los-restos");
   await page.getByTestId("boton-jugar").click();
@@ -49,7 +50,7 @@ test("imp-12: el impacto y el fallo se distinguen visualmente, y el panel de res
     await arrastrarHasta(anguloObjetivo, potenciaObjetivo);
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
     await page.getByTestId("disparar").click();
-    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) >= n + 1, numeroAntes, { timeout: 60000 });
+    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) >= n + 1, numeroAntes, { timeout: 120000 });
   }
 
   // Impacto directo: la solución balística exacta (deriva 0) del turno del
@@ -65,7 +66,7 @@ test("imp-12: el impacto y el fallo se distinguen visualmente, y el panel de res
 
   await page.screenshot({ path: "capturas/impacto-naves-8-imp12-impacto-directo.png" });
 
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 120000 });
 
   // Fallo fuera de radio: vertical y de poca potencia, cae junto al propio
   // tirador -- ver imp-11 para el mismo razonamiento geométrico.

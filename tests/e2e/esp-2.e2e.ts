@@ -11,19 +11,28 @@ import { ANGULO_INICIAL_GRADOS, POTENCIA_INICIAL, GANANCIA_ANGULO_GRADOS, GANANC
 // el mismo contrato de terreno-3/render-2 (máscara y textura coinciden en un
 // muestreo amplio) tras los dos impactos reales.
 //
-// Ángulo/potencia (56°, 54%) son los mismos que esp-1: se comprobó aparte
-// (ver esp-1.e2e.ts) que para la semilla por defecto ese disparo impacta de
-// verdad dentro del mundo, así que sirve igual para comprobar qué pasa al
-// repetirlo.
-const ANGULO_OBJETIVO_GRADOS = 56;
-const POTENCIA_OBJETIVO = 54;
+// Ángulo/potencia (72.5°, 79%) son los mismos que esp-1: se comprobó aparte
+// (ver esp-1.e2e.ts) que para la semilla por defecto y la colocación de
+// naves actual ese disparo impacta de verdad dentro del mundo, así que sirve
+// igual para comprobar qué pasa al repetirlo.
+//
+// impacto-naves (bloque 8, declarado en desviaciones del entregable de
+// Desarrollo): sustituyen a los (56°, 54%) originales de render-espacio por
+// el mismo motivo que en esp-1.e2e.ts -- ver el comentario allí.
+const ANGULO_OBJETIVO_GRADOS = 72.5;
+const POTENCIA_OBJETIVO = 79;
 
 function esEventoImpacto(evento: EventoSimulacion): evento is Extract<EventoSimulacion, { tipo: "impacto" }> {
   return evento.tipo === "impacto";
 }
 
 test("un disparo repetido atraviesa el cráter del primero, y máscara y textura siguen coincidiendo", async ({ page }) => {
-  test.setTimeout(90000);
+  // Ver esp-1: dos disparos con planetas pueden consumir buena parte de su
+  // presupuesto de 12s simulados en tiempo real bajo contención de CPU --
+  // aquí son DOS disparos completos (más el turno de la máquina entre
+  // medias), así que 150s no bastó en la práctica (medido: supera los
+  // 150000ms totales bajo contención alta); se sube al doble de margen.
+  test.setTimeout(280000);
   await page.goto("/");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
@@ -60,7 +69,7 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
   let numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno))!;
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   await page.getByTestId("disparar").click();
-  await page.waitForFunction((antes) => window.__debug.numeroTurno! > antes, numeroTurnoAntes, { timeout: 30000 });
+  await page.waitForFunction((antes) => window.__debug.numeroTurno! > antes, numeroTurnoAntes, { timeout: 120000 });
 
   const eventosPrimerDisparo = (await page.evaluate(() => window.__debug.ultimosEventos))!;
   const primerImpacto = eventosPrimerDisparo.find(esEventoImpacto);
@@ -70,14 +79,14 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
   // (la máquina ya ha respondido y la animación ha terminado) antes de
   // repetir el mismo ajuste -- store.ts no reinicia `ajuste` entre turnos,
   // así que sigue apuntando exactamente igual sin un segundo gesto.
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 30000 });
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 120000 });
   const ajusteAntesSegundo = await page.evaluate(() => window.__debug.control!.ajuste);
   expect(ajusteAntesSegundo.anguloGrados).toBeCloseTo(ANGULO_OBJETIVO_GRADOS, 0);
   expect(ajusteAntesSegundo.potencia).toBeCloseTo(POTENCIA_OBJETIVO, 0);
 
   numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno))!;
   await page.getByTestId("disparar").click();
-  await page.waitForFunction((antes) => window.__debug.numeroTurno! > antes, numeroTurnoAntes, { timeout: 30000 });
+  await page.waitForFunction((antes) => window.__debug.numeroTurno! > antes, numeroTurnoAntes, { timeout: 120000 });
 
   const eventosSegundoDisparo = (await page.evaluate(() => window.__debug.ultimosEventos))!;
   const segundoImpacto = eventosSegundoDisparo.find(esEventoImpacto);
