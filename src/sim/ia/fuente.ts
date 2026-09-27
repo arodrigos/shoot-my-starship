@@ -1,6 +1,7 @@
 import { decidirTurnoIA, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import type { Personalidad } from "@/sim/ia/tipos";
-import { naveContraria, type EstadoPartida, type FuenteDeTurno } from "@/sim/partida/tipos";
+import type { NavePosicion } from "@/sim/naves/impacto";
+import { naveContraria, type EstadoPartida, type FuenteDeTurno, type IdNave } from "@/sim/partida/tipos";
 
 // Envuelve decidirTurnoIA como FuenteDeTurno para que una personalidad
 // pueda jugar una partida completa con jugarPartida/jugarTurno (ia-3, ia-6):
@@ -22,11 +23,29 @@ export function crearFuenteIA(personalidad: Personalidad, ultimoIntento: UltimoI
   return (estado: EstadoPartida) => {
     const tirador = estado.turno;
     const objetivoId = naveContraria(tirador);
+    const naveTiradora = estado.naves[tirador];
+    const naveObjetivo = estado.naves[objetivoId];
+
+    // ia-multipozo: mismo criterio que Partida.ts para decidir si hay casco
+    // real que rastrear -- ambas naves con `y` es "modo espacial", el único
+    // caso en el que existe más de un pozo de gravedad y decidirTurnoIA debe
+    // cambiar a la búsqueda numérica. Sin él (terreno llano de siempre,
+    // ia-1..ia-6), naves/tiradorId/objetivoId viajan undefined y
+    // decidirTurnoIA reproduce el camino de siempre bit a bit.
+    const modoEspacial = naveTiradora.y !== undefined && naveObjetivo.y !== undefined;
+    const naves: readonly NavePosicion[] | undefined = modoEspacial
+      ? estado.naves
+          .map((nave, id) => ({ id: id as IdNave, nave }))
+          .filter(({ nave }) => nave.integridad > 0)
+          .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }))
+      : undefined;
 
     const resultado = decidirTurnoIA({
       mascara: estado.mascara,
-      origenX: estado.naves[tirador].x,
-      objetivoX: estado.naves[objetivoId].x,
+      origenX: naveTiradora.x,
+      origenY: naveTiradora.y,
+      objetivoX: naveObjetivo.x,
+      objetivoY: naveObjetivo.y,
       gravedad: estado.mundo.gravedad,
       deriva: estado.mundo.deriva,
       ancho: estado.mundo.ancho,
@@ -34,6 +53,10 @@ export function crearFuenteIA(personalidad: Personalidad, ultimoIntento: UltimoI
       personalidad,
       aleatorio: estado.aleatorio,
       ultimoIntento,
+      planetas: estado.planetas,
+      naves,
+      tiradorId: modoEspacial ? tirador : undefined,
+      objetivoId: modoEspacial ? objetivoId : undefined,
     });
 
     return {
