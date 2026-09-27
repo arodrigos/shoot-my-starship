@@ -11,7 +11,9 @@ import { test, expect } from "@playwright/test";
 test("sin almacenamiento disponible, el aviso aparece una vez y se puede jugar una partida completa", async ({
   page,
 }) => {
-  test.setTimeout(90000);
+  // proyectiles-visibles (desviación, ver entregable): mismo margen que
+  // partida-1/partida-2 -- un vuelo real ahora tarda ~65s en esta VPS sin GPU.
+  test.setTimeout(180000);
   await page.addInitScript(() => {
     Storage.prototype.setItem = () => {
       throw new DOMException("El almacenamiento no está disponible en este contexto.", "SecurityError");
@@ -48,7 +50,7 @@ test("sin almacenamiento disponible, el aviso aparece una vez y se puede jugar u
   await page.waitForFunction(
     () => window.__debug.turno === 0 && (window.__debug.numeroTurno ?? 0) >= 2 && window.__debug.animacionEnCurso === false,
     undefined,
-    { timeout: 60000 },
+    { timeout: 120000 },
   );
 
   await page.evaluate(() => window.__debug.forzarFinDePartida!());
