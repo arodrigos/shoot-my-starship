@@ -5,11 +5,14 @@ import { calcularAceleracionGravitatoria } from "@/sim/gravedad/nCuerpos";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { PRESUPUESTO_VUELO_MULTIPOZO_PASOS } from "@/sim/fisica/vuelo";
 import type { RastreadorImpactoNaves } from "@/sim/naves/impacto";
+import type { Arma } from "@/sim/armas/tipos";
+import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
+import { puntosSilueta } from "@/juego/proyectiles/geometriaProyectil";
 
 const PASO_FIJO_S = PASO_FIJO_MS / 1000;
 
 const COLOR_PROYECTIL = 0xffe08a;
-const RADIO_PROYECTIL_PX = 5;
+const COLOR_SOMBRA_PROYECTIL = 0x2a1c00;
 
 // Reproduce en el cliente EXACTAMENTE el mismo paso fijo que ya resolvió el
 // disparo en el núcleo (integrarPasoProyectil, avanzarConAcumulador): no es
@@ -19,7 +22,12 @@ const RADIO_PROYECTIL_PX = 5;
 // sin tener que hacer viajar la trayectoria completa por la red ni guardarla
 // en el estado serializable.
 export class AnimadorProyectil {
-  private readonly punto: Phaser.GameObjects.Arc;
+  // proyectiles-visibles (proy-1/proy-2): silueta poligonal por arma, no un
+  // punto -- se redibuja UNA vez por disparo (la forma no cambia en vuelo,
+  // solo su rotación) y se orienta cada fotograma con el vector velocidad
+  // real, nunca con una animación de rotación aparte.
+  private readonly punto: Phaser.GameObjects.Graphics;
+  private anguloActualRad = 0;
   private proyectil: EstadoProyectil | null = null;
   private acumulador: EstadoAcumulador = acumuladorInicial();
   private gravedad = 0;
@@ -45,11 +53,26 @@ export class AnimadorProyectil {
   private rastreadorNaves: RastreadorImpactoNaves | undefined;
 
   constructor(escena: Phaser.Scene) {
-    this.punto = escena.add.circle(0, 0, RADIO_PROYECTIL_PX, COLOR_PROYECTIL).setVisible(false).setDepth(50);
+    this.punto = escena.add.graphics().setVisible(false).setDepth(50);
   }
 
   enVuelo(): boolean {
     return this.proyectil !== null;
+  }
+
+  // Dibuja la silueta local del arma (morro en +x) UNA sola vez por
+  // disparo: dibujarla cada fotograma sería redibujar un polígono que no
+  // cambia de forma, solo de orientación (eso lo hace setRotation).
+  private dibujarSilueta(arma: Arma | undefined): void {
+    const puntos = puntosSilueta(arma ?? CATALOGO_ARMAS[0]).map((p) => new Phaser.Math.Vector2(p.x, p.y));
+    this.punto.clear();
+    this.punto.fillStyle(COLOR_SOMBRA_PROYECTIL, 1);
+    this.punto.fillPoints(
+      puntos.map((p) => new Phaser.Math.Vector2(p.x + 1, p.y + 1)),
+      true,
+    );
+    this.punto.fillStyle(COLOR_PROYECTIL, 1);
+    this.punto.fillPoints(puntos, true);
   }
 
   iniciar(
@@ -60,6 +83,7 @@ export class AnimadorProyectil {
     alTerminar: (p: EstadoProyectil) => void,
     planetas?: RegistroPlanetas,
     rastreadorNaves?: RastreadorImpactoNaves,
+    arma?: Arma,
   ): void {
     this.proyectil = inicial;
     this.gravedad = gravedad;
@@ -70,11 +94,20 @@ export class AnimadorProyectil {
     this.alTerminar = alTerminar;
     this.rastreadorNaves = rastreadorNaves;
     this.acumulador = acumuladorInicial();
-    this.punto.setPosition(inicial.x, inicial.y).setVisible(true);
+    this.anguloActualRad = Math.atan2(inicial.vy, inicial.vx);
+    this.dibujarSilueta(arma);
+    this.punto.setPosition(inicial.x, inicial.y).setRotation(this.anguloActualRad).setVisible(true);
   }
 
-  obtenerObjetoDeCamara(): Phaser.GameObjects.Arc {
+  obtenerObjetoDeCamara(): Phaser.GameObjects.Graphics {
     return this.punto;
+  }
+
+  // proy-2: el ángulo que de verdad se aplicó al objeto de render en el
+  // último fotograma -- expuesto para que el test compare contra
+  // atan2(vy, vx) sin tener que leer la rotación de un GameObject real.
+  obtenerAnguloActual(): number {
+    return this.anguloActualRad;
   }
 
   // Llamado desde Scene.update(time, delta): avanza tantos pasos fijos como
@@ -144,7 +177,8 @@ export class AnimadorProyectil {
     });
     this.proyectil = resultado.estado;
     this.acumulador = resultado.acumulador;
-    this.punto.setPosition(this.proyectil.x, this.proyectil.y);
+    this.anguloActualRad = Math.atan2(this.proyectil.vy, this.proyectil.vx);
+    this.punto.setPosition(this.proyectil.x, this.proyectil.y).setRotation(this.anguloActualRad);
 
     if (agotado || huboImpactoNave || this.detenerse(this.proyectil)) {
       const final = this.proyectil;

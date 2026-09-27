@@ -12,6 +12,8 @@ import { avanzar } from "@/sim/partida/avanzar";
 import type { EntradaDeTurno, EstadoPartida, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
+import { buscarArma } from "@/sim/armas/catalogo";
+import type { Arma } from "@/sim/armas/tipos";
 import { RADIO_CASCO_NAVE_PX, crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
@@ -202,6 +204,10 @@ export class Partida extends Phaser.Scene {
     // real o por una repetición anterior.
     readonly navesParaRastreador?: readonly { readonly id: IdNave; readonly x: number; readonly y: number }[];
     readonly tiradorId: IdNave;
+    // proyectiles-visibles: qué arma disparó, para que la repetición dibuje
+    // la misma silueta que el vuelo real en vez de caer al arma por
+    // defecto.
+    readonly arma: Arma;
   } | null = null;
   private selectorFrases!: SelectorFrases;
   // Estadísticas reales por nave (humor-7): se acumulan turno a turno, nunca
@@ -580,6 +586,8 @@ export class Partida extends Phaser.Scene {
     // `inicial` que se le pasa al animador real -- integrarPasoProyectil
     // devuelve estados nuevos en cada paso (nunca muta el que recibe), así
     // que esta referencia sigue intacta cuando se pida la repetición.
+    const armaDisparada = buscarArma(entrada.arma);
+
     this.ultimoVueloParaRepetir = {
       inicial,
       gravedad: estadoAntes.mundo.gravedad,
@@ -588,6 +596,7 @@ export class Partida extends Phaser.Scene {
       planetas: estadoAntes.planetas,
       navesParaRastreador: navesVivas,
       tiradorId: tirador,
+      arma: armaDisparada,
     };
 
     this.animador.iniciar(
@@ -613,6 +622,7 @@ export class Partida extends Phaser.Scene {
       },
       estadoAntes.planetas,
       rastreadorNaves,
+      armaDisparada,
     );
   }
 
@@ -725,7 +735,7 @@ export class Partida extends Phaser.Scene {
     if (!this.ultimoVueloParaRepetir || this.animadorRepeticion.enVuelo()) {
       return;
     }
-    const { inicial, gravedad, deriva, detenerse, planetas, navesParaRastreador, tiradorId } = this.ultimoVueloParaRepetir;
+    const { inicial, gravedad, deriva, detenerse, planetas, navesParaRastreador, tiradorId, arma } = this.ultimoVueloParaRepetir;
     // Rastreador fresco en cada repetición: es con estado (gracia del propio
     // casco) y no puede reutilizar la instancia del vuelo real ni la de una
     // repetición anterior.
@@ -741,6 +751,7 @@ export class Partida extends Phaser.Scene {
       },
       planetas,
       rastreadorNaves,
+      arma,
     );
   }
 

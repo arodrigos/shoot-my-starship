@@ -1,3 +1,4 @@
+import "../../entorno-phaser.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type Phaser from "phaser";
@@ -11,12 +12,16 @@ import type { Planeta } from "@/sim/gravedad/planetas";
 // verdad (WebGL, canvas, DOM) para probar la MATEMÁTICA del paso a paso sería
 // pagar el coste de un navegador entero para comprobar una fórmula.
 function crearEscenaDeMentira(): Phaser.Scene {
-  const punto = {
-    setVisible: () => punto,
-    setDepth: () => punto,
-    setPosition: () => punto,
+  const grafico = {
+    clear: () => grafico,
+    fillStyle: () => grafico,
+    fillPoints: () => grafico,
+    setVisible: () => grafico,
+    setDepth: () => grafico,
+    setPosition: () => grafico,
+    setRotation: () => grafico,
   };
-  return { add: { circle: () => punto } } as unknown as Phaser.Scene;
+  return { add: { graphics: () => grafico } } as unknown as Phaser.Scene;
 }
 
 // Mismo planeta/órbita que grav-6 (tests/unit/gravedad/grav-6.test.ts): un
