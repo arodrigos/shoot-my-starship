@@ -24,7 +24,25 @@ const DELTA_SENSIBILIDAD_GRADOS = 0.5;
 // el error de personalidad, y frente a la duda toca amortiguar de más, nunca
 // disparar con el error completo de un tiro que podría rozar un planeta.
 const SENSIBILIDAD_SIN_DATOS_PX_GRADO = 500;
+// ia-n3: 1.200 es el TECHO DURO que nunca se supera (defensa en profundidad),
+// no el gasto real de un turno normal -- con resolverDisparo costando ~1ms
+// por vuelo, gastar los 1.200 tardaría más de un segundo, muy por encima del
+// techo de 250ms de CPU que exige el mismo criterio. El presupuesto real de
+// cada turno es mucho más bajo (ver decidir.ts), y este techo solo protege
+// contra un llamante que pida explícitamente más de la cuenta.
 export const PRESUPUESTO_VUELOS_RIVAL_DEFAULT = 1200;
+// Cuántos vuelos se apartan SIEMPRE para el refinamiento (3 rondas x 2) y la
+// sonda de sensibilidad (2), antes de dársela a la rejilla -- sin esto, un
+// presupuesto por debajo de TOTAL_COMBINACIONES_REJILLA deja la rejilla
+// entera con todo el presupuesto y apaga las fases 2 y 3 por completo en
+// cuanto el llamante pide menos que la rejilla completa.
+const VUELOS_RESERVADOS_REFINAMIENTO_Y_SENSIBILIDAD = RONDAS_REFINAMIENTO * 2 + 2;
+// Presupuesto real que usa decidir.ts en un turno normal (ia-n3, techo de
+// 250ms de CPU medido en CI): cubre la rejilla entera para las tres potencias
+// centrales (40/55/70%) más una parte de las dos más altas, y dentro de eso
+// siempre le queda hueco al refinamiento y a la sonda -- medido empíricamente
+// para quedar con margen bajo el techo, no en el borde.
+export const PRESUPUESTO_VUELOS_RIVAL_TURNO = 190;
 
 export interface ParametrosBusquedaRival {
   readonly mascara: Mascara;
@@ -109,8 +127,11 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
     return solucionSinNaves();
   }
 
-  const presupuestoMax = params.presupuestoVuelosMax ?? PRESUPUESTO_VUELOS_RIVAL_DEFAULT;
-  const presupuestoRejilla = Math.min(presupuestoMax, TOTAL_COMBINACIONES_REJILLA);
+  const presupuestoMax = params.presupuestoVuelosMax ?? PRESUPUESTO_VUELOS_RIVAL_TURNO;
+  const presupuestoRejilla = Math.min(
+    TOTAL_COMBINACIONES_REJILLA,
+    Math.max(0, presupuestoMax - VUELOS_RESERVADOS_REFINAMIENTO_Y_SENSIBILIDAD),
+  );
   const candidatos = barridoRejilla({ ...params, presupuestoIntentos: presupuestoRejilla });
   let vuelosSimulados = presupuestoRejilla;
 
