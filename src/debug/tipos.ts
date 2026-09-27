@@ -182,6 +182,15 @@ export interface DebugGlobal {
   // pero sin esperar el reloj real entre pasos, para que un test de pool
   // acotado no tenga que reproducir 20 vuelos a velocidad real.
   dispararRafagaTurbo?: (numeroDeDisparos: number) => void;
+  // imp-11: análogo a solucionBalisticaJugador pero para modo espacial, donde
+  // no hay fórmula cerrada -- reutiliza el mismo oráculo real de la IA
+  // (barridoRejilla) para dar un disparo con daño > 0 verificado contra el
+  // resolutor real, nunca una condición de parada propia del test.
+  solucionMultipozoJugador?: () => { anguloGrados: number; potencia: number; danio: number } | null;
+  // imp-11: resuelve un disparo concreto (ángulo/potencia) contra el
+  // resolutor real sin aplicarlo a la partida, para que el test pueda pedir
+  // un fallo garantizado (danio === 0) verificado, no adivinado a ciegas.
+  probarDisparoMultipozoJugador?: (anguloGrados: number, potencia: number) => { danio: number };
 }
 
 declare global {

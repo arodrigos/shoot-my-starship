@@ -11,12 +11,14 @@ import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
 import type { EntradaDeTurno, EstadoPartida, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
-import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
+import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } from "@/sim/armas/resolver";
 import { buscarArma, CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import type { Arma } from "@/sim/armas/tipos";
 import { RADIO_CASCO_NAVE_PX, crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { barridoRejilla } from "@/sim/balistica/rejilla";
+import type { NavePosicion } from "@/sim/naves/impacto";
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { naveContraria } from "@/sim/partida/tipos";
 import { contarPixelesDestruidos } from "@/sim/terreno/estadisticas";
@@ -32,6 +34,7 @@ import { UMBRAL_FALLO_PX, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
 import {
   fijarModoEspacial,
+  obtenerEstadoControl,
   publicarDisparoJugadorResuelto,
   publicarJugable,
   registrarManejadorDisparo,
@@ -40,6 +43,7 @@ import {
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
+import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
@@ -257,6 +261,7 @@ export class Partida extends Phaser.Scene {
     limpiarReaccion();
     limpiarParteDeGuerra();
     reiniciarResultadoTurno();
+    reiniciarIntegridad();
     this.ultimoIntentoIA = null;
     this.fallosConsecutivosIA = 0;
     this.turnosSeguidosSinDanioIA = 0;
@@ -434,6 +439,9 @@ export class Partida extends Phaser.Scene {
     window.__debug.dispararRafagaTurbo = (numero) => this.dispararRafagaTurbo(numero);
     window.__debug.forzarFinDePartida = () => this.forzarFinDePartida();
     window.__debug.solucionBalisticaJugador = () => this.calcularSolucionBalistica(this.estado);
+    window.__debug.solucionMultipozoJugador = () => this.calcularSolucionMultipozo(this.estado);
+    window.__debug.probarDisparoMultipozoJugador = (anguloGrados, potencia) =>
+      this.probarDisparoMultipozo(this.estado, anguloGrados, potencia);
     window.__debug.estadoAudio = () => estadoAudioActual();
     window.__debug.reproducirRepeticion = () => this.reproducirRepeticion();
     window.__debug.repeticionEnCurso = false;
@@ -887,6 +895,11 @@ export class Partida extends Phaser.Scene {
       y: nave.y ?? alturaSuperficie(this.estado.mascara, nave.x) ?? this.estado.mundo.alto - 1,
       integridad: nave.integridad,
     }));
+    // imp-11: el HUD (fuera del lienzo Phaser) necesita enterarse de la
+    // integridad por el mismo canal pub/sub que ya usan resultado-turno y
+    // parte de guerra, no leyendo window.__debug -- eso es lo que el
+    // Gatekeeper señaló como evidencia que no vale (imp-11).
+    publicarIntegridad(this.estado.naves);
   }
 
   private refrescarIndicadorDeriva(): void {
@@ -930,6 +943,75 @@ export class Partida extends Phaser.Scene {
 
     const soluciones = resolverSolucionesBalisticas(origenX, origenCanonY, objetivoX, objetivoSuperficie, estado.mundo.gravedad);
     return soluciones[0] ?? null;
+  }
+
+  // imp-11: naves() de referencia para barridoRejilla/resolverDisparo, con
+  // la misma derivación de Y que ya usan refrescarDebugNaves y
+  // calcularSolucionBalistica.
+  private navesParaOraculo(estado: EstadoPartida): readonly NavePosicion[] {
+    return estado.naves.map((nave, indice) => ({
+      id: indice as IdNave,
+      x: nave.x,
+      y: nave.y ?? alturaSuperficie(estado.mascara, nave.x) ?? estado.mundo.alto - 1,
+    }));
+  }
+
+  // imp-11 (solo para tests e2e): en modo espacial no hay fórmula cerrada
+  // (calcularSolucionBalistica asume deriva/gravedad de suelo plano, no
+  // gravedad multipozo) -- reutiliza el MISMO oráculo real que ya usa la IA
+  // (barridoRejilla, imp-8/ia-multipozo) en vez de inventar una segunda
+  // definición de "acierta". No se usa en ninguna ruta de juego real, solo
+  // por window.__debug para que el test tenga un disparo de impacto
+  // garantizado y verificado contra el resolutor real.
+  private calcularSolucionMultipozo(estado: EstadoPartida): { anguloGrados: number; potencia: number; danio: number } | null {
+    const tirador = estado.turno;
+    const objetivoId = naveContraria(tirador);
+    const candidatos = barridoRejilla({
+      mascara: estado.mascara,
+      ancho: estado.mundo.ancho,
+      alto: estado.mundo.alto,
+      planetas: estado.planetas,
+      gravedad: estado.mundo.gravedad,
+      deriva: estado.mundo.deriva,
+      aleatorio: estado.aleatorio,
+      arma: buscarArma(obtenerEstadoControl().ajuste.armaId),
+      naves: this.navesParaOraculo(estado),
+      tiradorId: tirador,
+      objetivoId,
+    });
+    return candidatos[0] ?? null;
+  }
+
+  // imp-11 (solo para tests e2e): disparo de comprobación con daño exacto
+  // conocido de antemano contra el MISMO resolutor real (resolverDisparo),
+  // no una condición de parada inventada -- así el test puede pedir un tiro
+  // que falle a propósito (danio === 0) sin adivinar ángulo/potencia a
+  // ciegas ni depender de que ningún planeta se cruce por casualidad.
+  private probarDisparoMultipozo(estado: EstadoPartida, anguloGrados: number, potencia: number): { danio: number } {
+    const tirador = estado.turno;
+    const objetivoId = naveContraria(tirador);
+    const naves = this.navesParaOraculo(estado);
+    const tiradorPos = naves.find((nave) => nave.id === tirador)!;
+    const objetivoPos = naves.find((nave) => nave.id === objetivoId)!;
+    const resultado = resolverDisparo({
+      mascara: estado.mascara,
+      gravedad: estado.mundo.gravedad,
+      deriva: estado.mundo.deriva,
+      aleatorio: estado.aleatorio,
+      arma: buscarArma(obtenerEstadoControl().ajuste.armaId),
+      origenX: tiradorPos.x,
+      origenY: tiradorPos.y,
+      anguloGrados,
+      potencia,
+      objetivoX: objetivoPos.x,
+      objetivoY: objetivoPos.y,
+      ancho: estado.mundo.ancho,
+      alto: estado.mundo.alto,
+      planetas: estado.planetas,
+      naves,
+      tiradorId: tirador,
+    });
+    return { danio: resultado.danioObjetivo };
   }
 
   // Solo para forzar la captura de "fin de partida" de render-7: el
