@@ -12,7 +12,7 @@ import { avanzar } from "@/sim/partida/avanzar";
 import type { EntradaDeTurno, EstadoPartida, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
-import { buscarArma } from "@/sim/armas/catalogo";
+import { buscarArma, CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import type { Arma } from "@/sim/armas/tipos";
 import { RADIO_CASCO_NAVE_PX, crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
@@ -125,6 +125,10 @@ const CANTIDAD_PARTICULAS_EXPLOSION = 24;
 // imp-12: bastantes menos partículas y sin color de fuego -- un vistazo
 // basta para distinguir "no ha hecho nada" de un impacto directo.
 const CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO = 8;
+// proy-4: tope duro del pool de la estela -- declarado aquí (no en un
+// fichero de datos) porque es un límite técnico de rendimiento, no un
+// parámetro de diseño de partida como el catálogo de armas.
+const TOPE_PARTICULAS_ESTELA = 40;
 
 interface PuntoFraccion {
   readonly x: number;
@@ -220,6 +224,11 @@ export class Partida extends Phaser.Scene {
   // partículas, gris humo en vez de naranja) en vez de reutilizar el mismo
   // emisor con el mismo aspecto para los dos casos.
   private emisorExplosionSinDanio!: Phaser.GameObjects.Particles.ParticleEmitter;
+  // proy-4: estela de pool ACOTADO -- maxParticles en la config del emisor
+  // (no un contador propio) es lo que garantiza el tope, así que
+  // getAliveParticleCount() nunca puede superarlo, también con varios vuelos
+  // seguidos sin que el pool "en reposo" entre turnos crezca.
+  private emisorEstela!: Phaser.GameObjects.Particles.ParticleEmitter;
   private cancelarManejadorDisparo: (() => void) | null = null;
   private cancelarManejadorRepeticion: (() => void) | null = null;
 
@@ -382,6 +391,25 @@ export class Partida extends Phaser.Scene {
       emitting: false,
     });
 
+    // proy-4: partícula quieta que solo se desvanece (speed 0) -- es un
+    // punto de estela, no una chispa de explosión, así que no debe salir
+    // disparada del punto donde se emite.
+    const lienzoEstela = this.make.graphics({ x: 0, y: 0 });
+    lienzoEstela.fillStyle(0xffe08a, 1);
+    lienzoEstela.fillCircle(2, 2, 2);
+    lienzoEstela.generateTexture("particula-estela", 4, 4);
+    lienzoEstela.destroy();
+    this.emisorEstela = this.add.particles(0, 0, "particula-estela", {
+      lifespan: 220,
+      speed: 0,
+      scale: { start: 0.9, end: 0 },
+      alpha: { start: 0.7, end: 0 },
+      quantity: 0,
+      emitting: false,
+      maxParticles: TOPE_PARTICULAS_ESTELA,
+    });
+    this.emisorEstela.setDepth(40);
+
     window.addEventListener("pointerdown", this.manejarPointerDown);
     this.cancelarManejadorDisparo = registrarManejadorDisparo((entrada) => this.dispararEntrada(entrada, true));
     this.cancelarManejadorRepeticion = registrarManejadorRepeticion(() => this.reproducirRepeticion());
@@ -403,12 +431,16 @@ export class Partida extends Phaser.Scene {
     });
 
     window.__debug.jugarTurnosGuionizados = (numero) => this.jugarTurnosGuionizados(numero);
+    window.__debug.dispararRafagaTurbo = (numero) => this.dispararRafagaTurbo(numero);
     window.__debug.forzarFinDePartida = () => this.forzarFinDePartida();
     window.__debug.solucionBalisticaJugador = () => this.calcularSolucionBalistica(this.estado);
     window.__debug.estadoAudio = () => estadoAudioActual();
     window.__debug.reproducirRepeticion = () => this.reproducirRepeticion();
     window.__debug.repeticionEnCurso = false;
     window.__debug.impactoRepeticion = null;
+    window.__debug.proyectilEnVuelo = null;
+    window.__debug.estela = { vivas: 0, tope: TOPE_PARTICULAS_ESTELA };
+    window.__debug.estelaMaxVivas = 0;
     window.__debug.parteDeGuerra = null;
     window.__debug.ultimosEventos = [];
     window.__debug.dispararReaccionHumor = (tipo) => this.reaccionarAHumor([crearEventoDePruebaHumor(tipo)]);
@@ -438,6 +470,7 @@ export class Partida extends Phaser.Scene {
     this.animadorRepeticion.actualizar(delta);
     window.__debug!.animacionEnCurso = this.animador.enVuelo();
     window.__debug!.repeticionEnCurso = this.animadorRepeticion.enVuelo();
+    this.actualizarEstelaYDebugProyectil();
 
     // humor-1: la cámara sacude durante la reacción a un evento de humor --
     // hay que refrescar el rectángulo visible cada fotograma mientras dura
@@ -450,6 +483,87 @@ export class Partida extends Phaser.Scene {
     window.__debug!.sacudiendoCamara = this.cameras.main.shakeEffect.isRunning;
 
     publicarJugable(this.puedeJugarAhora());
+  }
+
+  // proy-4/proy-5: un único punto que emite la estela del vuelo REAL en
+  // curso (nunca el de repetición: humor-6 lo deja explícitamente fuera de
+  // la partida) y publica su posición y arma al debug -- así ni el pool
+  // acotado ni la comprobación de visibilidad dependen de leer píxeles.
+  private actualizarEstelaYDebugProyectil(): void {
+    const posicion = this.animador.obtenerPosicion();
+    if (posicion) {
+      // emitParticleAt sin recuento explícito usa this.ops.quantity.onEmit(),
+      // que lee la config del emisor (quantity: 0 -- pensada para que no
+      // emita solo por frecuencia) y por tanto no emitía NINGUNA partícula:
+      // el recuento hay que pasarlo aquí, no en la config del emisor.
+      this.emisorEstela.emitParticleAt(posicion.x, posicion.y, 1);
+      const armaId = this.animador.obtenerArmaId() ?? CATALOGO_ARMAS[0].id;
+      window.__debug!.proyectilEnVuelo = { x: posicion.x, y: posicion.y, armaId };
+    } else {
+      window.__debug!.proyectilEnVuelo = null;
+    }
+    const vivas = this.emisorEstela.getAliveParticleCount();
+    window.__debug!.estela = { vivas, tope: TOPE_PARTICULAS_ESTELA };
+    window.__debug!.estelaMaxVivas = Math.max(window.__debug!.estelaMaxVivas ?? 0, vivas);
+  }
+
+  // proy-4 (desviación, ver entregable): un test que dispare 20 vuelos
+  // reales a la velocidad de reproducción normal tardaría minutos bajo WebGL
+  // por software (ver imp-11/imp-12, ~70s por vuelo animado). Esta función
+  // dispara y resuelve turnos reales -- el MISMO dispararEntrada/
+  // aplicarResultadoTurno que un turno jugado a mano, nunca
+  // jugarTurnosGuionizados, que se salta la animación (y por tanto la
+  // estela) por completo -- pero empuja ella misma el reloj de la animación
+  // con Scene.update() en vez de esperar a que el navegador entregue un
+  // requestAnimationFrame real por paso. La trayectoria y la emisión de
+  // partículas son exactamente las mismas que en un turno jugado; solo deja
+  // de esperar el reloj real entre pasos.
+  //
+  // proy-4 (desviación, ver entregable): la solución balística exacta con
+  // un arma de daño real puede terminar la partida (alguien llega a 0 de
+  // integridad) mucho antes de los 20 disparos que pide el criterio -- lo
+  // que se mide aquí es el pool de partículas de la estela a lo largo de 20
+  // disparos reales seguidos, no el desenlace de un combate concreto, así
+  // que cada vez que la partida termina dentro de la ráfaga se repone la
+  // integridad de ambas naves (y el turno, siempre de vuelta al jugador) y
+  // se continúa disparando en el mismo mundo, en vez de cortar la ráfaga.
+  private dispararRafagaTurbo(numeroDeDisparos: number): void {
+    const PASO_TURBO_MS = 32;
+    const objetivoTurno = this.estado.numeroTurno + numeroDeDisparos;
+    let guardia = 0;
+    while (this.estado.numeroTurno < objetivoTurno && guardia < 200_000) {
+      guardia++;
+      if (this.estado.resultado.tipo === "terminada") {
+        // El turno vuelve siempre al jugador (no a quien le tocara cuando
+        // terminó la partida): así la ráfaga sigue avanzando bajo su propio
+        // control sin depender de que la máquina retome un turno que ya no
+        // existe como tal.
+        this.estado = {
+          ...this.estado,
+          resultado: { tipo: "en-curso" },
+          turno: ID_JUGADOR,
+          naves: [
+            { ...this.estado.naves[0], integridad: 100 },
+            { ...this.estado.naves[1], integridad: 100 },
+          ],
+        };
+        this.refrescarDebugNaves();
+      } else if (this.puedeJugarAhora()) {
+        const solucion = this.calcularSolucionBalistica(this.estado);
+        const ajuste = solucion ?? { anguloGrados: 45, potencia: 55 };
+        this.dispararEntrada(
+          { arma: CATALOGO_ARMAS[0].id, anguloGrados: ajuste.anguloGrados, potencia: ajuste.potencia },
+          true,
+        );
+      } else if (this.animador.enVuelo() || this.animadorRepeticion.enVuelo()) {
+        this.update(0, PASO_TURBO_MS);
+      } else {
+        // No debería ocurrir: dispararTurnoIA se encadena en el propio
+        // onComplete del disparo del jugador. Guardia defensiva contra girar
+        // en vacío en vez de colgar el test.
+        break;
+      }
+    }
   }
 
   private puedeJugarAhora(): boolean {

@@ -51,6 +51,10 @@ export class AnimadorProyectil {
   // casco muchos pasos antes, congelando el turno en cliente con WebGL por
   // software.
   private rastreadorNaves: RastreadorImpactoNaves | undefined;
+  // proy-4/proy-5: el arma con la que se disparó este vuelo -- para que la
+  // estela sepa de dónde salir y el debug de visibilidad pueda comprobar que
+  // la silueta que ve el jugador corresponde al arma seleccionada.
+  private armaActual: Arma | undefined;
 
   constructor(escena: Phaser.Scene) {
     this.punto = escena.add.graphics().setVisible(false).setDepth(50);
@@ -58,6 +62,17 @@ export class AnimadorProyectil {
 
   enVuelo(): boolean {
     return this.proyectil !== null;
+  }
+
+  // proy-4/proy-5: posición y arma del vuelo en curso, para que Partida.ts
+  // pueda emitir la estela y exponer el punto real al debug sin que este
+  // módulo tenga que saber nada de Phaser Particles ni de window.__debug.
+  obtenerPosicion(): { x: number; y: number } | null {
+    return this.proyectil ? { x: this.proyectil.x, y: this.proyectil.y } : null;
+  }
+
+  obtenerArmaId(): string | undefined {
+    return this.armaActual?.id;
   }
 
   // Dibuja la silueta local del arma (morro en +x) UNA sola vez por
@@ -93,6 +108,7 @@ export class AnimadorProyectil {
     this.detenerse = detenerse;
     this.alTerminar = alTerminar;
     this.rastreadorNaves = rastreadorNaves;
+    this.armaActual = arma;
     this.acumulador = acumuladorInicial();
     this.anguloActualRad = Math.atan2(inicial.vy, inicial.vx);
     this.dibujarSilueta(arma);
