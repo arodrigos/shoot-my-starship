@@ -24,6 +24,16 @@ const DELTA_SENSIBILIDAD_GRADOS = 0.5;
 // el error de personalidad, y frente a la duda toca amortiguar de más, nunca
 // disparar con el error completo de un tiro que podría rozar un planeta.
 const SENSIBILIDAD_SIN_DATOS_PX_GRADO = 500;
+// ia-n4b: la sonda de ángulo NO basta -- el error de potencia de una
+// personalidad (Almirante Bisagra, siempre +8 a +20%) puede caer justo sobre
+// el umbral de alcance de un tiro con gravedad, donde 1 punto de potencia
+// mueve el impacto muchísimo más que en terreno despejado, y ese umbral no
+// tiene por qué coincidir con dónde el ángulo es sensible. Se mide aparte,
+// con su propia sonda y su propia referencia (percance real de ia-n4:
+// Almirante Bisagra salía con más dispersión media que Chispa en 200
+// sistemas multipozo hasta que esto se separó del factor de ángulo).
+const DELTA_SENSIBILIDAD_POTENCIA = 1;
+const SENSIBILIDAD_SIN_DATOS_PX_PORCENTAJE = 500;
 // ia-n3: 1.200 es el TECHO DURO que nunca se supera (defensa en profundidad),
 // no el gasto real de un turno normal -- con resolverDisparo costando ~1ms
 // por vuelo, gastar los 1.200 tardaría más de un segundo, muy por encima del
@@ -31,18 +41,19 @@ const SENSIBILIDAD_SIN_DATOS_PX_GRADO = 500;
 // cada turno es mucho más bajo (ver decidir.ts), y este techo solo protege
 // contra un llamante que pida explícitamente más de la cuenta.
 export const PRESUPUESTO_VUELOS_RIVAL_DEFAULT = 1200;
-// Cuántos vuelos se apartan SIEMPRE para el refinamiento (3 rondas x 2) y la
-// sonda de sensibilidad (2), antes de dársela a la rejilla -- sin esto, un
-// presupuesto por debajo de TOTAL_COMBINACIONES_REJILLA deja la rejilla
-// entera con todo el presupuesto y apaga las fases 2 y 3 por completo en
-// cuanto el llamante pide menos que la rejilla completa.
-const VUELOS_RESERVADOS_REFINAMIENTO_Y_SENSIBILIDAD = RONDAS_REFINAMIENTO * 2 + 2;
+// Cuántos vuelos se apartan SIEMPRE para el refinamiento (3 rondas x 2) y las
+// dos sondas de sensibilidad (2 de ángulo + 2 de potencia), antes de dársela
+// a la rejilla -- sin esto, un presupuesto por debajo de
+// TOTAL_COMBINACIONES_REJILLA deja la rejilla entera con todo el presupuesto
+// y apaga las fases 2 y 3 por completo en cuanto el llamante pide menos que
+// la rejilla completa.
+const VUELOS_RESERVADOS_REFINAMIENTO_Y_SENSIBILIDAD = RONDAS_REFINAMIENTO * 2 + 2 + 2;
 // Presupuesto real que usa decidir.ts en un turno normal (ia-n3, techo de
 // 250ms de CPU medido en CI): cubre la rejilla entera para las tres potencias
 // centrales (40/55/70%) más una parte de las dos más altas, y dentro de eso
-// siempre le queda hueco al refinamiento y a la sonda -- medido empíricamente
-// para quedar con margen bajo el techo, no en el borde.
-export const PRESUPUESTO_VUELOS_RIVAL_TURNO = 190;
+// siempre le queda hueco al refinamiento y a las dos sondas -- medido
+// empíricamente para quedar con margen bajo el techo, no en el borde.
+export const PRESUPUESTO_VUELOS_RIVAL_TURNO = 192;
 
 export interface ParametrosBusquedaRival {
   readonly mascara: Mascara;
@@ -71,6 +82,10 @@ export interface SolucionRival {
   readonly potencia: number;
   readonly danioObjetivo: number;
   readonly sensibilidadPxPorGrado: number;
+  // px 2D que se mueve el punto de impacto por punto porcentual de potencia
+  // (ia-n4b): separado de sensibilidadPxPorGrado porque el umbral de alcance
+  // de un tiro con gravedad no tiene por qué coincidir en ángulo y potencia.
+  readonly sensibilidadPxPorPorcentajePotencia: number;
   readonly vuelosSimulados: number;
   // true si se agotó el presupuesto sin encontrar ningún disparo con daño
   // real (ia-n3): el llamante recibe igualmente un mejor esfuerzo, nunca una
@@ -108,6 +123,7 @@ function solucionSinNaves(): SolucionRival {
     potencia: 70,
     danioObjetivo: 0,
     sensibilidadPxPorGrado: SENSIBILIDAD_SIN_DATOS_PX_GRADO,
+    sensibilidadPxPorPorcentajePotencia: SENSIBILIDAD_SIN_DATOS_PX_PORCENTAJE,
     vuelosSimulados: 0,
     agotado: false,
   };
@@ -136,7 +152,7 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
   let vuelosSimulados = presupuestoRejilla;
 
   let mejorAngulo = candidatos[0]?.anguloGrados ?? 90;
-  let mejorPotencia = candidatos[0]?.potencia ?? 70;
+  const mejorPotencia = candidatos[0]?.potencia ?? 70;
   let mejorDanio = candidatos[0]?.danio ?? 0;
   const huboCandidato = candidatos.length > 0;
 
@@ -185,11 +201,32 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
     }
   }
 
+  // Fase 4: sonda de sensibilidad de potencia -- misma idea que la de ángulo,
+  // pero perturbando potencia (acotada a [0, 100]: el denominador usa el
+  // delta REAL tras el recorte, no 2*DELTA_SENSIBILIDAD_POTENCIA, para no
+  // subestimar la sensibilidad justo en el candidato de potencia 100%).
+  let sensibilidadPxPorPorcentajePotencia = SENSIBILIDAD_SIN_DATOS_PX_PORCENTAJE;
+  if (huboCandidato && vuelosSimulados + 2 <= presupuestoMax) {
+    const potenciaMenos = Math.max(0, mejorPotencia - DELTA_SENSIBILIDAD_POTENCIA);
+    const potenciaMas = Math.min(100, mejorPotencia + DELTA_SENSIBILIDAD_POTENCIA);
+    const menos = volar(params, tirador, objetivo, mejorAngulo, potenciaMenos);
+    vuelosSimulados++;
+    const mas = volar(params, tirador, objetivo, mejorAngulo, potenciaMas);
+    vuelosSimulados++;
+    const puntoMenos = menos.puntosDeImpacto[0];
+    const puntoMas = mas.puntosDeImpacto[0];
+    const deltaReal = potenciaMas - potenciaMenos;
+    if (puntoMenos && puntoMas && deltaReal > 0) {
+      sensibilidadPxPorPorcentajePotencia = Math.hypot(puntoMas.x - puntoMenos.x, puntoMas.y - puntoMenos.y) / deltaReal;
+    }
+  }
+
   return {
     anguloGrados: mejorAngulo,
     potencia: mejorPotencia,
     danioObjetivo: mejorDanio,
     sensibilidadPxPorGrado,
+    sensibilidadPxPorPorcentajePotencia,
     vuelosSimulados,
     agotado: vuelosSimulados >= presupuestoMax && mejorDanio <= 0,
   };

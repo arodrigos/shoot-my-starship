@@ -91,17 +91,27 @@ function valorEnRango(rango: RangoDeError, unidad: number): number {
 // Expuesta aparte (y no inlineada en decidirTurnoIA) para que ia-4 pueda
 // recalcular el error esperado de forma independiente, con la misma semilla,
 // y comparar bit a bit contra lo que produjo decidirTurnoIA.
+//
+// ia-n4b: factorCorreccionPotencia es un segundo factor, independiente del de
+// ángulo -- en terreno llano (o si el llamante no lo pasa) es el mismo que
+// factorCorreccionAngulo, bit a bit igual que siempre (ia-4 original). En
+// modo multipozo cada eje se amortigua con SU PROPIA sensibilidad medida
+// (decidirTurnoIA): el umbral de alcance de un tiro con gravedad no cae
+// necesariamente en el mismo sitio en ángulo que en potencia, y confundir los
+// dos dejaba a Almirante Bisagra (error de potencia grande y siempre
+// positivo) con más dispersión media que Chispa en sistemas reales.
 export function calcularErrorInyectado(
   personalidad: Personalidad,
   aleatorio: EstadoAleatorio,
-  factorCorreccion: number = 1,
+  factorCorreccionAngulo: number = 1,
+  factorCorreccionPotencia: number = factorCorreccionAngulo,
 ): { readonly error: ErrorInyectado; readonly aleatorio: EstadoAleatorio } {
   const pasoAngulo = siguienteAleatorio(aleatorio);
   const pasoPotencia = siguienteAleatorio(pasoAngulo.estado);
   return {
     error: {
-      anguloGrados: valorEnRango(personalidad.error.anguloGrados, pasoAngulo.valor) * factorCorreccion,
-      potencia: valorEnRango(personalidad.error.potencia, pasoPotencia.valor) * factorCorreccion,
+      anguloGrados: valorEnRango(personalidad.error.anguloGrados, pasoAngulo.valor) * factorCorreccionAngulo,
+      potencia: valorEnRango(personalidad.error.potencia, pasoPotencia.valor) * factorCorreccionPotencia,
     },
     aleatorio: pasoPotencia.estado,
   };
@@ -196,9 +206,36 @@ function elegirMejorEsfuerzo(intentos: readonly IntentoBalistico[], origenX: num
 export const SENSIBILIDAD_REFERENCIA_PX_GRADO = 6;
 const FACTOR_SENSIBILIDAD_MINIMO = 0.15;
 
-export function calcularFactorSensibilidad(sensibilidadPxPorGrado: number): number {
-  if (sensibilidadPxPorGrado <= SENSIBILIDAD_REFERENCIA_PX_GRADO) return 1;
-  return Math.max(FACTOR_SENSIBILIDAD_MINIMO, SENSIBILIDAD_REFERENCIA_PX_GRADO / sensibilidadPxPorGrado);
+export function calcularFactorSensibilidad(sensibilidadMedida: number, referencia: number = SENSIBILIDAD_REFERENCIA_PX_GRADO): number {
+  if (sensibilidadMedida <= referencia) return 1;
+  return Math.max(FACTOR_SENSIBILIDAD_MINIMO, referencia / sensibilidadMedida);
+}
+
+// ia-n4b: en potencia, a diferencia del ángulo, la MAGNITUD del rango de
+// error varía muchísimo entre personalidades (2.4 puntos en La Contable,
+// hasta 20 en Almirante Bisagra, siempre en el mismo sentido -- "se pasa de
+// fuerza"). Amortiguar con el mismo factor para todas, como en ángulo, deja
+// el desvío final de Bisagra proporcionalmente más grande que el de Chispa
+// en cualquier zona sensible (medido: rompe el orden que exige el diseño).
+// Se normaliza por la magnitud máxima del rango de CADA personalidad para
+// apuntar al mismo desvío en píxeles de salida, no al mismo porcentaje de
+// recorte del error crudo.
+const REFERENCIA_SALIDA_PX_POTENCIA = 5;
+// El suelo también se normaliza por magnitud -- un suelo plano (como en
+// ángulo) deja, en la zona más sensible, el mismo "recorte" proporcional
+// para las dos, así que el error crudo residual de Bisagra (8 a 20 puntos)
+// vuelve a ser varias veces el de Chispa (±5.5) SOLO por partir de un rango
+// más grande, deshaciendo la normalización de arriba justo donde más pesa
+// en la media (ia-n4b medido: sin esto, el suelo domina y el orden no se
+// recupera). El suelo fija el mismo error crudo mínimo (en puntos) para
+// cualquier personalidad, no la misma fracción de su rango.
+const PISO_ERROR_CRUDO_PUNTOS_POTENCIA = 0.3;
+
+export function calcularFactorSensibilidadPotencia(sensibilidadMedida: number, magnitudMaximaError: number): number {
+  if (magnitudMaximaError <= 0 || sensibilidadMedida <= 0) return 1;
+  const factorMinimo = PISO_ERROR_CRUDO_PUNTOS_POTENCIA / magnitudMaximaError;
+  const factor = REFERENCIA_SALIDA_PX_POTENCIA / (sensibilidadMedida * magnitudMaximaError);
+  return Math.min(1, Math.max(factorMinimo, factor));
 }
 
 export interface ParametrosDecisionIA {
@@ -287,7 +324,7 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
 
   let bloqueada: boolean;
   let solucionExacta: SolucionBalistica;
-  let factorSensibilidad = 1;
+  const factorSensibilidad = 1;
   const turnosSeguidosSinDanio = ultimoIntento?.turnosSeguidosSinDanio ?? 0;
 
   if (enModoMultipozo) {
@@ -317,12 +354,28 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
       presupuestoVuelosMax,
     });
     solucionExacta = { anguloGrados: resultadoBusqueda.anguloGrados, potencia: resultadoBusqueda.potencia };
-    factorSensibilidad = calcularFactorSensibilidad(resultadoBusqueda.sensibilidadPxPorGrado);
+    // ia-n4b: un factor por eje -- el umbral de alcance de un tiro con
+    // gravedad no cae necesariamente en el mismo sitio en ángulo que en
+    // potencia (ver busquedaMultipozo.ts).
+    const factorSensibilidadAngulo = calcularFactorSensibilidad(resultadoBusqueda.sensibilidadPxPorGrado);
+    const magnitudMaximaErrorPotencia = Math.max(
+      Math.abs(personalidad.error.potencia.minimo),
+      Math.abs(personalidad.error.potencia.maximo),
+    );
+    const factorSensibilidadPotencia = calcularFactorSensibilidadPotencia(
+      resultadoBusqueda.sensibilidadPxPorPorcentajePotencia,
+      magnitudMaximaErrorPotencia,
+    );
 
     const fallosParaCorregir =
       ultimoIntento?.fallosConsecutivos ?? (ultimoIntento && ultimoIntento.distanciaAlObjetivoPx > UMBRAL_FALLO_PX ? 1 : 0);
-    const factorCorreccion = FACTOR_DE_CORRECCION ** fallosParaCorregir * factorSensibilidad;
-    const { error, aleatorio: aleatorioFinal } = calcularErrorInyectado(personalidad, aleatorioTrasArma, factorCorreccion);
+    const factorBaseCorreccion = FACTOR_DE_CORRECCION ** fallosParaCorregir;
+    const { error, aleatorio: aleatorioFinal } = calcularErrorInyectado(
+      personalidad,
+      aleatorioTrasArma,
+      factorBaseCorreccion * factorSensibilidadAngulo,
+      factorBaseCorreccion * factorSensibilidadPotencia,
+    );
 
     const anguloGrados = Math.min(180, Math.max(0, solucionExacta.anguloGrados + error.anguloGrados));
     const potencia = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));
