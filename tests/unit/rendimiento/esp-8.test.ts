@@ -1,3 +1,4 @@
+import "../../entorno-phaser.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type Phaser from "phaser";
@@ -16,12 +17,16 @@ import { PASO_FIJO_MS } from "@/sim/tiempo";
 // construye con ParametrosForzados para no depender de encontrar una
 // semilla con suerte.
 function crearEscenaDeMentira(): Phaser.Scene {
-  const punto = {
-    setVisible: () => punto,
-    setDepth: () => punto,
-    setPosition: () => punto,
+  const grafico = {
+    clear: () => grafico,
+    fillStyle: () => grafico,
+    fillPoints: () => grafico,
+    setVisible: () => grafico,
+    setDepth: () => grafico,
+    setPosition: () => grafico,
+    setRotation: () => grafico,
   };
-  return { add: { circle: () => punto } } as unknown as Phaser.Scene;
+  return { add: { graphics: () => grafico } } as unknown as Phaser.Scene;
 }
 
 const MUNDO_ANCHO = 1920;
