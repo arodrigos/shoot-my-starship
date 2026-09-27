@@ -70,3 +70,18 @@ normales, como cualquier nombre propio.
 - The Martian
 - Gravity Falls
 - Portal
+
+<!-- armas-nuevas (arm-7): ampliación a nombres propios de planetas, sistemas,
+     naves y armas de otras franquicias -- no solo el título de la obra. -->
+- Tatooine
+- Coruscant
+- Alderaan
+- Vulcano
+- Arrakis
+- Trantor
+- Millennium Falcon
+- Enterprise
+- Serenity
+- Normandy
+- BFG 9000
+- Death Star

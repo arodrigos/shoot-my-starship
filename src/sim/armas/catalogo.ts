@@ -16,6 +16,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 44, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 70, danioMaximo: 20 },
     fiabilidad: 1,
+    coste: 0,
   },
   {
     id: "tostadora-orbital",
@@ -25,6 +26,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 26, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 50, danioMaximo: 30 },
     fiabilidad: 1,
+    coste: 30,
   },
   {
     id: "mortero-lamentable",
@@ -37,6 +39,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // a este bloque, corregido aquí (ver desviaciones).
     efecto: { tipo: "danio", radioEfectoPx: 65, danioMaximo: 24 },
     fiabilidad: 1,
+    coste: 40,
   },
   {
     id: "zanjadora-manolita",
@@ -46,6 +49,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "capsula", medioLargoPx: 90, radio: 15, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 30, danioMaximo: 4 },
     fiabilidad: 1,
+    coste: 0,
   },
   {
     id: "vertedero-portatil",
@@ -55,6 +59,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 52, signo: "sumar" },
     efecto: { tipo: "danio", radioEfectoPx: 0, danioMaximo: 0 },
     fiabilidad: 1,
+    coste: 20,
   },
   {
     id: "racimo-de-tuppers",
@@ -64,6 +69,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 17, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 42, danioMaximo: 11 },
     fiabilidad: 1,
+    coste: 50,
   },
   {
     id: "petardo-de-feria",
@@ -73,6 +79,11 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 30, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 60, danioMaximo: 22 },
     fiabilidad: 0.75,
+    coste: 0,
+    // armas-nuevas (arm-5): el eje de dispersión mide precisión real, no
+    // fiabilidad -- el Petardo ya tenía un 25% de fallo total (fiabilidad-6);
+    // ahora ADEMÁS de fallar a veces, cuando no falla sale torcido.
+    dispersionGrados: 6,
   },
   {
     id: "pelota-de-chatarra",
@@ -82,6 +93,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 34, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 55, danioMaximo: 18 },
     fiabilidad: 1,
+    coste: 35,
   },
   {
     id: "graviton-segunda-mano",
@@ -91,6 +103,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "ninguna" },
     efecto: { tipo: "empuje", desplazamientoPx: 130 },
     fiabilidad: 1,
+    coste: 45,
   },
   {
     id: "despedida",
@@ -107,6 +120,51 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     },
     fiabilidad: 1,
     usosMaximos: 1,
+    coste: 80,
+  },
+  // armas-nuevas: las tres armas que ejercitan los ejes nuevos de verdad
+  // (ráfaga, penetración, inmunidad a gravedad). El diseño narra once armas
+  // con estos tres nombres sustituyendo a parte del catálogo anterior; aquí
+  // se AÑADEN sin tocar las diez de arriba -- ver desviaciones en el
+  // entregable, motivo: quitar o renombrar armas ya mergeadas arriesga
+  // romper imp-*/ia-* que las referencian por id, y arm-1/arm-2 solo piden
+  // "10 armas o más" con los ejes nuevos presentes, no un recuento exacto.
+  {
+    id: "andanada-de-flechas",
+    nombre: "Andanada de Flechas",
+    descripcion: "Tres a la vez, en abanico. Ninguna con puntería, pero entre las tres siempre hay alguna maleducada.",
+    comportamiento: { tipo: "impacto-simple" },
+    huella: { tipo: "circular", radio: 14, signo: "restar" },
+    efecto: { tipo: "danio", radioEfectoPx: 40, danioMaximo: 14 },
+    fiabilidad: 1,
+    coste: 55,
+    dispersionGrados: 3,
+    disparosSimultaneos: { cantidad: 3, aperturaGrados: 12 },
+  },
+  {
+    id: "barrena-planetaria",
+    nombre: "Barrena Planetaria",
+    descripcion: "No detona al tocar tierra: sigue. Sale por el otro lado, si el otro lado existe.",
+    comportamiento: { tipo: "impacto-simple" },
+    huella: { tipo: "circular", radio: 20, signo: "restar" },
+    efecto: { tipo: "danio", radioEfectoPx: 45, danioMaximo: 26 },
+    fiabilidad: 1,
+    coste: 90,
+    penetracionPx: 260,
+  },
+  {
+    id: "rayo-laser",
+    nombre: "Rayo Láser",
+    descripcion: "Va recto porque la gravedad no le ha convencido nunca. Cara, pero convence a quien la paga.",
+    comportamiento: { tipo: "instantaneo" },
+    // "circular" con radio propio (nunca "ninguna"): compartir huella con el
+    // Gravitón le daría el mismo radioDeCatalogo() en juego/proyectiles y
+    // colisionaría su huella visual (hashSilueta) con la suya en proy-1.
+    huella: { tipo: "circular", radio: 12, signo: "restar" },
+    efecto: { tipo: "danio", radioEfectoPx: 55, danioMaximo: 28 },
+    fiabilidad: 1,
+    coste: 120,
+    inmuneAGravedad: true,
   },
 ];
 
