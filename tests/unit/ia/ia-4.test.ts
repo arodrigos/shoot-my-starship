@@ -70,6 +70,7 @@ test("ia-4: el impacto de la IA es el mismo que produciría un jugador disparand
     anguloGrados: decision.entrada.anguloGrados,
     potencia: decision.entrada.potencia,
     objetivoX: OBJETIVO_X,
+    objetivoY: 900,
     ancho: ANCHO,
     alto: ALTO,
   });

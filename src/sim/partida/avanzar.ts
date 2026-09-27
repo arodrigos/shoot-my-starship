@@ -51,6 +51,26 @@ export function avanzar(
 
   const naveTiradora = estado.naves[tirador];
   const naveObjetivo = estado.naves[objetivoId];
+  const objetivoY = naveObjetivo.y ?? alturaSuperficie(estado.mascara, naveObjetivo.x) ?? estado.mundo.alto - 1;
+  // impacto-naves (imp-1..imp-9): el casco como cuerpo de colisión es un
+  // mecanismo del sistema ESPACIAL -- el diseño entero de este bloque habla
+  // de naves flotando entre planetas, nunca del suelo plano heredado de
+  // nucleo-turnos. Con nave.y presente en las DOS naves (modo espacial) se
+  // arma el rastreador; en suelo plano (nave.y ausente) se sigue sin cuerpo
+  // de colisión, exactamente como antes de este bloque -- solo las armas que
+  // ya rebotaban/rodaban lo hacían por terreno, nunca por una nave. La
+  // ganancia real de este bloque en suelo plano es solo el daño en 2D real
+  // (imp-3), no el casco.
+  const modoEspacial = naveTiradora.y !== undefined && naveObjetivo.y !== undefined;
+  // impacto-naves (imp-1): solo las naves VIVAS son cuerpo de colisión --
+  // una nave ya a 0 de integridad (posible en un "danio-y-autodanio" del
+  // turno anterior que aún no cerró partida) no detiene ningún vuelo.
+  const navesVivas = modoEspacial
+    ? estado.naves
+        .map((nave, id) => ({ id: id as IdNave, nave }))
+        .filter(({ nave }) => nave.integridad > 0)
+        .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }))
+    : undefined;
 
   const resultado = resolverDisparo({
     mascara: estado.mascara,
@@ -63,9 +83,12 @@ export function avanzar(
     anguloGrados: entrada.anguloGrados,
     potencia: entrada.potencia,
     objetivoX: naveObjetivo.x,
+    objetivoY,
     ancho: estado.mundo.ancho,
     alto: estado.mundo.alto,
     planetas: estado.planetas,
+    naves: navesVivas,
+    tiradorId: tirador,
   });
 
   // LA DECISIÓN DECLARADA: la masa viaja congelada durante todo el vuelo
@@ -102,10 +125,29 @@ export function avanzar(
   }
 
   let tiradorTrasDisparo = naveTiradora;
+  let integridadTirador = naveTiradora.integridad;
   if (resultado.danioPropio > 0) {
-    tiradorTrasDisparo = conIntegridad(naveTiradora, naveTiradora.integridad - resultado.danioPropio);
+    integridadTirador -= resultado.danioPropio;
     eventos.push({ tipo: "impacto", x: naveTiradora.x, y: resultado.origenY, objetivo: tirador, danio: resultado.danioPropio });
     eventos.push({ tipo: "autoimpacto", nave: tirador, danio: resultado.danioPropio });
+  }
+  // impacto-naves (imp-5): autoimpacto por gravedad -- SEPARADO del
+  // danioPropio de arriba (Despedida, autodaño fijo garantizado por
+  // catálogo en cada disparo). Este solo ocurre cuando el vuelo real ha
+  // detenido el proyectil de verdad sobre el propio casco, tras su gracia.
+  if (resultado.impactoPropio) {
+    integridadTirador -= resultado.impactoPropio.danio;
+    eventos.push({
+      tipo: "impacto",
+      x: resultado.impactoPropio.x,
+      y: resultado.impactoPropio.y,
+      objetivo: tirador,
+      danio: resultado.impactoPropio.danio,
+    });
+    eventos.push({ tipo: "autoimpacto", nave: tirador, danio: resultado.impactoPropio.danio });
+  }
+  if (resultado.danioPropio > 0 || resultado.impactoPropio) {
+    tiradorTrasDisparo = conIntegridad(naveTiradora, integridadTirador);
   }
 
   // humor-sistemico: derrumbe-bajo-el-lider se evalúa sobre quien iba en
@@ -133,9 +175,12 @@ export function avanzar(
       anguloGrados: entrada.anguloGrados,
       potencia: entrada.potencia,
       objetivoX: naveObjetivo.x,
+      objetivoY,
       ancho: estado.mundo.ancho,
       alto: estado.mundo.alto,
       planetas: estado.planetas,
+      naves: navesVivas,
+      tiradorId: tirador,
     });
     if (huboDerivaTraiciona(resultado, resultadoSinDeriva)) {
       eventos.push({ tipo: "deriva-traiciona", nave: tirador });
@@ -147,7 +192,7 @@ export function avanzar(
       naveTiradora.x,
       resultado.origenY,
       naveObjetivo.x,
-      naveObjetivo.y ?? alturaSuperficie(estado.mascara, naveObjetivo.x) ?? estado.mundo.alto - 1,
+      objetivoY,
       estado.mundo.gravedad,
       entrada.potencia,
       entrada.anguloGrados,

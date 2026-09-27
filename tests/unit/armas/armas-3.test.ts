@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buscarArma } from "@/sim/armas/catalogo";
-import { resolverDisparo } from "@/sim/armas/resolver";
+import { alturaSuperficie, resolverDisparo } from "@/sim/armas/resolver";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
 import { crearMascaraVacia, SOLIDO, type Mascara } from "@/sim/terreno/mascara";
@@ -65,6 +65,7 @@ test("armas-3: Vertedero Portátil aumenta el número de píxeles sólidos del t
     origenX,
     anguloGrados,
     potencia,
+    objetivoY: 400,
     objetivoX,
     ancho: ANCHO,
     alto: ALTO,
@@ -91,6 +92,7 @@ test("armas-3: la huella de la Zanjadora Manolita es al menos 3 veces más ancha
     origenX,
     anguloGrados,
     potencia,
+    objetivoY: 400,
     objetivoX,
     ancho: ANCHO,
     alto: ALTO,
@@ -114,7 +116,8 @@ test("armas-3: la Pelota de Chatarra rueda al menos 40px antes de detonar, sobre
   const armaSimple = buscarArma("pepinazo-cortesia");
   const armaRodante = buscarArma("pelota-de-chatarra");
 
-  const parametrosComunes = { mascara, gravedad: 1.0, deriva: 0, origenX, anguloGrados, potencia, objetivoX, ancho: ANCHO, alto: ALTO };
+  const objetivoY = alturaSuperficie(mascara, objetivoX) ?? ALTO - 1;
+  const parametrosComunes = { mascara, gravedad: 1.0, deriva: 0, origenX, anguloGrados, potencia, objetivoX, objetivoY, ancho: ANCHO, alto: ALTO };
   const resultadoSimple = resolverDisparo({ ...parametrosComunes, aleatorio: crearEstadoAleatorio(1), arma: armaSimple });
   const resultadoRodante = resolverDisparo({ ...parametrosComunes, aleatorio: crearEstadoAleatorio(1), arma: armaRodante });
 

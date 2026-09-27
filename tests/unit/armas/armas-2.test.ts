@@ -42,6 +42,7 @@ test("armas-2: el catálogo tiene al menos 10 armas y ninguna produce el mismo p
       anguloGrados,
       potencia,
       objetivoX,
+      objetivoY: 900,
       ancho: ANCHO,
       alto: ALTO,
     });

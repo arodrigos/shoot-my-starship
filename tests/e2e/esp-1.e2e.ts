@@ -17,20 +17,36 @@ import { ANGULO_INICIAL_GRADOS, POTENCIA_INICIAL, GANANCIA_ANGULO_GRADOS, GANANC
 // impacto o en "perdido en órbita" declarado -- nunca en una excepción ni en
 // una animación que no termina. El turno debe avanzar en cualquier caso.
 //
-// Ángulo y potencia (56°, 54%) no son arbitrarios: se buscaron por barrido
+// Ángulo y potencia (72.5°, 79%) no son arbitrarios: se buscaron por barrido
 // exhaustivo sobre exactamente la misma física que usa el juego real
-// (simularVuelo, ver scratch-buscar-tiro.mts descartado tras encontrarlos)
-// para garantizar, para la semilla por defecto, un disparo que SÍ impacta
-// dentro del mundo (no se pierde en órbita ni sale por el borde) y que se
-// desvía holgadamente más de 40px de su equivalente sin planetas.
-const ANGULO_OBJETIVO_GRADOS = 56;
-const POTENCIA_OBJETIVO = 54;
+// (simularVuelo, ver scripts/zzz-buscar-tiro.mts descartado tras
+// encontrarlos) para garantizar, para la semilla por defecto y la
+// colocación de naves actual, un disparo que SÍ impacta dentro del mundo
+// (no se pierde en órbita ni sale por el borde) y que se desvía holgadamente
+// más de 40px de su equivalente sin planetas -- de hecho, sin planetas este
+// disparo concreto sale del mundo por arriba (línea recta, sin nada que lo
+// frene) y son los planetas los que lo capturan y lo hacen impactar dentro
+// del mapa, así que la desviación real es de miles de píxeles, no docenas.
+//
+// impacto-naves (bloque 8, declarado en desviaciones del entregable de
+// Desarrollo): estos valores sustituyen a los (56°, 54%) originales de
+// render-espacio -- el oráculo de colocación real de casco (imp-8/imp-9) es
+// más exigente que la vieja comprobación por proximidad y ya no acepta la
+// misma colocación de naves para la semilla por defecto, así que el origen
+// del disparo cambió y el ángulo/potencia calibrados dejaron de valer.
+const ANGULO_OBJETIVO_GRADOS = 72.5;
+const POTENCIA_OBJETIVO = 79;
 const DESVIO_MINIMO_PX = 40;
 
 test("apuntar y disparar produce un vuelo curvado por la gravedad planetaria que termina en impacto y avanza el turno", async ({
   page,
 }) => {
-  test.setTimeout(60000);
+  // Ver control-1: bajo WebGL por software y contención de CPU, un vuelo con
+  // planetas puede consumir buena parte de su presupuesto de 12s simulados en
+  // tiempo real (bloque impacto-naves: se midió hasta ~80s reales para este
+  // ángulo/potencia concretos bajo contención alta), muy por encima de los
+  // 60s por defecto.
+  test.setTimeout(150000);
   await page.goto("/");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
@@ -86,7 +102,7 @@ test("apuntar y disparar produce un vuelo curvado por la gravedad planetaria que
   await page.waitForFunction(
     (antes) => window.__debug.numeroTurno! > antes,
     numeroTurnoAntes,
-    { timeout: 30000 },
+    { timeout: 120000 },
   );
 
   const eventos = await page.evaluate(() => window.__debug.ultimosEventos);

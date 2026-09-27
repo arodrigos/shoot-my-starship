@@ -54,6 +54,7 @@ test("ia-1: sin deriva, sin obstáculos y con error 0, 200 disparos a posiciones
       origenX: ORIGEN_X,
       anguloGrados: mejor.solucion.anguloGrados,
       potencia: mejor.solucion.potencia,
+      objetivoY: ALTURA_SUELO,
       objetivoX,
       ancho: ANCHO,
       alto: ALTO,

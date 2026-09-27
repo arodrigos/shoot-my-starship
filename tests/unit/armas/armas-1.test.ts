@@ -44,6 +44,7 @@ test("armas-1: una arma declarada como dato puro, no importada del catálogo, pr
     anguloGrados: solucionLoboAlto.anguloGrados,
     potencia: solucionLoboAlto.potencia,
     objetivoX,
+    objetivoY: 900,
     ancho: ANCHO,
     alto: ALTO,
   });

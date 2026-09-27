@@ -23,6 +23,7 @@ function distanciaDisparo(mascara: ReturnType<typeof crearMascaraPlana>, anguloG
     origenX: ORIGEN_X,
     anguloGrados,
     potencia,
+    objetivoY: 900,
     objetivoX: OBJETIVO_X,
     ancho: ANCHO,
     alto: ALTO,

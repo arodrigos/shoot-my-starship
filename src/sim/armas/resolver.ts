@@ -7,10 +7,16 @@ import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { resolverCaida } from "@/sim/terreno/caida";
 import { esSolido, type Mascara } from "@/sim/terreno/mascara";
 import { aplicarHuellaCapsula, aplicarHuellaCircular } from "@/sim/terreno/huella";
+import { crearRastreadorImpactoNaves, type NavePosicion, type RastreadorImpactoNaves } from "@/sim/naves/impacto";
+import type { IdNave } from "@/sim/partida/tipos";
 
 export interface PuntoDeImpacto {
   readonly x: number;
   readonly y: number;
+  // impacto-naves (imp-1): la nave cuyo casco ha detenido el vuelo en este
+  // punto exacto, si alguna -- undefined cuando el punto es una detonación
+  // normal contra sólido, fuera de mundo o ápice de submuniciones.
+  readonly impactoNave?: IdNave;
 }
 
 export interface ResultadoDisparo {
@@ -24,6 +30,12 @@ export interface ResultadoDisparo {
   // cada uno ilumina su propio cráter).
   readonly danioPorPunto: readonly number[];
   readonly danioPropio: number;
+  // impacto-naves (imp-5): daño por AUTOIMPACTO cuando la gravedad devuelve
+  // el proyectil sobre el casco de quien dispara -- null cuando no ha
+  // ocurrido. Deliberadamente SEPARADO de danioPropio (Despedida, autodaño
+  // fijo garantizado por catálogo): son dos mecánicas distintas que pueden
+  // darse a la vez sin pisarse (ver desviaciones).
+  readonly impactoPropio: { readonly danio: number; readonly x: number; readonly y: number } | null;
   // Positivo = hacia +x. Solo lo produce el Gravitón (efecto "empuje").
   readonly desplazamientoObjetivoPx: number;
   readonly puntosDeImpacto: readonly PuntoDeImpacto[];
@@ -139,13 +151,15 @@ function resolverSubmuniciones(
   cantidad: number,
   dispersionPxS: number,
   planetas?: RegistroPlanetas,
+  rastreadorNaves?: RastreadorImpactoNaves,
 ): ResultadoPuntosDeImpacto {
   const detenerse = detenerseEnSuelo(mascara, ancho, alto);
   const {
     proyectil: apice,
     pasos,
     perdido: apicePerdido,
-  } = simularVuelo(inicial, gravedad, deriva, (p) => p.vy >= 0 || detenerse(p), { planetas });
+    impactoNave: impactoNaveApice,
+  } = simularVuelo(inicial, gravedad, deriva, (p) => p.vy >= 0 || detenerse(p), { planetas, rastreadorNaves });
 
   // grav-6: el propio ápice se ha perdido en órbita antes de cruzar vy>=0 --
   // no hay desde dónde repartir submuniciones.
@@ -153,24 +167,27 @@ function resolverSubmuniciones(
     return { puntos: [], perdido: true };
   }
 
-  if (pasos === 0 || detenerse(apice)) {
-    // El disparo tocó tierra antes de alcanzar el ápice (ángulo casi
-    // horizontal apuntando cuesta abajo): no hay altura para repartir, así
-    // que se resuelve como un impacto único en vez de partir en el vacío.
-    return { puntos: [{ x: apice.x, y: apice.y }], perdido: false };
+  // impacto-naves: un casco cortado de camino al ápice detona ahí mismo --
+  // el casco siempre gana, nunca se reparte en submuniciones a partir de un
+  // punto que ya era un impacto.
+  if (pasos === 0 || detenerse(apice) || impactoNaveApice) {
+    // El disparo tocó tierra (o una nave) antes de alcanzar el ápice (ángulo
+    // casi horizontal apuntando cuesta abajo): no hay altura para repartir,
+    // así que se resuelve como un impacto único en vez de partir en el vacío.
+    return { puntos: [{ x: apice.x, y: apice.y, impactoNave: impactoNaveApice?.nave }], perdido: false };
   }
 
   const puntos: PuntoDeImpacto[] = [];
   for (let i = 0; i < cantidad; i++) {
     const offset = (i - (cantidad - 1) / 2) * (dispersionPxS / Math.max(1, cantidad - 1));
     const subInicial: EstadoProyectil = { x: apice.x, y: apice.y, vx: apice.vx + offset, vy: apice.vy };
-    const { proyectil, perdido } = simularVuelo(subInicial, gravedad, deriva, detenerse, { planetas });
+    const { proyectil, perdido, impactoNave } = simularVuelo(subInicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
     // Una submunición individual perdida en órbita simplemente no aporta
     // punto de impacto -- el resto de la andanada, si aterriza, sigue
     // contando (grav-6 no exige que TODAS se pierdan para declarar el
     // disparo entero perdido).
     if (!perdido) {
-      puntos.push({ x: proyectil.x, y: proyectil.y });
+      puntos.push({ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave });
     }
   }
   return { puntos, perdido: puntos.length === 0 };
@@ -185,6 +202,7 @@ function resolverPuntosDeImpacto(
   ancho: number,
   alto: number,
   planetas?: RegistroPlanetas,
+  rastreadorNaves?: RastreadorImpactoNaves,
 ): ResultadoPuntosDeImpacto {
   const detenerse = detenerseEnSuelo(mascara, ancho, alto);
 
@@ -199,20 +217,25 @@ function resolverPuntosDeImpacto(
       arma.comportamiento.cantidad,
       arma.comportamiento.dispersionPxS,
       planetas,
+      rastreadorNaves,
     );
   }
 
-  const { proyectil, perdido } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas });
+  const { proyectil, perdido, impactoNave } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
   if (perdido) {
     return { puntos: [], perdido: true };
   }
 
-  if (arma.comportamiento.tipo === "rodante") {
+  // impacto-naves: la rodadura es terreno, no física de proyectil -- un
+  // casco impactado detona ahí mismo y nunca rueda (el corolario del diseño:
+  // "la penetración atraviesa sólido pero nunca un casco, que siempre
+  // detona" aplica igual de fuerte a la rodadura).
+  if (arma.comportamiento.tipo === "rodante" && !impactoNave) {
     const punto = resolverRodadura(mascara, proyectil.x, arma.comportamiento.distanciaMaximaPx, arma.comportamiento.pasoPx);
     return { puntos: [punto], perdido: false };
   }
 
-  return { puntos: [{ x: proyectil.x, y: proyectil.y }], perdido: false };
+  return { puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }], perdido: false };
 }
 
 function aplicarHuellaDeArma(mascara: Mascara, arma: Arma, punto: PuntoDeImpacto): void {
@@ -247,9 +270,21 @@ export interface ParametrosResolverDisparo {
   readonly anguloGrados: number;
   readonly potencia: number;
   readonly objetivoX: number;
+  // impacto-naves (imp-3): obligatoria -- el daño se mide en distancia
+  // EUCLÍDEA 2D al punto de detonación, nunca solo en X (herencia del suelo
+  // plano de siempre, donde toda nave estaba a la misma altura). No tiene
+  // valor por defecto razonable: un llamante que la omita mediría mal a
+  // propósito.
+  readonly objetivoY: number;
   readonly ancho: number;
   readonly alto: number;
   readonly planetas?: RegistroPlanetas;
+  // impacto-naves: opcionales y aditivos -- sin ellos (todo llamante de
+  // antes de este bloque), ninguna nave detiene el vuelo, exactamente el
+  // comportamiento de siempre. Con ambos, el vuelo se detiene en el primer
+  // casco vivo que corta, incluido el propio (tras su gracia).
+  readonly naves?: readonly NavePosicion[];
+  readonly tiradorId?: IdNave;
 }
 
 // Resuelve un disparo de principio a fin: vuelo (con el comportamiento del
@@ -273,6 +308,13 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
   const v = velocidadDesdePotencia(params.potencia);
   const inicial = crearProyectil(params.origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
 
+  // impacto-naves: un rastreador NUEVO por disparo -- su gracia de casco
+  // propio es estado de ESTE vuelo, nunca compartido entre disparos ni
+  // reutilizado entre turnos. Solo las naves VIVAS son cuerpo de colisión
+  // (imp-1); el llamante filtra las muertas antes de pasar `params.naves`.
+  const rastreadorNaves =
+    params.naves && params.tiradorId !== undefined ? crearRastreadorImpactoNaves(params.naves, params.tiradorId) : undefined;
+
   const { puntos: puntosDeImpacto, perdido: proyectilPerdido } = resolverPuntosDeImpacto(
     arma,
     inicial,
@@ -282,6 +324,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     params.ancho,
     params.alto,
     params.planetas,
+    rastreadorNaves,
   );
 
   if (fallo || proyectilPerdido) {
@@ -293,6 +336,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
       danioObjetivo: 0,
       danioPorPunto,
       danioPropio: 0,
+      impactoPropio: null,
       desplazamientoObjetivoPx: 0,
       puntosDeImpacto,
       origenY,
@@ -306,16 +350,35 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
 
   let danioPorPunto: number[] = puntosDeImpacto.map(() => 0);
   let danioPropio = 0;
+  let impactoPropio: ResultadoDisparo["impactoPropio"] = null;
   let desplazamientoObjetivoPx = 0;
 
   const efecto = arma.efecto;
   if (efecto.tipo === "danio" || efecto.tipo === "danio-y-autodanio") {
+    // imp-3: distancia EUCLÍDEA 2D al punto de detonación -- nunca solo en
+    // X, que es como se medía antes de este bloque (herencia del suelo
+    // plano, donde toda nave estaba a la misma altura y la X ya bastaba).
     danioPorPunto = puntosDeImpacto.map((punto) =>
-      danioPorDistancia(efecto.radioEfectoPx, efecto.danioMaximo, Math.abs(punto.x - params.objetivoX)),
+      danioPorDistancia(efecto.radioEfectoPx, efecto.danioMaximo, Math.hypot(punto.x - params.objetivoX, punto.y - params.objetivoY)),
     );
     if (efecto.tipo === "danio-y-autodanio") {
       danioPropio = efecto.autoDanioMaximo;
       aplicarHuellaCircular(mascara, params.origenX, origenY, efecto.radioAutoHuellaPx, "restar");
+    }
+
+    // imp-5: autoimpacto por gravedad -- SEPARADO de danioPropio (Despedida,
+    // garantizado por catálogo en cada disparo). Solo ocurre cuando el
+    // rastreador ha detenido el vuelo de verdad sobre el propio casco.
+    const puntoAutoimpacto = puntosDeImpacto.find((punto) => punto.impactoNave === params.tiradorId);
+    if (puntoAutoimpacto) {
+      const danio = danioPorDistancia(
+        efecto.radioEfectoPx,
+        efecto.danioMaximo,
+        Math.hypot(puntoAutoimpacto.x - params.origenX, puntoAutoimpacto.y - origenY),
+      );
+      if (danio > 0) {
+        impactoPropio = { danio, x: puntoAutoimpacto.x, y: puntoAutoimpacto.y };
+      }
     }
   } else if (efecto.tipo === "empuje") {
     const puntoRelevante = puntosDeImpacto[0];
@@ -332,6 +395,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     danioObjetivo,
     danioPorPunto,
     danioPropio,
+    impactoPropio,
     desplazamientoObjetivoPx,
     puntosDeImpacto,
     origenY,

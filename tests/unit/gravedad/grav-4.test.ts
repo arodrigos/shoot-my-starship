@@ -54,6 +54,7 @@ test("grav-4: la masa se queda congelada durante todo el vuelo de un disparo de 
     anguloGrados,
     potencia,
     objetivoX,
+    objetivoY: ALTURA_SUELO,
     ancho: ANCHO,
     alto: ALTO,
     planetas: [planeta],

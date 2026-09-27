@@ -33,6 +33,7 @@ test("armas-4: la deriva mueve el punto de impacto de forma monótona, y la dife
       anguloGrados,
       potencia,
       objetivoX,
+      objetivoY: 900,
       ancho: ANCHO,
       alto: ALTO,
     });

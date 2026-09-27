@@ -32,7 +32,10 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     descripcion: "Sube tanto que da tiempo a arrepentirse, redactar una disculpa y verla bajar.",
     comportamiento: { tipo: "impacto-simple" },
     huella: { tipo: "capsula", medioLargoPx: 50, radio: 22, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 90, danioMaximo: 24 },
+    // impacto-naves (imp-7): 90px superaba el tope de 70px que fija el
+    // diseño para cualquier arma salvo Despedida -- valor de catálogo previo
+    // a este bloque, corregido aquí (ver desviaciones).
+    efecto: { tipo: "danio", radioEfectoPx: 65, danioMaximo: 24 },
     fiabilidad: 1,
   },
   {

@@ -1,8 +1,5 @@
 import Phaser from "phaser";
-
-const ANCHO_CASCO = 46;
-const ALTO_CASCO = 22;
-const LARGO_CANON = 30;
+import { ALTO_CASCO, ANCHO_CASCO, LARGO_CANON, puntosCasco } from "@/juego/naves/geometriaCasco";
 
 const COLOR_NAVE_0 = 0x5ac8fa;
 const COLOR_NAVE_1 = 0xff6b4a;
@@ -35,11 +32,15 @@ export class Nave {
     const dir = mirarHaciaMasX ? 1 : -1;
 
     // Patas: dos apoyos asimétricos, como si la nave hubiese aterrizado mal
-    // -- "varada", no aparcada.
+    // -- "varada", no aparcada. Nacen en el borde inferior real del casco
+    // (0.32 * ALTO_CASCO, ver geometriaCasco.puntosCasco), no en el origen
+    // del contenedor -- desde impacto-naves el origen es el CENTRO del
+    // casco, no sus patas.
+    const yBordeInferiorCasco = 0.32 * ALTO_CASCO;
     const patas = escena.add.graphics();
     patas.lineStyle(4, COLOR_PATAS, 1);
-    patas.lineBetween(-ANCHO_CASCO * 0.3, 0, -ANCHO_CASCO * 0.4, 10);
-    patas.lineBetween(ANCHO_CASCO * 0.25, 0, ANCHO_CASCO * 0.15, 12);
+    patas.lineBetween(-ANCHO_CASCO * 0.3, yBordeInferiorCasco, -ANCHO_CASCO * 0.4, yBordeInferiorCasco + 10);
+    patas.lineBetween(ANCHO_CASCO * 0.25, yBordeInferiorCasco, ANCHO_CASCO * 0.15, yBordeInferiorCasco + 12);
     this.contenedor.add(patas);
 
     // Casco: silueta poligonal simple (fuselaje + aleta), con una sombra
@@ -55,14 +56,8 @@ export class Nave {
     this.apuntar(anguloInicialGrados);
   }
 
-  private dibujarCasco(color: number, dir: number): void {
-    const puntos = [
-      new Phaser.Math.Vector2(-ANCHO_CASCO * 0.5 * dir, 0),
-      new Phaser.Math.Vector2(-ANCHO_CASCO * 0.35 * dir, -ALTO_CASCO),
-      new Phaser.Math.Vector2(ANCHO_CASCO * 0.3 * dir, -ALTO_CASCO * 0.8),
-      new Phaser.Math.Vector2(ANCHO_CASCO * 0.55 * dir, -ALTO_CASCO * 0.25),
-      new Phaser.Math.Vector2(ANCHO_CASCO * 0.2 * dir, 4),
-    ];
+  private dibujarCasco(color: number, dir: 1 | -1): void {
+    const puntos = puntosCasco(dir).map((p) => new Phaser.Math.Vector2(p.x, p.y));
     this.casco.fillStyle(COLOR_CASCO_SOMBRA, 1);
     this.casco.fillPoints(
       puntos.map((p) => new Phaser.Math.Vector2(p.x + 2, p.y + 2)),
@@ -82,7 +77,11 @@ export class Nave {
     const dx = Math.cos(rad);
     const dy = -Math.sin(rad);
     const origenX = 0;
-    const origenY = -ALTO_CASCO * 0.6;
+    // 0.3 (antes 0.6 sobre el ALTO_CASCO de antes de impacto-naves, la
+    // mitad al doblarse ALTO_CASCO): mismo punto de montaje absoluto del
+    // cañón respecto al casco, ahora que el origen del contenedor es su
+    // centro y no su base.
+    const origenY = -ALTO_CASCO * 0.3;
     const quiebroX = origenX + dx * LARGO_CANON * 0.55;
     const quiebroY = origenY + dy * LARGO_CANON * 0.55;
     // El quiebro se desplaza perpendicular al eje del cañón, siempre el
@@ -111,7 +110,7 @@ export class Nave {
   // animación arranque exactamente donde arranca la física real.
   obtenerPosicionCanon(): { x: number; y: number } {
     const rad = (this.anguloActualGrados * Math.PI) / 180;
-    const origenY = -ALTO_CASCO * 0.6;
+    const origenY = -ALTO_CASCO * 0.3;
     return {
       x: this.contenedor.x + Math.cos(rad) * LARGO_CANON,
       y: this.contenedor.y + origenY - Math.sin(rad) * LARGO_CANON,
