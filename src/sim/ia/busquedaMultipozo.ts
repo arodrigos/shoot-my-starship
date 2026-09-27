@@ -1,4 +1,10 @@
-import { barridoRejilla, PASO_ANGULO_GRUESO_GRADOS, TOTAL_COMBINACIONES_REJILLA } from "@/sim/balistica/rejilla";
+import {
+  ANGULO_MAX_GRADOS,
+  ANGULO_MIN_GRADOS,
+  barridoRejilla,
+  PASO_ANGULO_GRUESO_GRADOS,
+  TOTAL_COMBINACIONES_REJILLA,
+} from "@/sim/balistica/rejilla";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import type { Arma } from "@/sim/armas/tipos";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
@@ -93,6 +99,26 @@ export interface SolucionRival {
   readonly agotado: boolean;
 }
 
+// Disparo de emergencia (hallazgo de CI en este mismo bloque, e2e
+// render-7): cuando la rejilla ENTERA no encuentra ni un solo candidato con
+// daño real -- ya sea porque el objetivo está tapado o fuera de alcance --
+// el disparo por defecto no puede ser un ángulo fijo. Con gravedad real 0
+// (el espacio de producción), 90° es recto hacia arriba: sin planeta que lo
+// devuelva, ese tiro escapa siempre, y la animación agota los 12s reales de
+// PRESUPUESTO_VUELO_MULTIPOZO_PASOS en vez de resolver como un fallo normal.
+// Apuntar geométricamente al objetivo no garantiza acertar (por algo la
+// rejilla ya falló ahí), pero sí que el proyectil vuele HACIA la partida en
+// vez de perderse en el vacío -- comprobado contra el sistema de producción
+// que disparó esto (semilla 20260926, La Contable): con ángulo recto (90°)
+// el tiro se pierde con cualquier potencia; apuntado al objetivo, no se
+// pierde con ninguna de las cinco potencias de la rejilla.
+function anguloDeEmergenciaHaciaObjetivo(tirador: NavePosicion, objetivo: NavePosicion): number {
+  const dx = objetivo.x - tirador.x;
+  const dyPantalla = objetivo.y - tirador.y;
+  const anguloGrados = (Math.atan2(-dyPantalla, dx) * 180) / Math.PI;
+  return Math.max(ANGULO_MIN_GRADOS, Math.min(ANGULO_MAX_GRADOS, anguloGrados));
+}
+
 function volar(params: ParametrosBusquedaRival, tirador: NavePosicion, objetivo: NavePosicion, anguloGrados: number, potencia: number) {
   return resolverDisparo({
     mascara: params.mascara,
@@ -151,10 +177,10 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
   const candidatos = barridoRejilla({ ...params, presupuestoIntentos: presupuestoRejilla });
   let vuelosSimulados = presupuestoRejilla;
 
-  let mejorAngulo = candidatos[0]?.anguloGrados ?? 90;
+  const huboCandidato = candidatos.length > 0;
+  let mejorAngulo = huboCandidato ? candidatos[0].anguloGrados : anguloDeEmergenciaHaciaObjetivo(tirador, objetivo);
   const mejorPotencia = candidatos[0]?.potencia ?? 70;
   let mejorDanio = candidatos[0]?.danio ?? 0;
-  const huboCandidato = candidatos.length > 0;
 
   // Fase 2: refinamiento ternario dentro de la celda gruesa alrededor del
   // mejor candidato, a su misma potencia -- solo tiene sentido si la rejilla

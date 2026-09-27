@@ -20,8 +20,12 @@ import type { Mascara } from "@/sim/terreno/mascara";
 // ventana de refinamiento -- reexportar el número evita que busquedaMultipozo.ts
 // se invente su propia copia que pueda desincronizarse de la rejilla real.
 export const PASO_ANGULO_GRUESO_GRADOS = 4;
-const ANGULO_MIN_GRADOS = 2;
-const ANGULO_MAX_GRADOS = 178;
+// Exportados (ia-multipozo): el rival necesita el mismo rango para acotar su
+// disparo de emergencia cuando la rejilla entera no encuentra ni un solo
+// candidato con daño real -- un límite propio que se desincronice de este
+// dejaría pasar un ángulo que la rejilla ni siquiera prueba.
+export const ANGULO_MIN_GRADOS = 2;
+export const ANGULO_MAX_GRADOS = 178;
 const POTENCIAS_PROBADAS_PORCENTAJE = [40, 55, 70, 85, 100];
 // Exportado (ia-multipozo): cuántos vuelos consume barrer la rejilla entera
 // sin presupuesto -- el rival lo necesita para repartir su propio techo de
