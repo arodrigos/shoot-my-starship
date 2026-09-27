@@ -173,6 +173,13 @@ export class Partida extends Phaser.Scene {
   // la máquina volvía a fallar gordo el turno siguiente, en un vaivén que no
   // converge nunca. Solo crece; ya no hace daño quedarse "de más" precisa.
   private fallosConsecutivosIA = 0;
+  // ia-n8: turnos SEGUIDOS que la máquina ha disparado sin causar daño real
+  // al jugador -- decidirTurnoIA lo usa para forzar un arma con daño > 0 al
+  // tercero (Chispa alargaba partidas con el Vertedero Portátil, daño 0).
+  // Se mide sobre el daño REAL de avanzar(), nunca sobre lo que predijo la
+  // búsqueda: la búsqueda decide antes de que el error de personalidad se
+  // inyecte, así que su daño previsto puede no ser el que de verdad ocurre.
+  private turnosSeguidosSinDanioIA = 0;
   private datosEscena: DatosEscenaPartida = {};
   private naves!: [Nave, Nave];
   private indicadorDeriva!: IndicadorDeriva;
@@ -237,6 +244,7 @@ export class Partida extends Phaser.Scene {
     reiniciarResultadoTurno();
     this.ultimoIntentoIA = null;
     this.fallosConsecutivosIA = 0;
+    this.turnosSeguidosSinDanioIA = 0;
 
     const parametrosUrl = new URLSearchParams(window.location.search);
     const idMapa = parametrosUrl.get("mapa") ?? this.datosEscena.mapaId;
@@ -507,11 +515,35 @@ export class Partida extends Phaser.Scene {
     // jugador (el único emparejamiento posible en esta partida real).
     if (!esJugador) {
       const objetivoId = naveContraria(tirador);
-      const objetivoX = estadoAntes.naves[objetivoId].x;
+      const naveObjetivoAntes = estadoAntes.naves[objetivoId];
+      const objetivoX = naveObjetivoAntes.x;
+      const objetivoY = naveObjetivoAntes.y ?? alturaSuperficie(estadoAntes.mascara, objetivoX) ?? estadoAntes.mundo.alto - 1;
       const puntoDeCaida = eventoImpacto ?? { x: origenX, y: origenY };
-      const distancia = Math.abs(puntoDeCaida.x - objetivoX);
+      // impacto-naves/ia-multipozo: distancia 2D euclídea al objetivo
+      // (imp-3), nunca solo en X -- en modo espacial (naves a distinta
+      // altura) la distancia en X por sí sola subestima un disparo que pasó
+      // muy por encima o por debajo.
+      const distancia = Math.hypot(puntoDeCaida.x - objetivoX, puntoDeCaida.y - objetivoY);
       if (distancia > UMBRAL_FALLO_PX) this.fallosConsecutivosIA += 1;
-      this.ultimoIntentoIA = { distanciaAlObjetivoPx: distancia, fallosConsecutivos: this.fallosConsecutivosIA };
+
+      // ia-n8: cuenta SOLO el daño real que este disparo causó al jugador
+      // (nunca autodaño ni el daño propio de Despedida) -- decidirTurnoIA
+      // fuerza un arma con daño > 0 tras dos turnos seguidos en 0, y esto se
+      // mide sobre el daño REAL de avanzar(), nunca sobre lo que predijo la
+      // búsqueda antes de que el error de personalidad se inyectara.
+      const danioCausado = eventos
+        .filter(
+          (evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> =>
+            evento.tipo === "impacto" && evento.objetivo === objetivoId,
+        )
+        .reduce((total, evento) => total + evento.danio, 0);
+      this.turnosSeguidosSinDanioIA = danioCausado > 0 ? 0 : this.turnosSeguidosSinDanioIA + 1;
+
+      this.ultimoIntentoIA = {
+        distanciaAlObjetivoPx: distancia,
+        fallosConsecutivos: this.fallosConsecutivosIA,
+        turnosSeguidosSinDanio: this.turnosSeguidosSinDanioIA,
+      };
     }
 
     window.__debug!.ultimoDisparo = {

@@ -1,6 +1,11 @@
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
+import { buscarArma } from "@/sim/armas/catalogo";
 import type { SolucionBalistica } from "@/sim/balistica/solucionador";
-import type { EntradaDeTurno } from "@/sim/partida/tipos";
+import { existeTiroViable } from "@/sim/balistica/rejilla";
+import { buscarSolucionRival } from "@/sim/ia/busquedaMultipozo";
+import type { NavePosicion } from "@/sim/naves/impacto";
+import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
+import type { EntradaDeTurno, IdNave } from "@/sim/partida/tipos";
 import type { Mascara } from "@/sim/terreno/mascara";
 import { trazarIntentos, type IntentoBalistico } from "@/sim/ia/trazado";
 import type { Personalidad, RangoDeError } from "@/sim/ia/tipos";
@@ -11,6 +16,13 @@ import type { Personalidad, RangoDeError } from "@/sim/ia/tipos";
 // razonable intentarlo sea cual sea el carácter del rival.
 const ARMA_DE_DESBLOQUEO = "zanjadora-manolita";
 const ANGULO_POR_DEFECTO: SolucionBalistica = { anguloGrados: 45, potencia: 70 };
+
+// ia-multipozo (ia-n10): la misma arma y el mismo presupuesto que colocacion.ts
+// usa para existeTiroViable -- así "bloqueada" en modo multipozo se apoya en
+// el MISMO criterio de viabilidad que decidió si esta colocación era jugable,
+// nunca en uno propio que pueda discrepar (el fallo que ia-n10 cierra).
+const ARMA_BASE_ID = "pepinazo-cortesia";
+const PRESUPUESTO_VIABILIDAD_REFERENCIA = 40;
 
 // Por debajo de esto se considera "ha dado", y no dispara la corrección de
 // ia-5: es mayor que la tolerancia de viabilidad del trazado (trazado.ts)
@@ -37,6 +49,14 @@ const FACTOR_DE_CORRECCION = 0.35;
 // todas formas, y al parar de cavar se corta el espiral en vez de alimentarlo.
 const UMBRAL_DESBLOQUEO_FORZADO = 3;
 
+// ia-n8: tras esta racha de turnos seguidos sin causar daño, el siguiente
+// fuerza un arma con daño real -- descubierto por el gatekeeper de ec96
+// (Chispa alargando partidas con el Vertedero Portátil, daño 0) y no
+// resuelto hasta ahora porque no bloqueaba. Es una regla dura por encima de
+// la política de personalidad: ninguna personalidad la declara, ni falta
+// que hace, es una salvaguarda del ritmo de partida, no de carácter.
+const UMBRAL_TURNOS_SIN_DANIO_FORZADO = 2;
+
 export interface UltimoIntentoIA {
   readonly distanciaAlObjetivoPx: number;
   // Cuántos disparos seguidos ha fallado esta personalidad contra este
@@ -52,6 +72,11 @@ export interface UltimoIntentoIA {
   // un disparo que cae cerca por pura suerte, antes de que la corrección
   // haya convergido de verdad, no demuestra que ya no haga falta.
   readonly fallosConsecutivos?: number;
+  // Cuántos turnos SEGUIDOS ha disparado esta personalidad sin causar daño
+  // (ia-n8): omitido equivale a 0, igual que fallosConsecutivos -- quien lo
+  // lleva (Partida.ts, o el test que construye el escenario a mano) decide
+  // cuándo sube y cuándo baja, decidirTurnoIA solo lo lee.
+  readonly turnosSeguidosSinDanio?: number;
 }
 
 export interface ErrorInyectado {
@@ -82,25 +107,64 @@ export function calcularErrorInyectado(
   };
 }
 
+// 0 para el Gravitón (empuje), su daño declarado para todo lo demás -- ia-n8
+// necesita distinguir "arma real" de "arma de daño cero" sin duplicar el
+// catálogo aquí.
+function danioMaximoDeArma(armaId: string): number {
+  const arma = buscarArma(armaId);
+  return arma.efecto.tipo === "empuje" ? 0 : arma.efecto.danioMaximo;
+}
+
+// Ancho, dentro de la franja de la segunda opción (30% del total), que de
+// verdad dispara un arma de daño 0: el resto de esa franja cae a la primera
+// opción en vez de a la segunda. ia-3 calibró sus tres bandas de dificultad
+// contra los pesos 50/30/20 completos -- tocarlos para las TRES
+// personalidades recalibraría ia-3 entero por un problema que solo tiene
+// Chispa. Reducir la franja SOLO cuando la segunda opción es de daño 0 deja
+// a La Contable y Almirante Bisagra (cuya segunda opción sí hace daño)
+// exactamente como ia-3 los midió.
+const ANCHO_FRANJA_SEGUNDA_OPCION = 0.3;
+const ANCHO_FRANJA_SEGUNDA_OPCION_SIN_DANIO = 0.08;
+
 // Un único punto de decisión de arma: pesos decrecientes entre las tres
 // preferidas (ia-6 exige que la elección varíe con el escenario y con la
 // personalidad, no una etiqueta fija). Si `bloqueada`, ignora la política de
 // la personalidad -- el arma la decide la situación, no el carácter.
+//
+// ia-n8: la segunda opción de Chispa es el Vertedero Portátil (daño 0) con
+// un 30% de probabilidad -- casi un tercio de sus turnos sin poder hacer
+// daño nunca, alargando la partida sin que ninguna corrección de puntería
+// lo arregle. Además, tras dos turnos seguidos sin causar daño, una regla
+// dura por encima de la política de personalidad fuerza un arma con daño
+// real: ninguna personalidad la declara, ni falta que hace.
 function elegirArma(
   personalidad: Personalidad,
   bloqueada: boolean,
   aleatorio: EstadoAleatorio,
+  turnosSeguidosSinDanio: number,
 ): { readonly armaId: string; readonly aleatorio: EstadoAleatorio } {
   if (bloqueada) {
     return { armaId: ARMA_DE_DESBLOQUEO, aleatorio };
   }
+  if (turnosSeguidosSinDanio >= UMBRAL_TURNOS_SIN_DANIO_FORZADO) {
+    const primeraConDanio = personalidad.ordenPreferenciaArmas.find((id) => danioMaximoDeArma(id) > 0);
+    return { armaId: primeraConDanio ?? personalidad.ordenPreferenciaArmas[0], aleatorio };
+  }
   const paso = siguienteAleatorio(aleatorio);
   const opciones = personalidad.ordenPreferenciaArmas;
+  const segundaOpcion = opciones[1] ?? opciones[0];
+  const anchoFranjaSegunda = danioMaximoDeArma(segundaOpcion) === 0 ? ANCHO_FRANJA_SEGUNDA_OPCION_SIN_DANIO : ANCHO_FRANJA_SEGUNDA_OPCION;
+
+  // Lo que se recorta de la franja de la segunda opción (solo cuando es de
+  // daño 0) se traslada a la TERCERA, nunca a la primera: mantiene la
+  // franja de la opción más fuerte de cada personalidad intacta (50%,
+  // igual que siempre) y reparte el resto entre dos opciones débiles en vez
+  // de reforzar la más dañina.
   let armaId: string;
   if (paso.valor < 0.5) {
     armaId = opciones[0];
-  } else if (paso.valor < 0.8) {
-    armaId = opciones[1] ?? opciones[0];
+  } else if (paso.valor < 0.5 + anchoFranjaSegunda) {
+    armaId = segundaOpcion;
   } else {
     armaId = opciones[2] ?? opciones[0];
   }
@@ -121,6 +185,22 @@ function elegirMejorEsfuerzo(intentos: readonly IntentoBalistico[], origenX: num
   );
 }
 
+// ia-n5: por debajo de esta sensibilidad (calibrada contra un tiro despejado
+// sin ningún planeta al que rozar) el error angular normal de la
+// personalidad no amenaza con desviar el impacto muchos más píxeles que en
+// el caso llano de siempre, así que no se toca (factor 1). Por encima se
+// amortigua en proporción inversa, con un suelo para no anular la
+// personalidad entera cerca de un roce extremo. Exportada para que ia-4/ia-n4
+// recalculen el mismo factor por fuera, bit a bit, igual que ya hacen con
+// calcularErrorInyectado.
+export const SENSIBILIDAD_REFERENCIA_PX_GRADO = 6;
+const FACTOR_SENSIBILIDAD_MINIMO = 0.15;
+
+export function calcularFactorSensibilidad(sensibilidadPxPorGrado: number): number {
+  if (sensibilidadPxPorGrado <= SENSIBILIDAD_REFERENCIA_PX_GRADO) return 1;
+  return Math.max(FACTOR_SENSIBILIDAD_MINIMO, SENSIBILIDAD_REFERENCIA_PX_GRADO / sensibilidadPxPorGrado);
+}
+
 export interface ParametrosDecisionIA {
   readonly mascara: Mascara;
   readonly origenX: number;
@@ -135,6 +215,20 @@ export interface ParametrosDecisionIA {
   // si lo hubo: lo que hace posible la corrección de ia-5. null en el
   // primer disparo de la partida contra este objetivo.
   readonly ultimoIntento: UltimoIntentoIA | null;
+  // Los cuatro siguientes, opcionales y aditivos (render-espacio,
+  // ia-multipozo): con planetas presentes y ambas naves en y decidirTurnoIA
+  // cambia de trazado por fórmula cerrada a búsqueda numérica sobre
+  // barridoRejilla -- ausentes, reproduce EXACTAMENTE el camino de siempre
+  // en terreno llano (ia-1..ia-6 no los pasan nunca).
+  readonly origenY?: number;
+  readonly objetivoY?: number;
+  readonly planetas?: RegistroPlanetas;
+  readonly naves?: readonly NavePosicion[];
+  readonly tiradorId?: IdNave;
+  readonly objetivoId?: IdNave;
+  // Solo para ia-n3 (forzar el agotamiento de presupuesto en el test): ausente
+  // reproduce PRESUPUESTO_VUELOS_RIVAL_DEFAULT de busquedaMultipozo.ts.
+  readonly presupuestoVuelosMax?: number;
 }
 
 export interface ResultadoDecisionIA {
@@ -149,22 +243,105 @@ export interface ResultadoDecisionIA {
   readonly solucionExacta: SolucionBalistica;
 }
 
-// El punto donde se componen las dos capas del diseño: el solucionador
-// exacto degradado (QUÉ trayectoria, filtrada por el trazado de ia-2) y la
-// personalidad (QUÉ arma, con qué error). No escribe nada en el terreno ni
-// en el daño -- solo produce una EntradaDeTurno, igual que la fuente de un
-// jugador humano; es avanzar()/resolverDisparo quien la convierte en
-// cambios de estado (ia-4).
+// El punto donde se componen las dos capas del diseño: el solucionador de
+// trayectoria (QUÉ trayectoria, filtrada por viabilidad) y la personalidad
+// (QUÉ arma, con qué error). No escribe nada en el terreno ni en el daño --
+// solo produce una EntradaDeTurno, igual que la fuente de un jugador humano;
+// es avanzar()/resolverDisparo quien la convierte en cambios de estado (ia-4).
+//
+// ia-multipozo: con planetas presentes (y origen/objetivo en y, más ambas
+// naves) hay más de un pozo de gravedad y el solucionador de fórmula cerrada
+// no tiene solución analítica ahí -- se cambia a la búsqueda numérica de
+// busquedaMultipozo.ts, SIEMPRE con el arma que de verdad se va a disparar
+// (ia-n2: si se buscara con un arma de referencia distinta de la elegida, la
+// trayectoria que la búsqueda usó para decidir dejaría de coincidir con la
+// del disparo real en cuanto la elegida tuviera un comportamiento distinto,
+// como las submuniciones). "Bloqueada" en este modo se apoya en
+// existeTiroViable con el arma base -- el MISMO criterio que ya decidió si
+// esta colocación era jugable (ia-n10, colocacion.ts) -- para no inventar un
+// segundo concepto de "hay tiro" que pueda discrepar del primero. Sin
+// planetas/naves (ia-1..ia-6, que nunca los pasan), el camino de abajo es
+// BIT A BIT el de siempre.
 export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionIA {
-  const { mascara, origenX, objetivoX, gravedad, deriva, ancho, alto, personalidad, ultimoIntento } = params;
+  const {
+    mascara,
+    origenX,
+    objetivoX,
+    gravedad,
+    deriva,
+    ancho,
+    alto,
+    personalidad,
+    ultimoIntento,
+    planetas,
+    origenY,
+    objetivoY,
+    naves,
+    tiradorId,
+    objetivoId,
+    presupuestoVuelosMax,
+  } = params;
+
+  const enModoMultipozo =
+    origenY !== undefined && objetivoY !== undefined && naves !== undefined && tiradorId !== undefined && objetivoId !== undefined;
+
+  let bloqueada: boolean;
+  let solucionExacta: SolucionBalistica;
+  let factorSensibilidad = 1;
+  const turnosSeguidosSinDanio = ultimoIntento?.turnosSeguidosSinDanio ?? 0;
+
+  if (enModoMultipozo) {
+    const parametrosComunes = { mascara, ancho, alto, planetas, gravedad, deriva, aleatorio: params.aleatorio, naves, tiradorId, objetivoId };
+
+    const bloqueadaDeVerdad = !existeTiroViable({
+      ...parametrosComunes,
+      arma: buscarArma(ARMA_BASE_ID),
+      presupuestoIntentos: PRESUPUESTO_VIABILIDAD_REFERENCIA,
+    });
+    bloqueada = bloqueadaDeVerdad && (ultimoIntento?.fallosConsecutivos ?? 0) < UMBRAL_DESBLOQUEO_FORZADO;
+
+    // elegirArma decide ANTES de la búsqueda cara -- así la búsqueda se hace
+    // una sola vez, ya con el arma definitiva, en vez de dos (una de
+    // referencia y otra real).
+    const { armaId: armaProvisional, aleatorio: aleatorioTrasArma } = elegirArma(
+      personalidad,
+      bloqueada,
+      params.aleatorio,
+      turnosSeguidosSinDanio,
+    );
+
+    const resultadoBusqueda = buscarSolucionRival({
+      ...parametrosComunes,
+      aleatorio: aleatorioTrasArma,
+      arma: buscarArma(armaProvisional),
+      presupuestoVuelosMax,
+    });
+    solucionExacta = { anguloGrados: resultadoBusqueda.anguloGrados, potencia: resultadoBusqueda.potencia };
+    factorSensibilidad = calcularFactorSensibilidad(resultadoBusqueda.sensibilidadPxPorGrado);
+
+    const fallosParaCorregir =
+      ultimoIntento?.fallosConsecutivos ?? (ultimoIntento && ultimoIntento.distanciaAlObjetivoPx > UMBRAL_FALLO_PX ? 1 : 0);
+    const factorCorreccion = FACTOR_DE_CORRECCION ** fallosParaCorregir * factorSensibilidad;
+    const { error, aleatorio: aleatorioFinal } = calcularErrorInyectado(personalidad, aleatorioTrasArma, factorCorreccion);
+
+    const anguloGrados = Math.min(180, Math.max(0, solucionExacta.anguloGrados + error.anguloGrados));
+    const potencia = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));
+
+    return {
+      entrada: { arma: armaProvisional, anguloGrados, potencia },
+      aleatorio: aleatorioFinal,
+      bloqueada,
+      solucionExacta,
+    };
+  }
 
   const intentos = trazarIntentos(mascara, origenX, objetivoX, gravedad, deriva, ancho, alto);
   const viables = intentos.filter((intento) => intento.viable);
 
   const bloqueadaDeVerdad = viables.length === 0;
-  const bloqueada = bloqueadaDeVerdad && (ultimoIntento?.fallosConsecutivos ?? 0) < UMBRAL_DESBLOQUEO_FORZADO;
+  bloqueada = bloqueadaDeVerdad && (ultimoIntento?.fallosConsecutivos ?? 0) < UMBRAL_DESBLOQUEO_FORZADO;
   const intentoElegido = viables.length > 0 ? elegirSolucionViable(viables, personalidad) : null;
-  const solucionExacta: SolucionBalistica =
+  solucionExacta =
     intentoElegido?.solucion ?? (intentos.length > 0 ? elegirMejorEsfuerzo(intentos, origenX).solucion : ANGULO_POR_DEFECTO);
 
   // ia-5 original: solo corregía si EL ÚLTIMO disparo (uno solo) había
@@ -180,9 +357,12 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
   // reproduce EXACTAMENTE el 0.35x de siempre.
   const fallosParaCorregir =
     ultimoIntento?.fallosConsecutivos ?? (ultimoIntento && ultimoIntento.distanciaAlObjetivoPx > UMBRAL_FALLO_PX ? 1 : 0);
-  const factorCorreccion = FACTOR_DE_CORRECCION ** fallosParaCorregir;
+  // factorSensibilidad es 1 fuera de modo multipozo: en terreno llano esto
+  // reproduce EXACTAMENTE FACTOR_DE_CORRECCION ** fallosParaCorregir de
+  // siempre (ia-4 lo exige bit a bit).
+  const factorCorreccion = FACTOR_DE_CORRECCION ** fallosParaCorregir * factorSensibilidad;
   const { error, aleatorio: aleatorioTrasError } = calcularErrorInyectado(personalidad, params.aleatorio, factorCorreccion);
-  const { armaId, aleatorio: aleatorioFinal } = elegirArma(personalidad, bloqueada, aleatorioTrasError);
+  const { armaId, aleatorio: aleatorioFinal } = elegirArma(personalidad, bloqueada, aleatorioTrasError, turnosSeguidosSinDanio);
 
   const anguloGrados = Math.min(180, Math.max(0, solucionExacta.anguloGrados + error.anguloGrados));
   const potencia = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));
