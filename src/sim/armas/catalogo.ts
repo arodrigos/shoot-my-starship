@@ -146,7 +146,11 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     nombre: "Barrena Planetaria",
     descripcion: "No detona al tocar tierra: sigue. Sale por el otro lado, si el otro lado existe.",
     comportamiento: { tipo: "impacto-simple" },
-    huella: { tipo: "circular", radio: 20, signo: "restar" },
+    // radio 32 (no 20): un taladro deja un agujero más grande que una bomba
+    // normal -- y de paso evita que su silueta (proy-1) empate con la de
+    // Andanada/Láser, cuyos radios pequeños caen los tres en el mismo suelo
+    // de tamaño mínimo si se dejan por debajo de 24px.
+    huella: { tipo: "circular", radio: 32, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 45, danioMaximo: 26 },
     fiabilidad: 1,
     coste: 90,
@@ -160,7 +164,10 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // "circular" con radio propio (nunca "ninguna"): compartir huella con el
     // Gravitón le daría el mismo radioDeCatalogo() en juego/proyectiles y
     // colisionaría su huella visual (hashSilueta) con la suya en proy-1.
-    huella: { tipo: "circular", radio: 12, signo: "restar" },
+    // radio 25 (no 12): por debajo de 24px, cualquier arma "bomba" cae en el
+    // mismo suelo de tamaño mínimo de puntosSilueta() y su silueta empataría
+    // con la de otra arma pequeña del catálogo (proy-1, hash sin colisiones).
+    huella: { tipo: "circular", radio: 25, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 55, danioMaximo: 28 },
     fiabilidad: 1,
     coste: 120,
