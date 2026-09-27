@@ -367,8 +367,20 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
       magnitudMaximaErrorPotencia,
     );
 
-    const fallosParaCorregir =
-      ultimoIntento?.fallosConsecutivos ?? (ultimoIntento && ultimoIntento.distanciaAlObjetivoPx > UMBRAL_FALLO_PX ? 1 : 0);
+    // ia-n7: en modo multipozo, UMBRAL_FALLO_PX (distancia al CENTRO de la
+    // nave) es más ancho que el radio real de casco que exige impacto-naves
+    // para causar daño -- un disparo puede quedar "cerca" (no cuenta como
+    // fallo) y aun así no dañar nunca, dejando fallosConsecutivos clavado
+    // sin que la corrección escale. turnosSeguidosSinDanio mide el daño
+    // real en vez de la distancia, así que se compone con el máximo de los
+    // dos: si cualquiera de las dos señales dice "esto no funciona todavía",
+    // la corrección sigue escalando. Fuera de multipozo no se toca -- ia-4
+    // exige el 0.35x de siempre bit a bit y turnosSeguidosSinDanio no viaja
+    // nunca en esos tests (queda en 0, sin efecto sobre el máximo).
+    const fallosParaCorregir = Math.max(
+      ultimoIntento?.fallosConsecutivos ?? (ultimoIntento && ultimoIntento.distanciaAlObjetivoPx > UMBRAL_FALLO_PX ? 1 : 0),
+      turnosSeguidosSinDanio,
+    );
     const factorBaseCorreccion = FACTOR_DE_CORRECCION ** fallosParaCorregir;
     const { error, aleatorio: aleatorioFinal } = calcularErrorInyectado(
       personalidad,
