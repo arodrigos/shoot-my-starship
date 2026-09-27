@@ -162,6 +162,26 @@ export interface DebugGlobal {
   // -- para que el test compruebe la distinción visual hit/sin-daño sin
   // tener que leer píxeles de pantalla.
   ultimoTipoExplosion?: "danio" | "sin-danio";
+  // proy-4: partículas vivas del pool de estela y su tope declarado -- así
+  // el test comprueba el límite leyendo un contador, no contando objetos de
+  // escena ni leyendo píxeles.
+  estela?: { vivas: number; tope: number };
+  // proy-4: el máximo de partículas vivas observado en cualquier fotograma
+  // desde que arrancó la escena -- una ráfaga de disparos sucede en un único
+  // page.evaluate síncrono (ver dispararRafagaTurbo), así que el test no
+  // puede muestrear "vivas" fotograma a fotograma desde fuera; este máximo
+  // acumulado es la única forma de comprobar que el tope nunca se superó
+  // DURANTE la ráfaga, no solo al final de ella.
+  estelaMaxVivas?: number;
+  // proy-5: posición de mundo y arma del proyectil REAL en vuelo (null fuera
+  // de vuelo) -- para comprobar visibilidad/solapo con el HUD sin leer
+  // píxeles de pantalla.
+  proyectilEnVuelo?: { x: number; y: number; armaId: string } | null;
+  // proy-4 (desviación, ver entregable): dispara y resuelve N turnos reales
+  // en ráfaga -- misma dispararEntrada/animación que un turno jugado a mano,
+  // pero sin esperar el reloj real entre pasos, para que un test de pool
+  // acotado no tenga que reproducir 20 vuelos a velocidad real.
+  dispararRafagaTurbo?: (numeroDeDisparos: number) => void;
 }
 
 declare global {

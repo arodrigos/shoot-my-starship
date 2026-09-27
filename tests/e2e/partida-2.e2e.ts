@@ -10,7 +10,9 @@ import { test, expect } from "@playwright/test";
 // desviación que partida-1) y otra partida -- para que la comprobación
 // cubra el juego completo, no solo la pantalla de inicio.
 test("una partida completa no hace ninguna petición fuera del propio origen", async ({ page }) => {
-  test.setTimeout(90000);
+  // proyectiles-visibles (desviación, ver entregable): mismo margen que
+  // partida-1 -- un vuelo real ahora tarda ~65s en esta VPS sin GPU.
+  test.setTimeout(180000);
   const ajenas: string[] = [];
 
   const ORIGEN_PROPIO = "http://127.0.0.1:3000";
@@ -44,7 +46,7 @@ test("una partida completa no hace ninguna petición fuera del propio origen", a
   await page.waitForFunction(
     () => window.__debug.turno === 0 && (window.__debug.numeroTurno ?? 0) >= 2 && window.__debug.animacionEnCurso === false,
     undefined,
-    { timeout: 60000 },
+    { timeout: 120000 },
   );
 
   await page.evaluate(() => window.__debug.forzarFinDePartida!());

@@ -15,7 +15,13 @@ import { test, expect } from "@playwright/test";
 // sancionado por render-7/humor-7 -- para llegar a un ganador de forma
 // determinista sin esperar a que la IA converja. Declarado en desviaciones.
 test("recorrido completo: inicio, elegir rival, jugar y ganar, y otra partida cambia de mundo", async ({ page }) => {
-  test.setTimeout(90000);
+  // proyectiles-visibles (desviación, ver entregable): un vuelo real ahora
+  // tarda ~65s en resolverse en esta VPS sin GPU (medido tras proy-4/proy-5:
+  // la estela de pool acotado añade coste de fotograma bajo WebGL por
+  // software), frente a los <40s de antes. 90s ya no cubre un turno real más
+  // el resto del recorrido: se amplía con el mismo margen que ya usan
+  // control-2/render-1 por el mismo motivo de fondo.
+  test.setTimeout(180000);
   await page.setViewportSize({ width: 360, height: 740 });
 
   await page.goto("/");
@@ -51,7 +57,7 @@ test("recorrido completo: inicio, elegir rival, jugar y ganar, y otra partida ca
   await page.waitForFunction(
     () => window.__debug.turno === 0 && (window.__debug.numeroTurno ?? 0) >= 2 && window.__debug.animacionEnCurso === false,
     undefined,
-    { timeout: 60000 },
+    { timeout: 120000 },
   );
 
   await page.evaluate(() => window.__debug.forzarFinDePartida!());
