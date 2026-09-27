@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buscarArma } from "@/sim/armas/catalogo";
-import { PRESUPUESTO_VUELOS_RIVAL_DEFAULT, buscarSolucionRival } from "@/sim/ia/busquedaMultipozo";
+import { PRESUPUESTO_VUELOS_RIVAL_DEFAULT, buscarSolucionRival, type SolucionRival } from "@/sim/ia/busquedaMultipozo";
 import { generarLoteDeSistemas, MUNDO_MULTIPOZO } from "../../utils/loteMultipozo";
 
 const TECHO_VUELOS = 1200;
@@ -68,7 +68,7 @@ test("ia-n3: con presupuesto agotado antes de terminar la rejilla, devuelve el m
       presupuestoVuelosMax: PRESUPUESTO_AGOTADO,
     };
 
-    let resultado;
+    let resultado: SolucionRival | undefined;
     assert.doesNotThrow(() => {
       resultado = buscarSolucionRival(parametrosComunes);
     }, `semilla ${semilla}: buscarSolucionRival no debe lanzar aunque el presupuesto (${PRESUPUESTO_AGOTADO}) sea menor que la rejilla entera`);

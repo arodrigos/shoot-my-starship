@@ -84,9 +84,10 @@ test("ia-n2: la trayectoria y el resultado que usó la búsqueda coinciden, sin 
       potencia: resultado.potencia,
     });
 
-    const puntosDelDisparoReal = eventos
-      .filter((evento) => evento.tipo === "impacto" && evento.objetivo === 1)
-      .map((evento) => ({ x: evento.x, y: evento.y }));
+    const eventosDeImpactoAlObjetivo = eventos.filter(
+      (evento): evento is Extract<(typeof eventos)[number], { tipo: "impacto" }> => evento.tipo === "impacto" && evento.objetivo === 1,
+    );
+    const puntosDelDisparoReal = eventosDeImpactoAlObjetivo.map((evento) => ({ x: evento.x, y: evento.y }));
     const puntosDeLaBusqueda = trayectoriaDeLaBusqueda.puntosDeImpacto.map((punto) => ({ x: punto.x, y: punto.y }));
     assert.deepEqual(
       puntosDelDisparoReal,
@@ -97,9 +98,7 @@ test("ia-n2: la trayectoria y el resultado que usó la búsqueda coinciden, sin 
     // La condición de parada y el resultado declarado, no solo la geometría.
     const falloReal = eventos.some((evento) => evento.tipo === "arma-falla");
     const proyectilPerdidoReal = eventos.some((evento) => evento.tipo === "proyectil-perdido");
-    const danioObjetivoReal = eventos
-      .filter((evento) => evento.tipo === "impacto" && evento.objetivo === 1)
-      .reduce((total, evento) => total + (evento.tipo === "impacto" ? evento.danio : 0), 0);
+    const danioObjetivoReal = eventosDeImpactoAlObjetivo.reduce((total, evento) => total + evento.danio, 0);
 
     assert.equal(falloReal, trayectoriaDeLaBusqueda.fallo, `semilla ${semilla}: "fallo" no coincide`);
     assert.equal(
