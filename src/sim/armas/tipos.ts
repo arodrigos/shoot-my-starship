@@ -77,8 +77,8 @@ export interface Arma {
   readonly penetracionPx?: number;
   // Dispersión angular máxima (grados, +/-) añadida al ángulo de disparo
   // mediante el mismo EstadoAleatorio hilvanado que la tirada de fiabilidad
-  // -- nunca Math.random(). 0 o ausente es "sale exactamente al ángulo
-  // pedido", el comportamiento de siempre.
+  // -- nunca el azar no determinista del lenguaje (nucleo-4). 0 o ausente
+  // es "sale exactamente al ángulo pedido", el comportamiento de siempre.
   readonly dispersionGrados?: number;
   // Ráfaga: varios proyectiles idénticos repartidos en abanico alrededor
   // del ángulo pedido. Ausente o cantidad 1 es un disparo único de siempre.

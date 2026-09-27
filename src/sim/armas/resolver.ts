@@ -427,9 +427,10 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
   }
 
   // armas-nuevas (arm-5): dispersión angular, un segundo giro del MISMO
-  // EstadoAleatorio hilvanado -- nunca Math.random() (comprobar-sin-math-
-  // random.mjs). Sin dispersionGrados (o en 0) no se consume tirada, para no
-  // desplazar el estado que ya asumen los tests de armas sin este eje.
+  // EstadoAleatorio hilvanado -- nunca el azar no determinista del lenguaje
+  // (nucleo-4, scripts/comprobar-sin-math-random.mjs). Sin dispersionGrados
+  // (o en 0) no se consume tirada, para no desplazar el estado que ya
+  // asumen los tests de armas sin este eje.
   let anguloEfectivoGrados = params.anguloGrados;
   if (arma.dispersionGrados) {
     const paso = siguienteAleatorio(aleatorio);
