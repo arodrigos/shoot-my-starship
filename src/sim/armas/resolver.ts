@@ -278,7 +278,17 @@ function resolverUnDisparo(
     // "inmune a la gravedad" es, literalmente, no dársela a integrarPasoProyectil.
     // Sigue siendo la MISMA simularVuelo (mismo oráculo de vuelo) y el mismo
     // rastreadorNaves que cualquier otra arma (arm-8): el casco corta igual.
-    const detenerse = detenerseEnSuelo(mascara, ancho, alto);
+    //
+    // arm-6: detenerseEnSuelo por sí sola solo vigila el borde inferior y los
+    // laterales (y >= alto, x fuera de [0, ancho)) porque cualquier OTRA arma
+    // tiene gravedad real que acaba devolviéndola a tierra. El láser es la
+    // única que vuela en línea recta con gravedad 0 de verdad: apuntado hacia
+    // arriba y sin nada sólido en el camino, puede escapar por el borde
+    // superior sin que ninguna de esas condiciones se cumpla nunca, y
+    // simularVuelo agota sus 100.000 pasos y lanza en vez de perder el tiro.
+    // Se añade aquí, solo para el instantáneo, el borde que le falta.
+    const detenerseSuelo = detenerseEnSuelo(mascara, ancho, alto);
+    const detenerse = (p: EstadoProyectil): boolean => p.y < 0 || detenerseSuelo(p);
     const { proyectil, perdido, impactoNave } = simularVuelo(inicial, 0, 0, detenerse, { rastreadorNaves });
     if (perdido) {
       return { puntos: [], perdido: true };
