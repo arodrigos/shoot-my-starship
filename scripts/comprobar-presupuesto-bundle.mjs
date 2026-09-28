@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 // andamiaje-2: el JS que llega al navegador en el primer arranque de la
-// partida no puede superar 1.2MB comprimido. La app tiene una sola ruta
-// ("/"), así que todos los chunks bajo .next/static/chunks/ son, sin
+// partida no puede superar el presupuesto comprimido. La app tiene una sola
+// ruta ("/"), así que todos los chunks bajo .next/static/chunks/ son, sin
 // excepción, JS que esa ruta necesita para arrancar (el runtime de Next, el
 // componente de página y -- vía import() dinámico -- Phaser y el propio
 // juego). Si en el futuro aparecen más rutas que no sean el juego, este
 // script habrá que ajustarlo para filtrar por los chunks reales de "/".
+//
+// cie-8: techo subido de 1,2 a 1,3 MB, declarado en el diseño de este
+// bloque (cierre-y-guia) por el peso de los bancos de frases nuevos
+// (humor-por-turno) y la geometría de proyectiles (proyectiles-visibles),
+// ambos ya mergeados y contados en el bundle real.
 import { readdir, readFile, stat } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import path from "node:path";
 
-const PRESUPUESTO_BYTES = 1.2 * 1024 * 1024;
+const PRESUPUESTO_BYTES = 1.3 * 1024 * 1024;
 const DIRECTORIO_CHUNKS = path.join(process.cwd(), ".next/static/chunks");
 
 async function main() {

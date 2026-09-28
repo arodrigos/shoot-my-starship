@@ -223,6 +223,11 @@ export interface DebugGlobal {
   // de pruebas Siluetas ha dibujado las 13 siluetas del catálogo, para que
   // el test de captura no dependa de una espera fija (issue #151).
   siluetasListo?: boolean;
+  // cie-2: los planetas del sistema que colocarNaves acabó usando de
+  // verdad (nunca uno generado aparte) -- el smoke test de traspaso lo
+  // necesita para comprobar "al menos tres planetas" sin tener que leer
+  // píxeles del lienzo. Ausente en modo de suelo plano (mapaId).
+  planetas?: readonly { readonly id: number; readonly cx: number; readonly cy: number; readonly radio: number }[];
 }
 
 declare global {

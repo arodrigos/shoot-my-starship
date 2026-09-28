@@ -6,11 +6,15 @@ Este documento declara el origen de todos los recursos visuales, sonoros y tipog
 
 **El producto no usa ningún activo externo (imagen, audio, fuente o icono). Todo lo que se ve y se oye en el juego se genera por código en tiempo de ejecución:**
 
-- **Gráficos**: renderizado con Phaser sobre formas vectoriales y máscaras de terreno calculadas algorítmicamente (`src/sim/terreno/generador.ts`, `src/sim/terreno/mascara.ts`, `src/juego/terreno/`), no texturas ni sprites cargados desde fichero.
+- **Gráficos**: renderizado con Phaser sobre formas vectoriales y máscaras de terreno calculadas algorítmicamente (`src/sim/terreno/generador.ts`, `src/sim/terreno/mascara.ts`, `src/juego/terreno/`), no texturas ni sprites cargados desde fichero. El refinamiento de gravedad y modos añadió más geometría procedimental, todavía sin ningún activo binario: fondo estelar (campo de estrellas generado por semilla, `src/juego/fondo/FondoEspacial.ts`), planetas y sus anillos y asteroides (`src/sim/sistema/generador.ts`, `src/sim/terreno/mascara.ts`, `src/juego/paleta.ts`), y las siluetas de naves y de proyectiles (`src/juego/naves/geometriaCasco.ts`, `src/juego/proyectiles/geometriaProyectil.ts`), todas dibujadas con primitivas de Phaser (`Graphics`, `arc`, `lineTo`) a partir de parámetros numéricos, nunca desde un fichero de imagen.
 - **Audio**: síntesis pura con la Web Audio API, osciladores generando tonos por evento (`src/juego/audio/motor.ts`) — ningún fichero de sonido (`.mp3`/`.wav`/`.ogg`) se carga ni se empaqueta. El propio fichero lo declara en un comentario: "síntesis puramente procedural (osciladores de Web Audio, nunca un fichero de sonido) -- coherente con la política de 'todo vectorial o generado' del producto".
-- **Tipografía**: no hay ninguna fuente embebida ni enlazada; el proyecto no usa `next/font`, `@font-face` ni Google Fonts en ningún punto del código, por lo que el texto se renderiza con la pila de fuentes por defecto del sistema/navegador.
+- **Tipografía**: no hay ninguna fuente embebida ni enlazada; el proyecto no usa `next/font`, `@font-face` ni Google Fonts en ningún punto del código, por lo que el texto (HUD, marcador, bancos de frases de humor-por-turno) se renderiza con la pila de fuentes por defecto del sistema/navegador.
 
 No se ha encontrado ninguna excepción a "todo generado por código": ningún fichero binario de imagen, audio o fuente, ni ninguna referencia a un recurso externo.
+
+## Guardia automático (cie-3)
+
+Desde el bloque `cierre-y-guia`, esta declaración ya no depende solo de una comprobación manual puntual: `scripts/comprobar-activos.mjs` la hace mecánica y la ejecuta el CI en cada PR (`npm run verificar:activos`). Falla si aparece un fichero binario de imagen/audio/fuente bajo `src/` o `public/`, o si el código referencia una URL externa típica de activos (CDN de fuentes, `next/font`, dominios de imágenes). Tiene su propio caso negativo en `tests/unit/cierre/cie-3.test.ts`, para que un guardia que "parece proteger" pero no vigila de verdad no vuelva a pasar desapercibido (ver el mismo problema, ya encontrado una vez, en `terreno-6`/cie-5 y `scripts/comprobar-sin-lectura-canvas.mjs`).
 
 ## Qué se comprobó, y cómo
 
