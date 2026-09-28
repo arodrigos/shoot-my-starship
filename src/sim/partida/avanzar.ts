@@ -2,6 +2,7 @@ import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, resolverDisparo } from "@/sim/armas/resolver";
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
 import { costeArma, ingresoPorDanio } from "@/sim/partida/economia";
+import { categorizarResultado, type CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import {
   caeAlVacio,
@@ -32,7 +33,7 @@ function conDesplazamiento(nave: EstadoNave, desplazamientoPx: number, anchoMund
 export function avanzar(
   estado: EstadoPartida,
   entrada: EntradaDeTurno,
-): { estado: EstadoPartida; eventos: EventoSimulacion[] } {
+): { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma } {
   if (estado.resultado.tipo === "terminada") {
     throw new Error("avanzar: la partida ya ha terminado, no admite más turnos");
   }
@@ -106,6 +107,17 @@ export function avanzar(
     planetas: estado.planetas,
     naves: navesVivas,
     tiradorId: tirador,
+  });
+
+  // humor-por-turno (hum-1, hum-4): una sola categoría por disparo, con la
+  // máscara de ANTES de este disparo (resultado.mascara ya lleva el cráter
+  // tallado en el punto que categorizarResultado necesita inspeccionar).
+  const categoriaBroma = categorizarResultado({
+    resultado,
+    mascaraAntes: estado.mascara,
+    objetivoId,
+    objetivoX: naveObjetivo.x,
+    objetivoY,
   });
 
   // LA DECISIÓN DECLARADA: la masa viaja congelada durante todo el vuelo
@@ -278,6 +290,7 @@ export function avanzar(
         saldo: saldoTrasDisparo,
       },
       eventos,
+      categoriaBroma,
     };
   }
 
@@ -294,5 +307,6 @@ export function avanzar(
       saldo: saldoTrasDisparo,
     },
     eventos,
+    categoriaBroma,
   };
 }

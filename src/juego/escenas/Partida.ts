@@ -46,6 +46,11 @@ import {
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
+import { crearSelectorBromas, type SelectorBromas } from "@/contenido/selectorBromas";
+import { vozDeNave } from "@/contenido/bancoBromas";
+import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
+import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
+import { publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
@@ -228,6 +233,7 @@ export class Partida extends Phaser.Scene {
     readonly arma: Arma;
   } | null = null;
   private selectorFrases!: SelectorFrases;
+  private selectorBromas!: SelectorBromas;
   // Estadísticas reales por nave (humor-7): se acumulan turno a turno, nunca
   // se recalculan a posteriori, para que el parte de guerra final describa
   // exactamente lo que pasó y no una aproximación.
@@ -271,6 +277,7 @@ export class Partida extends Phaser.Scene {
     limpiarReaccion();
     limpiarParteDeGuerra();
     reiniciarResultadoTurno();
+    reiniciarBromas();
     reiniciarIntegridad();
     this.ultimoIntentoIA = null;
     this.fallosConsecutivosIA = 0;
@@ -319,6 +326,7 @@ export class Partida extends Phaser.Scene {
       const { terreno } = crearTerrenoPhaser(this, mascara, "terreno-partida", mapa.paleta);
       this.terreno = terreno;
       this.selectorFrases = crearSelectorFrases(mapa.semillaPartida);
+      this.selectorBromas = crearSelectorBromas(mapa.semillaPartida);
     } else {
       // Hito jugable render-espacio: sistema planetario generado, naves
       // flotando entre planetas (colocacion-naves) -- sin la comodidad de
@@ -374,6 +382,7 @@ export class Partida extends Phaser.Scene {
       crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial");
       window.__debug.fondoEspacial = { bakes: 1 };
       this.selectorFrases = crearSelectorFrases(semillaSistema);
+      this.selectorBromas = crearSelectorBromas(semillaSistema);
     }
 
     const texturaCanvas = this.textures.get("terreno-partida") as Phaser.Textures.CanvasTexture;
@@ -661,7 +670,7 @@ export class Partida extends Phaser.Scene {
     const origenX = naveTiradora.x;
     const origenY = naveTiradora.y ?? alturaSuperficie(estadoAntes.mascara, origenX) ?? estadoAntes.mundo.alto - 1;
 
-    const { estado: estadoDespues, eventos } = avanzar(estadoAntes, entrada);
+    const { estado: estadoDespues, eventos, categoriaBroma } = avanzar(estadoAntes, entrada);
 
     const eventoImpacto = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto");
 
@@ -769,7 +778,7 @@ export class Partida extends Phaser.Scene {
       // animación arranque) -- se guarda aparte para que la repetición se
       // compare contra lo que de verdad se vio, no contra el valor teórico.
       window.__debug!.ultimoDisparo = { ...window.__debug!.ultimoDisparo!, impactoReal: { x: final.x, y: final.y } };
-      this.aplicarResultadoTurno(estadoDespues, eventos);
+      this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma);
       // Encadenar aquí (y no dentro de aplicarResultadoTurno) es lo que
       // evita que jugarTurnosGuionizados/forzarFinDePartida -- que también
       // llaman a aplicarResultadoTurno, pero con su propio guion de
@@ -794,7 +803,11 @@ export class Partida extends Phaser.Scene {
     this.dispararEntrada(entrada, false);
   }
 
-  private aplicarResultadoTurno(estadoDespues: EstadoPartida, eventos: readonly EventoSimulacion[]): void {
+  private aplicarResultadoTurno(
+    estadoDespues: EstadoPartida,
+    eventos: readonly EventoSimulacion[],
+    categoriaBroma?: CategoriaBroma,
+  ): void {
     // estadoAntes es this.estado ANTES de reasignarlo más abajo -- se captura
     // aquí (y no en cada llamador) para que jugarTurnosGuionizados y
     // forzarFinDePartida, que también pasan por esta función con su propio
@@ -819,6 +832,9 @@ export class Partida extends Phaser.Scene {
       }
     }
     this.reaccionarAHumor(eventos);
+    if (categoriaBroma) {
+      this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma);
+    }
     publicarResultadoTurno(resumenTurno(eventos));
 
     this.estado = estadoDespues;
@@ -884,6 +900,19 @@ export class Partida extends Phaser.Scene {
       publicarReaccion(frase, evento.tipo);
       reproducirTono(evento.tipo);
     }
+  }
+
+  // humor-por-turno (hum-1, hum-6): a diferencia de reaccionarAHumor, esto se
+  // llama en CADA turno, sin excepción -- la broma de impacto siempre se
+  // publica, y la de disparo solo si frecuenciaBromas lo permite (hum-5). No
+  // depende de reproducirTono ni de ningún estado de audio (hum-6): un audio
+  // bloqueado por el navegador no puede impedir que la frase aparezca.
+  private reaccionarABroma(tirador: IdNave, numeroTurnoAntes: number, categoria: CategoriaBroma): void {
+    const voz = vozDeNave(tirador, this.rival.id);
+    if (debeMostrarBromaDeDisparo(FRECUENCIA_BROMAS_POR_DEFECTO, numeroTurnoAntes)) {
+      publicarBromaDisparo(this.selectorBromas.elegirDisparo(voz));
+    }
+    publicarBromaImpacto(this.selectorBromas.elegirImpacto(voz, categoria), categoria);
   }
 
   // humor-6: reproduce el ÚLTIMO vuelo real (de cualquiera de las dos naves)
@@ -1071,12 +1100,12 @@ export class Partida extends Phaser.Scene {
       if (this.estado.resultado.tipo === "terminada") break;
 
       const solucion = this.calcularSolucionBalistica(this.estado) ?? { anguloGrados: 45, potencia: 70 };
-      const { estado, eventos } = avanzar(this.estado, {
+      const { estado, eventos, categoriaBroma } = avanzar(this.estado, {
         arma: ARMA_DESENLACE,
         anguloGrados: solucion.anguloGrados,
         potencia: solucion.potencia,
       });
-      this.aplicarResultadoTurno(estado, eventos);
+      this.aplicarResultadoTurno(estado, eventos, categoriaBroma);
     }
   }
 }
