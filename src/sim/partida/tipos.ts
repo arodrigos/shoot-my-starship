@@ -45,6 +45,12 @@ export type ResultadoPartida =
   | { readonly tipo: "en-curso" }
   | { readonly tipo: "terminada"; readonly ganador: IdNave };
 
+// modos-y-presupuesto: "barra-libre" es el comportamiento de siempre (todas
+// las armas disponibles, ningún descuento); "presupuesto" activa el guardián
+// de saldo en avanzar(). Tipo literal, no boolean, para que un tercer modo
+// futuro no obligue a renombrar un flag.
+export type ModoJuego = "barra-libre" | "presupuesto";
+
 // Serializable de punta a punta (criterio nucleo-2): nada de funciones, ni
 // referencias a objetos de render, ni el generador aleatorio en forma de
 // closure -- por eso `aleatorio` es EstadoAleatorio (un número que
@@ -68,6 +74,14 @@ export interface EstadoPartida {
   readonly aleatorio: EstadoAleatorio;
   readonly resultado: ResultadoPartida;
   readonly planetas?: RegistroPlanetas;
+  // modos-y-presupuesto: ausente se comporta exactamente como antes de este
+  // bloque (ninguna partida previa a este bloque declara modo). `saldo` es
+  // el crédito de la nave 0 (el jugador, ver desviaciones del entregable):
+  // avanzar() solo lo lee/descuenta/ingresa cuando modo === "presupuesto" y
+  // quien dispara es la nave 0 -- la IA (fuente.ts, ya aprobado) no conoce
+  // presupuesto y sigue disparando como en barra libre siempre.
+  readonly modo?: ModoJuego;
+  readonly saldo?: number;
 }
 
 // El arma es un identificador de texto y nada más: el catálogo declarativo

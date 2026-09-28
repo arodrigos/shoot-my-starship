@@ -5,6 +5,7 @@ import { JuegoLienzo } from "@/juego/JuegoLienzo";
 import { PantallaInicio } from "@/juego/PantallaInicio";
 import { elegirMapaDistinto, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
+import type { ModoJuego } from "@/sim/partida/tipos";
 
 type Fase = "inicio" | "jugando";
 
@@ -16,6 +17,10 @@ interface Partida {
   readonly mapaId?: string;
   readonly semillaSistema?: number;
   readonly personalidadId: string;
+  // modos-y-presupuesto: elegido en PantallaInicio, se mantiene entre
+  // partidas sucesivas de la misma sesión ("otra partida" no cambia de modo
+  // a mitad de sesión, igual que ya hace con mapaId/semillaSistema).
+  readonly modo: ModoJuego;
 }
 
 // Rango del generador con semilla del propio juego (crearGeneradorAleatorio
@@ -55,12 +60,21 @@ function datosInicioIniciales(): Pick<Partida, "mapaId" | "semillaSistema"> {
   return { semillaSistema: semilla ? Number(semilla) : SEMILLA_SISTEMA_POR_DEFECTO };
 }
 
+// modos-y-presupuesto: mismo atajo que ?mapa=/?semilla= -- navegación directa
+// de los tests e2e (modo-1..modo-6) sin pasar por el clic en PantallaInicio.
+function modoInicial(): ModoJuego {
+  if (typeof window === "undefined") return "barra-libre";
+  const parametro = new URLSearchParams(window.location.search).get("modo");
+  return parametro === "presupuesto" ? "presupuesto" : "barra-libre";
+}
+
 export function Aplicacion() {
   const [fase, setFase] = useState<Fase>("inicio");
   const [partida, setPartida] = useState<Partida>(() => ({
     clave: 0,
     ...datosInicioIniciales(),
     personalidadId: "la-contable",
+    modo: modoInicial(),
   }));
 
   useEffect(() => {
@@ -76,6 +90,7 @@ export function Aplicacion() {
           ? { mapaId: elegirMapaDistinto(actual.mapaId).id }
           : { semillaSistema: Math.floor(Math.random() * TECHO_SEMILLA_SISTEMA) }),
         personalidadId: actual.personalidadId,
+        modo: actual.modo,
       }));
     });
   }, []);
@@ -83,8 +98,8 @@ export function Aplicacion() {
   if (fase === "inicio") {
     return (
       <PantallaInicio
-        onJugar={(rivalId) => {
-          setPartida((actual) => ({ ...actual, personalidadId: rivalId }));
+        onJugar={(rivalId, modo) => {
+          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo }));
           setFase("jugando");
         }}
       />
@@ -98,6 +113,7 @@ export function Aplicacion() {
         mapaId: partida.mapaId,
         semillaSistema: partida.semillaSistema,
         personalidadId: partida.personalidadId,
+        modo: partida.modo,
       }}
     />
   );

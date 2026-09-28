@@ -7,8 +7,10 @@ import {
   ajustarAnguloFino,
   armaEstaAgotada,
   cerrarAyuda,
+  costeDeArma,
   iniciarArrastre,
   obtenerEstadoControl,
+  puedeCostearArma,
   repetirUltimoDisparo,
   seleccionarArma,
   solicitarDisparo,
@@ -88,6 +90,25 @@ export function ControlHUD() {
       onPointerCancel={terminarArrastre}
       data-testid="superficie-arrastre"
     >
+      {estado.modo === "presupuesto" && (
+        <div
+          data-testid="saldo"
+          style={{
+            position: "fixed",
+            top: 8,
+            right: 8,
+            zIndex: 10,
+            background: "var(--color-cromado-fondo)",
+            borderRadius: 10,
+            padding: "6px 10px",
+            color: "var(--color-cromado-texto)",
+            font: "12px system-ui, sans-serif",
+          }}
+        >
+          Saldo: {estado.saldo ?? 0} cr
+        </div>
+      )}
+
       <div
         role="status"
         data-testid="resultado-turno"
@@ -210,12 +231,16 @@ export function ControlHUD() {
           >
             {CATALOGO_ARMAS.map((arma) => {
               const agotada = armaEstaAgotada(arma.id);
+              const enPresupuesto = estado.modo === "presupuesto";
+              const coste = costeDeArma(arma.id);
+              const asequible = puedeCostearArma(arma.id);
+              const faltan = enPresupuesto && !asequible ? coste - (estado.saldo ?? 0) : 0;
               return (
                 <button
                   key={arma.id}
                   type="button"
                   data-testid={`arma-${arma.id}`}
-                  disabled={agotada}
+                  disabled={agotada || !asequible}
                   onClick={() => {
                     seleccionarArma(arma.id);
                     setSelectorAbierto(false);
@@ -225,14 +250,23 @@ export function ControlHUD() {
                     width: "100%",
                     minHeight: TAMANO_MINIMO_BOTON_PX,
                     textAlign: "left",
-                    opacity: agotada ? 0.45 : 1,
+                    opacity: agotada || !asequible ? 0.45 : 1,
                     marginBottom: 4,
                   }}
                 >
                   <strong>{arma.nombre}</strong>
                   {agotada ? " (agotada)" : ""}
+                  {enPresupuesto && <span data-testid={`precio-${arma.id}`}>{coste > 0 ? ` — ${coste} cr` : " — Gratis"}</span>}
                   <br />
                   <span>{arma.descripcion}</span>
+                  {faltan > 0 && (
+                    <>
+                      <br />
+                      <span data-testid={`saldo-insuficiente-${arma.id}`} style={{ color: "#ffcc66" }}>
+                        Te faltan {faltan} créditos: dispara una gratis o acierta para ingresar.
+                      </span>
+                    </>
+                  )}
                 </button>
               );
             })}
@@ -290,6 +324,11 @@ export function ControlHUD() {
                 Un disparo puede quedarse en órbita y perderse: si pasa, el turno sigue igual.
               </p>
             )}
+            <p data-testid="explicacion-modo">
+              {estado.modo === "presupuesto"
+                ? `Modo con presupuesto: empiezas con ${estado.saldo ?? 0} créditos, cada disparo cuesta el suyo y acertar ingresa por el daño causado. Tres armas son siempre gratis.`
+                : "Modo barra libre: todas las armas están disponibles siempre, sin coste."}
+            </p>
             <button type="button" data-testid="ayuda-cerrar" onClick={cerrarAyuda} style={botonEstilo}>
               Entendido
             </button>

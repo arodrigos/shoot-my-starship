@@ -9,7 +9,8 @@ import { colocarNaves } from "@/sim/naves/colocacion";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
-import type { EntradaDeTurno, EstadoPartida, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
+import { SALDO_INICIAL } from "@/sim/partida/economia";
+import type { EntradaDeTurno, EstadoPartida, IdNave, ModoJuego, ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } from "@/sim/armas/resolver";
 import { buscarArma, CATALOGO_ARMAS } from "@/sim/armas/catalogo";
@@ -33,10 +34,12 @@ import type { Personalidad } from "@/sim/ia/tipos";
 import { UMBRAL_FALLO_PX, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
 import {
+  fijarModo,
   fijarModoEspacial,
   obtenerEstadoControl,
   publicarDisparoJugadorResuelto,
   publicarJugable,
+  publicarSaldo,
   registrarManejadorDisparo,
   reiniciarControl,
 } from "@/juego/control/store";
@@ -270,6 +273,18 @@ export class Partida extends Phaser.Scene {
     const idMapa = parametrosUrl.get("mapa") ?? this.datosEscena.mapaId;
     this.rival = this.datosEscena.personalidadId ? buscarPersonalidad(this.datosEscena.personalidadId) : RIVAL_POR_DEFECTO;
 
+    // modos-y-presupuesto: ?modo= sigue la misma convención que ?mapa=/
+    // ?semilla= -- atajo determinista para los tests e2e, con la última
+    // palabra sobre datosEscena.modo. ?saldo= SOLO existe para que modo-2
+    // pueda forzar el saldo a 0 sin jugar la partida entera hasta agotarlo.
+    const modoParam = parametrosUrl.get("modo");
+    const modo: ModoJuego = modoParam === "presupuesto" ? "presupuesto" : modoParam === "barra-libre" ? "barra-libre" : (this.datosEscena.modo ?? "barra-libre");
+    const saldoParam = parametrosUrl.get("saldo");
+    const saldoInicial = modo === "presupuesto" ? (saldoParam !== null ? Number(saldoParam) : SALDO_INICIAL) : undefined;
+    fijarModo(modo, saldoInicial ?? null);
+    window.__debug.modo = modo;
+    window.__debug.saldo = saldoInicial ?? null;
+
     if (idMapa) {
       // Modo de suelo plano de siempre (atajo ?mapa=, tests e2e de bloques
       // anteriores a render-espacio).
@@ -287,7 +302,11 @@ export class Partida extends Phaser.Scene {
       const mascara = generarMascara(mapa.semillaTerreno, MUNDO_ANCHO, MUNDO_ALTO);
       const xNave0 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_0);
       const xNave1 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_1);
-      this.estado = crearPartidaInicial(mapa.mundo, mascara, xNave0, xNave1, mapa.semillaPartida);
+      this.estado = {
+        ...crearPartidaInicial(mapa.mundo, mascara, xNave0, xNave1, mapa.semillaPartida),
+        modo,
+        ...(saldoInicial !== undefined ? { saldo: saldoInicial } : {}),
+      };
 
       const { terreno } = crearTerrenoPhaser(this, mascara, "terreno-partida", mapa.paleta);
       this.terreno = terreno;
@@ -335,6 +354,8 @@ export class Partida extends Phaser.Scene {
         aleatorio: colocacion.aleatorio,
         resultado: { tipo: "en-curso" },
         planetas: sistema.planetas,
+        modo,
+        ...(saldoInicial !== undefined ? { saldo: saldoInicial } : {}),
       };
 
       const { terreno } = crearTerrenoEspacioPhaser(this, sistema.mascara, "terreno-partida", sistema.planetas);
@@ -788,6 +809,7 @@ export class Partida extends Phaser.Scene {
     this.estado = estadoDespues;
     this.refrescarNaves();
     this.refrescarDebugNaves();
+    this.refrescarEconomia();
     window.__debug!.turno = this.estado.turno;
     window.__debug!.numeroTurno = this.estado.numeroTurno;
     publicarJugable(this.puedeJugarAhora());
@@ -900,6 +922,15 @@ export class Partida extends Phaser.Scene {
     // parte de guerra, no leyendo window.__debug -- eso es lo que el
     // Gatekeeper señaló como evidencia que no vale (imp-11).
     publicarIntegridad(this.estado.naves);
+  }
+
+  // modos-y-presupuesto: mismo canal pub/sub que refrescarDebugNaves --
+  // el HUD (fuera del lienzo) lee el saldo del store, nunca de window.__debug
+  // (eso es solo para los tests e2e).
+  private refrescarEconomia(): void {
+    const saldo = this.estado.modo === "presupuesto" ? (this.estado.saldo ?? 0) : null;
+    publicarSaldo(saldo);
+    window.__debug!.saldo = saldo;
   }
 
   private refrescarIndicadorDeriva(): void {

@@ -4,11 +4,14 @@ import { useState } from "react";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import { almacenamientoDisponible, guardarRivalElegido, leerProgreso } from "@/juego/control/progreso";
 import { desbloquearAudio } from "@/juego/audio/motor";
+import { SALDO_INICIAL } from "@/sim/partida/economia";
+import type { ModoJuego } from "@/sim/partida/tipos";
 
 const RIVAL_POR_DEFECTO_ID = "la-contable";
+const MODO_POR_DEFECTO: ModoJuego = "barra-libre";
 
 interface Props {
-  readonly onJugar: (rivalId: string) => void;
+  readonly onJugar: (rivalId: string, modo: ModoJuego) => void;
 }
 
 // partida-4: primera visita y estados vacíos. Vive fuera del lienzo (no
@@ -24,6 +27,7 @@ export function PantallaInicio({ onJugar }: Props) {
   // en cada intento de guardado.
   const [sinAlmacenamiento] = useState(() => !almacenamientoDisponible());
   const [rivalId, setRivalId] = useState(progreso.rivalId ?? RIVAL_POR_DEFECTO_ID);
+  const [modo, setModo] = useState<ModoJuego>(MODO_POR_DEFECTO);
 
   function alJugar(): void {
     // Gesto real del usuario (el propio clic): el sitio legítimo para
@@ -31,7 +35,7 @@ export function PantallaInicio({ onJugar }: Props) {
     // que sigue sirviendo de red de seguridad para gestos posteriores.
     desbloquearAudio();
     guardarRivalElegido(rivalId);
-    onJugar(rivalId);
+    onJugar(rivalId, modo);
   }
 
   return (
@@ -92,6 +96,43 @@ export function PantallaInicio({ onJugar }: Props) {
             <span style={{ font: "12px system-ui, sans-serif" }}>{personalidad.descripcion}</span>
           </button>
         ))}
+      </section>
+
+      <section style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 360 }}>
+        <h2 style={{ margin: 0, fontSize: 15 }}>Elige modo</h2>
+        <button
+          type="button"
+          data-testid="modo-barra-libre"
+          aria-pressed={modo === "barra-libre"}
+          onClick={() => setModo("barra-libre")}
+          style={{
+            ...botonEstilo,
+            textAlign: "left",
+            border: modo === "barra-libre" ? "2px solid #ffcc66" : "1px solid rgba(255,255,255,0.25)",
+          }}
+        >
+          <strong>Barra libre</strong>
+          <br />
+          <span style={{ font: "12px system-ui, sans-serif" }}>Todas las armas disponibles desde el primer turno, sin coste.</span>
+        </button>
+        <button
+          type="button"
+          data-testid="modo-presupuesto"
+          aria-pressed={modo === "presupuesto"}
+          onClick={() => setModo("presupuesto")}
+          style={{
+            ...botonEstilo,
+            textAlign: "left",
+            border: modo === "presupuesto" ? "2px solid #ffcc66" : "1px solid rgba(255,255,255,0.25)",
+          }}
+        >
+          <strong>Con presupuesto</strong>
+          <br />
+          <span style={{ font: "12px system-ui, sans-serif" }}>
+            Empiezas con {SALDO_INICIAL} créditos: cada disparo cuesta y acertar ingresa por el daño causado. Tres
+            armas son siempre gratis.
+          </span>
+        </button>
       </section>
 
       <section data-testid="ultima-partida" style={{ maxWidth: 360 }}>

@@ -1,5 +1,6 @@
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
-import type { EntradaDeTurno } from "@/sim/partida/tipos";
+import { costeArma, puedeCostearArma as puedeCostearArmaSim } from "@/sim/partida/economia";
+import type { EntradaDeTurno, ModoJuego } from "@/sim/partida/tipos";
 import {
   ANGULO_INICIAL_GRADOS,
   POTENCIA_INICIAL,
@@ -33,6 +34,12 @@ export interface EstadoControl {
   // trayectoria curva) -- lo fija la escena en create(), antes de que el
   // HUD pinte el primer fotograma.
   readonly modoEspacial: boolean;
+  // modos-y-presupuesto: modo de la partida en curso y saldo del jugador --
+  // fijados por Partida.ts al crear la partida (fijarModo) y refrescados tras
+  // cada turno (publicarSaldo). saldo es null en barra libre (modo-4: ningún
+  // saldo, ni siquiera uno enorme).
+  readonly modo: ModoJuego;
+  readonly saldo: number | null;
 }
 
 const CLAVE_AYUDA_VISTA = "control-apuntado:ayuda-vista";
@@ -62,6 +69,8 @@ let estado: EstadoControl = {
   puedeDisparar: false,
   ayudaVisible: !ayudaYaVista(),
   modoEspacial: false,
+  modo: "barra-libre",
+  saldo: null,
 };
 
 const escuchas = new Set<() => void>();
@@ -116,9 +125,35 @@ export function ajustarAnguloFino(sentido: 1 | -1): void {
   fijar({ ajuste: { ...estado.ajuste, anguloGrados: anguloConPasoFino(estado.ajuste.anguloGrados, sentido) } });
 }
 
+// modo-2: nunca deja seleccionar un arma que el saldo actual no cubre --
+// mismo mecanismo de rechazo silencioso que armaEstaAgotada (el botón ya
+// viene deshabilitado en el HUD; esto es la red de seguridad del store).
+export function puedeCostearArma(armaId: string): boolean {
+  if (estado.modo !== "presupuesto") return true;
+  const arma = CATALOGO_ARMAS.find((candidata) => candidata.id === armaId);
+  if (!arma) return true;
+  return puedeCostearArmaSim(arma, estado.saldo ?? 0);
+}
+
+export function costeDeArma(armaId: string): number {
+  const arma = CATALOGO_ARMAS.find((candidata) => candidata.id === armaId);
+  return arma ? costeArma(arma) : 0;
+}
+
 export function seleccionarArma(armaId: string): void {
   if (armaEstaAgotada(armaId)) return;
+  if (!puedeCostearArma(armaId)) return;
   fijar({ ajuste: { ...estado.ajuste, armaId } });
+}
+
+// Partida.ts las llama al crear la partida (fijarModo, una vez) y tras cada
+// turno resuelto (publicarSaldo) -- mismo patrón que fijarModoEspacial.
+export function fijarModo(modo: ModoJuego, saldoInicial: number | null): void {
+  fijar({ modo, saldo: saldoInicial });
+}
+
+export function publicarSaldo(saldo: number | null): void {
+  if (estado.saldo !== saldo) fijar({ saldo });
 }
 
 export function repetirUltimoDisparo(): void {
@@ -177,5 +212,7 @@ export function reiniciarControl(): void {
     ultimoDisparo: null,
     puedeDisparar: false,
     modoEspacial: false,
+    modo: "barra-libre",
+    saldo: null,
   });
 }

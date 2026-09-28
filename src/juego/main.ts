@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { Sandbox } from "@/juego/scenes/Sandbox";
 import { Partida } from "@/juego/escenas/Partida";
+import type { ModoJuego } from "@/sim/partida/tipos";
 
 export type IdEscena = "partida" | "sandbox";
 
@@ -15,6 +16,9 @@ export interface DatosEscenaPartida {
   // aditiva y mutuamente excluyente con mapaId (si llega mapaId, gana el
   // modo de suelo plano de siempre; ver Partida.ts create()).
   readonly semillaSistema?: number;
+  // modos-y-presupuesto: ausente es "barra-libre" (el comportamiento de
+  // siempre, ver Partida.ts create()).
+  readonly modo?: ModoJuego;
 }
 
 // FIT + CENTER_BOTH (render-4, sustituye el RESIZE de andamiaje-1): el
