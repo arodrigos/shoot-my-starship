@@ -489,6 +489,7 @@ export class Partida extends Phaser.Scene {
     window.__debug.estelaMaxVivas = 0;
     window.__debug.parteDeGuerra = null;
     window.__debug.ultimosEventos = [];
+    window.__debug.historialBromas = [];
     window.__debug.dispararReaccionHumor = (tipo) => this.reaccionarAHumor([crearEventoDePruebaHumor(tipo)]);
     window.__debug.forzarProyectilPerdido = () =>
       this.aplicarResultadoTurno(this.estado, [{ tipo: "proyectil-perdido", nave: this.estado.turno }]);
@@ -833,7 +834,7 @@ export class Partida extends Phaser.Scene {
     }
     this.reaccionarAHumor(eventos);
     if (categoriaBroma) {
-      this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma);
+      this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos);
     }
     publicarResultadoTurno(resumenTurno(eventos));
 
@@ -907,12 +908,29 @@ export class Partida extends Phaser.Scene {
   // publica, y la de disparo solo si frecuenciaBromas lo permite (hum-5). No
   // depende de reproducirTono ni de ningún estado de audio (hum-6): un audio
   // bloqueado por el navegador no puede impedir que la frase aparezca.
-  private reaccionarABroma(tirador: IdNave, numeroTurnoAntes: number, categoria: CategoriaBroma): void {
+  private reaccionarABroma(
+    tirador: IdNave,
+    numeroTurnoAntes: number,
+    categoria: CategoriaBroma,
+    eventos: readonly EventoSimulacion[],
+  ): void {
     const voz = vozDeNave(tirador, this.rival.id);
+    let textoDisparo: string | null = null;
     if (debeMostrarBromaDeDisparo(FRECUENCIA_BROMAS_POR_DEFECTO, numeroTurnoAntes)) {
-      publicarBromaDisparo(this.selectorBromas.elegirDisparo(voz));
+      textoDisparo = this.selectorBromas.elegirDisparo(voz);
+      publicarBromaDisparo(textoDisparo);
     }
-    publicarBromaImpacto(this.selectorBromas.elegirImpacto(voz, categoria), categoria);
+    const textoImpacto = this.selectorBromas.elegirImpacto(voz, categoria);
+    publicarBromaImpacto(textoImpacto, categoria);
+
+    // hum-1: un registro por turno, para que el test pueda comprobar "sin
+    // excepción" a lo largo de varios turnos y cruzar la frase contra el
+    // banco de la nave y la categoría reales -- broma.ts solo guarda la
+    // última de cada tipo, insuficiente para eso.
+    window.__debug!.historialBromas = [
+      ...(window.__debug!.historialBromas ?? []),
+      { numeroTurno: numeroTurnoAntes, tirador, voz, categoria, textoDisparo, textoImpacto, eventos },
+    ];
   }
 
   // humor-6: reproduce el ÚLTIMO vuelo real (de cualquiera de las dos naves)

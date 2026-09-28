@@ -23,7 +23,11 @@ export function BromaHUD() {
         bottom: 96,
         left: "50%",
         transform: "translateX(-50%)",
-        zIndex: 15,
+        // Por encima del velo de fin de partida (ParteDeGuerraHUD, zIndex
+        // 25): la última broma del turno que decide la partida tiene que
+        // seguir siendo legible, no un texto tenue detrás del velo
+        // (hallazgo no bloqueante del Gatekeeper sobre humor-por-turno).
+        zIndex: 30,
         display: "flex",
         flexDirection: "column",
         gap: 4,
