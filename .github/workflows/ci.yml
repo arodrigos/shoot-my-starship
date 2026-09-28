@@ -5,6 +5,11 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+  # Disparo manual: el push de un squash-merge a dev no generó check-runs una
+  # vez (commit dfc0803, ver desarrollo-26), sin causa visible en los logs de
+  # la API. Con esto se puede reconfirmar CI sobre un commit concreto sin
+  # tener que repetir el merge.
+  workflow_dispatch:
 
 jobs:
   lint-typecheck-build:
