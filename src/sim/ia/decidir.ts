@@ -107,6 +107,31 @@ export interface UltimoIntentoIA {
   readonly turnosSeguidosDanioInsuficiente?: number;
 }
 
+// arm-6 (devuelto por el Gatekeeper): Partida.ts y partida-3.test.ts
+// calculaban este bloque de tres contadores a mano, cada uno con su propia
+// copia del mismo cálculo -- y arm-6.test.ts, un tercer llamante escrito
+// después, se olvidó de calcularlo, con lo que turnosSeguidosDanioInsuficiente
+// se quedaba siempre en 0 y "desistir de cavar" (ia-n7) nunca se disparaba
+// para ese harness. Centralizar el cálculo aquí no evita que un llamante
+// nuevo se olvide de LLAMAR a esta función, pero sí evita que reinvente (o
+// desincronice) la lógica si la llama: un solo sitio donde
+// UMBRAL_DANIO_SUFICIENTE_POR_TURNO y las reglas de reseteo están escritas.
+export function siguienteUltimoIntentoIA(anterior: UltimoIntentoIA | null, distanciaAlObjetivoPx: number, danioCausado: number): UltimoIntentoIA {
+  const fallosConsecutivosPrevios = anterior?.fallosConsecutivos ?? 0;
+  const turnosSeguidosSinDanioPrevios = anterior?.turnosSeguidosSinDanio ?? 0;
+  const turnosSeguidosDanioInsuficientePrevios = anterior?.turnosSeguidosDanioInsuficiente ?? 0;
+
+  return {
+    distanciaAlObjetivoPx,
+    fallosConsecutivos: distanciaAlObjetivoPx > UMBRAL_FALLO_PX ? fallosConsecutivosPrevios + 1 : fallosConsecutivosPrevios,
+    turnosSeguidosSinDanio: danioCausado > 0 ? 0 : turnosSeguidosSinDanioPrevios + 1,
+    // ia-n7: NUNCA se resetea, ni con un roce que sí cuenta como "daño" a
+    // efectos de turnosSeguidosSinDanio -- ver el comentario del campo arriba.
+    turnosSeguidosDanioInsuficiente:
+      danioCausado < UMBRAL_DANIO_SUFICIENTE_POR_TURNO ? turnosSeguidosDanioInsuficientePrevios + 1 : turnosSeguidosDanioInsuficientePrevios,
+  };
+}
+
 export interface ErrorInyectado {
   readonly anguloGrados: number;
   readonly potencia: number;
