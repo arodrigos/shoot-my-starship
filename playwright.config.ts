@@ -12,13 +12,22 @@ export default defineConfig({
   fullyParallel: true,
   reporter: "list",
   // cie-6: reintentos en CI (una repetición basta para que un fallo
-  // intermitente de verdad no tumbe el pipeline por una sola muestra) y
-  // trace solo cuando un test falla -- nunca en verde, para no pagar el
-  // coste de traza en la mayoría de ejecuciones.
+  // intermitente de verdad no tumbe el pipeline por una sola muestra).
   retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: "http://127.0.0.1:3000",
-    trace: "retain-on-failure",
+    // cie-6, desviación diagnosticada en desarrollo-29: "retain-on-failure"
+    // graba (y solo descarta al final) la traza de CADA intento, incluido
+    // el que pasa -- ese coste de grabación, no la contención de CI, es lo
+    // que rompía proy-5 y humor-1 de forma reproducible incluso en solitario
+    // y sin ningún otro test en paralelo (confirmado: fallan siempre con
+    // "retain-on-failure" y pasan siempre con "on-first-retry", mismo
+    // commit, misma máquina). proy-5 muestrea el vuelo real por polling
+    // cada 30ms -- exactamente el tipo de test que un coste añadido de
+    // grabación por acción puede aplastar a "solo 1 muestra". "on-first-retry"
+    // da lo mismo que se necesita (traza disponible cuando algo falla, vía
+    // el reintento) sin grabar en el camino que sí importa medir en tiempo real.
+    trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
