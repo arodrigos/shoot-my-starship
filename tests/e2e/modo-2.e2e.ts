@@ -42,7 +42,8 @@ test("modo-2: con saldo 0, las armas gratis siguen disparables y las de pago que
     { timeout: 60000 },
   );
 
-  // Disparar gratis no ha costado nada: el saldo se mantiene en 0 (nunca
-  // negativo).
-  expect(await page.evaluate(() => window.__debug.saldo)).toBe(0);
+  // Disparar gratis no cuesta nada, pero si acierta sigue ingresando por
+  // daño (el gratis es de coste, no de recompensa) -- lo único garantizado
+  // es que nunca queda negativo.
+  expect(await page.evaluate(() => window.__debug.saldo)).toBeGreaterThanOrEqual(0);
 });
