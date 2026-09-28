@@ -1,10 +1,11 @@
 import Phaser from "phaser";
 import { MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { Sandbox } from "@/juego/scenes/Sandbox";
+import { Siluetas } from "@/juego/scenes/Siluetas";
 import { Partida } from "@/juego/escenas/Partida";
 import type { ModoJuego } from "@/sim/partida/tipos";
 
-export type IdEscena = "partida" | "sandbox";
+export type IdEscena = "partida" | "sandbox" | "siluetas";
 
 // partida-completa: qué rival y qué mapa arrancan la escena real -- la
 // pantalla de inicio los decide fuera del lienzo, Partida.init(datos) los
@@ -59,6 +60,8 @@ export function iniciarJuego(
   // clave, no por la posición en el array de configuración.
   if (idEscena === "sandbox") {
     juego.scene.add("Sandbox", Sandbox, true, datosEscena);
+  } else if (idEscena === "siluetas") {
+    juego.scene.add("Siluetas", Siluetas, true, datosEscena);
   } else {
     juego.scene.add("Partida", Partida, true, datosEscena);
   }
