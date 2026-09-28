@@ -31,7 +31,7 @@ import { AnimadorProyectil } from "@/juego/vuelo/AnimadorProyectil";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { LA_CONTABLE, ALMIRANTE_BISAGRA, buscarPersonalidad } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
-import { UMBRAL_FALLO_PX, type UltimoIntentoIA } from "@/sim/ia/decidir";
+import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
 import {
   fijarModo,
@@ -193,6 +193,13 @@ export class Partida extends Phaser.Scene {
   // búsqueda: la búsqueda decide antes de que el error de personalidad se
   // inyecte, así que su daño previsto puede no ser el que de verdad ocurre.
   private turnosSeguidosSinDanioIA = 0;
+  // ia-n7: turnos SEGUIDOS que la máquina ha causado menos de
+  // UMBRAL_DANIO_SUFICIENTE_POR_TURNO de daño real (incluido cero) --
+  // decidirTurnoIA lo usa para desistir de cavar con ARMA_DE_DESBLOQUEO
+  // cuando ese roce conecta pero es demasiado lento (partida-3: Chispa
+  // contra La Contable encajando ~1pt por turno durante más de 40 turnos).
+  // NUNCA se resetea, igual que fallosConsecutivos.
+  private turnosSeguidosDanioInsuficienteIA = 0;
   private datosEscena: DatosEscenaPartida = {};
   private naves!: [Nave, Nave];
   private indicadorDeriva!: IndicadorDeriva;
@@ -268,6 +275,7 @@ export class Partida extends Phaser.Scene {
     this.ultimoIntentoIA = null;
     this.fallosConsecutivosIA = 0;
     this.turnosSeguidosSinDanioIA = 0;
+    this.turnosSeguidosDanioInsuficienteIA = 0;
 
     const parametrosUrl = new URLSearchParams(window.location.search);
     const idMapa = parametrosUrl.get("mapa") ?? this.datosEscena.mapaId;
@@ -688,10 +696,17 @@ export class Partida extends Phaser.Scene {
         .reduce((total, evento) => total + evento.danio, 0);
       this.turnosSeguidosSinDanioIA = danioCausado > 0 ? 0 : this.turnosSeguidosSinDanioIA + 1;
 
+      // ia-n7: nunca baja, igual que fallosConsecutivos -- ver el comentario
+      // del campo en la clase.
+      if (danioCausado < UMBRAL_DANIO_SUFICIENTE_POR_TURNO) {
+        this.turnosSeguidosDanioInsuficienteIA += 1;
+      }
+
       this.ultimoIntentoIA = {
         distanciaAlObjetivoPx: distancia,
         fallosConsecutivos: this.fallosConsecutivosIA,
         turnosSeguidosSinDanio: this.turnosSeguidosSinDanioIA,
+        turnosSeguidosDanioInsuficiente: this.turnosSeguidosDanioInsuficienteIA,
       };
     }
 

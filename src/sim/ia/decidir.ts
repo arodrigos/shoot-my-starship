@@ -57,6 +57,26 @@ const UMBRAL_DESBLOQUEO_FORZADO = 3;
 // que hace, es una salvaguarda del ritmo de partida, no de carácter.
 const UMBRAL_TURNOS_SIN_DANIO_FORZADO = 2;
 
+// ia-n7 (partida-3, medido sobre dev@b142890): ni fallosConsecutivos (mide
+// DISTANCIA al objetivo) ni turnosSeguidosSinDanio (se resetea con
+// cualquier daño > 0, aunque sea 1pt) detectan el caso real que alarga las
+// 8/200 partidas por encima de 40 turnos -- las dos personalidades
+// convergen en ARMA_DE_DESBLOQUEO (zanjadora-manolita, danioMaximo:4,
+// "no mata a nadie") porque están "bloqueada" según el arma de referencia,
+// y esa arma sí conecta un roce del borde de su radio de efecto turno tras
+// turno (~1pt real), lo que resetea turnosSeguidosSinDanio a 0 sin que la
+// partida avance de verdad. Umbral de qué cuenta como "daño suficiente":
+// por encima del danioMaximo de zanjadora (4) y por debajo del de
+// cualquier otra arma real del catálogo (11 o más), así que separa
+// limpiamente "sigo cavando" de "ya until arma".
+export const UMBRAL_DANIO_SUFICIENTE_POR_TURNO = 5;
+// Turnos SEGUIDOS de daño por debajo del umbral (incluido cero) tolerados
+// antes de desistir de cavar con ARMA_DE_DESBLOQUEO y disparar con el arma
+// de mayor daño de la personalidad -- nunca baja, igual que
+// fallosConsecutivos: cavar ya ha demostrado ser demasiado lento, no se
+// vuelve a intentar contra el mismo objetivo.
+const UMBRAL_TURNOS_DANIO_INSUFICIENTE_FORZADO = 6;
+
 export interface UltimoIntentoIA {
   readonly distanciaAlObjetivoPx: number;
   // Cuántos disparos seguidos ha fallado esta personalidad contra este
@@ -77,6 +97,14 @@ export interface UltimoIntentoIA {
   // lleva (Partida.ts, o el test que construye el escenario a mano) decide
   // cuándo sube y cuándo baja, decidirTurnoIA solo lo lee.
   readonly turnosSeguidosSinDanio?: number;
+  // Cuántos turnos SEGUIDOS ha causado esta personalidad menos de
+  // UMBRAL_DANIO_SUFICIENTE_POR_TURNO de daño real, incluido cero (ia-n7):
+  // omitido equivale a 0. A diferencia de turnosSeguidosSinDanio, quien lo
+  // lleva NUNCA lo resetea con un impacto real -- solo sube, igual que
+  // fallosConsecutivos, porque una vez que cavar con ARMA_DE_DESBLOQUEO ha
+  // demostrado ser demasiado lento para terminar la partida, no tiene
+  // sentido volver a intentarlo contra el mismo objetivo.
+  readonly turnosSeguidosDanioInsuficiente?: number;
 }
 
 export interface ErrorInyectado {
@@ -125,6 +153,16 @@ function danioMaximoDeArma(armaId: string): number {
   return arma.efecto.tipo === "empuje" ? 0 : arma.efecto.danioMaximo;
 }
 
+// ia-n7: la respuesta a "desisto de cavar" -- el arma de mayor danioMaximo
+// declarado de la personalidad, sea cual sea su posición en la lista de
+// preferencia. No pasa por la política probabilística de elegirArma porque
+// eso podría volver a elegir una arma floja (a Chispa, por ejemplo, le
+// tocaría zanjadora un 42% de las veces): aquí la prioridad ya no es el
+// carácter, es terminar la partida.
+function elegirMejorArmaPorDanio(ids: readonly string[]): string {
+  return ids.reduce((mejor, candidato) => (danioMaximoDeArma(candidato) > danioMaximoDeArma(mejor) ? candidato : mejor));
+}
+
 // Ancho, dentro de la franja de la segunda opción (30% del total), que de
 // verdad dispara un arma de daño 0: el resto de esa franja cae a la primera
 // opción en vez de a la segunda. ia-3 calibró sus tres bandas de dificultad
@@ -152,7 +190,11 @@ function elegirArma(
   bloqueada: boolean,
   aleatorio: EstadoAleatorio,
   turnosSeguidosSinDanio: number,
+  desistirDeCavar: boolean = false,
 ): { readonly armaId: string; readonly aleatorio: EstadoAleatorio } {
+  if (desistirDeCavar) {
+    return { armaId: elegirMejorArmaPorDanio(personalidad.ordenPreferenciaArmas), aleatorio };
+  }
   if (bloqueada) {
     return { armaId: ARMA_DE_DESBLOQUEO, aleatorio };
   }
@@ -335,7 +377,12 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
       arma: buscarArma(ARMA_BASE_ID),
       presupuestoIntentos: PRESUPUESTO_VIABILIDAD_REFERENCIA,
     });
-    bloqueada = bloqueadaDeVerdad && (ultimoIntento?.fallosConsecutivos ?? 0) < UMBRAL_DESBLOQUEO_FORZADO;
+    // ia-n7: cavar con ARMA_DE_DESBLOQUEO ha demostrado ser demasiado lento
+    // -- se desiste antes de volver a comprobar fallosConsecutivos, porque
+    // ese contador mide distancia y un roce que conecta no lo mueve nunca.
+    const turnosSeguidosDanioInsuficiente = ultimoIntento?.turnosSeguidosDanioInsuficiente ?? 0;
+    const desistirDeCavar = turnosSeguidosDanioInsuficiente >= UMBRAL_TURNOS_DANIO_INSUFICIENTE_FORZADO;
+    bloqueada = bloqueadaDeVerdad && !desistirDeCavar && (ultimoIntento?.fallosConsecutivos ?? 0) < UMBRAL_DESBLOQUEO_FORZADO;
 
     // elegirArma decide ANTES de la búsqueda cara -- así la búsqueda se hace
     // una sola vez, ya con el arma definitiva, en vez de dos (una de
@@ -345,6 +392,7 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
       bloqueada,
       params.aleatorio,
       turnosSeguidosSinDanio,
+      desistirDeCavar,
     );
 
     const resultadoBusqueda = buscarSolucionRival({

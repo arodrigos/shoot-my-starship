@@ -4,7 +4,7 @@ import { crearEstadoAleatorio, siguienteAleatorio } from "@/sim/aleatorio";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { jugarTurno } from "@/sim/partida/motor";
 import { crearFuenteIA } from "@/sim/ia/fuente";
-import { UMBRAL_FALLO_PX, type UltimoIntentoIA } from "@/sim/ia/decidir";
+import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
 import { naveContraria, type EstadoPartida, type FuenteDeTurno, type ParametrosMundo } from "@/sim/partida/tipos";
@@ -74,6 +74,9 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
   // sí, porque mide otra cosa: si el turno inmediatamente anterior hizo daño.
   const fallosConsecutivos: [number, number] = [0, 0];
   const turnosSeguidosSinDanio: [number, number] = [0, 0];
+  // ia-n7: mismo patrón que fallosConsecutivos -- nunca baja, quien lo lleva
+  // (aquí, y Partida.ts en el bucle real) decide cuándo sube.
+  const turnosSeguidosDanioInsuficiente: [number, number] = [0, 0];
   let disparos = 0;
   let proyectilesPerdidos = 0;
 
@@ -110,11 +113,15 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
       .filter((evento): evento is Extract<(typeof eventos)[number], { tipo: "impacto" }> => evento.tipo === "impacto" && evento.objetivo === objetivoId)
       .reduce((total, evento) => total + evento.danio, 0);
     turnosSeguidosSinDanio[tirador] = danioCausado > 0 ? 0 : turnosSeguidosSinDanio[tirador] + 1;
+    if (danioCausado < UMBRAL_DANIO_SUFICIENTE_POR_TURNO) {
+      turnosSeguidosDanioInsuficiente[tirador] += 1;
+    }
 
     ultimoIntento[tirador] = {
       distanciaAlObjetivoPx: distancia,
       fallosConsecutivos: fallosConsecutivos[tirador],
       turnosSeguidosSinDanio: turnosSeguidosSinDanio[tirador],
+      turnosSeguidosDanioInsuficiente: turnosSeguidosDanioInsuficiente[tirador],
     };
   }
 
@@ -160,33 +167,22 @@ test("ia-n7 / partida-3: en 200 partidas simuladas en modo espacial real, casi t
     );
   });
 
-  // ia-n7 (camino_critico:true, NO conseguido de verdad en esta iteración):
-  // el umbral de 40 turnos no se relaja -- pero investigado a fondo (ver
-  // desviaciones), la causa de las 8/200 partidas que lo superan NO es de
-  // puntería: es una tensión de elección de arma un peldaño más sutil que
-  // la que ia-n8 ya resuelve. Con trazas turno a turno, las 8 partidas
-  // sobre el límite son siempre Chispa contra La Contable, y en ellas los
-  // dos lados convergen en "zanjadora-manolita" (danioMaximo:4,
-  // radioEfectoPx:30, "No mata a nadie") y encajan un impacto real cada
-  // turno (turnosSeguidosSinDanio se queda en 0 siempre) pero de solo ~1pt
-  // de daño por el borde del radio de efecto -- ni un solo disparo perdido
-  // ni fallado por distancia, solo ~100 impactos reales de 1pt para bajar
-  // 100 de integridad. ia-n8 (ver criterio) solo obliga a cambiar de arma
-  // tras DOS TURNOS SEGUIDOS SIN DAÑO; no cubre el caso de daño real pero
-  // crónicamente insuficiente para acabar la partida en un número
-  // razonable de turnos. Arreglarlo de verdad exigiría o bien un criterio
-  // nuevo en elegirArma (sopesar turnos-para-matar, no solo daño>0) o bien
-  // rebalancear el catálogo de armas -- las LIMITACIONES DECLARADAS de este
-  // hito ya dicen "armas todavía las viejas": no es una decisión que le
-  // toque a desarrollo tomar en solitario dentro de este bloque. Sigue
-  // marcado como fallo real (TODO), no oculto ni convertido en aviso: el
-  // propio comando y su salida (arriba) son la evidencia de por qué no se
-  // puede cerrar sin esa decisión.
-  await t.test(
-    `todas las partidas terminan en ${TURNOS_MAXIMOS} turnos o menos`,
-    { todo: "ia-n7 (camino_critico:true): tensión real de elección de arma con daño crónicamente bajo pero no cero (ver comentario) -- decisión de diseño pendiente" },
-    () => {
-      assert.equal(maximoTurnos <= TURNOS_MAXIMOS, true, `${sobreElLimite.length} partida(s) superaron ${TURNOS_MAXIMOS} turnos: ${JSON.stringify(sobreElLimite)}`);
-    },
-  );
+  // ia-n7 (camino_critico:true): el umbral de 40 turnos no se relaja. La
+  // causa medida (devuelta tres veces por el Gatekeeper sobre dev@b142890,
+  // hasta 203 turnos en 22/200 partidas, siempre Chispa contra La
+  // Contable): las dos personalidades convergían en "zanjadora-manolita"
+  // (danioMaximo:4, "no mata a nadie") porque estaban "bloqueada" según el
+  // arma de referencia, y esa arma sí conectaba un roce del borde de su
+  // radio de efecto turno tras turno (~1pt real) que reseteaba
+  // turnosSeguidosSinDanio a 0 sin que la partida avanzara. Se arregla en
+  // decidir.ts con un contador nuevo, turnosSeguidosDanioInsuficiente, que
+  // NUNCA se resetea con un roce pequeño (a diferencia de
+  // turnosSeguidosSinDanio): tras UMBRAL_TURNOS_DANIO_INSUFICIENTE_FORZADO
+  // turnos seguidos por debajo de UMBRAL_DANIO_SUFICIENTE_POR_TURNO de
+  // daño real, se desiste de cavar con ARMA_DE_DESBLOQUEO y se dispara con
+  // el arma de mayor danioMaximo de la personalidad -- exactamente lo que
+  // el Gatekeeper recomendó: ponderar turnos-para-matar, no solo daño > 0.
+  await t.test(`todas las partidas terminan en ${TURNOS_MAXIMOS} turnos o menos`, () => {
+    assert.equal(maximoTurnos <= TURNOS_MAXIMOS, true, `${sobreElLimite.length} partida(s) superaron ${TURNOS_MAXIMOS} turnos: ${JSON.stringify(sobreElLimite)}`);
+  });
 });
