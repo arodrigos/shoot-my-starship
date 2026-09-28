@@ -4,11 +4,14 @@ import { crearEstadoAleatorio, siguienteAleatorio } from "@/sim/aleatorio";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { jugarTurno } from "@/sim/partida/motor";
 import { crearFuenteIA } from "@/sim/ia/fuente";
-import { UMBRAL_FALLO_PX, type UltimoIntentoIA } from "@/sim/ia/decidir";
+import { siguienteUltimoIntentoIA, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
 import { naveContraria, type EstadoPartida, type FuenteDeTurno, type ParametrosMundo } from "@/sim/partida/tipos";
 import { reiniciarContadorVuelosSimulados, vuelosSimuladosTotales } from "@/sim/fisica/vuelo";
+import { buscarArma } from "@/sim/armas/catalogo";
+import { buscarSolucionRival, PRESUPUESTO_VUELOS_RIVAL_TURNO } from "@/sim/ia/busquedaMultipozo";
+import { generarLoteDeSistemas, MUNDO_MULTIPOZO } from "../../utils/loteMultipozo";
 import { MUNDO_ANCHO, MUNDO_ALTO } from "../../utils/sistemaGenerado";
 
 // arm-6: repite EXACTAMENTE el escenario de ia-n7 (tests/unit/partida/
@@ -60,8 +63,6 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
   };
 
   const ultimoIntento: [UltimoIntentoIA | null, UltimoIntentoIA | null] = [null, null];
-  const fallosConsecutivos: [number, number] = [0, 0];
-  const turnosSeguidosSinDanio: [number, number] = [0, 0];
   let disparos = 0;
   let proyectilesPerdidos = 0;
   const vuelosAntes = vuelosSimuladosTotales();
@@ -93,18 +94,16 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
     const eventoImpacto = eventos.find((evento): evento is Extract<(typeof eventos)[number], { tipo: "impacto" }> => evento.tipo === "impacto");
     const puntoDeCaida = eventoImpacto ?? { x: objetivoAntes.x, y: objetivoYAntes };
     const distancia = Math.hypot(puntoDeCaida.x - objetivoAntes.x, puntoDeCaida.y - objetivoYAntes);
-    fallosConsecutivos[tirador] = distancia > UMBRAL_FALLO_PX ? fallosConsecutivos[tirador] + 1 : fallosConsecutivos[tirador];
 
     const danioCausado = eventos
       .filter((evento): evento is Extract<(typeof eventos)[number], { tipo: "impacto" }> => evento.tipo === "impacto" && evento.objetivo === objetivoId)
       .reduce((total, evento) => total + evento.danio, 0);
-    turnosSeguidosSinDanio[tirador] = danioCausado > 0 ? 0 : turnosSeguidosSinDanio[tirador] + 1;
 
-    ultimoIntento[tirador] = {
-      distanciaAlObjetivoPx: distancia,
-      fallosConsecutivos: fallosConsecutivos[tirador],
-      turnosSeguidosSinDanio: turnosSeguidosSinDanio[tirador],
-    };
+    // arm-6 (Gatekeeper): usa el MISMO cálculo que partida-3.test.ts y
+    // Partida.ts en vez de reinventarlo -- este harness fue el que se olvidó
+    // de llevar turnosSeguidosDanioInsuficiente y por eso "desistir de cavar"
+    // (ia-n7) nunca se disparaba aquí.
+    ultimoIntento[tirador] = siguienteUltimoIntentoIA(ultimoIntento[tirador], distancia, danioCausado);
   }
 
   return { turnos: estado.numeroTurno, disparos, proyectilesPerdidos, vuelosSimulados: vuelosSimuladosTotales() - vuelosAntes };
@@ -151,17 +150,88 @@ test("arm-6: las 200 partidas de ia-n7 con el catálogo de 13 armas siguen dentr
     );
   });
 
-  // Mismo TODO heredado de ia-n7 (partida-3.test.ts): las 8/200 partidas
-  // Chispa-vs-Contable que superan 40 turnos son una tensión de elección de
-  // arma preexistente al catálogo nuevo (zanjadora-manolita, daño mínimo por
-  // el borde del radio de efecto), no algo que armas-nuevas haya roto. No se
-  // relaja el umbral ni se oculta el fallo: sigue declarado como TODO, con
-  // el propio comando y su salida como evidencia (arm-6, camino_critico).
-  await t.test(
-    `todas las partidas terminan en ${TURNOS_MAXIMOS} turnos o menos`,
-    { todo: "arm-6 (camino_critico:true): hereda la misma tensión de elección de arma ya documentada en ia-n7 -- no es una regresión de armas-nuevas" },
-    () => {
-      assert.equal(maximoTurnos <= TURNOS_MAXIMOS, true, `${sobreElLimite.length} partida(s) superaron ${TURNOS_MAXIMOS} turnos: ${JSON.stringify(sobreElLimite)}`);
-    },
-  );
+  // arm-6 (Gatekeeper, devuelto 3 veces): el { todo } venía de que este
+  // harness no llevaba turnosSeguidosDanioInsuficiente, así que "desistir de
+  // cavar" (ia-n7) nunca se disparaba aquí y el catálogo de 13 armas seguía
+  // ejerciendo la IA anterior al arreglo. Con siguienteUltimoIntentoIA (el
+  // mismo cálculo que ia-n7 ya usa en partida-3.test.ts y Partida.ts) el
+  // máximo medido baja de 203 a 17 turnos sobre las mismas 200 partidas: se
+  // retira el TODO porque ya no hereda ninguna tensión, se comprueba de
+  // verdad.
+  await t.test(`todas las partidas terminan en ${TURNOS_MAXIMOS} turnos o menos`, () => {
+    assert.equal(maximoTurnos <= TURNOS_MAXIMOS, true, `${sobreElLimite.length} partida(s) superaron ${TURNOS_MAXIMOS} turnos: ${JSON.stringify(sobreElLimite)}`);
+  });
+});
+
+// arm-6 (Gatekeeper, segunda mitad del hallazgo): elegirArma() nunca llega a
+// las armas nuevas en juego libre -- están en la posición 3+ de
+// ordenPreferenciaArmas de cada personalidad, y esa posición es
+// estadísticamente inalcanzable salvo por "desistir de cavar". Tocar
+// ordenPreferenciaArmas para forzarlas sería el camino directo, pero
+// rompería el calibrado de ia-3.test.ts (las bandas de victoria de las tres
+// personalidades están medidas a pocos puntos del suelo). Se sigue en su
+// lugar la alternativa barata que da el propio feedback: forzar cada arma
+// nueva de forma explícita como parámetro de buscarSolucionRival -- que es
+// el mismo resolutor que usa el rival real, sin pasar por elegirArma() -- y
+// comprobar que el presupuesto de vuelos se respeta y que sigue encontrando
+// daño real con cada una.
+const NUM_SISTEMAS_ARMAS_NUEVAS = 150;
+// andanada-de-flechas y barrena-planetaria siguen una parábola normal (la
+// gravedad las cura alrededor de los planetas, igual que a cualquier otra
+// arma del catálogo), así que se les exige el mismo listón que ia-n1. El
+// rayo-laser es la excepción de diseño (arm-4): vuela en línea recta e
+// inmune a la gravedad, así que solo acierta cuando hay línea de visión
+// directa -- en un sistema multipozo aleatorio con hasta 6 planetas de por
+// medio, eso falla a menudo por geometría, no porque la búsqueda esté rota.
+// El listón bajo del láser es del acierto real medido (53/150), no un
+// número arbitrario: exige que la búsqueda siga encontrando el disparo
+// cuando sí hay línea de visión, sin fingir que la tiene cuando no.
+const MINIMOS_CON_DANIO: Record<string, number> = {
+  "andanada-de-flechas": 130,
+  "barrena-planetaria": 130,
+  "rayo-laser": 40,
+};
+
+test("arm-6: la búsqueda del rival respeta el presupuesto de vuelos y sigue encontrando daño con las tres armas nuevas", () => {
+  const lote = generarLoteDeSistemas(NUM_SISTEMAS_ARMAS_NUEVAS, MUNDO_MULTIPOZO);
+
+  for (const idArma of Object.keys(MINIMOS_CON_DANIO)) {
+    const arma = buscarArma(idArma);
+    let conDanio = 0;
+    let maximoVuelos = 0;
+    const fallos: number[] = [];
+
+    for (const { semilla, sistema, naveA, naveB, aleatorio } of lote) {
+      const resultado = buscarSolucionRival({
+        mascara: sistema.mascara,
+        ancho: MUNDO_MULTIPOZO.ancho,
+        alto: MUNDO_MULTIPOZO.alto,
+        planetas: sistema.planetas,
+        gravedad: MUNDO_MULTIPOZO.gravedad,
+        deriva: MUNDO_MULTIPOZO.deriva,
+        aleatorio,
+        arma,
+        naves: [naveA, naveB],
+        tiradorId: 0,
+        objetivoId: 1,
+      });
+      maximoVuelos = Math.max(maximoVuelos, resultado.vuelosSimulados);
+      if (resultado.danioObjetivo > 0) conDanio++;
+      else fallos.push(semilla);
+    }
+
+    console.log(
+      `arm-6 (${idArma}): ${conDanio}/${NUM_SISTEMAS_ARMAS_NUEVAS} con daño real, máximo ${maximoVuelos} vuelos simulados (presupuesto ${PRESUPUESTO_VUELOS_RIVAL_TURNO}) (fallos: ${JSON.stringify(fallos)})`,
+    );
+
+    assert.ok(
+      maximoVuelos <= PRESUPUESTO_VUELOS_RIVAL_TURNO,
+      `${idArma}: una búsqueda ha simulado ${maximoVuelos} vuelos, presupuesto ${PRESUPUESTO_VUELOS_RIVAL_TURNO}`,
+    );
+    const minimoConDanio = MINIMOS_CON_DANIO[idArma];
+    assert.ok(
+      conDanio >= minimoConDanio,
+      `${idArma}: solo ${conDanio}/${NUM_SISTEMAS_ARMAS_NUEVAS} sistemas obtuvieron un disparo con daño real (mínimo exigido ${minimoConDanio})`,
+    );
+  }
 });
