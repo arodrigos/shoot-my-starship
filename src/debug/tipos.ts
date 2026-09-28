@@ -1,6 +1,9 @@
 import type { EventoSimulacion, TipoEventoHumor } from "@/sim/partida/eventos";
 import type { EstadisticasPartida, ParteDeGuerra } from "@/sim/partida/parteDeGuerra";
 import type { EstadoAudio } from "@/juego/audio/motor";
+import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
+import type { IdVoz } from "@/contenido/bancoBromas";
+import type { IdNave } from "@/sim/partida/tipos";
 
 // Punto de observación que los tests de Playwright leen desde fuera del
 // juego (window.__debug.*). Vive en un módulo aparte para que cada bloque
@@ -66,6 +69,22 @@ export interface DebugNave {
   readonly x: number;
   readonly y: number;
   readonly integridad: number;
+}
+
+// hum-1: un registro por turno de lo que reaccionarABroma publicó de
+// verdad, con la atribución completa (quién disparó, qué voz sonó, qué
+// categoría de resultado se mostró) -- el HUD/broma.ts solo guarda la ÚLTIMA
+// broma de cada tipo, así que sin este historial un test no puede comprobar
+// "sin excepción" a lo largo de varios turnos ni cruzar la frase mostrada
+// contra el banco de la nave y la categoría que ocurrieron de verdad.
+export interface DebugBromaEntry {
+  readonly numeroTurno: number;
+  readonly tirador: IdNave;
+  readonly voz: IdVoz;
+  readonly categoria: CategoriaBroma;
+  readonly textoDisparo: string | null;
+  readonly textoImpacto: string;
+  readonly eventos: readonly EventoSimulacion[];
 }
 
 export interface DebugGlobal {
@@ -197,6 +216,9 @@ export interface DebugGlobal {
   // resolutor real sin aplicarlo a la partida, para que el test pueda pedir
   // un fallo garantizado (danio === 0) verificado, no adivinado a ciegas.
   probarDisparoMultipozoJugador?: (anguloGrados: number, potencia: number) => { danio: number };
+  // hum-1: historial completo de bromas publicadas desde que arrancó la
+  // escena, en orden de turno -- ver DebugBromaEntry.
+  historialBromas?: readonly DebugBromaEntry[];
 }
 
 declare global {
