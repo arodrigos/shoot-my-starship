@@ -1,6 +1,7 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, resolverDisparo } from "@/sim/armas/resolver";
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
+import { costeArma, ingresoPorDanio } from "@/sim/partida/economia";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import {
   caeAlVacio,
@@ -39,6 +40,22 @@ export function avanzar(
   const tirador: IdNave = estado.turno;
   const objetivoId: IdNave = naveContraria(tirador);
   const arma = buscarArma(entrada.arma);
+
+  // modos-y-presupuesto: el guardián vive aquí (y no solo en el HUD) por la
+  // misma razón que el guardián de "partida ya terminada" de arriba -- el
+  // control deshabilita el botón antes de que esto se alcance en el juego
+  // real, pero avanzar() es la fuente de verdad y no confía en que la cáscara
+  // nunca deje pasar un disparo que no se puede pagar. Solo la nave 0 (el
+  // jugador, ver desviaciones): la IA no conoce presupuesto.
+  const disparaJugadorConPresupuesto = estado.modo === "presupuesto" && tirador === 0;
+  if (disparaJugadorConPresupuesto) {
+    const coste = costeArma(arma);
+    const saldoActual = estado.saldo ?? 0;
+    if (coste > saldoActual) {
+      throw new Error(`avanzar: saldo insuficiente para disparar "${arma.nombre}" (cuesta ${coste}, saldo ${saldoActual})`);
+    }
+  }
+
   const eventos: EventoSimulacion[] = [
     {
       tipo: "disparo",
@@ -97,6 +114,15 @@ export function avanzar(
   // bucle de integración (grav-4). Fuerza bruta sobre la máscara resultante:
   // es un coste por turno, no por paso de física.
   const planetasTrasDisparo = estado.planetas ? recalcularRegistro(estado.planetas, resultado.mascara) : estado.planetas;
+
+  // modos-y-presupuesto (modo-1): se descuenta el precio y se ingresa por el
+  // daño CAUSADO de verdad (resultado.danioObjetivo, tras fiabilidad y
+  // dispersión) en la misma operación -- nunca dos pasos con un estado
+  // intermedio, que es lo que dejaría hueco a un redondeo distinto del que
+  // espera el test.
+  const saldoTrasDisparo = disparaJugadorConPresupuesto
+    ? (estado.saldo ?? 0) - costeArma(arma) + ingresoPorDanio(resultado.danioObjetivo)
+    : estado.saldo;
 
   // humor-sistemico: el arma ha fallado su tirada de fiabilidad. Va antes de
   // los eventos "impacto" (que igualmente se emiten, con daño 0, para que la
@@ -249,6 +275,7 @@ export function avanzar(
         aleatorio: resultado.aleatorio,
         resultado: { tipo: "terminada", ganador },
         planetas: planetasTrasDisparo,
+        saldo: saldoTrasDisparo,
       },
       eventos,
     };
@@ -264,6 +291,7 @@ export function avanzar(
       turno: objetivoId,
       numeroTurno: estado.numeroTurno + 1,
       planetas: planetasTrasDisparo,
+      saldo: saldoTrasDisparo,
     },
     eventos,
   };

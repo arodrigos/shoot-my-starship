@@ -60,3 +60,70 @@ test("una partida completa no hace ninguna petición fuera del propio origen", a
 
   expect(ajenas).toEqual([]);
 });
+
+// modo-6 (camino_critico): el dinero vive solo en el store en memoria de esta
+// pestaña -- recargar la página tiene que devolver el saldo al valor inicial
+// del catálogo, no arrastrar el de la partida anterior, y el modo con
+// presupuesto tampoco hace ninguna petición ajena (mismo guardia que el test
+// de arriba, aquí para el modo con dinero, que es el que más tienta a
+// "guardar el progreso" en algún sitio). SALDO_INICIAL duplicada a propósito
+// (convención de modo-1.e2e.ts): si el catálogo cambia el número de arranque
+// sin que este test se entere, el fallo tiene que ser ruidoso.
+const SALDO_INICIAL = 1000;
+// vertedero-portatil: danioMaximo 0 en el catálogo real -- la única arma de
+// pago que garantiza ingreso 0 SIEMPRE, sea acierto o fallo, así que el saldo
+// tras dispararla es aritméticamente exacto sin tener que apuntar a la nave
+// rival ni depender de la dispersión del arma.
+const ARMA_SIN_DANIO_ID = "vertedero-portatil";
+const COSTE_ARMA_SIN_DANIO = 20;
+
+test("modo-6: recargar la página resetea el saldo al valor inicial y ninguna petición sale del propio origen en modo presupuesto", async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  const ajenas: string[] = [];
+
+  const ORIGEN_PROPIO = "http://127.0.0.1:3000";
+  page.on("request", (peticion) => {
+    const url = new URL(peticion.url());
+    if (url.protocol === "data:" || url.protocol === "blob:") return;
+    if (url.origin !== ORIGEN_PROPIO) ajenas.push(peticion.url());
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?mapa=calma-de-los-restos&modo=presupuesto");
+  await page.getByTestId("boton-jugar").click();
+  await page.waitForSelector("#game-container canvas");
+  await page.waitForFunction(() => window.__debug.control !== undefined && window.__debug.saldo !== undefined && window.__debug.saldo !== null);
+  if (await page.getByTestId("ayuda-cerrar").isVisible()) {
+    await page.getByTestId("ayuda-cerrar").click();
+  }
+
+  const saldoInicial = (await page.evaluate(() => window.__debug.saldo))!;
+  expect(saldoInicial).toBe(SALDO_INICIAL);
+
+  await page.getByTestId("selector-arma-abrir").click();
+  await page.getByTestId(`arma-${ARMA_SIN_DANIO_ID}`).click();
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
+  await page.getByTestId("disparar").click();
+  await page.waitForFunction(() => (window.__debug.numeroTurno ?? 0) >= 1 && window.__debug.animacionEnCurso === false, undefined, {
+    timeout: 60000,
+  });
+
+  const saldoTrasDisparo = await page.evaluate(() => window.__debug.saldo);
+  expect(saldoTrasDisparo).toBe(saldoInicial - COSTE_ARMA_SIN_DANIO);
+
+  // "Recargar la página" de verdad: navegación completa, no un reinicio de
+  // React -- así el saldo solo puede sobrevivir si alguien lo guardó fuera
+  // del store en memoria (localStorage, red...), que es justo lo que este
+  // criterio prohíbe.
+  await page.reload();
+  await page.getByTestId("boton-jugar").click();
+  await page.waitForSelector("#game-container canvas");
+  await page.waitForFunction(() => window.__debug.saldo !== undefined && window.__debug.saldo !== null);
+
+  const saldoTrasRecarga = await page.evaluate(() => window.__debug.saldo);
+  expect(saldoTrasRecarga).toBe(SALDO_INICIAL);
+
+  expect(ajenas).toEqual([]);
+});

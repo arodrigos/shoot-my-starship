@@ -143,6 +143,12 @@ export interface DebugGlobal {
   // no tienen que inferir el modo comparando la forma de `mapa` o de
   // `naves`.
   modoEspacial?: boolean;
+  // modos-y-presupuesto: modo de la partida ("barra-libre"/"presupuesto") y
+  // saldo actual del jugador (null fuera de presupuesto) -- espejo de lo que
+  // publica Partida.ts al store de control, para que los tests e2e puedan
+  // leerlo sin esperar a que React repinte.
+  modo?: "barra-libre" | "presupuesto";
+  saldo?: number | null;
   // esp-3: cuántas veces se ha horneado el fondo de estrellas/nebulosa desde
   // que arrancó esta escena -- tiene que quedarse en 1 para siempre, también
   // después de varios turnos e impactos, porque el fondo no es terreno y
