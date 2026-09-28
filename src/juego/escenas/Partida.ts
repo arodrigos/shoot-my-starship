@@ -374,6 +374,15 @@ export class Partida extends Phaser.Scene {
         ...(saldoInicial !== undefined ? { saldo: saldoInicial } : {}),
       };
 
+      // cie-2: el mismo sistema.planetas que usa la gravedad y el render,
+      // no una copia generada aparte -- ver DebugGlobal.planetas.
+      window.__debug.planetas = sistema.planetas.map((planeta) => ({
+        id: planeta.id,
+        cx: planeta.cx,
+        cy: planeta.cy,
+        radio: planeta.radio,
+      }));
+
       const { terreno } = crearTerrenoEspacioPhaser(this, sistema.mascara, "terreno-partida", sistema.planetas);
       this.terreno = terreno;
       // esp-3: se hornea una sola vez aquí, en create() -- ninguna otra

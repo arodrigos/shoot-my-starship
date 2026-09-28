@@ -29,9 +29,21 @@ const LISTA_BLANCA = new Set([
   "src/juego/depuracion/exponerTerreno.ts",
 ]);
 
-const DIRECTORIOS_A_REVISAR = ["src/sim", "src/juego/terreno", "src/juego/depuracion", "src/juego/scenes"];
+// cie-5: "src/juego/scenes" (sin eñe) es la escena de pruebas de Playwright
+// (Sandbox, Siluetas), no el camino de colisión real. La escena de
+// producción que de verdad juega Adrián vive en "src/juego/escenas" (con
+// eñe, Partida.ts) -- el guardia original se escribió sin eñe por error de
+// tecleo y por eso nunca vigiló el camino que importa. Se listan las dos:
+// la de pruebas se queda porque también puede acumular deuda con el tiempo.
+export const DIRECTORIOS_A_REVISAR = [
+  "src/sim",
+  "src/juego/terreno",
+  "src/juego/depuracion",
+  "src/juego/scenes",
+  "src/juego/escenas",
+];
 
-async function ficherosTypeScript(directorio) {
+export async function ficherosTypeScript(directorio) {
   const entradas = await readdir(directorio, { withFileTypes: true }).catch(() => []);
   const resultados = [];
   for (const entrada of entradas) {
@@ -45,15 +57,18 @@ async function ficherosTypeScript(directorio) {
   return resultados;
 }
 
-async function main() {
-  const raiz = process.cwd();
+// Extraído para que cie-5 pueda escribir un caso negativo: un guardia sin
+// caso negativo que apunte al directorio equivocado pasa siempre y parece
+// que protege, que es exactamente lo que le ha estado pasando a este mismo
+// guardia con "scenes" en vez de "escenas".
+export async function encontrarInfracciones(raiz, directorios = DIRECTORIOS_A_REVISAR, listaBlanca = LISTA_BLANCA) {
   const infracciones = [];
 
-  for (const directorio of DIRECTORIOS_A_REVISAR) {
+  for (const directorio of directorios) {
     const ficheros = await ficherosTypeScript(path.join(raiz, directorio));
     for (const fichero of ficheros) {
       const relativo = path.relative(raiz, fichero).split(path.sep).join("/");
-      if (LISTA_BLANCA.has(relativo)) {
+      if (listaBlanca.has(relativo)) {
         continue;
       }
       const contenido = await readFile(fichero, "utf8");
@@ -65,6 +80,12 @@ async function main() {
     }
   }
 
+  return infracciones;
+}
+
+async function main() {
+  const infracciones = await encontrarInfracciones(process.cwd());
+
   if (infracciones.length > 0) {
     console.error("Lectura/escritura de canvas fuera del camino permitido:");
     for (const linea of infracciones) {
@@ -73,7 +94,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("OK: sin getImageData/putImageData fuera de la lista blanca (terreno-6).");
+  console.log("OK: sin getImageData/putImageData fuera de la lista blanca (terreno-6, cie-5).");
 }
 
-main();
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}

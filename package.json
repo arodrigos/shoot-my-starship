@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test:e2e": "playwright test",
     "test:unit": "node --import tsx --test tests/unit/**/*.test.ts",
-    "verificar:presupuesto-bundle": "node scripts/comprobar-presupuesto-bundle.mjs"
+    "verificar:presupuesto-bundle": "node scripts/comprobar-presupuesto-bundle.mjs",
+    "verificar:activos": "node scripts/comprobar-activos.mjs"
   },
   "dependencies": {
     "next": "16.3.6",
