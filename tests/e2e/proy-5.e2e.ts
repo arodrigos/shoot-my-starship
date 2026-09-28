@@ -122,18 +122,28 @@ test("proy-5: en móvil, el proyectil real se ve dentro del lienzo y sin tapar p
   // directamente de este vuelo al de la respuesta rival sin pasar por
   // false entre medias -- por eso el muestreo se corta también en cuanto
   // numeroTurno avanza, no solo cuando termina la animación.
+  //
+  // imp/proy-5 (fallo intermitente diagnosticado en desarrollo-18): leer
+  // animacionEnCurso/numeroTurno y proyectilEnVuelo en dos evaluate()
+  // separados no es atómico -- cada uno es un viaje de ida y vuelta al
+  // navegador, y entre ambos puede correr el fotograma exacto en el que
+  // termina el vuelo del jugador y arranca (síncronamente, mismo tick) el
+  // de la IA con OTRA arma. El resultado observado era una muestra
+  // ocasional con el armaId del rival. Se leen los tres campos dentro de
+  // UN solo evaluate(): la función se ejecuta de un tirón en el hilo de la
+  // página, así que la muestra siempre es del mismo instante.
   const numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
   await page.getByTestId("disparar").click();
 
   const muestras: { visible: boolean; armaId: string }[] = [];
   let capturado = false;
-  while (
-    await page.evaluate(
-      (n) => window.__debug.animacionEnCurso === true && (window.__debug.numeroTurno ?? 0) === n,
-      numeroTurnoAntes,
-    )
-  ) {
-    const punto = await page.evaluate(() => window.__debug.proyectilEnVuelo);
+  for (;;) {
+    const instante = await page.evaluate((n) => {
+      const enCurso = window.__debug.animacionEnCurso === true && (window.__debug.numeroTurno ?? 0) === n;
+      return { enCurso, punto: enCurso ? window.__debug.proyectilEnVuelo : null };
+    }, numeroTurnoAntes);
+    if (!instante.enCurso) break;
+    const punto = instante.punto;
     if (punto) {
       const pantalla = mundoAPantalla(punto.x, punto.y);
       const dentro = dentroDelLienzo(pantalla);
