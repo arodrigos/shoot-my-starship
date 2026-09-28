@@ -26,7 +26,7 @@ test.describe("control-6", () => {
     await expect(page.getByTestId("ayuda-inicial")).toBeHidden();
   });
 
-  test("el selector de armas muestra nombre y descripción de cada una de las 10 armas", async ({ page }) => {
+  test("el selector de armas muestra nombre y descripción de cada arma del catálogo", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");
@@ -37,7 +37,11 @@ test.describe("control-6", () => {
 
     await page.getByTestId("selector-arma-abrir").click();
 
-    expect(CATALOGO_ARMAS.length).toEqual(10);
+    // armas-nuevas: el catálogo crece de 10 a 13 sin tocar las diez
+    // existentes (ver desviaciones del entregable) -- este test comprueba
+    // que TODAS las armas del catálogo salen en el selector, sea cual sea
+    // su número, no que sean exactamente diez.
+    expect(CATALOGO_ARMAS.length).toBeGreaterThanOrEqual(10);
     for (const arma of CATALOGO_ARMAS) {
       const boton = page.getByTestId(`arma-${arma.id}`);
       await expect(boton).toContainText(arma.nombre);

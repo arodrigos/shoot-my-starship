@@ -80,6 +80,51 @@ export function detenerseEnSuelo(mascara: Mascara, ancho: number, alto: number) 
   };
 }
 
+// armas-nuevas (arm-3, arm-8): variante de detenerseEnSuelo que, en vez de
+// detonar en el primer píxel sólido, sigue contando distancia recorrida
+// DENTRO del sólido hasta penetracionMaximaPx y detona al salir por el otro
+// lado (o al agotar el presupuesto sin salir). `puntosPenetrados` acumula
+// cada paso dado dentro del sólido -- es el rastro que luego se excava como
+// túnel, aparte del cráter que aplicarHuellaDeArma pone en el punto final.
+// Separada de detenerseEnSuelo (no una versión con parámetro por defecto)
+// porque esta SÍ necesita devolver estado además del booleano de parada, y
+// detenerseEnSuelo la reutiliza ia-2/control-apuntado con la forma exacta
+// que ya tienen -- tocar su firma les rompería la comparación estricta.
+function crearDetenerseConPenetracion(mascara: Mascara, ancho: number, alto: number, penetracionMaximaPx: number) {
+  const puntosPenetrados: { x: number; y: number }[] = [];
+  let dentroDeSolido = false;
+  let distanciaEnSolidoPx = 0;
+  let anteriorX: number | null = null;
+  let anteriorY: number | null = null;
+
+  const detenerse = (p: EstadoProyectil): boolean => {
+    if (p.y >= alto || p.x < 0 || p.x >= ancho) {
+      return true;
+    }
+    const solido = esSolido(mascara, Math.round(p.x), Math.round(p.y));
+    const pasoPx = anteriorX === null ? 0 : Math.hypot(p.x - anteriorX, p.y - anteriorY!);
+    anteriorX = p.x;
+    anteriorY = p.y;
+
+    if (!solido) {
+      // Si venía de dentro del sólido, esto es "salir por el otro lado":
+      // detona aquí, en aire, con el túnel ya recorrido detrás.
+      return dentroDeSolido;
+    }
+
+    if (!dentroDeSolido) {
+      dentroDeSolido = true;
+      distanciaEnSolidoPx = 0;
+    } else {
+      distanciaEnSolidoPx += pasoPx;
+    }
+    puntosPenetrados.push({ x: p.x, y: p.y });
+    return distanciaEnSolidoPx >= penetracionMaximaPx;
+  };
+
+  return { detenerse, puntosPenetrados };
+}
+
 // La Pelota de Chatarra (comportamiento "rodante"): tras el primer contacto,
 // camina columna a columna hacia el lado más bajo hasta distanciaMaximaPx o
 // hasta encontrar un hueco (una caída brusca -- un cráter ya existente, o el
@@ -139,6 +184,10 @@ function resolverRodadura(mascara: Mascara, xInicial: number, distanciaMaximaPx:
 interface ResultadoPuntosDeImpacto {
   readonly puntos: readonly PuntoDeImpacto[];
   readonly perdido: boolean;
+  // armas-nuevas (arm-3): rastro dejado dentro de un sólido por un arma con
+  // penetracionPx, aparte de los puntos de impacto que reciben daño -- ver
+  // crearDetenerseConPenetracion. Ausente en el resto del catálogo.
+  readonly puntosPenetrados?: readonly { readonly x: number; readonly y: number }[];
 }
 
 function resolverSubmuniciones(
@@ -193,7 +242,12 @@ function resolverSubmuniciones(
   return { puntos, perdido: puntos.length === 0 };
 }
 
-function resolverPuntosDeImpacto(
+// Un único vuelo con el comportamiento del arma (impacto-simple, rodante,
+// submuniciones o instantáneo) y, si declara penetracionPx, el rastro de
+// túnel que deja. La ráfaga (resolverPuntosDeImpacto) llama a esto una vez
+// por proyectil del abanico -- nunca al revés -- para que "cuántos vuelan"
+// sea ortogonal a "cómo vuela cada uno".
+function resolverUnDisparo(
   arma: Arma,
   inicial: EstadoProyectil,
   gravedad: number,
@@ -204,8 +258,6 @@ function resolverPuntosDeImpacto(
   planetas?: RegistroPlanetas,
   rastreadorNaves?: RastreadorImpactoNaves,
 ): ResultadoPuntosDeImpacto {
-  const detenerse = detenerseEnSuelo(mascara, ancho, alto);
-
   if (arma.comportamiento.tipo === "submuniciones") {
     return resolverSubmuniciones(
       inicial,
@@ -221,6 +273,23 @@ function resolverPuntosDeImpacto(
     );
   }
 
+  if (arma.comportamiento.tipo === "instantaneo") {
+    // armas-nuevas (arm-4): gravedad y deriva forzadas a 0, sin planetas --
+    // "inmune a la gravedad" es, literalmente, no dársela a integrarPasoProyectil.
+    // Sigue siendo la MISMA simularVuelo (mismo oráculo de vuelo) y el mismo
+    // rastreadorNaves que cualquier otra arma (arm-8): el casco corta igual.
+    const detenerse = detenerseEnSuelo(mascara, ancho, alto);
+    const { proyectil, perdido, impactoNave } = simularVuelo(inicial, 0, 0, detenerse, { rastreadorNaves });
+    if (perdido) {
+      return { puntos: [], perdido: true };
+    }
+    return { puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }], perdido: false };
+  }
+
+  const penetracionMaximaPx = arma.penetracionPx ?? 0;
+  const tracker = penetracionMaximaPx > 0 ? crearDetenerseConPenetracion(mascara, ancho, alto, penetracionMaximaPx) : null;
+  const detenerse = tracker ? tracker.detenerse : detenerseEnSuelo(mascara, ancho, alto);
+
   const { proyectil, perdido, impactoNave } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
   if (perdido) {
     return { puntos: [], perdido: true };
@@ -235,7 +304,61 @@ function resolverPuntosDeImpacto(
     return { puntos: [punto], perdido: false };
   }
 
-  return { puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }], perdido: false };
+  return {
+    puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
+    perdido: false,
+    puntosPenetrados: tracker?.puntosPenetrados,
+  };
+}
+
+// armas-nuevas (arm-5): la ráfaga -- un abanico de `cantidad` proyectiles
+// idénticos, repartidos simétricamente en aperturaGrados alrededor del
+// ángulo de disparo real (ya con la dispersión de arm-5 aplicada encima).
+// Ausente o cantidad <= 1 es el disparo único de siempre, sin coste extra.
+function resolverPuntosDeImpacto(
+  arma: Arma,
+  inicial: EstadoProyectil,
+  gravedad: number,
+  deriva: number,
+  mascara: Mascara,
+  ancho: number,
+  alto: number,
+  planetas?: RegistroPlanetas,
+  rastreadorNaves?: RastreadorImpactoNaves,
+): ResultadoPuntosDeImpacto {
+  const rafaga = arma.disparosSimultaneos;
+  if (!rafaga || rafaga.cantidad <= 1) {
+    return resolverUnDisparo(arma, inicial, gravedad, deriva, mascara, ancho, alto, planetas, rastreadorNaves);
+  }
+
+  const velocidad = Math.hypot(inicial.vx, inicial.vy);
+  const anguloBaseRad = Math.atan2(-inicial.vy, inicial.vx);
+  const puntos: PuntoDeImpacto[] = [];
+  const puntosPenetrados: { x: number; y: number }[] = [];
+  let algunoLlego = false;
+
+  for (let i = 0; i < rafaga.cantidad; i++) {
+    const offsetGrados = (i - (rafaga.cantidad - 1) / 2) * (rafaga.aperturaGrados / Math.max(1, rafaga.cantidad - 1));
+    const anguloRad = anguloBaseRad + (offsetGrados * Math.PI) / 180;
+    const subInicial: EstadoProyectil = {
+      x: inicial.x,
+      y: inicial.y,
+      vx: velocidad * Math.cos(anguloRad),
+      vy: -velocidad * Math.sin(anguloRad),
+    };
+    const resultado = resolverUnDisparo(arma, subInicial, gravedad, deriva, mascara, ancho, alto, planetas, rastreadorNaves);
+    // Igual que en submuniciones: una flecha perdida en órbita no invalida
+    // el resto del abanico, que sigue contando si alguna aterriza.
+    if (!resultado.perdido) {
+      algunoLlego = true;
+      puntos.push(...resultado.puntos);
+      if (resultado.puntosPenetrados) {
+        puntosPenetrados.push(...resultado.puntosPenetrados);
+      }
+    }
+  }
+
+  return { puntos, perdido: !algunoLlego, puntosPenetrados: puntosPenetrados.length > 0 ? puntosPenetrados : undefined };
 }
 
 function aplicarHuellaDeArma(mascara: Mascara, arma: Arma, punto: PuntoDeImpacto): void {
@@ -303,8 +426,20 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     fallo = paso.valor >= arma.fiabilidad;
   }
 
+  // armas-nuevas (arm-5): dispersión angular, un segundo giro del MISMO
+  // EstadoAleatorio hilvanado -- nunca el azar no determinista del lenguaje
+  // (nucleo-4, scripts/comprobar-sin-math-random.mjs). Sin dispersionGrados
+  // (o en 0) no se consume tirada, para no desplazar el estado que ya
+  // asumen los tests de armas sin este eje.
+  let anguloEfectivoGrados = params.anguloGrados;
+  if (arma.dispersionGrados) {
+    const paso = siguienteAleatorio(aleatorio);
+    aleatorio = paso.estado;
+    anguloEfectivoGrados += (paso.valor * 2 - 1) * arma.dispersionGrados;
+  }
+
   const origenY = params.origenY ?? alturaSuperficie(mascara, params.origenX) ?? params.alto - 1;
-  const rad = (params.anguloGrados * Math.PI) / 180;
+  const rad = (anguloEfectivoGrados * Math.PI) / 180;
   const v = velocidadDesdePotencia(params.potencia);
   const inicial = crearProyectil(params.origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
 
@@ -315,7 +450,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
   const rastreadorNaves =
     params.naves && params.tiradorId !== undefined ? crearRastreadorImpactoNaves(params.naves, params.tiradorId) : undefined;
 
-  const { puntos: puntosDeImpacto, perdido: proyectilPerdido } = resolverPuntosDeImpacto(
+  const { puntos: puntosDeImpacto, perdido: proyectilPerdido, puntosPenetrados } = resolverPuntosDeImpacto(
     arma,
     inicial,
     params.gravedad,
@@ -346,6 +481,16 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
 
   for (const punto of puntosDeImpacto) {
     aplicarHuellaDeArma(mascara, arma, punto);
+  }
+
+  // armas-nuevas (arm-3): el túnel de la Barrena -- cada punto que atravesó
+  // sólido de camino, excavado con el mismo radio y signo que su cráter
+  // final. Solo definido para huella "circular"; ningún arma con
+  // penetracionPx del catálogo declara otra cosa.
+  if (puntosPenetrados && puntosPenetrados.length > 0 && arma.huella.tipo === "circular") {
+    for (const punto of puntosPenetrados) {
+      aplicarHuellaCircular(mascara, punto.x, punto.y, arma.huella.radio, arma.huella.signo);
+    }
   }
 
   let danioPorPunto: number[] = puntosDeImpacto.map(() => 0);
