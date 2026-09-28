@@ -219,6 +219,10 @@ export interface DebugGlobal {
   // hum-1: historial completo de bromas publicadas desde que arrancó la
   // escena, en orden de turno -- ver DebugBromaEntry.
   historialBromas?: readonly DebugBromaEntry[];
+  // proy-1 (requisito c de la sexta devolución): true en cuanto la escena
+  // de pruebas Siluetas ha dibujado las 13 siluetas del catálogo, para que
+  // el test de captura no dependa de una espera fija (issue #151).
+  siluetasListo?: boolean;
 }
 
 declare global {
