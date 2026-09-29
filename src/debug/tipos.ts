@@ -228,6 +228,14 @@ export interface DebugGlobal {
   // necesita para comprobar "al menos tres planetas" sin tener que leer
   // píxeles del lienzo. Ausente en modo de suelo plano (mapaId).
   planetas?: readonly { readonly id: number; readonly cx: number; readonly cy: number; readonly radio: number }[];
+  // esc-1: geometría real (en px de MUNDO) leída de las mismas funciones que
+  // dibujan la nave y el catálogo de proyectiles -- para que el e2e mida la
+  // proporción de verdad en vez de copiar constantes a mano en el test.
+  geometria?: {
+    readonly naveLadoMayorDibujadoPx: number;
+    readonly radioCascoColisionPx: number;
+    readonly proyectilLadoMayorMaximoPx: number;
+  };
 }
 
 declare global {

@@ -1,5 +1,7 @@
 import Phaser from "phaser";
-import { ALTO_CASCO, ANCHO_CASCO, LARGO_CANON, puntosCasco } from "@/juego/naves/geometriaCasco";
+import { ALTO_CASCO, ANCHO_CASCO, LARGO_CANON, puntosCasco } from "@/sim/naves/geometriaCasco";
+import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { OPACIDAD_NUCLEO, TECHO_OPACIDAD_FUERA_NUCLEO } from "@/juego/naves/opacidadCasco";
 
 const COLOR_NAVE_0 = 0x5ac8fa;
 const COLOR_NAVE_1 = 0xff6b4a;
@@ -56,15 +58,22 @@ export class Nave {
     this.apuntar(anguloInicialGrados);
   }
 
+  // esc-5: el dibujo miente (opción B) y esto lo hace honesto en la
+  // jerarquía visual -- la silueta grande se pinta por debajo del techo de
+  // opacidad declarado (TECHO_OPACIDAD_FUERA_NUCLEO) para que no se lea
+  // como blindaje, y el núcleo de casco (el círculo de RADIO_CASCO_NAVE_PX
+  // que de verdad colisiona) se pinta siempre opaco, encima de todo.
   private dibujarCasco(color: number, dir: 1 | -1): void {
     const puntos = puntosCasco(dir).map((p) => new Phaser.Math.Vector2(p.x, p.y));
-    this.casco.fillStyle(COLOR_CASCO_SOMBRA, 1);
+    this.casco.fillStyle(COLOR_CASCO_SOMBRA, TECHO_OPACIDAD_FUERA_NUCLEO);
     this.casco.fillPoints(
       puntos.map((p) => new Phaser.Math.Vector2(p.x + 2, p.y + 2)),
       true,
     );
-    this.casco.fillStyle(color, 1);
+    this.casco.fillStyle(color, TECHO_OPACIDAD_FUERA_NUCLEO);
     this.casco.fillPoints(puntos, true);
+    this.casco.fillStyle(color, OPACIDAD_NUCLEO);
+    this.casco.fillCircle(0, 0, RADIO_CASCO_NAVE_PX);
   }
 
   // Dibuja el cañón con un quiebro visual apuntando a anguloGrados (misma

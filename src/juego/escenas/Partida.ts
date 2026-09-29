@@ -16,6 +16,8 @@ import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } 
 import { buscarArma, CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import type { Arma } from "@/sim/armas/tipos";
 import { RADIO_CASCO_NAVE_PX, crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
+import { cajaCasco } from "@/sim/naves/geometriaCasco";
+import { puntosSilueta, dimensionMayor } from "@/juego/proyectiles/geometriaProyectil";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
 import { barridoRejilla } from "@/sim/balistica/rejilla";
@@ -270,6 +272,15 @@ export class Partida extends Phaser.Scene {
 
   create(): void {
     window.__debug = window.__debug ?? {};
+    // esc-1: geometría real, calculada UNA vez con las mismas funciones que
+    // dibujan la nave y el catálogo de proyectiles -- no cambia entre
+    // turnos ni con el mapa, así que no hace falta recalcularla más abajo.
+    const cajaNave = cajaCasco(1);
+    window.__debug.geometria = {
+      naveLadoMayorDibujadoPx: Math.max(cajaNave.ancho, cajaNave.alto),
+      radioCascoColisionPx: RADIO_CASCO_NAVE_PX,
+      proyectilLadoMayorMaximoPx: Math.max(...CATALOGO_ARMAS.map((arma) => dimensionMayor(puntosSilueta(arma)))),
+    };
     // "Otra partida" reutiliza los mismos stores de módulo (singletons, no
     // ligados al ciclo de vida de React) para una escena de Phaser
     // completamente nueva: sin esto arrastrarían el ajuste, el arma agotada,
