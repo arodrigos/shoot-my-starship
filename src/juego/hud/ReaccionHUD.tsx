@@ -29,8 +29,11 @@ export function ReaccionHUD() {
       data-tipo-evento={estado.tipoEvento ?? undefined}
       role="status"
       style={{
-        position: "fixed",
-        top: 70,
+        // layout-dos-zonas: vive dentro de la consola (no del viewport
+        // entero) para no poder solapar nunca el lienzo -- ver PhaserGame,
+        // que la monta como hija de #consola (position:relative).
+        position: "absolute",
+        top: 2,
         left: "50%",
         transform: "translateX(-50%)",
         zIndex: 15,

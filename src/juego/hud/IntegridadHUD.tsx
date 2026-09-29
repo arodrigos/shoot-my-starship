@@ -15,7 +15,7 @@ const ETIQUETA_POR_NAVE: Record<0 | 1, string> = {
 };
 
 const BARRA_ESTILO: React.CSSProperties = {
-  width: 88,
+  width: 76,
   background: "var(--color-cromado-fondo)",
   borderRadius: 10,
   padding: "4px 8px",
@@ -29,12 +29,8 @@ export function IntegridadHUD() {
   return (
     <div
       style={{
-        position: "fixed",
-        top: 8,
-        right: 8,
-        zIndex: 10,
         display: "flex",
-        flexDirection: "column",
+        flexDirection: "row",
         gap: 4,
       }}
     >
