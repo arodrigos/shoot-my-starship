@@ -31,8 +31,14 @@ const LADO_MAYOR_NAVE_DIBUJADO_PX = Math.max(ANCHO_CASCO_DIBUJADO, ALTO_CASCO_DI
 // (2,3-4,5x la nave) queda resuelto.
 export const FRACCION_MINIMA_PROYECTIL = 0.35;
 export const FRACCION_MAXIMA_PROYECTIL = 0.6;
-export const DIMENSION_MINIMA_PX = Math.round(LADO_MAYOR_NAVE_DIBUJADO_PX * FRACCION_MINIMA_PROYECTIL);
-export const DIMENSION_MAXIMA_PX = Math.round(LADO_MAYOR_NAVE_DIBUJADO_PX * FRACCION_MAXIMA_PROYECTIL);
+// esc-1 exige el 0,6x como techo DURO (camino_critico): redondear al entero
+// más cercano podía pasarse de largo por un resto de medio píxel (87/144.9 =
+// 0,6004..., ya por encima). ceil()/floor() en direcciones opuestas a la
+// fracción garantizan por construcción que el entero resultante nunca cruza
+// ninguno de los dos bordes, en vez de depender de que el redondeo caiga del
+// lado bueno para esta geometría concreta.
+export const DIMENSION_MINIMA_PX = Math.ceil(LADO_MAYOR_NAVE_DIBUJADO_PX * FRACCION_MINIMA_PROYECTIL);
+export const DIMENSION_MAXIMA_PX = Math.floor(LADO_MAYOR_NAVE_DIBUJADO_PX * FRACCION_MAXIMA_PROYECTIL);
 
 // Familia visual (eje de RENDER, no de daño): se deriva de los ejes que ya
 // existen en el catálogo -- comportamiento, huella, efecto y los tres ejes

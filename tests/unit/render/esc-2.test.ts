@@ -31,7 +31,11 @@ test("esc-2: toda arma del catálogo respeta la relación tamaño/casco derivada
 // la nave y comprobando que DIMENSION_MINIMA_PX escala proporcionalmente
 // (misma fracción, otra base).
 test("esc-2: el suelo del proyectil se mueve si se mueve la geometría del casco (no es una constante copiada)", () => {
-  const suelaEsperada = Math.round(ladoMayorNave * FRACCION_MINIMA_PROYECTIL);
+  // ceil(), no round(): el suelo es una cota mínima dura, así que se
+  // redondea siempre hacia arriba (ver el comentario de DIMENSION_MINIMA_PX
+  // en geometriaProyectil.ts) para no poder caer por debajo de la fracción
+  // declarada por un resto de redondeo.
+  const suelaEsperada = Math.ceil(ladoMayorNave * FRACCION_MINIMA_PROYECTIL);
   assert.equal(DIMENSION_MINIMA_PX, suelaEsperada);
 
   // Geometría de casco hipotética el doble de grande: el suelo derivado de
@@ -40,6 +44,6 @@ test("esc-2: el suelo del proyectil se mueve si se mueve la geometría del casco
   // como mucho 1px) -- prueba que la relación es una fórmula, no un número
   // fijado a mano.
   const ladoMayorHipotetico = ladoMayorNave * 2;
-  const suelaHipotetica = Math.round(ladoMayorHipotetico * FRACCION_MINIMA_PROYECTIL);
+  const suelaHipotetica = Math.ceil(ladoMayorHipotetico * FRACCION_MINIMA_PROYECTIL);
   assert.ok(Math.abs(suelaHipotetica - suelaEsperada * 2) <= 1);
 });
