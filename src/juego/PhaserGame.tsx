@@ -6,13 +6,14 @@ import { SinWebGL } from "@/juego/SinWebGL";
 import { hayWebGL } from "@/juego/soporteWebGL";
 import { ControlHUD } from "@/juego/hud/ControlHUD";
 import { ReaccionHUD } from "@/juego/hud/ReaccionHUD";
-import { BromaHUD } from "@/juego/hud/BromaHUD";
-import { RoceHUD } from "@/juego/hud/RoceHUD";
 import { ParteDeGuerraHUD } from "@/juego/hud/ParteDeGuerraHUD";
-import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
 import type { DatosEscenaPartida, IdEscena } from "@/juego/main";
 
 const ID_CONTENEDOR = "game-container";
+// layout-dos-zonas (lay-1): la zona de juego reserva al menos el 55% del
+// alto de la ventana -- se deja un 58% para que el redondeo de subpíxeles
+// nunca la tire por debajo del mínimo exigido.
+const ALTO_ZONA_JUEGO = "58%";
 
 type Estado = "disponible" | "sin-webgl";
 
@@ -55,21 +56,31 @@ export function PhaserGame({ escena, datosEscena }: Props) {
     return <SinWebGL />;
   }
 
+  const esPartida = (escena ?? "partida") === "partida";
+
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <div id={ID_CONTENEDOR} style={{ width: "100%", height: "100%" }} />
+    <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+      {/* layout-dos-zonas (lay-1): zona de juego arriba (el lienzo de Phaser
+          vive aquí, letterboxed por Scale.FIT) y consola abajo con todo el
+          HUD interactivo -- ningún elemento del HUD entra en este div. */}
+      <div
+        id={ID_CONTENEDOR}
+        data-testid="zona-juego"
+        style={{ width: "100%", flex: `0 0 ${ALTO_ZONA_JUEGO}`, minHeight: 0 }}
+      />
       {/* El sandbox de terreno (/pruebas/terreno) no juega turnos -- el HUD
-          de control no tiene nada que hacer ahí. */}
-      {(escena ?? "partida") === "partida" && (
-        <>
+          de control no tiene nada que hacer ahí, así que tampoco reserva
+          consola. */}
+      {esPartida && (
+        <div
+          data-testid="consola"
+          style={{ position: "relative", width: "100%", flex: "1 1 auto", minHeight: 0 }}
+        >
           <ControlHUD />
-          <IntegridadHUD />
           <ReaccionHUD />
-          <BromaHUD />
-          <RoceHUD />
-          <ParteDeGuerraHUD />
-        </>
+        </div>
       )}
+      {esPartida && <ParteDeGuerraHUD />}
     </div>
   );
 }

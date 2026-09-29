@@ -18,11 +18,7 @@ export function RoceHUD() {
       data-testid="panel-roce"
       role="status"
       style={{
-        position: "fixed",
-        bottom: 8,
-        left: 8,
-        zIndex: 10,
-        maxWidth: 180,
+        maxWidth: "48%",
         background: "rgba(90,200,250,0.16)",
         border: "1px solid rgba(90,200,250,0.6)",
         borderRadius: 10,
@@ -30,6 +26,8 @@ export function RoceHUD() {
         color: "var(--color-cromado-texto)",
         font: "11px system-ui, sans-serif",
         pointerEvents: "none",
+        wordBreak: "break-word",
+        overflowWrap: "anywhere",
       }}
     >
       {estado.texto}

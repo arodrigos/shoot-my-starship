@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 
 // Panel de bromas de humor-por-turno (hum-1): dos líneas independientes
@@ -12,28 +12,32 @@ import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 // antes de que e2e (o Adrián) llegue a leerla.
 export function BromaHUD() {
   const estado = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
+  // lay-4: la broma se puede quitar de en medio con un objetivo táctil de
+  // 44x44 (el botón de más abajo), y vuelve a aparecer sola en cuanto llega
+  // una nueva -- comparar contra `clave` en vez de un efecto+setState evita
+  // el re-render en cascada y hace innecesario "reiniciar" nada a mano.
+  const [claveDescartada, setClaveDescartada] = useState<number | null>(null);
 
   if (!estado.disparo && !estado.impacto) return null;
+  if (claveDescartada === estado.clave) return null;
 
   return (
     <div
       data-testid="panel-bromas"
       style={{
-        position: "fixed",
-        bottom: 96,
-        left: "50%",
-        transform: "translateX(-50%)",
-        // Por encima del velo de fin de partida (ParteDeGuerraHUD, zIndex
-        // 25): la última broma del turno que decide la partida tiene que
-        // seguir siendo legible, no un texto tenue detrás del velo
-        // (hallazgo no bloqueante del Gatekeeper sobre humor-por-turno).
-        zIndex: 30,
+        position: "relative",
         display: "flex",
         flexDirection: "column",
         gap: 4,
         alignItems: "center",
-        pointerEvents: "none",
-        maxWidth: 340,
+        maxWidth: "48%",
+        // lay-3/lay-4: el propio recuadro (no solo el de su fila) tiene que
+        // quedarse dentro del hueco reservado -- overflow en el padre no
+        // recorta el propio bounding box del panel, así que el límite va
+        // aquí para que una broma larga jamás alcance geométricamente la
+        // fila de abajo.
+        maxHeight: 82,
+        overflowY: "auto",
       }}
     >
       {estado.disparo && (
@@ -47,6 +51,8 @@ export function BromaHUD() {
             padding: "4px 10px",
             font: "12px system-ui, sans-serif",
             textAlign: "center",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
           }}
         >
           {estado.disparo}
@@ -64,11 +70,33 @@ export function BromaHUD() {
             padding: "5px 12px",
             font: "13px system-ui, sans-serif",
             textAlign: "center",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
           }}
         >
           {estado.impacto}
         </div>
       )}
+      <button
+        type="button"
+        data-testid="broma-descartar"
+        onClick={() => setClaveDescartada(estado.clave)}
+        aria-label="Descartar broma"
+        style={{
+          position: "absolute",
+          top: -8,
+          right: -8,
+          minWidth: 44,
+          minHeight: 44,
+          background: "transparent",
+          border: "none",
+          color: "#cfe8ff",
+          font: "14px system-ui, sans-serif",
+          cursor: "pointer",
+        }}
+      >
+        ✕
+      </button>
     </div>
   );
 }
