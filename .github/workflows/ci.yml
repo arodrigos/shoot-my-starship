@@ -52,6 +52,10 @@ jobs:
       # esp-7: render-3.e2e.ts (el presupuesto p95<=50ms con GPU real) debe
       # seguir intacto, con su skip de CI, aunque aquí no se ejecute.
       - run: node scripts/comprobar-render-3.mjs
+      # pre-1: ningún emisor de partículas nace fuera del registro de
+      # efectos visuales -- cimiento del presupuesto de render antes de
+      # añadir un solo efecto nuevo.
+      - run: node scripts/comprobar-presupuesto-render.mjs
       # arm-1: el catálogo de armas sigue siendo datos -- ninguna rama por
       # identificador de arma dentro de resolver.ts.
       - run: node scripts/comprobar-sin-ramas-por-arma.mjs

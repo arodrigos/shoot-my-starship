@@ -56,6 +56,7 @@ import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
 import type { DatosEscenaPartida } from "@/juego/main";
+import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
 import "@/debug/tipos";
 
 // render-espacio (esp-6): el texto del panel "resultado del turno" -- un
@@ -420,7 +421,7 @@ export class Partida extends Phaser.Scene {
     lienzoParticula.fillCircle(3, 3, 3);
     lienzoParticula.generateTexture("particula-explosion", 6, 6);
     lienzoParticula.destroy();
-    this.emisorExplosion = this.add.particles(0, 0, "particula-explosion", {
+    this.emisorExplosion = crearEmisorRegistrado(this, "explosion-con-danio", 0, 0, "particula-explosion", {
       lifespan: 400,
       speed: { min: 40, max: 180 },
       scale: { start: 1, end: 0 },
@@ -435,7 +436,7 @@ export class Partida extends Phaser.Scene {
     lienzoParticulaSinDanio.fillCircle(2, 2, 2);
     lienzoParticulaSinDanio.generateTexture("particula-explosion-sin-danio", 4, 4);
     lienzoParticulaSinDanio.destroy();
-    this.emisorExplosionSinDanio = this.add.particles(0, 0, "particula-explosion-sin-danio", {
+    this.emisorExplosionSinDanio = crearEmisorRegistrado(this, "explosion-sin-danio", 0, 0, "particula-explosion-sin-danio", {
       lifespan: 250,
       speed: { min: 15, max: 60 },
       scale: { start: 0.6, end: 0 },
@@ -451,7 +452,7 @@ export class Partida extends Phaser.Scene {
     lienzoEstela.fillCircle(2, 2, 2);
     lienzoEstela.generateTexture("particula-estela", 4, 4);
     lienzoEstela.destroy();
-    this.emisorEstela = this.add.particles(0, 0, "particula-estela", {
+    this.emisorEstela = crearEmisorRegistrado(this, "estela-proyectil", 0, 0, "particula-estela", {
       lifespan: 220,
       speed: 0,
       scale: { start: 0.9, end: 0 },
@@ -833,9 +834,11 @@ export class Partida extends Phaser.Scene {
     for (const evento of eventos) {
       if (evento.tipo === "impacto") {
         if (evento.danio > 0) {
+          comprobarCantidadDentroDelTecho("explosion-con-danio", CANTIDAD_PARTICULAS_EXPLOSION);
           this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
           window.__debug!.ultimoTipoExplosion = "danio";
         } else {
+          comprobarCantidadDentroDelTecho("explosion-sin-danio", CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO);
           this.emisorExplosionSinDanio.explode(CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO, evento.x, evento.y);
           window.__debug!.ultimoTipoExplosion = "sin-danio";
         }
