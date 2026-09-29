@@ -154,8 +154,16 @@ export function avanzar(
       objetivo: objetivoId,
       danio: resultado.danioPorPunto[indice],
       ...(resultado.desplazamientoObjetivoPx !== 0 ? { desplazamientoPx: resultado.desplazamientoObjetivoPx } : {}),
+      ...(punto.impactoNave !== undefined ? { impactoNave: punto.impactoNave } : {}),
     });
   });
+
+  // contacto-honesto (con-3): el roce se anuncia SIN tocar la integridad --
+  // por eso el evento se emite aquí, antes de que objetivoTrasImpacto o
+  // tiradorTrasDisparo se calculen, y ninguno de los dos lo lee.
+  if (resultado.roce) {
+    eventos.push({ tipo: "roce", nave: resultado.roce.nave, x: resultado.roce.x, y: resultado.roce.y });
+  }
 
   let objetivoTrasImpacto = conIntegridad(naveObjetivo, naveObjetivo.integridad - resultado.danioObjetivo);
   if (resultado.desplazamientoObjetivoPx !== 0) {

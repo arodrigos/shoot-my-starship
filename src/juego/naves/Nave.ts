@@ -18,9 +18,16 @@ export class Nave {
   private readonly casco: Phaser.GameObjects.Graphics;
   private readonly canon: Phaser.GameObjects.Graphics;
   private anguloActualGrados: number;
+  private readonly colorCasco: number;
+  private readonly direccion: 1 | -1;
+  // con-4: si el núcleo real (RADIO_CASCO_NAVE_PX) lleva su anillo de
+  // realce encima -- lo activa ControlHUD mientras el jugador apunta a
+  // esta nave, para que la mentira visual de escala-legible no esconda
+  // dónde colisiona de verdad justo cuando más importa saberlo.
+  private nucleoRealzado = false;
 
   constructor(
-    escena: Phaser.Scene,
+    private readonly escena: Phaser.Scene,
     private readonly idNave: 0 | 1,
     x: number,
     groundY: number,
@@ -30,8 +37,8 @@ export class Nave {
     this.anguloActualGrados = anguloInicialGrados;
     this.contenedor = escena.add.container(x, groundY);
 
-    const colorCasco = idNave === 0 ? COLOR_NAVE_0 : COLOR_NAVE_1;
-    const dir = mirarHaciaMasX ? 1 : -1;
+    this.colorCasco = idNave === 0 ? COLOR_NAVE_0 : COLOR_NAVE_1;
+    this.direccion = mirarHaciaMasX ? 1 : -1;
 
     // Patas: dos apoyos asimétricos, como si la nave hubiese aterrizado mal
     // -- "varada", no aparcada. Nacen en el borde inferior real del casco
@@ -48,7 +55,7 @@ export class Nave {
     // Casco: silueta poligonal simple (fuselaje + aleta), con una sombra
     // desplazada para que se lea como volumen sin usar ninguna textura.
     this.casco = escena.add.graphics();
-    this.dibujarCasco(colorCasco, dir);
+    this.dibujarCasco();
     this.contenedor.add(this.casco);
 
     // Cañón: dos tramos con un quiebro a mitad de camino -- el "cañón
@@ -63,17 +70,50 @@ export class Nave {
   // opacidad declarado (TECHO_OPACIDAD_FUERA_NUCLEO) para que no se lea
   // como blindaje, y el núcleo de casco (el círculo de RADIO_CASCO_NAVE_PX
   // que de verdad colisiona) se pinta siempre opaco, encima de todo.
-  private dibujarCasco(color: number, dir: 1 | -1): void {
-    const puntos = puntosCasco(dir).map((p) => new Phaser.Math.Vector2(p.x, p.y));
+  private dibujarCasco(): void {
+    this.casco.clear();
+    const puntos = puntosCasco(this.direccion).map((p) => new Phaser.Math.Vector2(p.x, p.y));
     this.casco.fillStyle(COLOR_CASCO_SOMBRA, TECHO_OPACIDAD_FUERA_NUCLEO);
     this.casco.fillPoints(
       puntos.map((p) => new Phaser.Math.Vector2(p.x + 2, p.y + 2)),
       true,
     );
-    this.casco.fillStyle(color, TECHO_OPACIDAD_FUERA_NUCLEO);
+    this.casco.fillStyle(this.colorCasco, TECHO_OPACIDAD_FUERA_NUCLEO);
     this.casco.fillPoints(puntos, true);
-    this.casco.fillStyle(color, OPACIDAD_NUCLEO);
+    this.casco.fillStyle(this.colorCasco, OPACIDAD_NUCLEO);
     this.casco.fillCircle(0, 0, RADIO_CASCO_NAVE_PX);
+    if (this.nucleoRealzado) {
+      this.casco.lineStyle(3, 0xffffff, 0.9);
+      this.casco.strokeCircle(0, 0, RADIO_CASCO_NAVE_PX + 3);
+    }
+  }
+
+  // con-4: activa/desactiva el anillo de realce sobre el núcleo real --
+  // idempotente y sin efecto visible si ya estaba en ese estado, para que
+  // ControlHUD pueda llamarlo en cada fotograma de apuntado sin coste.
+  realzarNucleo(activo: boolean): void {
+    if (this.nucleoRealzado === activo) return;
+    this.nucleoRealzado = activo;
+    this.dibujarCasco();
+  }
+
+  // con-2: el destello del impacto real -- un círculo blanco superpuesto al
+  // núcleo (no un efecto de partículas: registroEfectos.ts es para
+  // partículas, esto es geometría, así que no compite por su techo) que se
+  // desvanece en un tween corto. Objeto transitorio propio, no toca
+  // this.casco, para no interferir con actualizarIntegridad (que sí anima
+  // su alfa).
+  destellarNucleo(): void {
+    const destello = this.escena.add.graphics();
+    destello.fillStyle(0xffffff, 0.85);
+    destello.fillCircle(0, 0, RADIO_CASCO_NAVE_PX);
+    this.contenedor.add(destello);
+    this.escena.tweens.add({
+      targets: destello,
+      alpha: 0,
+      duration: 180,
+      onComplete: () => destello.destroy(),
+    });
   }
 
   // Dibuja el cañón con un quiebro visual apuntando a anguloGrados (misma

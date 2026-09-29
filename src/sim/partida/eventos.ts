@@ -47,6 +47,12 @@ export type EventoSimulacion =
       // positivo hacia +x. Opcional para no romper los eventos ya emitidos
       // por armas sin efecto de empuje.
       readonly desplazamientoPx?: number;
+      // contacto-honesto (con-2): la nave cuyo casco REAL (RADIO_CASCO_NAVE_PX)
+      // ha detenido el vuelo en este punto, paralelo a PuntoDeImpacto.impactoNave
+      // -- undefined cuando el punto es una detonación normal contra el
+      // terreno, sin tocar ningún núcleo. Opcional para no romper los eventos
+      // ya emitidos antes de este bloque.
+      readonly impactoNave?: IdNave;
     }
   // La nave que se ha hecho daño a sí misma (Despedida): paralelo al evento
   // "impacto" con objetivo === nave, pero con nombre propio para que la
@@ -78,5 +84,11 @@ export type EventoSimulacion =
   // que sí tiene punto de caída): aquí no hay ningún punto de impacto que
   // mostrar, el turno pasa igual.
   | { readonly tipo: "proyectil-perdido"; readonly nave: IdNave }
+  // contacto-honesto (con-1, con-3): el vuelo ha entrado en la silueta
+  // DIBUJADA de una nave (esc-1) sin cortar su casco de colisión real -- se
+  // anuncia en pantalla con su propio mensaje, pero no es un evento de humor
+  // (no está en TIPOS_EVENTO_HUMOR: no dispara sacudida de cámara ni frase
+  // de personalidad) y nunca cambia la integridad de nadie.
+  | { readonly tipo: "roce"; readonly nave: IdNave; readonly x: number; readonly y: number }
   | { readonly tipo: "turno-fin"; readonly siguienteTurno: IdNave }
   | { readonly tipo: "partida-fin"; readonly ganador: IdNave };

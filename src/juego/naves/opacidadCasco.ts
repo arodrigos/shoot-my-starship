@@ -1,5 +1,6 @@
-import { puntosCasco, type PuntoCasco } from "@/sim/naves/geometriaCasco";
+import { puntosCasco } from "@/sim/naves/geometriaCasco";
 import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { dentroDelPoligono } from "@/sim/naves/contacto";
 
 // escala-legible (esc-5): la opción B hace que el dibujo mienta sobre lo que
 // de verdad colisiona, así que la jerarquía visual tiene que dejarlo claro
@@ -9,20 +10,10 @@ import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 export const OPACIDAD_NUCLEO = 1.0;
 export const TECHO_OPACIDAD_FUERA_NUCLEO = 0.4;
 
-// Ray casting estándar (par/impar de cruces con los lados del polígono):
-// suficiente para el polígono simple (sin autointersecciones) de
-// puntosCasco, y es la misma prueba que "¿este píxel cae dentro de la
-// silueta dibujada?" sin necesitar un canvas real.
-function dentroDelPoligono(x: number, y: number, puntos: readonly PuntoCasco[]): boolean {
-  let dentro = false;
-  for (let i = 0, j = puntos.length - 1; i < puntos.length; j = i++) {
-    const pi = puntos[i];
-    const pj = puntos[j];
-    const cruza = pi.y > y !== pj.y > y && x < ((pj.x - pi.x) * (y - pi.y)) / (pj.y - pi.y) + pi.x;
-    if (cruza) dentro = !dentro;
-  }
-  return dentro;
-}
+// contacto-honesto: dentroDelPoligono se movió a src/sim/naves/contacto.ts
+// (con-1 necesita la misma prueba en el núcleo, sin Phaser) -- esta cáscara
+// la reexporta en vez de duplicarla, para que "qué cae dentro de la
+// silueta" siga teniendo una sola respuesta posible.
 
 // Opacidad con la que se dibujaría el punto (x, y), en coordenadas locales
 // del contenedor de la nave (el mismo origen que RADIO_CASCO_NAVE_PX):

@@ -26,6 +26,7 @@ function resultado(parcial: Partial<ResultadoDisparo>): ResultadoDisparo {
     origenY: 0,
     fallo: false,
     proyectilPerdido: false,
+    roce: null,
     ...parcial,
   };
 }

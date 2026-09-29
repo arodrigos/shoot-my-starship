@@ -7,6 +7,7 @@ import { hayWebGL } from "@/juego/soporteWebGL";
 import { ControlHUD } from "@/juego/hud/ControlHUD";
 import { ReaccionHUD } from "@/juego/hud/ReaccionHUD";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
+import { RoceHUD } from "@/juego/hud/RoceHUD";
 import { ParteDeGuerraHUD } from "@/juego/hud/ParteDeGuerraHUD";
 import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
 import type { DatosEscenaPartida, IdEscena } from "@/juego/main";
@@ -65,6 +66,7 @@ export function PhaserGame({ escena, datosEscena }: Props) {
           <IntegridadHUD />
           <ReaccionHUD />
           <BromaHUD />
+          <RoceHUD />
           <ParteDeGuerraHUD />
         </>
       )}
