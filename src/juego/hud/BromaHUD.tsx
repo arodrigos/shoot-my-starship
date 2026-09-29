@@ -30,13 +30,18 @@ export function BromaHUD() {
         flexDirection: "column",
         gap: 4,
         alignItems: "center",
-        maxWidth: "48%",
+        // lay-3: reparte el ancho de la fila con RoceHUD por flex, no por un
+        // 48% fijo -- así cuando no hay roce (el caso normal), la broma usa
+        // TODA la fila y necesita muchas menos líneas para el mismo texto,
+        // en vez de quedarse partida a la mitad sin motivo.
+        flex: "1 1 0",
+        minWidth: 0,
         // lay-3/lay-4: el propio recuadro (no solo el de su fila) tiene que
         // quedarse dentro del hueco reservado -- overflow en el padre no
         // recorta el propio bounding box del panel, así que el límite va
         // aquí para que una broma larga jamás alcance geométricamente la
         // fila de abajo.
-        maxHeight: 82,
+        maxHeight: 70,
         overflowY: "auto",
       }}
     >

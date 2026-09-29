@@ -211,15 +211,23 @@ export function ControlHUD() {
           lay-4 pide el hueco reservado literalmente: altura FIJA (no
           mínima) y con scroll propio si una frase larga no cabe, para que
           quitar la broma nunca mueva el resto de controles y para que un
-          texto largo jamás empuje ni solape la fila de abajo (lay-3). */}
+          texto largo jamás empuje ni solape la fila de abajo (lay-3).
+          flexShrink:0 es el propio arreglo de lay-3: sin él, esta fila era
+          la ÚNICA con overflowY:auto (mínimo automático 0 según CSS Flexbox
+          §7.1.4), así que el algoritmo de flex-shrink la comprimía a ella
+          sola para compensar el déficit de alto de la consola en 360x640,
+          y su contenido (con maxHeight propio) se salía por debajo de la
+          fila ya encogida, invadiendo geométricamente fila-armas aunque no
+          se viera clípticamente -- exactamente lo que medía panel-bromas
+          solapando selector-arma-abrir. */}
       <div
         style={{
           display: "flex",
           flexDirection: "row",
-          justifyContent: "space-between",
           alignItems: "flex-start",
           gap: 6,
-          height: 90,
+          height: 78,
+          flexShrink: 0,
           overflowY: "auto",
         }}
       >
@@ -227,16 +235,25 @@ export function ControlHUD() {
         <RoceHUD />
       </div>
 
-      {/* fila-armas: selector de arma, paso fino de ángulo y disparo/repetir. */}
-      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-        <div style={{ position: "relative", minWidth: 0, flex: "0 1 auto" }}>
+      {/* fila-armas: selector de arma, paso fino de ángulo y disparo/repetir.
+          lay-2/lay-5: con el nombre de arma más largo del catálogo
+          ("Gravitón de Segunda Mano") los tres grupos no cabían en 344px con
+          el padding original -- ni exprimiendo el selector (lo hacía partirse
+          en muchas líneas y crecer más de lo que cabe en el alto reservado
+          de la consola) ni dándole ancho fijo (sacaba el grupo de disparo
+          fuera de la ventana por la derecha). flex:"0 0 auto" sin encoger en
+          los tres grupos, con el padding de botonEstilo recortado para
+          liberar el ancho que el selector necesita, es lo que hace que el
+          presupuesto cierre en una sola línea sin exprimir ni desbordar. */}
+      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+        <div style={{ position: "relative", flex: "0 0 auto" }}>
           <button
             type="button"
             data-testid="selector-arma-abrir"
             onClick={() => setSelectorAbierto((valor) => !valor)}
             style={{
               ...botonEstilo,
-              maxWidth: 128,
+              maxWidth: 112,
               display: "block",
               whiteSpace: "normal",
               wordBreak: "break-word",
@@ -307,7 +324,7 @@ export function ControlHUD() {
           )}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "row", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "row", gap: 2 }}>
           <button type="button" data-testid="paso-angulo-mas" onClick={() => ajustarAnguloFino(1)} style={botonEstilo}>
             +0.1°
           </button>
@@ -316,7 +333,7 @@ export function ControlHUD() {
           </button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "row", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "row", gap: 2 }}>
           <button
             type="button"
             data-testid="repetir-disparo"
@@ -331,7 +348,7 @@ export function ControlHUD() {
             data-testid="disparar"
             onClick={solicitarDisparo}
             disabled={!estado.puedeDisparar}
-            style={{ ...botonEstilo, background: "#ff6b4a", minWidth: 88 }}
+            style={{ ...botonEstilo, background: "#ff6b4a" }}
           >
             Disparar
           </button>
@@ -409,7 +426,12 @@ export function ControlHUD() {
 const botonEstilo: React.CSSProperties = {
   minWidth: TAMANO_MINIMO_BOTON_PX,
   minHeight: TAMANO_MINIMO_BOTON_PX,
-  padding: "6px 10px",
+  // lay-2/lay-5: el padding original ("6px 10px") no dejaba sitio para el
+  // selector de arma con el nombre más largo del catálogo sin desbordar la
+  // fila -- 44px de alto (el mínimo táctil real, esp-4) no depende de este
+  // padding horizontal, así que recortarlo no toca ningún criterio de
+  // tamaño de objetivo.
+  padding: "6px 6px",
   borderRadius: 8,
   border: "1px solid var(--color-cromado-borde)",
   background: "var(--color-cromado-boton)",

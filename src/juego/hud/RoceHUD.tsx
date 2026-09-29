@@ -18,7 +18,14 @@ export function RoceHUD() {
       data-testid="panel-roce"
       role="status"
       style={{
-        maxWidth: "48%",
+        // lay-3: mismo reparto por flex que BromaHUD (ver su comentario) en
+        // vez de un 48% fijo, y el mismo tope de alto -- panel-roce vive en
+        // la misma fila-avisos de altura fija y sin él podía crecer más que
+        // el hueco reservado exactamente por el mismo motivo que la broma.
+        flex: "1 1 0",
+        minWidth: 0,
+        maxHeight: 70,
+        overflowY: "auto",
         background: "rgba(90,200,250,0.16)",
         border: "1px solid rgba(90,200,250,0.6)",
         borderRadius: 10,
