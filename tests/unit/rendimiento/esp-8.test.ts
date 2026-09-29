@@ -7,6 +7,7 @@ import { AnimadorProyectil } from "@/juego/vuelo/AnimadorProyectil";
 import { crearProyectil } from "@/sim/fisica/proyectil";
 import { detenerseEnSuelo } from "@/sim/armas/resolver";
 import { PASO_FIJO_MS } from "@/sim/tiempo";
+import { efectosRegistrados } from "@/juego/efectos/registroEfectos";
 
 // esp-8 (camino crítico): sustituto sin GPU de render-3/esp-7 -- el runner de
 // CI (ubuntu-latest) no tiene GPU real, así que aquí se presupuesta el coste
@@ -16,6 +17,39 @@ import { PASO_FIJO_MS } from "@/sim/tiempo";
 // medio. El peor caso del diseño (6 planetas, 2 anillos, 40 asteroides) se
 // construye con ParametrosForzados para no depender de encontrar una
 // semilla con suerte.
+//
+// pre-2: además del vuelo, se paga el mismo barrido que un
+// Phaser.GameObjects.Particles.ParticleEmitter real hace en su update() --
+// recorrer sus partículas vivas y mover cada una -- a la escala que declara
+// REGISTRO_EFECTOS para CADA efecto registrado, a su techo. Así el
+// presupuesto mide de verdad el peor caso (vuelo + todos los efectos a
+// tope), y un efecto futuro que suba su techo en el registro sube este
+// coste sin que nadie tenga que acordarse de editar este test a mano.
+interface ParticulaSimulada {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  vida: number;
+}
+
+function crearParticulasAlTechoDelRegistro(): ParticulaSimulada[] {
+  const particulas: ParticulaSimulada[] = [];
+  for (const efecto of efectosRegistrados()) {
+    for (let i = 0; i < efecto.techoParticulas; i++) {
+      particulas.push({ x: 0, y: 0, vx: 1, vy: -1, vida: 1 });
+    }
+  }
+  return particulas;
+}
+
+function actualizarParticulasSimuladas(particulas: readonly ParticulaSimulada[], pasoMs: number): void {
+  for (const particula of particulas) {
+    particula.x += particula.vx * pasoMs;
+    particula.y += particula.vy * pasoMs;
+    particula.vida -= pasoMs / 1000;
+  }
+}
 function crearEscenaDeMentira(): Phaser.Scene {
   const grafico = {
     clear: () => grafico,
@@ -34,7 +68,7 @@ const MUNDO_ALTO = 1080;
 const NUM_FOTOGRAMAS = 600;
 const P95_MAXIMO_MS = 8;
 
-test("esp-8: coste de simulación+draw-prep por fotograma en el peor caso (6 planetas, 2 anillos, 40 asteroides) tiene p95 < 8ms en 600 fotogramas", () => {
+test("esp-8: coste de simulación+draw-prep por fotograma en el peor caso (6 planetas, 2 anillos, 40 asteroides, todos los efectos del registro a su techo) tiene p95 < 8ms en 600 fotogramas", () => {
   const sistema = generarSistema(20260926, MUNDO_ANCHO, MUNDO_ALTO, {
     numPlanetas: 6,
     numAnillos: 2,
@@ -54,12 +88,15 @@ test("esp-8: coste de simulación+draw-prep por fotograma en el peor caso (6 pla
   const inicial = crearProyectil(MUNDO_ANCHO / 2, 45, 5, -1);
   const animador = new AnimadorProyectil(crearEscenaDeMentira());
   animador.iniciar(inicial, 0, 0, detenerse, () => {}, sistema.planetas);
+  const particulas = crearParticulasAlTechoDelRegistro();
+  assert.ok(particulas.length > 0, "el registro de efectos está vacío: pre-2 no está ejerciendo nada");
 
   const duracionesMs: number[] = [];
   for (let i = 0; i < NUM_FOTOGRAMAS; i++) {
     if (!animador.enVuelo()) break;
     const inicio = process.hrtime.bigint();
     animador.actualizar(PASO_FIJO_MS);
+    actualizarParticulasSimuladas(particulas, PASO_FIJO_MS);
     const fin = process.hrtime.bigint();
     duracionesMs.push(Number(fin - inicio) / 1e6);
   }
