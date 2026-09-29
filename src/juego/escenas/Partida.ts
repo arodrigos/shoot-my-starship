@@ -53,6 +53,7 @@ import { vozDeNave } from "@/contenido/bancoBromas";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
 import { publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
+import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
@@ -140,6 +141,10 @@ const CANTIDAD_PARTICULAS_EXPLOSION = 24;
 // imp-12: bastantes menos partículas y sin color de fuego -- un vistazo
 // basta para distinguir "no ha hecho nada" de un impacto directo.
 const CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO = 8;
+// contacto-honesto (con-3): la más pequeña de las tres -- una chispa, no una
+// detonación, porque el roce no ha tocado el casco real. Igual al techo
+// declarado para "roce-chispazo" en registroEfectos.ts.
+const CANTIDAD_PARTICULAS_ROCE = 4;
 // proy-4: tope duro del pool de la estela -- declarado aquí (no en un
 // fichero de datos) porque es un límite técnico de rendimiento, no un
 // parámetro de diseño de partida como el catálogo de armas.
@@ -247,6 +252,10 @@ export class Partida extends Phaser.Scene {
   // partículas, gris humo en vez de naranja) en vez de reutilizar el mismo
   // emisor con el mismo aspecto para los dos casos.
   private emisorExplosionSinDanio!: Phaser.GameObjects.Particles.ParticleEmitter;
+  // contacto-honesto (con-3): chispa mínima, no una explosión -- el roce no
+  // detona, así que reutilizar cualquiera de los dos emisores de arriba se
+  // leería como un impacto que en realidad no ha ocurrido.
+  private emisorRoce!: Phaser.GameObjects.Particles.ParticleEmitter;
   // proy-4: estela de pool ACOTADO -- maxParticles en la config del emisor
   // (no un contador propio) es lo que garantiza el tope, así que
   // getAliveParticleCount() nunca puede superarlo, también con varios vuelos
@@ -455,6 +464,23 @@ export class Partida extends Phaser.Scene {
       emitting: false,
     });
 
+    // contacto-honesto (con-3): chispa blanca, breve y mínima -- ni el color
+    // naranja de daño ni el gris apagado de "sin daño", para que se lea como
+    // un tercer resultado distinto, no como una variante apagada de los
+    // otros dos.
+    const lienzoRoce = this.make.graphics({ x: 0, y: 0 });
+    lienzoRoce.fillStyle(0xffffff, 1);
+    lienzoRoce.fillCircle(2, 2, 2);
+    lienzoRoce.generateTexture("particula-roce", 4, 4);
+    lienzoRoce.destroy();
+    this.emisorRoce = crearEmisorRegistrado(this, "roce-chispazo", 0, 0, "particula-roce", {
+      lifespan: 180,
+      speed: { min: 10, max: 40 },
+      scale: { start: 0.5, end: 0 },
+      quantity: 0,
+      emitting: false,
+    });
+
     // proy-4: partícula quieta que solo se desvanece (speed 0) -- es un
     // punto de estela, no una chispa de explosión, así que no debe salir
     // disparada del punto donde se emite.
@@ -511,9 +537,19 @@ export class Partida extends Phaser.Scene {
     window.__debug.parteDeGuerra = null;
     window.__debug.ultimosEventos = [];
     window.__debug.historialBromas = [];
+    window.__debug.destellosNucleo = [];
     window.__debug.dispararReaccionHumor = (tipo) => this.reaccionarAHumor([crearEventoDePruebaHumor(tipo)]);
     window.__debug.forzarProyectilPerdido = () =>
       this.aplicarResultadoTurno(this.estado, [{ tipo: "proyectil-perdido", nave: this.estado.turno }]);
+    // contacto-honesto: aterrizar un vuelo real EXACTAMENTE en la banda de
+    // roce (fuera del radio de colisión, dentro de la silueta dibujada) no
+    // es determinista de apuntar a mano -- este hook reproduce el mismo
+    // camino que un roce real (manejarEventosVisuales, el mismo método que
+    // usa un turno jugado) para que el e2e compruebe con-2/con-3/con-6 sobre
+    // el efecto en pantalla, no sobre la puntería.
+    window.__debug.dispararEventoRoce = (nave, x, y) => this.manejarEventosVisuales([{ tipo: "roce", nave, x, y }]);
+    window.__debug.dispararEventoImpactoReal = (nave, x, y) =>
+      this.manejarEventosVisuales([{ tipo: "impacto", x, y, objetivo: nave, danio: 0, impactoNave: nave }]);
     this.refrescarDebugNaves();
 
     // render-4: la cámara nunca se mueve ni hace zoom en este bloque (no hay
@@ -550,7 +586,17 @@ export class Partida extends Phaser.Scene {
     }
     window.__debug!.sacudiendoCamara = this.cameras.main.shakeEffect.isRunning;
 
-    publicarJugable(this.puedeJugarAhora());
+    const jugable = this.puedeJugarAhora();
+    publicarJugable(jugable);
+
+    // con-4: el núcleo realzado es el de la nave OBJETIVO (contra quien se
+    // apunta), no el propio -- entrar en "modo de apuntado" es exactamente
+    // puedeJugarAhora() (turno del jugador, sin animación en curso, partida
+    // sin terminar); realzarNucleo es idempotente, así que llamarlo cada
+    // fotograma no tiene coste cuando el estado no cambia.
+    const objetivoApuntado: IdNave = naveContraria(this.estado.turno);
+    this.naves.forEach((nave, id) => nave.realzarNucleo(jugable && (id as IdNave) === objetivoApuntado));
+    window.__debug!.nucleoRealzado = jugable ? objetivoApuntado : null;
   }
 
   // proy-4/proy-5: un único punto que emite la estela del vuelo REAL en
@@ -686,6 +732,9 @@ export class Partida extends Phaser.Scene {
     if (estadoAntes.resultado.tipo === "terminada" || this.animador.enVuelo()) {
       return;
     }
+    // contacto-honesto: un roce viejo no debe seguir en pantalla una vez que
+    // ya se está resolviendo el disparo siguiente.
+    limpiarRoce();
 
     const tirador: IdNave = estadoAntes.turno;
     const naveTiradora = estadoAntes.naves[tirador];
@@ -825,6 +874,42 @@ export class Partida extends Phaser.Scene {
     this.dispararEntrada(entrada, false);
   }
 
+  // Extraído de aplicarResultadoTurno para que window.__debug.dispararEventoRoce
+  // (pruebas) pueda reproducir exactamente el mismo camino que un turno real,
+  // en vez de duplicar la lógica de emisores/HUD -- mismo motivo que
+  // crearEventoDePruebaHumor para los eventos de humor.
+  private manejarEventosVisuales(eventos: readonly EventoSimulacion[]): void {
+    for (const evento of eventos) {
+      if (evento.tipo === "impacto") {
+        if (evento.danio > 0) {
+          comprobarCantidadDentroDelTecho("explosion-con-danio", CANTIDAD_PARTICULAS_EXPLOSION);
+          this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
+          window.__debug!.ultimoTipoExplosion = "danio";
+        } else {
+          comprobarCantidadDentroDelTecho("explosion-sin-danio", CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO);
+          this.emisorExplosionSinDanio.explode(CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO, evento.x, evento.y);
+          window.__debug!.ultimoTipoExplosion = "sin-danio";
+        }
+        // con-2: el destello vive en el propio núcleo de la nave (no un
+        // emisor de partículas aparte) -- solo cuando el punto de impacto ha
+        // tocado de verdad el casco real (evento.impactoNave), nunca en una
+        // detonación normal contra el terreno.
+        if (evento.impactoNave !== undefined) {
+          this.naves[evento.impactoNave].destellarNucleo();
+          window.__debug!.destellosNucleo = [
+            ...(window.__debug!.destellosNucleo ?? []),
+            { nave: evento.impactoNave, x: evento.x, y: evento.y },
+          ];
+        }
+      } else if (evento.tipo === "roce") {
+        comprobarCantidadDentroDelTecho("roce-chispazo", CANTIDAD_PARTICULAS_ROCE);
+        this.emisorRoce.explode(CANTIDAD_PARTICULAS_ROCE, evento.x, evento.y);
+        const naveNombre = evento.nave === ID_JUGADOR ? "tu nave" : "la nave rival";
+        publicarRoce(`Roce: el disparo ha pasado rozando ${naveNombre} sin tocar su casco. Sin daño.`);
+      }
+    }
+  }
+
   private aplicarResultadoTurno(
     estadoDespues: EstadoPartida,
     eventos: readonly EventoSimulacion[],
@@ -842,19 +927,7 @@ export class Partida extends Phaser.Scene {
 
     this.terreno.sincronizarDesde(estadoDespues.mascara);
 
-    for (const evento of eventos) {
-      if (evento.tipo === "impacto") {
-        if (evento.danio > 0) {
-          comprobarCantidadDentroDelTecho("explosion-con-danio", CANTIDAD_PARTICULAS_EXPLOSION);
-          this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
-          window.__debug!.ultimoTipoExplosion = "danio";
-        } else {
-          comprobarCantidadDentroDelTecho("explosion-sin-danio", CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO);
-          this.emisorExplosionSinDanio.explode(CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO, evento.x, evento.y);
-          window.__debug!.ultimoTipoExplosion = "sin-danio";
-        }
-      }
-    }
+    this.manejarEventosVisuales(eventos);
     this.reaccionarAHumor(eventos);
     if (categoriaBroma) {
       this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos);

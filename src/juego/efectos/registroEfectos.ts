@@ -39,6 +39,14 @@ export const REGISTRO_EFECTOS = {
     techoObjetosVivos: 40,
     reutilizaPool: true,
   },
+  "roce-chispazo": {
+    id: "roce-chispazo",
+    descripcion:
+      "contacto-honesto (con-3): el roce no detona (no hay huella ni cráter) -- una chispa breve y mínima, distinta de las dos explosiones, para que no se lea como un impacto que no ha ocurrido.",
+    techoParticulas: 4,
+    techoObjetosVivos: 4,
+    reutilizaPool: false,
+  },
 } as const satisfies Record<string, EfectoVisual>;
 
 export type IdEfectoVisual = keyof typeof REGISTRO_EFECTOS;

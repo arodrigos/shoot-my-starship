@@ -1,5 +1,8 @@
 import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { IdNave } from "@/sim/partida/tipos";
+import { comprobarRocePaso, type RoceNave } from "@/sim/naves/contacto";
+
+export type { RoceNave } from "@/sim/naves/contacto";
 
 // impacto-naves: por primera vez una nave viva es un CUERPO DE COLISIÓN real,
 // no un punto de referencia para medir distancia en X. El radio y la gracia
@@ -74,6 +77,12 @@ export interface RastreadorImpactoNaves {
   // nuevo: el segmento que forman es lo que se comprueba contra el casco de
   // cada nave viva, nunca solo `actual`.
   comprobarPaso(anterior: EstadoProyectil, actual: EstadoProyectil): ImpactoNave | null;
+  // contacto-honesto (con-1): aditivo -- no cambia ni cuándo ni con qué se
+  // llama comprobarPaso (con-5: el lote determinista de 200 semillas se
+  // queda exactamente igual que antes de este bloque), solo añade una
+  // segunda pregunta sobre el mismo segmento cuando comprobarPaso ya ha
+  // dicho que no hay impacto real.
+  comprobarRoce(anterior: EstadoProyectil, actual: EstadoProyectil): RoceNave | null;
 }
 
 // Un rastreador nuevo por disparo (estado propio: la gracia del casco
@@ -104,6 +113,11 @@ export function crearRastreadorImpactoNaves(naves: readonly NavePosicion[], prop
       }
 
       return null;
+    },
+
+    comprobarRoce(anterior, actual) {
+      const navesElegibles = naves.filter((nave) => !(nave.id === propiaId && graciaCascoPropioActiva));
+      return comprobarRocePaso(anterior, actual, navesElegibles);
     },
   };
 }
