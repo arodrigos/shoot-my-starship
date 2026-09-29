@@ -11,7 +11,10 @@ import { crearMascaraVacia, ESCOMBRO, type Mascara } from "@/sim/terreno/mascara
 export const PLANETAS_MIN = 3;
 export const PLANETAS_MAX = 6;
 
-const RADIO_PLANETA_MIN = 40;
+// Exportado (escala-legible/esc-6): el suelo de tamaño de proyectil se
+// compara contra este número para decidir si un proyectil podría leerse
+// como un planeta -- antes era un detalle interno del generador.
+export const RADIO_PLANETA_MIN = 40;
 const RADIO_PLANETA_MAX = 110;
 const DENSIDAD_MIN = 0.6;
 const DENSIDAD_MAX = 1.5;

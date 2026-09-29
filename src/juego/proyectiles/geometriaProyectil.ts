@@ -1,5 +1,5 @@
 import type { Arma } from "@/sim/armas/tipos";
-import { MUNDO_ANCHO } from "@/juego/constantes";
+import { cajaCasco } from "@/sim/naves/geometriaCasco";
 
 // Geometría pura del proyectil (sin Phaser), mismo motivo que
 // geometriaCasco.ts: proy-1 exige medir la silueta desde la propia función
@@ -9,21 +9,36 @@ export interface PuntoProyectil {
   readonly y: number;
 }
 
-// proy-1 (sexta devolución): exige 18px "a escala de juego", y eso es
-// pantalla, no mundo. Con Phaser.Scale.FIT, el mundo de MUNDO_ANCHO px de
-// ancho se encoge al ancho real del lienzo -- a 360px (esp-4/proy-5, el
-// viewport móvil mínimo que declara el diseño) un proyectil de 22px de
-// mundo (el valor de antes de esta corrección) se veía como una mota de
-// ~4px, exactamente el punto que Adrián pidió quitar. El suelo se declara
-// en unidades de mundo pero se calcula a partir del mínimo en pantalla.
-const ANCHO_VIEWPORT_MINIMO_PX = 360;
-const ESCALA_RENDER_MINIMA = ANCHO_VIEWPORT_MINIMO_PX / MUNDO_ANCHO;
-const DIMENSION_MINIMA_RENDER_PX = 18;
-
-// Suelo con margen (el redondeo de la normalización nunca lo roza) y techo
-// proporcional, ambos en unidades de mundo.
-export const DIMENSION_MINIMA_PX = Math.ceil(DIMENSION_MINIMA_RENDER_PX / ESCALA_RENDER_MINIMA) + 8;
-const DIMENSION_MAXIMA_PX = DIMENSION_MINIMA_PX * 2;
+// escala-legible: el suelo de proy-1 (una constante absoluta de 104px de
+// mundo, calculada para leerse a 18px de pantalla) es justo lo que produjo
+// el hallazgo del gatekeeper de proyectiles 2,3-4,5 veces más grandes que
+// la nave -- porque la nave se dibujaba a ~8,6px de pantalla y el suelo del
+// proyectil no sabía nada de ese tamaño. Ahora el suelo y el techo se
+// derivan del lado mayor de la silueta de la nave YA DIBUJADA (cajaCasco,
+// que ya incluye ESCALA_DIBUJO_NAVE): así, si la geometría del casco
+// cambia, el tamaño del proyectil se mueve con ella sin tocar ninguna otra
+// constante (esc-2), y la relación proyectil/nave queda acotada por
+// construcción (esc-1: el techo es el mismo 0,6 que exige el criterio, no
+// una casualidad).
+const { ancho: ANCHO_CASCO_DIBUJADO, alto: ALTO_CASCO_DIBUJADO } = cajaCasco(1);
+const LADO_MAYOR_NAVE_DIBUJADO_PX = Math.max(ANCHO_CASCO_DIBUJADO, ALTO_CASCO_DIBUJADO);
+// Con ESCALA_DIBUJO_NAVE = 3,0 el techo (0,6x) ya no puede alcanzar el
+// suelo absoluto de 18px de pantalla de proy-1 (un proyectil a 0,6x de la
+// nave mide ~16px, ligeramente por debajo): es el precio de que el
+// proyectil ahora sea proporcional a la nave en vez de a una constante
+// ciega. Declarado como desviación de proy-1/esc-6 en el entregable de
+// este bloque -- esc-6 no es camino crítico y el hallazgo que sí lo es
+// (2,3-4,5x la nave) queda resuelto.
+export const FRACCION_MINIMA_PROYECTIL = 0.35;
+export const FRACCION_MAXIMA_PROYECTIL = 0.6;
+// esc-1 exige el 0,6x como techo DURO (camino_critico): redondear al entero
+// más cercano podía pasarse de largo por un resto de medio píxel (87/144.9 =
+// 0,6004..., ya por encima). ceil()/floor() en direcciones opuestas a la
+// fracción garantizan por construcción que el entero resultante nunca cruza
+// ninguno de los dos bordes, en vez de depender de que el redondeo caiga del
+// lado bueno para esta geometría concreta.
+export const DIMENSION_MINIMA_PX = Math.ceil(LADO_MAYOR_NAVE_DIBUJADO_PX * FRACCION_MINIMA_PROYECTIL);
+export const DIMENSION_MAXIMA_PX = Math.floor(LADO_MAYOR_NAVE_DIBUJADO_PX * FRACCION_MAXIMA_PROYECTIL);
 
 // Familia visual (eje de RENDER, no de daño): se deriva de los ejes que ya
 // existen en el catálogo -- comportamiento, huella, efecto y los tres ejes

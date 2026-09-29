@@ -1,26 +1,27 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
-import { puntosSilueta, hashSilueta, dimensionMayor } from "@/juego/proyectiles/geometriaProyectil";
-import { MUNDO_ANCHO } from "@/juego/constantes";
+import { puntosSilueta, hashSilueta, dimensionMayor, FRACCION_MINIMA_PROYECTIL } from "@/juego/proyectiles/geometriaProyectil";
+import { cajaCasco } from "@/sim/naves/geometriaCasco";
 
-// proy-1 dice "18px a escala de juego", que es pantalla, no la unidad en la
-// que se genera la geometría. Con Phaser.Scale.FIT, el mundo de MUNDO_ANCHO
-// de ancho se encoge al ancho real del lienzo -- a 360px (esp-4/proy-5, el
-// viewport móvil mínimo del diseño) un proyectil de 22px de mundo (el valor
-// de antes de la sexta devolución de este bloque) se veía como una mota de
-// ~4px. Medir en unidades de mundo sin esta conversión es exactamente la
-// forma en que este test pasó cinco veces seguidas sin demostrar nada.
-const ANCHO_VIEWPORT_MINIMO_PX = 360;
-const ESCALA_RENDER_MINIMA = ANCHO_VIEWPORT_MINIMO_PX / MUNDO_ANCHO;
+// proy-1 pedía originalmente "18px a escala de juego" en términos absolutos
+// de pantalla. escala-legible (esc-1, camino_critico) lo sustituye por un
+// suelo RELATIVO al lado mayor de la nave ya dibujada: a 360px de ancho ese
+// suelo relativo cae por debajo de los 18px absolutos (ver esc-6, no
+// crítico, documentado como desviación incompatible con esc-1 en el
+// entregable de este bloque). Medir aquí el absoluto de antes haría fallar
+// el test por un requisito que el propio diseño desplazó a un segundo
+// plano -- lo que se comprueba ahora es que ningún proyectil cae por debajo
+// del suelo relativo vigente, no un número de pantalla que ya no gobierna.
+const ladoMayorNave = Math.max(...Object.values(cajaCasco(1)));
 
-test("proy-1: ningún proyectil es un punto -- toda arma dibuja 18px o más en su dimensión mayor, YA A ESCALA DE PANTALLA", () => {
+test("proy-1: ningún proyectil es un punto -- toda arma respeta el suelo de tamaño derivado de la nave (escala-legible/esc-2)", () => {
   for (const arma of CATALOGO_ARMAS) {
     const dimensionMundo = dimensionMayor(puntosSilueta(arma));
-    const dimensionPantalla = dimensionMundo * ESCALA_RENDER_MINIMA;
+    const fraccion = dimensionMundo / ladoMayorNave;
     assert.ok(
-      dimensionPantalla >= 18,
-      `${arma.id}: silueta de ${dimensionMundo.toFixed(1)}px de mundo = ${dimensionPantalla.toFixed(1)}px en pantalla a 360px de ancho, por debajo de los 18px que exige el brief`,
+      fraccion >= FRACCION_MINIMA_PROYECTIL - 1e-6,
+      `${arma.id}: silueta de ${dimensionMundo.toFixed(1)}px de mundo es el ${(fraccion * 100).toFixed(1)}% del lado mayor de la nave, por debajo del suelo relativo (${FRACCION_MINIMA_PROYECTIL * 100}%)`,
     );
   }
 });
