@@ -18,12 +18,14 @@ export type SignoHuella = "restar" | "sumar";
 // vuelo-extensible: las tres variantes que necesitan mosca, granada de
 // espoleta y mina adherente. "erratico" y "mecha" son física nueva de
 // verdad (perturbación por paso y temporizador de detonación en pasos de
-// simulación, respectivamente); "adherente-con-mecha" no necesita ninguna
-// rama de vuelo propia porque su parada natural (primer sólido o casco) ya
-// es exactamente detenerseEnSuelo -- lo único que la distingue (que se
-// queda pegada en vez de detonar) es una condición de datos que resuelve
-// esComportamientoAdherente, consumida por bloques futuros
-// (arma-mina-adherente) al pintar la cuenta atrás, nunca por el resolutor.
+// simulación, respectivamente); "adherente-con-mecha" comparte su parada de
+// VUELO con impacto-simple (primer sólido o casco, detenerseEnSuelo) -- lo
+// único que la distingue en pintura es una condición de datos que resuelve
+// esComportamientoAdherente, consumida por arma-mina-adherente al pintar la
+// cuenta atrás. Sí necesita, en cambio, una rama propia (pequeña) en el
+// RESOLUTOR: a diferencia del resto del catálogo, para quien "perdido en
+// órbita multipozo" es un resultado legítimo (grav-6), la mina nunca puede
+// dejar un turno sin resultado (min-1) -- ver resolver.ts.
 export type ComportamientoDeVuelo =
   | { readonly tipo: "impacto-simple" }
   | { readonly tipo: "submuniciones"; readonly cantidad: number; readonly dispersionPxS: number }
@@ -31,7 +33,7 @@ export type ComportamientoDeVuelo =
   | { readonly tipo: "instantaneo" }
   | { readonly tipo: "erratico"; readonly magnitudPxS2: number }
   | { readonly tipo: "mecha"; readonly segundosHastaDetonar: number }
-  | { readonly tipo: "adherente-con-mecha" };
+  | { readonly tipo: "adherente-con-mecha"; readonly segundosHastaDetonar: number };
 
 // Eje 2 (huella en el terreno): la forma que deja en la máscara. "circular"
 // cubre cráter y relleno según el signo; "capsula" es la excavación alargada

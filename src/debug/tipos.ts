@@ -225,6 +225,10 @@ export interface DebugGlobal {
   // apuntando un ángulo/potencia real. No existe rama por arma: si el
   // siguiente disparo no es "mecha", este valor no se lee y se pierde igual.
   forzarFusibleMechaPasos?: (pasos: number) => void;
+  // arma-mina-adherente (min-1, solo e2e): mismo motivo y mismo patrón de
+  // uso único que forzarFusibleMechaPasos -- fuerza el fusible (en pasos,
+  // contados DESDE QUE SE PEGA) del PRÓXIMO disparo "adherente-con-mecha".
+  forzarFusibleAdherenciaPasos?: (pasos: number) => void;
   // imp-12: qué fogonazo se disparó de verdad en el último impacto resuelto
   // -- para que el test compruebe la distinción visual hit/sin-daño sin
   // tener que leer píxeles de pantalla.
@@ -296,6 +300,12 @@ export interface DebugGlobal {
   // "mecha", para que el e2e sepa CUÁNDO está en mitad de la cuenta sin una
   // espera fija (issue #151) y sin tener que leer texto del DOM.
   cuentaAtrasMecha?: { segundosRestantes: number } | null;
+  // arma-mina-adherente (min-2, min-3): posición de mundo (donde se pegó,
+  // nunca la de pantalla) y segundos restantes de la mina en curso -- null
+  // en cuanto no hay una mina adherida contando. A diferencia de
+  // cuentaAtrasMecha (que arranca al disparar), este campo solo existe
+  // DESDE que el proyectil se pega, no desde el disparo (min-5).
+  cuentaAtrasAdherencia?: { x: number; y: number; segundosRestantes: number } | null;
 }
 
 declare global {
