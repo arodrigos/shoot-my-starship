@@ -69,6 +69,11 @@ export interface DebugNave {
   readonly x: number;
   readonly y: number;
   readonly integridad: number;
+  // nve-1: el tramo de daño y el hash de la silueta DIBUJADA que le
+  // corresponde -- ver src/juego/naves/formaCasco.ts. El e2e compara estos
+  // hashes en los tres tramos en vez de leer píxeles del canvas.
+  readonly nivelDanio: "alta" | "media" | "baja";
+  readonly hashSilueta: number;
 }
 
 // hum-1: un registro por turno de lo que reaccionarABroma publicó de
@@ -252,6 +257,14 @@ export interface DebugGlobal {
     readonly radioCascoColisionPx: number;
     readonly proyectilLadoMayorMaximoPx: number;
   };
+  // nve-1, nve-3: fuerza la integridad de una nave sin jugar un turno real
+  // -- aterrizar EXACTAMENTE en los tres tramos de daño a base de impactos
+  // reales no es determinista de apuntar a mano (mismo motivo que
+  // dispararEventoRoce/dispararEventoImpactoReal en contacto-honesto). Pasa
+  // por el mismo refrescarNaves()/refrescarDebugNaves() que un turno real,
+  // así que la silueta que resulta es la que produciría el juego de verdad,
+  // no una vista aparte fabricada por el test.
+  forzarIntegridad?: (nave: IdNave, integridad: number) => void;
 }
 
 declare global {

@@ -1,13 +1,29 @@
 import Phaser from "phaser";
-import { ALTO_CASCO, ANCHO_CASCO, LARGO_CANON, puntosCasco } from "@/sim/naves/geometriaCasco";
+import { ALTO_CASCO, ANCHO_CASCO, LARGO_CANON } from "@/sim/naves/geometriaCasco";
 import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 import { OPACIDAD_NUCLEO, TECHO_OPACIDAD_FUERA_NUCLEO } from "@/juego/naves/opacidadCasco";
+import { anclaTobera, hashPuntos, nivelDanio, puntosCascoConDanio, type NivelDanio } from "@/juego/naves/formaCasco";
 
 const COLOR_NAVE_0 = 0x5ac8fa;
 const COLOR_NAVE_1 = 0xff6b4a;
 const COLOR_CASCO_SOMBRA = 0x1c1e24;
 const COLOR_PATAS = 0x3a3d46;
 const COLOR_CANON = 0xd9dbe0;
+const COLOR_CABINA = 0xd6f4ff;
+const COLOR_TOBERA_SANA = 0xffb347;
+const COLOR_TOBERA_CRITICA = 0x8a4a2c;
+const COLOR_CICATRIZ = 0x0c0d10;
+
+// nve-1: opacidad de la tobera por tramo de daño -- la llama se apaga
+// visiblemente a medida que la nave pierde integridad, sin superar nunca el
+// techo de opacidad de fuera del núcleo (esc-5): es luz de motor, no
+// blindaje, pero se respeta el mismo límite para no abrir una segunda
+// forma de "parecer más sólida de lo que es".
+const OPACIDAD_TOBERA: Readonly<Record<NivelDanio, number>> = {
+  alta: TECHO_OPACIDAD_FUERA_NUCLEO,
+  media: TECHO_OPACIDAD_FUERA_NUCLEO * 0.6,
+  baja: TECHO_OPACIDAD_FUERA_NUCLEO * 0.25,
+};
 
 // Nave varada vectorial (silueta, patas y cañón torcido): nada de sprites
 // bitmap, para que cambiar de paleta o de forma sea cambiar números, no
@@ -25,6 +41,11 @@ export class Nave {
   // esta nave, para que la mentira visual de escala-legible no esconda
   // dónde colisiona de verdad justo cuando más importa saberlo.
   private nucleoRealzado = false;
+  // nve-1: tramo de daño actual y hash de la silueta que le corresponde --
+  // se recalculan solo cuando actualizarIntegridad cruza de tramo, nunca en
+  // cada fotograma, porque dibujarCasco no es gratis.
+  private nivelDanioActual: NivelDanio = "alta";
+  private hashSiluetaActual = 0;
 
   constructor(
     private readonly escena: Phaser.Scene,
@@ -70,9 +91,25 @@ export class Nave {
   // opacidad declarado (TECHO_OPACIDAD_FUERA_NUCLEO) para que no se lea
   // como blindaje, y el núcleo de casco (el círculo de RADIO_CASCO_NAVE_PX
   // que de verdad colisiona) se pinta siempre opaco, encima de todo.
+  //
+  // nve-1: la silueta fuera del núcleo ahora depende de nivelDanioActual --
+  // puntosCascoConDanio inserta abolladuras deterministas por tramo, así
+  // que "alta"/"media"/"baja" no son solo tres alfas distintas, son tres
+  // polígonos distintos (comprobable por hash, ver hashSiluetaActual).
   private dibujarCasco(): void {
     this.casco.clear();
-    const puntos = puntosCasco(this.direccion).map((p) => new Phaser.Math.Vector2(p.x, p.y));
+    const puntosDanio = puntosCascoConDanio(this.direccion, this.nivelDanioActual);
+    this.hashSiluetaActual = hashPuntos(puntosDanio);
+    const puntos = puntosDanio.map((p) => new Phaser.Math.Vector2(p.x, p.y));
+
+    // Tobera: se dibuja ANTES que el fuselaje para que el fuselaje la tape
+    // parcialmente, como un motor semi-embutido en la chapa, no una llama
+    // suelta detrás de la nave.
+    const tobera = anclaTobera(this.direccion);
+    const colorTobera = this.nivelDanioActual === "baja" ? COLOR_TOBERA_CRITICA : COLOR_TOBERA_SANA;
+    this.casco.fillStyle(colorTobera, OPACIDAD_TOBERA[this.nivelDanioActual]);
+    this.casco.fillEllipse(tobera.x, tobera.y, ANCHO_CASCO * 0.16, ALTO_CASCO * 0.22);
+
     this.casco.fillStyle(COLOR_CASCO_SOMBRA, TECHO_OPACIDAD_FUERA_NUCLEO);
     this.casco.fillPoints(
       puntos.map((p) => new Phaser.Math.Vector2(p.x + 2, p.y + 2)),
@@ -80,6 +117,21 @@ export class Nave {
     );
     this.casco.fillStyle(this.colorCasco, TECHO_OPACIDAD_FUERA_NUCLEO);
     this.casco.fillPoints(puntos, true);
+
+    // Cabina: un cristal distinguible por color (nunca por más opacidad que
+    // el resto del fuselaje, para no prometer blindaje donde no lo hay).
+    this.casco.fillStyle(COLOR_CABINA, TECHO_OPACIDAD_FUERA_NUCLEO);
+    this.casco.fillEllipse(0.05 * ANCHO_CASCO * this.direccion, -0.18 * ALTO_CASCO, ANCHO_CASCO * 0.14, ALTO_CASCO * 0.14);
+
+    // Cicatriz de la abolladura de cola: solo en el tramo crítico, marca
+    // oscura sobre el punto de la segunda abolladura -- "deterioro visible"
+    // además del cambio de silueta, no en su lugar.
+    if (this.nivelDanioActual === "baja") {
+      const puntoCicatriz = puntosDanio[puntosDanio.length - 2];
+      this.casco.fillStyle(COLOR_CICATRIZ, TECHO_OPACIDAD_FUERA_NUCLEO * 0.8);
+      this.casco.fillCircle(puntoCicatriz.x, puntoCicatriz.y, ANCHO_CASCO * 0.06);
+    }
+
     this.casco.fillStyle(this.colorCasco, OPACIDAD_NUCLEO);
     this.casco.fillCircle(0, 0, RADIO_CASCO_NAVE_PX);
     if (this.nucleoRealzado) {
@@ -170,11 +222,30 @@ export class Nave {
     this.contenedor.setPosition(x, groundY);
   }
 
-  // Atenúa el casco con la integridad restante: en 0 se ve claramente
-  // fuera de combate sin necesitar un sprite de "destruida" aparte.
+  // Atenúa el casco con la integridad restante (en 0 se ve claramente fuera
+  // de combate) y, si la integridad cruza a un tramo de daño distinto
+  // (nve-1), redibuja la silueta con sus abolladuras -- el cambio de forma
+  // solo cuesta un dibujarCasco por cruce de tramo, no por fotograma.
   actualizarIntegridad(integridad: number): void {
-    const alfa = 0.35 + 0.65 * Math.max(0, Math.min(100, integridad)) / 100;
+    const alfa = 0.35 + (0.65 * Math.max(0, Math.min(100, integridad))) / 100;
     this.casco.setAlpha(alfa);
+
+    const nivel = nivelDanio(integridad);
+    if (nivel !== this.nivelDanioActual) {
+      this.nivelDanioActual = nivel;
+      this.dibujarCasco();
+    }
+  }
+
+  // nve-1: el tramo de daño y el hash de la silueta que le corresponde --
+  // el e2e fuerza los tres tramos con window.__debug.forzarIntegridad y
+  // compara estos hashes en vez de leer píxeles del canvas.
+  obtenerNivelDanio(): NivelDanio {
+    return this.nivelDanioActual;
+  }
+
+  obtenerHashSilueta(): number {
+    return this.hashSiluetaActual;
   }
 
   obtenerId(): 0 | 1 {
