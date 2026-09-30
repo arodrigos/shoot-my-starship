@@ -13,6 +13,15 @@ const DIRECTORIO = "src/juego";
 const FICHERO_PERMITIDO = "src/juego/efectos/crearEmisorRegistrado.ts";
 const PATRON_CREACION_EMISOR = /\.add\.particles\s*\(/;
 
+// proyectiles-siluetas (pyl-2): el render de proyectiles solo tiene permiso
+// para mirar los ejes del arma (comportamiento, huella, efecto...) a través
+// de familiaVisualDe, nunca el id de un arma en concreto -- mismo contrato
+// que arm-1 (comprobar-sin-ramas-por-arma.mjs) pero para la silueta, no para
+// el resolutor de daño. El diseño pide este check "como parte del guardia
+// de presupuesto", así que vive aquí en vez de en un script nuevo.
+const DIRECTORIO_PROYECTILES = "src/juego/proyectiles";
+const PATRON_RAMA_POR_ID = /\barma\.id\s*(===|==)\s*["'][\w-]+["']|switch\s*\(\s*arma\.id\s*\)/;
+
 async function ficherosTypeScript(directorio) {
   const entradas = await readdir(directorio, { withFileTypes: true }).catch(() => []);
   const resultados = [];
@@ -71,22 +80,72 @@ async function comprobarQueElGuardiaDetectaUnEmisorFueraDelRegistro() {
   }
 }
 
+async function encontrarRamasPorIdDeArma(directorio) {
+  const infracciones = [];
+  const raiz = process.cwd();
+  for (const fichero of await ficherosTypeScript(directorio)) {
+    const relativo = path.relative(raiz, fichero).split(path.sep).join("/");
+    const contenido = await readFile(fichero, "utf8");
+    if (PATRON_RAMA_POR_ID.test(contenido)) {
+      infracciones.push(relativo);
+    }
+  }
+  return infracciones;
+}
+
+// Mismo patrón de autotest negativo que comprobar-sin-ramas-por-arma.mjs:
+// un fichero temporal con una rama por id a propósito, dentro del propio
+// directorio de proyectiles, que el guardia debe atrapar.
+async function comprobarQueElGuardiaDetectaUnaRamaPorIdEnProyectiles() {
+  const ficheroFicticio = path.join(DIRECTORIO_PROYECTILES, "_autotest_rama_por_id.ts");
+  const contenidoConRamaPorId = [
+    "// Fichero temporal del autotest de comprobar-presupuesto-render.mjs (pyl-2):",
+    "// una rama por id de arma, exactamente lo que este guardia debe atrapar.",
+    'function _autotest(arma) { return arma.id === "arma-inventada"; }',
+    "",
+  ].join("\n");
+
+  await writeFile(ficheroFicticio, contenidoConRamaPorId, "utf8");
+  try {
+    const infracciones = await encontrarRamasPorIdDeArma(DIRECTORIO_PROYECTILES);
+    const detectado = infracciones.includes(path.relative(process.cwd(), ficheroFicticio).split(path.sep).join("/"));
+    if (!detectado) {
+      throw new Error(
+        "el autotest negativo introdujo una rama por id de arma en src/juego/proyectiles a propósito y el guardia NO la detectó -- está roto",
+      );
+    }
+  } finally {
+    await rm(ficheroFicticio, { force: true });
+  }
+}
+
 async function main() {
   await comprobarQueElGuardiaDetectaUnEmisorFueraDelRegistro();
+  await comprobarQueElGuardiaDetectaUnaRamaPorIdEnProyectiles();
 
-  const infracciones = await encontrarInfracciones(DIRECTORIO);
-  if (infracciones.length > 0) {
+  const infraccionesEmisor = await encontrarInfracciones(DIRECTORIO);
+  const infraccionesRamaPorId = await encontrarRamasPorIdDeArma(DIRECTORIO_PROYECTILES);
+
+  if (infraccionesEmisor.length > 0) {
     console.error(
       `Emisor de partículas creado fuera de ${FICHERO_PERMITIDO}, sin pasar por el registro de efectos (pre-1):`,
     );
-    for (const linea of infracciones) {
+    for (const linea of infraccionesEmisor) {
+      console.error(`  - ${linea}`);
+    }
+    process.exit(1);
+  }
+
+  if (infraccionesRamaPorId.length > 0) {
+    console.error(`Rama por identificador de arma en el render de proyectiles (rompe pyl-2): usa un eje del catálogo, no el id.`);
+    for (const linea of infraccionesRamaPorId) {
       console.error(`  - ${linea}`);
     }
     process.exit(1);
   }
 
   console.log(
-    `OK: ningún emisor de partículas se crea fuera de ${FICHERO_PERMITIDO}, y el autotest negativo lo confirma (pre-1).`,
+    `OK: ningún emisor de partículas se crea fuera de ${FICHERO_PERMITIDO}, ningún render de proyectiles ramifica por id de arma, y ambos autotest negativos lo confirman (pre-1, pyl-2).`,
   );
 }
 
