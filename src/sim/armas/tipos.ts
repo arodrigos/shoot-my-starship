@@ -99,4 +99,16 @@ export interface Arma {
   // declara explícitamente el eje para que arm-2 pueda contar sus valores
   // sin inferirlo del tipo de comportamiento.
   readonly inmuneAGravedad?: boolean;
+  // arma-mosca (mos-5): frase de una línea que avisa de la rareza del arma
+  // ANTES de dispararla (p.ej. que no va recta, que cuenta desde el disparo
+  // y no desde el impacto...) -- ausente en el resto del catálogo, que no
+  // necesita avisar de nada porque se comporta como cabría esperar.
+  readonly notaAyuda?: string;
+  // arma-mosca (mos-5): banco propio de bromas de ESTA arma, distinto del
+  // banco por personalidad (bancoBromas.ts) -- se añade a la broma de la voz
+  // cuando el arma que disparó lo declara, nunca la sustituye (así
+  // hum-1..hum-7 siguen viendo la frase de la voz intacta). Ausente en el
+  // resto del catálogo: ese es el comportamiento de siempre, sin broma
+  // añadida.
+  readonly bromaPropia?: { readonly disparo: readonly string[]; readonly impacto: readonly string[] };
 }

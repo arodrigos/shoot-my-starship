@@ -66,6 +66,9 @@ export interface ResultadoVuelo {
   // (resolverDisparo) lo hilvana hacia el resto del disparo, igual que ya
   // hace con la tirada de fiabilidad y la de dispersión.
   readonly aleatorioFinal: EstadoAleatorio | null;
+  // arma-mosca: ver OpcionesVueloGravitatorio.grabarTrayectoria -- null salvo
+  // que se haya pedido explícitamente.
+  readonly trayectoria: readonly EstadoProyectil[] | null;
 }
 
 export interface OpcionesVueloGravitatorio {
@@ -90,6 +93,14 @@ export interface OpcionesVueloGravitatorio {
   // integrarPasoProyectil. Opcional y aditiva: sin ella, el comportamiento
   // es exactamente el de siempre.
   readonly perturbacion?: { readonly magnitudPxS2: number; readonly aleatorio: EstadoAleatorio };
+  // arma-mosca (mos-1, mos-2, mos-3): opt-in -- ningún llamante de producción
+  // lo pide (coste de memoria por vuelo, aunque pequeño, es innecesario fuera
+  // de test/depuración). Con él, ResultadoVuelo.trayectoria lleva la posición
+  // inicial y la de cada paso integrado, en el MISMO orden que los recorre
+  // este bucle -- es lo que permite a un test o al e2e de mos-3 comparar
+  // "punto a punto" contra la reproducción del cliente sin reimplementar la
+  // física para reconstruirla.
+  readonly grabarTrayectoria?: boolean;
 }
 
 // Resuelve un vuelo completo en pasos fijos, sin necesitar tiempo real: es
@@ -125,6 +136,7 @@ export function simularVuelo(
   let proyectil = inicial;
   let pasos = 0;
   let roceNave: RoceNave | null = null;
+  const trayectoria: EstadoProyectil[] | null = opciones?.grabarTrayectoria ? [inicial] : null;
 
   // vex-3: aplica (si la hay) la perturbación errática de este paso sobre
   // gravedad/deriva base, y avanza el PRNG hilvanado -- un único punto para
@@ -146,6 +158,7 @@ export function simularVuelo(
       }
       const { gravedad: gravedadPaso, deriva: derivaPaso } = conPerturbacion(gravedad, deriva);
       const siguiente = integrarPasoProyectil(proyectil, gravedadPaso, derivaPaso, pasoS);
+      trayectoria?.push(siguiente);
       const impactoNave = rastreadorNaves?.comprobarPaso(proyectil, siguiente) ?? null;
       pasos++;
       if (impactoNave) {
@@ -156,6 +169,7 @@ export function simularVuelo(
           roceNave: null,
           perdido: false,
           aleatorioFinal: aleatorioPerturbacion,
+          trayectoria,
         };
       }
       if (!roceNave) {
@@ -163,13 +177,13 @@ export function simularVuelo(
       }
       proyectil = siguiente;
     }
-    return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion };
+    return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion, trayectoria };
   }
 
   const presupuesto = opciones?.presupuestoPasos ?? PRESUPUESTO_VUELO_MULTIPOZO_PASOS;
   while (!detenerse(proyectil)) {
     if (pasos >= presupuesto) {
-      return { proyectil, pasos, impactoNave: null, roceNave, perdido: true, aleatorioFinal: aleatorioPerturbacion };
+      return { proyectil, pasos, impactoNave: null, roceNave, perdido: true, aleatorioFinal: aleatorioPerturbacion, trayectoria };
     }
     const aceleracion = calcularAceleracionGravitatoria(planetas, proyectil.x, proyectil.y);
     const { gravedad: gravedadPaso, deriva: derivaPaso } = conPerturbacion(
@@ -177,6 +191,7 @@ export function simularVuelo(
       deriva + aceleracion.x,
     );
     const siguiente = integrarPasoProyectil(proyectil, gravedadPaso, derivaPaso, pasoS);
+    trayectoria?.push(siguiente);
     const impactoNave = rastreadorNaves?.comprobarPaso(proyectil, siguiente) ?? null;
     pasos++;
     if (impactoNave) {
@@ -187,6 +202,7 @@ export function simularVuelo(
         roceNave: null,
         perdido: false,
         aleatorioFinal: aleatorioPerturbacion,
+        trayectoria,
       };
     }
     if (!roceNave) {
@@ -194,5 +210,5 @@ export function simularVuelo(
     }
     proyectil = siguiente;
   }
-  return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion };
+  return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion, trayectoria };
 }

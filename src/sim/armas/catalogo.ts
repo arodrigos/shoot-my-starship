@@ -173,6 +173,27 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     coste: 120,
     inmuneAGravedad: true,
   },
+  // arma-mosca (mos-1..mos-5): la que pidió Adrián en persona -- no sigue la
+  // parábola, revolotea alrededor de ella hasta chocar. "erratico" con
+  // fiabilidad 1 y sin dispersionGrados (nunca falla del todo ni sale
+  // torcida de salida): toda su rareza es la perturbación por paso, no un
+  // eje distinto ya cubierto por otra arma.
+  {
+    id: "mosca-cojonera",
+    nombre: "Mosca Cojonera",
+    descripcion:
+      "Sale del cañón y decide por su cuenta. No es que falle: es que tiene otros planes hasta que choca con algo.",
+    comportamiento: { tipo: "erratico", magnitudPxS2: 90 },
+    huella: { tipo: "circular", radio: 20, signo: "restar" },
+    efecto: { tipo: "danio", radioEfectoPx: 45, danioMaximo: 16 },
+    fiabilidad: 1,
+    coste: 40,
+    notaAyuda: "Avisa: no vuela recta, hace eses todo el camino hasta que choca.",
+    bromaPropia: {
+      disparo: ["Ahí va. Que le vaya bien a donde sea que decida ir."],
+      impacto: ["Ha aterrizado. Ni ella se lo esperaba."],
+    },
+  },
 ];
 
 export function buscarArma(id: string): Arma {
