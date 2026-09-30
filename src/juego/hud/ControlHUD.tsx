@@ -5,9 +5,12 @@ import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import {
   actualizarArrastre,
   ajustarAnguloFino,
+  ajustarPotenciaFino,
   armaEstaAgotada,
   cerrarAyuda,
   costeDeArma,
+  fijarAnguloDesdeFraccion,
+  fijarPotenciaDesdeFraccion,
   iniciarArrastre,
   obtenerEstadoControl,
   puedeCostearArma,
@@ -17,6 +20,7 @@ import {
   suscribirControl,
   terminarArrastre,
 } from "@/juego/control/store";
+import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
@@ -35,18 +39,65 @@ function fraccionDeVentana(clienteX: number, clienteY: number): { x: number; y: 
   return { x: clienteX / window.innerWidth, y: clienteY / window.innerHeight };
 }
 
-function trayectoriaPreviaSVG(anguloGrados: number, potencia: number): string {
-  const rad = (anguloGrados * Math.PI) / 180;
-  const escala = (potencia / 100) * 60;
-  const puntos: string[] = [];
-  const pasos = 12;
-  for (let i = 0; i <= pasos; i++) {
-    const t = i / pasos;
-    const x = 4 + t * escala * Math.cos(rad);
-    const y = 56 - (t * escala * Math.sin(rad) - 0.5 * 9.8 * t * t * (escala / 30));
-    puntos.push(`${x.toFixed(1)},${Math.max(2, Math.min(56, y)).toFixed(1)}`);
-  }
-  return puntos.map((p, i) => (i === 0 ? `M${p}` : `L${p}`)).join(" ");
+// control-angulo-potencia: fracción del dedo DENTRO del propio control (0 en
+// su borde izquierdo, 1 en el derecho) -- no de la ventana, que es la
+// convención del arrastre combinado de más abajo -- para que el mapeo sea
+// absoluto y cubra todo el eje en un solo gesto (ctl-2).
+function fraccionDeControl(clienteX: number, elemento: HTMLElement): number {
+  const rect = elemento.getBoundingClientRect();
+  if (rect.width === 0) return 0;
+  return (clienteX - rect.left) / rect.width;
+}
+
+// ctl-1: cada uno de los dos controles nuevos vive en su propio elemento y
+// llama solo a la función de SU eje -- stopPropagation() evita que el gesto
+// suba hasta la superficie de arrastre combinada de más abajo, que si lo
+// recibiera movería el otro eje también.
+function crearManejadoresEje(fijarDesdeFraccion: (fraccion: number) => void) {
+  return {
+    onPointerDown(evento: React.PointerEvent<HTMLDivElement>): void {
+      evento.stopPropagation();
+      evento.currentTarget.setPointerCapture(evento.pointerId);
+      fijarDesdeFraccion(fraccionDeControl(evento.clientX, evento.currentTarget));
+    },
+    onPointerMove(evento: React.PointerEvent<HTMLDivElement>): void {
+      evento.stopPropagation();
+      if (evento.buttons === 0) return;
+      fijarDesdeFraccion(fraccionDeControl(evento.clientX, evento.currentTarget));
+    },
+    onPointerUp(evento: React.PointerEvent<HTMLDivElement>): void {
+      evento.stopPropagation();
+    },
+    onPointerCancel(evento: React.PointerEvent<HTMLDivElement>): void {
+      evento.stopPropagation();
+    },
+  };
+}
+
+// El arrastre único de más abajo (legacy) cubre TODA la consola, incluidos
+// estos botones -- si un gesto de ese arrastre arranca físicamente encima de
+// uno de ellos, el navegador retarga el pointerup al botón (setPointerCapture
+// del arrastre se fija sobre evento.target) y sintetiza un click ahí aunque
+// el dedo haya terminado lejos, así que el paso fino se aplicaría de más justo
+// al terminar un arrastre ajeno (visto en lay-6, que arranca su gesto al 90%
+// del ancho, coincidiendo con estos botones). Se descarta el click cuando la
+// distancia entre el descenso y la propia posición del click supera el
+// umbral de un toque real.
+const UMBRAL_ARRASTRE_PX = 8;
+let descensoBotonPaso: { x: number; y: number } | null = null;
+
+function alBajarBotonPaso(evento: React.PointerEvent<HTMLButtonElement>): void {
+  descensoBotonPaso = { x: evento.clientX, y: evento.clientY };
+}
+
+function crearClicConToleranciaDeArrastre(accion: () => void) {
+  return (evento: React.MouseEvent<HTMLButtonElement>): void => {
+    const distancia = descensoBotonPaso
+      ? Math.hypot(evento.clientX - descensoBotonPaso.x, evento.clientY - descensoBotonPaso.y)
+      : 0;
+    if (distancia > UMBRAL_ARRASTRE_PX) return;
+    accion();
+  };
 }
 
 export function ControlHUD() {
@@ -72,6 +123,12 @@ export function ControlHUD() {
   }, [resultadoTurno]);
 
   const armaSeleccionada = CATALOGO_ARMAS.find((arma) => arma.id === estado.ajuste.armaId) ?? CATALOGO_ARMAS[0];
+
+  const manejadoresAngulo = crearManejadoresEje(fijarAnguloDesdeFraccion);
+  const manejadoresPotencia = crearManejadoresEje(fijarPotenciaDesdeFraccion);
+  const fraccionAngulo =
+    (estado.ajuste.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS);
+  const fraccionPotencia = (estado.ajuste.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA);
 
   function alPuntoDeArrastre(evento: React.PointerEvent<HTMLDivElement>): void {
     // layout-dos-zonas: la consola entera (ya separada del lienzo, ver
@@ -168,43 +225,116 @@ export function ControlHUD() {
         <IntegridadHUD />
       </div>
 
-      {/* fila-mira: retículo, previsualización de trayectoria y lectura de
-          ángulo/potencia, centrados. */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          background: "var(--color-cromado-fondo)",
-          borderRadius: 10,
-          padding: "4px 10px",
-          color: "var(--color-cromado-texto)",
-          font: "12px system-ui, sans-serif",
-          alignSelf: "center",
-        }}
-      >
-        <svg width={48} height={48} viewBox="0 0 60 60" data-testid="reticulo">
-          <circle cx={30} cy={56} r={2} fill="#5ac8fa" />
-          <line
-            x1={30}
-            y1={56}
-            x2={30 + 26 * Math.cos((estado.ajuste.anguloGrados * Math.PI) / 180)}
-            y2={56 - 26 * Math.sin((estado.ajuste.anguloGrados * Math.PI) / 180)}
-            stroke="#ff6b4a"
-            strokeWidth={3}
+      {/* control-angulo-potencia: dos controles independientes de verdad --
+          cada uno en su propio elemento, con su propio gesto de arrastre
+          absoluto (ctl-1/ctl-2), su paso fino de botón y su lectura de valor
+          en texto (ctl-5). El retículo conserva su rotación como referencia
+          visual del ángulo, ahora dentro de la propia barra. */}
+      <div data-testid="control-angulo" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <button type="button" data-testid="paso-angulo-menos" onPointerDown={alBajarBotonPaso} onClick={crearClicConToleranciaDeArrastre(() => ajustarAnguloFino(-1))} style={botonEstilo}>
+          -0.1°
+        </button>
+        <div
+          data-testid="barra-angulo"
+          role="slider"
+          aria-label="Ángulo"
+          aria-valuemin={ANGULO_MINIMO_GRADOS}
+          aria-valuemax={ANGULO_MAXIMO_GRADOS}
+          aria-valuenow={estado.ajuste.anguloGrados}
+          {...manejadoresAngulo}
+          style={{
+            position: "relative",
+            flex: "1 1 auto",
+            minWidth: 0,
+            height: TAMANO_MINIMO_BOTON_PX,
+            background: "var(--color-cromado-fondo)",
+            borderRadius: 8,
+            touchAction: "none",
+            display: "flex",
+            alignItems: "center",
+            overflow: "hidden",
+          }}
+        >
+          <svg width={28} height={28} viewBox="0 0 60 60" data-testid="reticulo" style={{ flexShrink: 0, marginLeft: 4 }}>
+            <circle cx={30} cy={56} r={2} fill="#5ac8fa" />
+            <line
+              x1={30}
+              y1={56}
+              x2={30 + 26 * Math.cos((estado.ajuste.anguloGrados * Math.PI) / 180)}
+              y2={56 - 26 * Math.sin((estado.ajuste.anguloGrados * Math.PI) / 180)}
+              stroke="#ff6b4a"
+              strokeWidth={3}
+            />
+          </svg>
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: `${Math.max(0, Math.min(1, fraccionAngulo)) * 100}%`,
+              background: "rgba(255,107,74,0.18)",
+              pointerEvents: "none",
+            }}
           />
-          <path
-            d={trayectoriaPreviaSVG(estado.ajuste.anguloGrados, estado.ajuste.potencia)}
-            fill="none"
-            stroke="#ffcc66"
-            strokeWidth={2}
-            strokeDasharray="3 3"
-            data-testid="preview-trayectoria"
-          />
-        </svg>
-        <div>
-          {estado.ajuste.anguloGrados.toFixed(1)}° · {Math.round(estado.ajuste.potencia)}%
+          <div
+            data-testid="valor-angulo"
+            style={{ marginLeft: "auto", marginRight: 8, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif", pointerEvents: "none" }}
+          >
+            {estado.ajuste.anguloGrados.toFixed(1)}°
+          </div>
         </div>
+        <button type="button" data-testid="paso-angulo-mas" onPointerDown={alBajarBotonPaso} onClick={crearClicConToleranciaDeArrastre(() => ajustarAnguloFino(1))} style={botonEstilo}>
+          +0.1°
+        </button>
+      </div>
+
+      <div data-testid="control-potencia" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <button type="button" data-testid="paso-potencia-menos" onPointerDown={alBajarBotonPaso} onClick={crearClicConToleranciaDeArrastre(() => ajustarPotenciaFino(-1))} style={botonEstilo}>
+          -1%
+        </button>
+        <div
+          data-testid="barra-potencia"
+          role="slider"
+          aria-label="Potencia"
+          aria-valuemin={POTENCIA_MINIMA}
+          aria-valuemax={POTENCIA_MAXIMA}
+          aria-valuenow={estado.ajuste.potencia}
+          {...manejadoresPotencia}
+          style={{
+            position: "relative",
+            flex: "1 1 auto",
+            minWidth: 0,
+            height: TAMANO_MINIMO_BOTON_PX,
+            background: "var(--color-cromado-fondo)",
+            borderRadius: 8,
+            touchAction: "none",
+            display: "flex",
+            alignItems: "center",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: `${Math.max(0, Math.min(1, fraccionPotencia)) * 100}%`,
+              background: "rgba(90,200,250,0.18)",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            data-testid="valor-potencia"
+            style={{ marginLeft: 10, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif", pointerEvents: "none" }}
+          >
+            {Math.round(estado.ajuste.potencia)}%
+          </div>
+        </div>
+        <button type="button" data-testid="paso-potencia-mas" onPointerDown={alBajarBotonPaso} onClick={crearClicConToleranciaDeArrastre(() => ajustarPotenciaFino(1))} style={botonEstilo}>
+          +1%
+        </button>
       </div>
 
       {/* fila-avisos: hueco reservado de broma (izquierda) y roce (derecha) --
@@ -235,7 +365,9 @@ export function ControlHUD() {
         <RoceHUD />
       </div>
 
-      {/* fila-armas: selector de arma, paso fino de ángulo y disparo/repetir.
+      {/* fila-armas: selector de arma y disparo/repetir -- el paso fino de
+          ángulo/potencia vive ahora en sus propias filas, junto al control
+          al que pertenece (control-angulo-potencia).
           lay-2/lay-5: con el nombre de arma más largo del catálogo
           ("Gravitón de Segunda Mano") los tres grupos no cabían en 344px con
           el padding original -- ni exprimiendo el selector (lo hacía partirse
@@ -325,15 +457,6 @@ export function ControlHUD() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "row", gap: 2 }}>
-          <button type="button" data-testid="paso-angulo-mas" onClick={() => ajustarAnguloFino(1)} style={botonEstilo}>
-            +0.1°
-          </button>
-          <button type="button" data-testid="paso-angulo-menos" onClick={() => ajustarAnguloFino(-1)} style={botonEstilo}>
-            -0.1°
-          </button>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "row", gap: 2 }}>
           <button
             type="button"
             data-testid="repetir-disparo"
@@ -398,10 +521,15 @@ export function ControlHUD() {
           }}
         >
           <div style={{ maxWidth: 320 }}>
-            <p>
-              Arrastra en cualquier punto de la consola para apuntar: el retículo de arriba se mueve con tu
-              gesto, sin que el dedo lo tape. Usa +0.1°/-0.1° para el ajuste fino, elige arma y pulsa Disparar.
+            <p data-testid="ayuda-control-angulo">
+              La barra de arriba es el ángulo: arrástrala de un extremo a otro para girar de 2° a 178° en un solo
+              gesto, o usa +0.1°/-0.1° para el ajuste fino.
             </p>
+            <p data-testid="ayuda-control-potencia">
+              La barra de abajo es la potencia: es un control aparte, arrastrarlo nunca cambia el ángulo. Usa
+              +1%/-1% para el ajuste fino.
+            </p>
+            <p>Ambas barras recuerdan el último valor que dejaste. Elige arma y pulsa Disparar.</p>
             {estado.modoEspacial && (
               <p data-testid="ayuda-espacial">
                 Los planetas curvan la trayectoria de tu disparo -- apunta pensando en su tirón, no en línea recta.

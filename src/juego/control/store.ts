@@ -5,8 +5,12 @@ import {
   ANGULO_INICIAL_GRADOS,
   POTENCIA_INICIAL,
   anguloConPasoFino,
+  anguloDesdeFraccionControl,
   anguloTrasArrastre,
+  potenciaConPasoFino,
+  potenciaDesdeFraccionControl,
   potenciaTrasArrastre,
+  sanearAjusteNumericoGuardado,
   type FraccionDeVentana,
 } from "@/juego/control/apuntado";
 
@@ -62,8 +66,47 @@ function marcarAyudaVista(): void {
   }
 }
 
+// ctl-6: el ajuste sobrevive a recargar la página (localStorage), no solo al
+// cambio de turno en memoria -- un valor corrupto o de una partida vieja con
+// otro catálogo de armas nunca debe impedir arrancar, de ahí el saneado en
+// dos pasos (numérico en apuntado.ts, armaId contra el catálogo aquí, que es
+// el único de los dos módulos que lo conoce).
+const CLAVE_AJUSTE_GUARDADO = "control-apuntado:ajuste";
+
+function leerAjusteGuardado(): EstadoAjuste | null {
+  try {
+    const bruto = window.localStorage.getItem(CLAVE_AJUSTE_GUARDADO);
+    if (!bruto) return null;
+    const datos: unknown = JSON.parse(bruto);
+    const numerico = sanearAjusteNumericoGuardado(datos);
+    if (!numerico) return null;
+    const armaIdBruto = (datos as Record<string, unknown>).armaId;
+    const armaId =
+      typeof armaIdBruto === "string" && CATALOGO_ARMAS.some((arma) => arma.id === armaIdBruto)
+        ? armaIdBruto
+        : CATALOGO_ARMAS[0].id;
+    return { ...numerico, armaId };
+  } catch {
+    return null;
+  }
+}
+
+function guardarAjuste(ajuste: EstadoAjuste): void {
+  try {
+    window.localStorage.setItem(CLAVE_AJUSTE_GUARDADO, JSON.stringify(ajuste));
+  } catch {
+    // Cuota agotada o almacenamiento no disponible: el ajuste no persiste
+    // entre turnos, un fallo visible y sin consecuencias, no una excepción
+    // sin capturar.
+  }
+}
+
 let estado: EstadoControl = {
-  ajuste: { anguloGrados: ANGULO_INICIAL_GRADOS, potencia: POTENCIA_INICIAL, armaId: CATALOGO_ARMAS[0].id },
+  ajuste: leerAjusteGuardado() ?? {
+    anguloGrados: ANGULO_INICIAL_GRADOS,
+    potencia: POTENCIA_INICIAL,
+    armaId: CATALOGO_ARMAS[0].id,
+  },
   usosPorArma: {},
   ultimoDisparo: null,
   puedeDisparar: false,
@@ -78,6 +121,16 @@ const escuchas = new Set<() => void>();
 function fijar(parcial: Partial<EstadoControl>): void {
   estado = { ...estado, ...parcial };
   for (const escucha of escuchas) escucha();
+}
+
+// Todo cambio de ajuste que venga de una acción del jugador (arrastre, paso
+// fino, elegir arma, repetir disparo) pasa por aquí para persistirlo de
+// golpe -- reiniciarControl() no la usa a propósito, porque una partida
+// nueva sí debe volver a los valores por defecto (ver su comentario).
+function fijarAjuste(cambios: Partial<EstadoAjuste>): void {
+  const ajuste = { ...estado.ajuste, ...cambios };
+  fijar({ ajuste });
+  guardarAjuste(ajuste);
 }
 
 export function obtenerEstadoControl(): EstadoControl {
@@ -108,12 +161,9 @@ export function iniciarArrastre(fraccion: FraccionDeVentana): void {
 export function actualizarArrastre(fraccion: FraccionDeVentana): void {
   if (!arrastreEnCurso) return;
   const { fraccionInicio, ajusteInicio } = arrastreEnCurso;
-  fijar({
-    ajuste: {
-      ...estado.ajuste,
-      anguloGrados: anguloTrasArrastre(ajusteInicio.anguloGrados, fraccionInicio, fraccion),
-      potencia: potenciaTrasArrastre(ajusteInicio.potencia, fraccionInicio, fraccion),
-    },
+  fijarAjuste({
+    anguloGrados: anguloTrasArrastre(ajusteInicio.anguloGrados, fraccionInicio, fraccion),
+    potencia: potenciaTrasArrastre(ajusteInicio.potencia, fraccionInicio, fraccion),
   });
 }
 
@@ -121,8 +171,28 @@ export function terminarArrastre(): void {
   arrastreEnCurso = null;
 }
 
+// control-angulo-potencia: los dos controles nuevos (ver ControlHUD) mapean
+// la posición del dedo DENTRO de su propio elemento directamente a todo el
+// rango de su eje (ver anguloDesdeFraccionControl/potenciaDesdeFraccionControl
+// en apuntado.ts) -- por eso, a diferencia del arrastre combinado de arriba,
+// no hace falta guardar un punto de inicio: cada evento de puntero, por sí
+// solo, ya dice dónde debe quedar el eje. Esto es lo que garantiza ctl-1 (el
+// otro eje ni se menciona) y ctl-2 (un extremo a otro del control cubre todo
+// el rango en un único gesto).
+export function fijarAnguloDesdeFraccion(fraccion: number): void {
+  fijarAjuste({ anguloGrados: anguloDesdeFraccionControl(fraccion) });
+}
+
+export function fijarPotenciaDesdeFraccion(fraccion: number): void {
+  fijarAjuste({ potencia: potenciaDesdeFraccionControl(fraccion) });
+}
+
 export function ajustarAnguloFino(sentido: 1 | -1): void {
-  fijar({ ajuste: { ...estado.ajuste, anguloGrados: anguloConPasoFino(estado.ajuste.anguloGrados, sentido) } });
+  fijarAjuste({ anguloGrados: anguloConPasoFino(estado.ajuste.anguloGrados, sentido) });
+}
+
+export function ajustarPotenciaFino(sentido: 1 | -1): void {
+  fijarAjuste({ potencia: potenciaConPasoFino(estado.ajuste.potencia, sentido) });
 }
 
 // modo-2: nunca deja seleccionar un arma que el saldo actual no cubre --
@@ -143,7 +213,7 @@ export function costeDeArma(armaId: string): number {
 export function seleccionarArma(armaId: string): void {
   if (armaEstaAgotada(armaId)) return;
   if (!puedeCostearArma(armaId)) return;
-  fijar({ ajuste: { ...estado.ajuste, armaId } });
+  fijarAjuste({ armaId });
 }
 
 // Partida.ts las llama al crear la partida (fijarModo, una vez) y tras cada
@@ -158,7 +228,7 @@ export function publicarSaldo(saldo: number | null): void {
 
 export function repetirUltimoDisparo(): void {
   if (!estado.ultimoDisparo || armaEstaAgotada(estado.ultimoDisparo.armaId)) return;
-  fijar({ ajuste: { ...estado.ultimoDisparo } });
+  fijarAjuste({ ...estado.ultimoDisparo });
 }
 
 export function publicarJugable(valor: boolean): void {

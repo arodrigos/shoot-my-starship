@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apuntado";
+import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
+import { arrastrarBarraHasta } from "../e2e/utilesControl";
 
 // cie-2: el smoke test que la etapa de traspaso ejecuta contra la URL real
 // ya desplegada (manifiesto: BASE_URL="$DEPLOY_URL" npx playwright test
@@ -70,16 +71,10 @@ test("la aplicación desplegada carga, muestra el sistema, y un disparo dirigido
     .integridad;
   const numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
 
-  const ajusteAntes = (await page.evaluate(() => window.__debug.control!.ajuste))!;
-  const deltaY = -(solucion!.anguloGrados - ajusteAntes.anguloGrados) / GANANCIA_ANGULO_GRADOS;
-  const deltaX = (solucion!.potencia - ajusteAntes.potencia) / GANANCIA_POTENCIA;
-  const inicio = { x: 160, y: 560 };
-  const fin = { x: inicio.x + deltaX * 360, y: inicio.y + deltaY * 640 };
-  await page.mouse.move(inicio.x, inicio.y);
-  await page.mouse.down();
-  await page.mouse.move((inicio.x + fin.x) / 2, (inicio.y + fin.y) / 2, { steps: 5 });
-  await page.mouse.move(fin.x, fin.y, { steps: 5 });
-  await page.mouse.up();
+  const fraccionAngulo = (solucion!.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS);
+  const fraccionPotencia = (solucion!.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA);
+  await arrastrarBarraHasta(page, "barra-angulo", fraccionAngulo);
+  await arrastrarBarraHasta(page, "barra-potencia", fraccionPotencia);
 
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   await page.getByTestId("disparar").click();
