@@ -65,6 +65,16 @@ export class AnimadorProyectil {
   // que antes de este bloque.
   private aleatorioPerturbacion: EstadoAleatorio | null = null;
   private magnitudPerturbacion = 0;
+  // arma-granada-espoleta (gra-2, gra-4): pasos de simulación ya integrados
+  // desde el disparo para un arma "mecha", contados por ESTE bucle -- nunca
+  // contando cuántas veces se invoca `detenerse`, porque ese callback recibe
+  // una llamada extra por fotograma en la línea de cierre de actualizar()
+  // (el chequeo final tras el lote), lo que doblaría la cuenta y volvería el
+  // temporizador dependiente del framerate, justo lo que gra-4 prohíbe.
+  // pasosHastaDetonarMecha viene ya convertido por pasosDeMecha() (núcleo),
+  // así que la conversión segundos->pasos es la MISMA en cliente y servidor.
+  private pasosMecha = 0;
+  private pasosHastaDetonarMecha: number | null = null;
   // mos-1/mos-3: la posición inicial y la de cada paso animado, en el mismo
   // orden que las recorre este bucle -- expuesta a window.__debug (ver
   // Partida.ts) para que el e2e compare, paso a paso, contra
@@ -92,6 +102,19 @@ export class AnimadorProyectil {
 
   obtenerArmaId(): string | undefined {
     return this.armaActual?.id;
+  }
+
+  // arma-granada-espoleta (gra-2): segundos que le quedan a la espoleta
+  // AHORA MISMO, derivados de pasos ya integrados (nunca de un reloj de
+  // pantalla) -- null fuera de un vuelo "mecha". Redondeado hacia arriba para
+  // que solo llegue a 0 en el mismo paso en el que detona (gra-2 exige que
+  // el contador toque cero en el mismo fotograma que la explosión, no antes).
+  obtenerSegundosRestantesMecha(): number | null {
+    if (this.pasosHastaDetonarMecha === null) {
+      return null;
+    }
+    const pasosRestantes = Math.max(0, this.pasosHastaDetonarMecha - this.pasosMecha);
+    return Math.ceil(pasosRestantes * PASO_FIJO_S);
   }
 
   // Dibuja la silueta local del arma (morro en +x) UNA sola vez por
@@ -124,6 +147,12 @@ export class AnimadorProyectil {
     // sin él (todo llamante de un arma que no sea "erratico"), el
     // comportamiento es exactamente el de siempre.
     perturbacion?: { readonly magnitudPxS2: number; readonly aleatorio: EstadoAleatorio },
+    // arma-granada-espoleta (gra-1, gra-4): pasosDeMecha(segundosHastaDetonar)
+    // ya resuelto por el llamante (Partida.ts, que es quien conoce el arma) --
+    // este módulo no necesita saber qué arma es "mecha", solo cuántos pasos
+    // de simulación le quedan. undefined en cualquier vuelo sin mecha: el
+    // resto del catálogo anima igual que antes de este bloque.
+    pasosHastaDetonarMecha?: number,
   ): void {
     this.proyectil = inicial;
     this.gravedad = gravedad;
@@ -136,6 +165,8 @@ export class AnimadorProyectil {
     this.armaActual = arma;
     this.aleatorioPerturbacion = perturbacion?.aleatorio ?? null;
     this.magnitudPerturbacion = perturbacion?.magnitudPxS2 ?? 0;
+    this.pasosMecha = 0;
+    this.pasosHastaDetonarMecha = pasosHastaDetonarMecha ?? null;
     this.trayectoria = [inicial];
     this.acumulador = acumuladorInicial();
     this.anguloActualRad = Math.atan2(inicial.vy, inicial.vx);
@@ -180,6 +211,7 @@ export class AnimadorProyectil {
     let detenido = false;
     let agotado = false;
     let huboImpactoNave = false;
+    let huboDetonacionMecha = false;
     const resultado = avanzarConAcumulador(this.proyectil, this.acumulador, deltaMs, (p) => {
       if (detenido) {
         return p;
@@ -227,6 +259,20 @@ export class AnimadorProyectil {
       if (detenerse(siguiente)) {
         detenido = true;
       }
+      // arma-granada-espoleta (gra-1): mismo orden de precedencia que
+      // crearDetenerseConMecha en el núcleo (resolver.ts) -- el contacto de
+      // terreno/casco de ESTE mismo paso gana si ya paró la animación; el
+      // temporizador solo cuenta (y solo puede detonar) cuando ese contacto
+      // no ha ocurrido todavía, para que "detona en tierra si el contacto
+      // llega antes, en el aire si el reloj gana" sea idéntico en cliente y
+      // servidor.
+      if (!detenido && this.pasosHastaDetonarMecha !== null) {
+        this.pasosMecha++;
+        if (this.pasosMecha >= this.pasosHastaDetonarMecha) {
+          detenido = true;
+          huboDetonacionMecha = true;
+        }
+      }
       return siguiente;
     });
     this.proyectil = resultado.estado;
@@ -234,7 +280,7 @@ export class AnimadorProyectil {
     this.anguloActualRad = Math.atan2(this.proyectil.vy, this.proyectil.vx);
     this.punto.setPosition(this.proyectil.x, this.proyectil.y).setRotation(this.anguloActualRad);
 
-    if (agotado || huboImpactoNave || this.detenerse(this.proyectil)) {
+    if (agotado || huboImpactoNave || huboDetonacionMecha || this.detenerse(this.proyectil)) {
       const final = this.proyectil;
       const callback = this.alTerminar;
       this.proyectil = null;
