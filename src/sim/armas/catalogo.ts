@@ -194,6 +194,25 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
       impacto: ["Ha aterrizado. Ni ella se lo esperaba."],
     },
   },
+  // arma-granada-espoleta (gra-1..gra-5): la primera de las dos armas de
+  // cuenta atrás -- "mecha" con fiabilidad 1 y sin dispersionGrados, porque
+  // su rareza no es fallar ni salir torcida, es que el reloj corre desde el
+  // disparo pase lo que pase por el camino.
+  {
+    id: "granada-de-espoleta",
+    nombre: "Granada de Espoleta",
+    descripcion: "Cuenta hasta cinco en voz alta desde que sale del cañón. Le da igual dónde esté cuando llegue.",
+    comportamiento: { tipo: "mecha", segundosHastaDetonar: 5 },
+    huella: { tipo: "circular", radio: 40, signo: "restar" },
+    efecto: { tipo: "danio", radioEfectoPx: 60, danioMaximo: 24 },
+    fiabilidad: 1,
+    coste: 45,
+    notaAyuda: "La cuenta empieza al disparar, no al tocar: a los 5 s explota donde esté, en el aire o en el suelo.",
+    bromaPropia: {
+      disparo: ["Cinco, cuatro... empieza a contar en cuanto sale, le toque lo que le toque."],
+      impacto: ["Cero. Exactamente donde le tocaba, ni un paso antes."],
+    },
+  },
 ];
 
 export function buscarArma(id: string): Arma {

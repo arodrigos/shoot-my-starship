@@ -216,6 +216,15 @@ export interface DebugGlobal {
   // concreto -- ese evento no es de humor (no está en TIPOS_EVENTO_HUMOR), así
   // que dispararReaccionHumor no sirve para forzarlo.
   forzarProyectilPerdido?: () => void;
+  // arma-granada-espoleta (gra-2, solo e2e): fuerza el fusible (en pasos) del
+  // PRÓXIMO disparo "mecha", de un solo uso -- ningún mundo jugable tiene
+  // gravedad baja de sobra para que un vuelo real supere los 300 pasos
+  // reales sin chocar antes (gra-1/gra-4 prueban esos 300 pasos exactos con
+  // gravedad de laboratorio, no por este hook), así que el e2e no puede
+  // comprobar "el HUD llega a cero en el mismo fotograma que la detonación"
+  // apuntando un ángulo/potencia real. No existe rama por arma: si el
+  // siguiente disparo no es "mecha", este valor no se lee y se pierde igual.
+  forzarFusibleMechaPasos?: (pasos: number) => void;
   // imp-12: qué fogonazo se disparó de verdad en el último impacto resuelto
   // -- para que el test compruebe la distinción visual hit/sin-daño sin
   // tener que leer píxeles de pantalla.
@@ -282,6 +291,11 @@ export interface DebugGlobal {
   // así que la silueta que resulta es la que produciría el juego de verdad,
   // no una vista aparte fabricada por el test.
   forzarIntegridad?: (nave: IdNave, integridad: number) => void;
+  // arma-granada-espoleta (gra-2, gra-3): segundos restantes de la espoleta
+  // en vuelo, en el mismo fotograma que el HUD -- null fuera de un vuelo
+  // "mecha", para que el e2e sepa CUÁNDO está en mitad de la cuenta sin una
+  // espera fija (issue #151) y sin tener que leer texto del DOM.
+  cuentaAtrasMecha?: { segundosRestantes: number } | null;
 }
 
 declare global {

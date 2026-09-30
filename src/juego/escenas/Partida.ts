@@ -60,7 +60,8 @@ import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFr
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
 import type { DatosEscenaPartida } from "@/juego/main";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
-import { insumoPerturbacionErratica } from "@/sim/fisica/comportamientoExtendido";
+import { insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
+import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import "@/debug/tipos";
 
 // render-espacio (esp-6): el texto del panel "resultado del turno" -- un
@@ -214,6 +215,14 @@ export class Partida extends Phaser.Scene {
   // contra La Contable encajando ~1pt por turno durante más de 40 turnos).
   // NUNCA se resetea, igual que fallosConsecutivos.
   private turnosSeguidosDanioInsuficienteIA = 0;
+  // arma-granada-espoleta (gra-2, solo e2e): ningún mundo jugable tiene
+  // gravedad baja de sobra para que un vuelo real de la granada supere los
+  // 300 pasos sin chocar antes (gra-1/gra-4 ya prueban la exactitud de esos
+  // 300 pasos con gravedad de laboratorio) -- de un solo uso, para que el
+  // e2e compruebe que el HUD llega a cero en el mismo fotograma que la
+  // detonación sin depender de un ángulo/potencia que no existe en ningún
+  // mapa real. Nunca se lee fuera de dispararEntrada, y se consume al vuelo.
+  private fusibleMechaForzadoPasos: number | null = null;
   private datosEscena: DatosEscenaPartida = {};
   private naves!: [Nave, Nave];
   private indicadorDeriva!: IndicadorDeriva;
@@ -243,6 +252,10 @@ export class Partida extends Phaser.Scene {
     // arma-mosca (mos-3): insumo de la perturbación errática de ESTE vuelo --
     // ausente salvo que el arma disparada sea "erratico" (ver más abajo).
     readonly perturbacion?: { readonly magnitudPxS2: number; readonly aleatorio: EstadoAleatorio };
+    // arma-granada-espoleta (gra-1): pasos de simulación hasta la detonación
+    // de un arma "mecha" -- ausente salvo que el arma disparada sea "mecha"
+    // (ver más abajo), igual que perturbacion para "erratico".
+    readonly pasosHastaDetonarMecha?: number;
   } | null = null;
   private selectorFrases!: SelectorFrases;
   private selectorBromas!: SelectorBromas;
@@ -545,6 +558,12 @@ export class Partida extends Phaser.Scene {
     window.__debug.dispararReaccionHumor = (tipo) => this.reaccionarAHumor([crearEventoDePruebaHumor(tipo)]);
     window.__debug.forzarProyectilPerdido = () =>
       this.aplicarResultadoTurno(this.estado, [{ tipo: "proyectil-perdido", nave: this.estado.turno }]);
+    // arma-granada-espoleta (gra-2, solo e2e): ver el comentario del campo
+    // fusibleMechaForzadoPasos -- se consume en el disparo siguiente, sea el
+    // que sea.
+    window.__debug.forzarFusibleMechaPasos = (pasos) => {
+      this.fusibleMechaForzadoPasos = pasos;
+    };
     // contacto-honesto: aterrizar un vuelo real EXACTAMENTE en la banda de
     // roce (fuera del radio de colisión, dentro de la silueta dibujada) no
     // es determinista de apuntar a mano -- este hook reproduce el mismo
@@ -597,6 +616,7 @@ export class Partida extends Phaser.Scene {
     window.__debug!.animacionEnCurso = this.animador.enVuelo();
     window.__debug!.repeticionEnCurso = this.animadorRepeticion.enVuelo();
     this.actualizarEstelaYDebugProyectil();
+    this.actualizarCuentaAtrasMecha();
 
     // humor-1: la cámara sacude durante la reacción a un evento de humor --
     // hay que refrescar el rectángulo visible cada fotograma mientras dura
@@ -619,6 +639,22 @@ export class Partida extends Phaser.Scene {
     const objetivoApuntado: IdNave = naveContraria(this.estado.turno);
     this.naves.forEach((nave, id) => nave.realzarNucleo(jugable && (id as IdNave) === objetivoApuntado));
     window.__debug!.nucleoRealzado = jugable ? objetivoApuntado : null;
+  }
+
+  // arma-granada-espoleta (gra-2, gra-3): publica cada fotograma los
+  // segundos restantes del vuelo REAL en curso (nunca el de repetición, por
+  // el mismo motivo que la estela) -- null en cuanto no hay una espoleta
+  // encendida, para que el panel y window.__debug se apaguen solos sin que
+  // ningún llamante tenga que acordarse de limpiarlos por su cuenta.
+  private actualizarCuentaAtrasMecha(): void {
+    const segundos = this.animador.obtenerSegundosRestantesMecha();
+    if (segundos === null) {
+      limpiarCuentaAtras();
+      window.__debug!.cuentaAtrasMecha = null;
+      return;
+    }
+    publicarCuentaAtras(segundos);
+    window.__debug!.cuentaAtrasMecha = { segundosRestantes: segundos };
   }
 
   // proy-4/proy-5: un único punto que emite la estela del vuelo REAL en
@@ -757,6 +793,10 @@ export class Partida extends Phaser.Scene {
     // contacto-honesto: un roce viejo no debe seguir en pantalla una vez que
     // ya se está resolviendo el disparo siguiente.
     limpiarRoce();
+    // arma-granada-espoleta (gra-2): mismo motivo que limpiarRoce() -- una
+    // cuenta atrás vieja no debe quedarse en pantalla al empezar el disparo
+    // siguiente (que puede ni siquiera ser una granada).
+    limpiarCuentaAtras();
 
     const tirador: IdNave = estadoAntes.turno;
     const naveTiradora = estadoAntes.naves[tirador];
@@ -854,6 +894,15 @@ export class Partida extends Phaser.Scene {
     // EXACTAMENTE lo que vio simularVuelo. Un arma futura "erratico" que sí
     // declare esos ejes necesitaría hilvanar aquí lo mismo que resolver.ts.
     const perturbacion = insumoPerturbacionErratica(armaDisparada.comportamiento, estadoAntes.aleatorio);
+    // arma-granada-espoleta (gra-1, gra-4): mismos pasos que ya usó
+    // resolverDisparo (resolver.ts) para resolver este mismo disparo --
+    // pasosDeMecha() es la única conversión segundos->pasos, consumida aquí
+    // y en el núcleo, nunca reimplementada aparte en el cliente.
+    const pasosHastaDetonarMecha =
+      armaDisparada.comportamiento.tipo === "mecha"
+        ? this.fusibleMechaForzadoPasos ?? pasosDeMecha(armaDisparada.comportamiento.segundosHastaDetonar)
+        : undefined;
+    this.fusibleMechaForzadoPasos = null;
     // mos-3: insumos completos del vuelo -- el e2e reconstruye la trayectoria
     // RESUELTA llamando a simularVuelo en Node con estos mismos valores, sin
     // depender de que el núcleo la exponga en ningún estado serializable.
@@ -876,6 +925,7 @@ export class Partida extends Phaser.Scene {
       tiradorId: tirador,
       arma: armaDisparada,
       perturbacion,
+      pasosHastaDetonarMecha,
     };
 
     this.animador.iniciar(
@@ -896,6 +946,12 @@ export class Partida extends Phaser.Scene {
       // Node con el mismo aleatorio/magnitud (ver comentario de perturbacion
       // más arriba).
       window.__debug!.trayectoriaAnimadaUltimoVuelo = this.animador.obtenerTrayectoria();
+      // arma-granada-espoleta (gra-2, gra-3): la cuenta atrás termina junto
+      // con el vuelo -- limpiarla aquí (y no solo esperar al siguiente
+      // disparo) evita que el "0" se quede pegado en pantalla durante el
+      // resto del turno mientras se resuelve el impacto.
+      limpiarCuentaAtras();
+      window.__debug!.cuentaAtrasMecha = null;
       this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma);
       // Encadenar aquí (y no dentro de aplicarResultadoTurno) es lo que
       // evita que jugarTurnosGuionizados/forzarFinDePartida -- que también
@@ -909,6 +965,7 @@ export class Partida extends Phaser.Scene {
       rastreadorNaves,
       armaDisparada,
       perturbacion,
+      pasosHastaDetonarMecha,
     );
   }
 
@@ -1097,8 +1154,18 @@ export class Partida extends Phaser.Scene {
     if (!this.ultimoVueloParaRepetir || this.animadorRepeticion.enVuelo()) {
       return;
     }
-    const { inicial, gravedad, deriva, detenerse, planetas, navesParaRastreador, tiradorId, arma, perturbacion } =
-      this.ultimoVueloParaRepetir;
+    const {
+      inicial,
+      gravedad,
+      deriva,
+      detenerse,
+      planetas,
+      navesParaRastreador,
+      tiradorId,
+      arma,
+      perturbacion,
+      pasosHastaDetonarMecha,
+    } = this.ultimoVueloParaRepetir;
     // Rastreador fresco en cada repetición: es con estado (gracia del propio
     // casco) y no puede reutilizar la instancia del vuelo real ni la de una
     // repetición anterior.
@@ -1116,6 +1183,7 @@ export class Partida extends Phaser.Scene {
       rastreadorNaves,
       arma,
       perturbacion,
+      pasosHastaDetonarMecha,
     );
   }
 
