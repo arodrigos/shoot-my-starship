@@ -15,11 +15,23 @@ export type SignoHuella = "restar" | "sumar";
 // simularVuelo con gravedad/deriva forzadas a 0 en vez de escribir un
 // trazador de rayos aparte: sigue siendo el mismo oráculo de vuelo para
 // todas las armas.
+// vuelo-extensible: las tres variantes que necesitan mosca, granada de
+// espoleta y mina adherente. "erratico" y "mecha" son física nueva de
+// verdad (perturbación por paso y temporizador de detonación en pasos de
+// simulación, respectivamente); "adherente-con-mecha" no necesita ninguna
+// rama de vuelo propia porque su parada natural (primer sólido o casco) ya
+// es exactamente detenerseEnSuelo -- lo único que la distingue (que se
+// queda pegada en vez de detonar) es una condición de datos que resuelve
+// esComportamientoAdherente, consumida por bloques futuros
+// (arma-mina-adherente) al pintar la cuenta atrás, nunca por el resolutor.
 export type ComportamientoDeVuelo =
   | { readonly tipo: "impacto-simple" }
   | { readonly tipo: "submuniciones"; readonly cantidad: number; readonly dispersionPxS: number }
   | { readonly tipo: "rodante"; readonly distanciaMaximaPx: number; readonly pasoPx: number }
-  | { readonly tipo: "instantaneo" };
+  | { readonly tipo: "instantaneo" }
+  | { readonly tipo: "erratico"; readonly magnitudPxS2: number }
+  | { readonly tipo: "mecha"; readonly segundosHastaDetonar: number }
+  | { readonly tipo: "adherente-con-mecha" };
 
 // Eje 2 (huella en el terreno): la forma que deja en la máscara. "circular"
 // cubre cráter y relleno según el signo; "capsula" es la excavación alargada
