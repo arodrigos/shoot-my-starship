@@ -550,6 +550,24 @@ export class Partida extends Phaser.Scene {
     window.__debug.dispararEventoRoce = (nave, x, y) => this.manejarEventosVisuales([{ tipo: "roce", nave, x, y }]);
     window.__debug.dispararEventoImpactoReal = (nave, x, y) =>
       this.manejarEventosVisuales([{ tipo: "impacto", x, y, objetivo: nave, danio: 0, impactoNave: nave }]);
+    // nve-1, nve-3: fuerza la integridad de una nave sin jugar el turno real
+    // que la produciría -- aterrizar a mano en los tres tramos de daño no es
+    // reproducible con un disparo balístico exacto. Muta this.estado.naves
+    // directamente (no this.estado entero) porque no hay un turno que
+    // resolver: solo el refresco visual y de depuración que un turno real
+    // dispara al final.
+    window.__debug.forzarIntegridad = (nave, integridad) => {
+      const acotada = Math.max(0, Math.min(100, integridad));
+      this.estado = {
+        ...this.estado,
+        naves: [
+          { ...this.estado.naves[0], integridad: nave === 0 ? acotada : this.estado.naves[0].integridad },
+          { ...this.estado.naves[1], integridad: nave === 1 ? acotada : this.estado.naves[1].integridad },
+        ],
+      };
+      this.refrescarNaves();
+      this.refrescarDebugNaves();
+    };
     this.refrescarDebugNaves();
 
     // render-4: la cámara nunca se mueve ni hace zoom en este bloque (no hay
@@ -1074,6 +1092,8 @@ export class Partida extends Phaser.Scene {
       x: nave.x,
       y: nave.y ?? alturaSuperficie(this.estado.mascara, nave.x) ?? this.estado.mundo.alto - 1,
       integridad: nave.integridad,
+      nivelDanio: this.naves[indice].obtenerNivelDanio(),
+      hashSilueta: this.naves[indice].obtenerHashSilueta(),
     }));
     // imp-11: el HUD (fuera del lienzo Phaser) necesita enterarse de la
     // integridad por el mismo canal pub/sub que ya usan resultado-turno y
