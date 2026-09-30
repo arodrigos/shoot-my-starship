@@ -224,8 +224,13 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     nombre: "Gancho Pegajoso",
     descripcion: "No explota al llegar. Se agarra, espera cinco segundos y entonces sí, con toda la mala fe del mundo.",
     comportamiento: { tipo: "adherente-con-mecha", segundosHastaDetonar: 5 },
-    huella: { tipo: "circular", radio: 40, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 60, danioMaximo: 24 },
+    // armas-2: huella/efecto deliberadamente distintos de los de la granada
+    // (radio 40/60/24) -- una carga que se pega y elige su punto exacto de
+    // contacto no necesita el mismo alcance de onda expansiva que una que
+    // cae donde la física decida; un pelín más concentrada y algo más
+    // dañina a cambio.
+    huella: { tipo: "circular", radio: 34, signo: "restar" },
+    efecto: { tipo: "danio", radioEfectoPx: 52, danioMaximo: 26 },
     fiabilidad: 1,
     coste: 50,
     notaAyuda: "La cuenta empieza al pegarse, no al disparar: se queda fija donde toque y explota 5 s después.",
