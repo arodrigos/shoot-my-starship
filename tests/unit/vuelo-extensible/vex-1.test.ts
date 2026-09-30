@@ -37,7 +37,7 @@ const ARMA_ADHERENTE: Arma = {
   id: "arma-adherente-vex-1",
   nombre: "Adherente de prueba",
   descripcion: "Solo para el test: no existe en el catálogo real.",
-  comportamiento: { tipo: "adherente-con-mecha" },
+  comportamiento: { tipo: "adherente-con-mecha", segundosHastaDetonar: 5 },
   huella: { tipo: "circular", radio: 18, signo: "restar" },
   efecto: { tipo: "danio", radioEfectoPx: 40, danioMaximo: 15 },
   fiabilidad: 1,

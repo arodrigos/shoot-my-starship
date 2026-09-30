@@ -401,6 +401,28 @@ function resolverUnDisparo(
     };
   }
 
+  if (arma.comportamiento.tipo === "adherente-con-mecha") {
+    // arma-mina-adherente (min-1): comparte parada de VUELO con
+    // impacto-simple (primer sólido o casco, detenerseEnSuelo) -- la
+    // adherencia en sí es pintura del cliente (esComportamientoAdherente),
+    // no física nueva. Lo que SÍ cambia aquí: a diferencia del resto del
+    // catálogo, para quien "perdido en órbita multipozo" es un resultado
+    // legítimo (grav-6), la mina nunca puede dejar un turno sin resultado --
+    // si se agota el presupuesto de vuelo sin que detenerse se cumpliera
+    // nunca, detona igualmente en la última posición conocida del proyectil
+    // en vez de declararse perdida. Corrige la suposición original de
+    // vuelo-extensible (ver desviaciones en el entregable): "sin rama nueva"
+    // era cierto para la física de vuelo, no para este caso límite.
+    const detenerse = detenerseEnSuelo(mascara, ancho, alto);
+    const { proyectil, impactoNave, roceNave } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
+    return {
+      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
+      perdido: false,
+      roce: roceNave ?? undefined,
+      aleatorio,
+    };
+  }
+
   const penetracionMaximaPx = arma.penetracionPx ?? 0;
   const tracker = penetracionMaximaPx > 0 ? crearDetenerseConPenetracion(mascara, ancho, alto, penetracionMaximaPx) : null;
   const detenerse = tracker ? tracker.detenerse : detenerseEnSuelo(mascara, ancho, alto);
@@ -419,11 +441,9 @@ function resolverUnDisparo(
     return { puntos: [punto], perdido: false, roce: roceNave ?? undefined, aleatorio };
   }
 
-  // "impacto-simple" y "adherente-con-mecha" comparten esta misma parada
-  // (vex-1): la mina se queda pegada en vez de detonar, pero eso es una
-  // condición de datos (esComportamientoAdherente) que consume el cliente
-  // al pintar la cuenta atrás -- no una física de vuelo distinta, así que
-  // no hace falta ninguna rama nueva aquí.
+  // Resto del catálogo ("impacto-simple", rodante con casco, penetración):
+  // la caída genérica, sin rama propia. "adherente-con-mecha" (la mina) ya
+  // se resolvió arriba, antes de este punto -- ver el comentario de esa rama.
   return {
     puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
     perdido: false,

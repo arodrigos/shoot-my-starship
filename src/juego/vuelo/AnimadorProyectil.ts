@@ -75,6 +75,17 @@ export class AnimadorProyectil {
   // así que la conversión segundos->pasos es la MISMA en cliente y servidor.
   private pasosMecha = 0;
   private pasosHastaDetonarMecha: number | null = null;
+  // arma-mina-adherente (min-1, min-2, min-4): campos SEPARADOS de los de la
+  // granada (pasosMecha/pasosHastaDetonarMecha), a propósito -- reutilizar
+  // los mismos habría disparado el HUD de la espoleta (CuentaAtrasHUD, panel
+  // fijo de esquina) para la mina, que min-2 exige anclada al mundo y
+  // explícitamente fuera del HUD. `adherido` pasa a true en el primer
+  // contacto (o al agotar el presupuesto de vuelo, igual que el núcleo) y a
+  // partir de ahí la física se congela: el proyectil no vuelve a moverse,
+  // solo cuenta pasos fijos hasta pasosHastaDetonarTrasAdherencia.
+  private adherido = false;
+  private pasosAdherencia = 0;
+  private pasosHastaDetonarTrasAdherencia: number | null = null;
   // mos-1/mos-3: la posición inicial y la de cada paso animado, en el mismo
   // orden que las recorre este bucle -- expuesta a window.__debug (ver
   // Partida.ts) para que el e2e compare, paso a paso, contra
@@ -117,6 +128,27 @@ export class AnimadorProyectil {
     return Math.ceil(pasosRestantes * PASO_FIJO_S);
   }
 
+  // arma-mina-adherente (min-1, min-2): true en cuanto el proyectil se ha
+  // pegado a su punto de contacto (o agotó su presupuesto de vuelo sin
+  // tocar nada, ver resolver.ts) y está contando la mecha de la adherencia
+  // -- la posición ya no se mueve (obtenerPosicion() devuelve el punto de
+  // adherencia exacto) aunque el vuelo formalmente no haya terminado.
+  estaAdherido(): boolean {
+    return this.adherido;
+  }
+
+  // arma-mina-adherente (min-2, min-5): segundos que le quedan a la mina
+  // DESDE QUE SE PEGÓ -- nunca desde el disparo, a diferencia de
+  // obtenerSegundosRestantesMecha. null si este vuelo no es de una mina o
+  // todavía no se ha adherido a nada.
+  obtenerSegundosRestantesAdherencia(): number | null {
+    if (!this.adherido || this.pasosHastaDetonarTrasAdherencia === null) {
+      return null;
+    }
+    const pasosRestantes = Math.max(0, this.pasosHastaDetonarTrasAdherencia - this.pasosAdherencia);
+    return Math.ceil(pasosRestantes * PASO_FIJO_S);
+  }
+
   // Dibuja la silueta local del arma (morro en +x) UNA sola vez por
   // disparo: dibujarla cada fotograma sería redibujar un polígono que no
   // cambia de forma, solo de orientación (eso lo hace setRotation).
@@ -153,6 +185,13 @@ export class AnimadorProyectil {
     // de simulación le quedan. undefined en cualquier vuelo sin mecha: el
     // resto del catálogo anima igual que antes de este bloque.
     pasosHastaDetonarMecha?: number,
+    // arma-mina-adherente (min-1, min-4): pasosDeMecha(segundosHastaDetonar)
+    // ya resuelto por el llamante (Partida.ts), igual que pasosHastaDetonarMecha
+    // -- este módulo no necesita saber qué arma es la mina, solo cuántos
+    // pasos de simulación cuenta tras adherirse. undefined en cualquier
+    // vuelo que no sea de la mina: el resto del catálogo anima igual que
+    // antes de este bloque.
+    pasosHastaDetonarTrasAdherencia?: number,
   ): void {
     this.proyectil = inicial;
     this.gravedad = gravedad;
@@ -167,6 +206,9 @@ export class AnimadorProyectil {
     this.magnitudPerturbacion = perturbacion?.magnitudPxS2 ?? 0;
     this.pasosMecha = 0;
     this.pasosHastaDetonarMecha = pasosHastaDetonarMecha ?? null;
+    this.adherido = false;
+    this.pasosAdherencia = 0;
+    this.pasosHastaDetonarTrasAdherencia = pasosHastaDetonarTrasAdherencia ?? null;
     this.trayectoria = [inicial];
     this.acumulador = acumuladorInicial();
     this.anguloActualRad = Math.atan2(inicial.vy, inicial.vx);
@@ -212,8 +254,22 @@ export class AnimadorProyectil {
     let agotado = false;
     let huboImpactoNave = false;
     let huboDetonacionMecha = false;
+    let huboDetonacionAdherencia = false;
     const resultado = avanzarConAcumulador(this.proyectil, this.acumulador, deltaMs, (p) => {
       if (detenido) {
+        return p;
+      }
+      // arma-mina-adherente (min-1, min-4): una vez pegada, la física deja de
+      // avanzar -- solo se cuentan pasos fijos (mismo truco que pasosMecha)
+      // hasta pasosHastaDetonarTrasAdherencia. Va ANTES que cualquier otra
+      // comprobación: mientras se cuenta, ni el presupuesto multipozo ni
+      // detenerse() tienen nada que decidir, la posición ya está congelada.
+      if (this.adherido) {
+        this.pasosAdherencia++;
+        if (this.pasosHastaDetonarTrasAdherencia !== null && this.pasosAdherencia >= this.pasosHastaDetonarTrasAdherencia) {
+          detenido = true;
+          huboDetonacionAdherencia = true;
+        }
         return p;
       }
       // Mismo orden que el bucle de simularVuelo (vuelo.ts): el presupuesto
@@ -222,6 +278,15 @@ export class AnimadorProyectil {
       // exactamente con el del núcleo, que ya resolvió este mismo disparo de
       // forma síncrona antes de que arrancara esta animación.
       if (planetas && this.pasos >= PRESUPUESTO_VUELO_MULTIPOZO_PASOS) {
+        // arma-mina-adherente (min-1): el núcleo (resolver.ts) ya detona la
+        // mina en la última posición conocida cuando se agota el
+        // presupuesto sin contacto -- la vista hace lo mismo: se congela
+        // aquí y cuenta, en vez de declararse "perdida" como el resto del
+        // catálogo.
+        if (this.pasosHastaDetonarTrasAdherencia !== null) {
+          this.adherido = true;
+          return p;
+        }
         detenido = true;
         agotado = true;
         return p;
@@ -252,12 +317,26 @@ export class AnimadorProyectil {
       // por delante del propio detenerse() de terreno -- así el impacto de
       // casco siempre gana cuando el mismo paso cruza los dos.
       if (rastreadorNaves?.comprobarPaso(p, siguiente)) {
+        // arma-mina-adherente (min-1): el contacto con un casco pega la
+        // mina en vez de terminar el vuelo -- se congela aquí (siguiente,
+        // el punto de corte real) y a partir del próximo paso entra por la
+        // rama `this.adherido` de arriba.
+        if (this.pasosHastaDetonarTrasAdherencia !== null) {
+          this.adherido = true;
+          return siguiente;
+        }
         detenido = true;
         huboImpactoNave = true;
         return siguiente;
       }
       if (detenerse(siguiente)) {
-        detenido = true;
+        // arma-mina-adherente (min-1): mismo criterio que el impacto de
+        // casco -- el contacto con terreno sólido pega en vez de terminar.
+        if (this.pasosHastaDetonarTrasAdherencia !== null) {
+          this.adherido = true;
+        } else {
+          detenido = true;
+        }
       }
       // arma-granada-espoleta (gra-1): mismo orden de precedencia que
       // crearDetenerseConMecha en el núcleo (resolver.ts) -- el contacto de
@@ -266,7 +345,7 @@ export class AnimadorProyectil {
       // no ha ocurrido todavía, para que "detona en tierra si el contacto
       // llega antes, en el aire si el reloj gana" sea idéntico en cliente y
       // servidor.
-      if (!detenido && this.pasosHastaDetonarMecha !== null) {
+      if (!detenido && !this.adherido && this.pasosHastaDetonarMecha !== null) {
         this.pasosMecha++;
         if (this.pasosMecha >= this.pasosHastaDetonarMecha) {
           detenido = true;
@@ -280,7 +359,15 @@ export class AnimadorProyectil {
     this.anguloActualRad = Math.atan2(this.proyectil.vy, this.proyectil.vx);
     this.punto.setPosition(this.proyectil.x, this.proyectil.y).setRotation(this.anguloActualRad);
 
-    if (agotado || huboImpactoNave || huboDetonacionMecha || this.detenerse(this.proyectil)) {
+    // arma-mina-adherente (min-1, min-2): mientras se está contando la
+    // adherencia, el catch-all final de abajo (this.detenerse(this.proyectil))
+    // sería SIEMPRE verdadero -- la mina está congelada justo encima del
+    // contacto que ya satisface esa condición -- así que terminaría la
+    // animación en el primer fotograma tras pegarse, antes de contar nada.
+    // Se excluye explícitamente mientras `adherido` sigue sin haber
+    // detonado todavía.
+    const contandoAdherencia = this.adherido && !huboDetonacionAdherencia;
+    if (!contandoAdherencia && (agotado || huboImpactoNave || huboDetonacionMecha || huboDetonacionAdherencia || this.detenerse(this.proyectil))) {
       const final = this.proyectil;
       const callback = this.alTerminar;
       this.proyectil = null;

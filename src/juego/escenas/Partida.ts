@@ -60,8 +60,9 @@ import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFr
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
 import type { DatosEscenaPartida } from "@/juego/main";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
-import { insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
+import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
+import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
 import "@/debug/tipos";
 
 // render-espacio (esp-6): el texto del panel "resultado del turno" -- un
@@ -223,10 +224,20 @@ export class Partida extends Phaser.Scene {
   // detonación sin depender de un ángulo/potencia que no existe en ningún
   // mapa real. Nunca se lee fuera de dispararEntrada, y se consume al vuelo.
   private fusibleMechaForzadoPasos: number | null = null;
+  // arma-mina-adherente (min-1, solo e2e): mismo motivo y mismo patrón de
+  // uso único que fusibleMechaForzadoPasos -- ningún mundo jugable tiene
+  // gravedad baja de sobra para que un vuelo real supere el presupuesto sin
+  // chocar antes, así que el e2e no puede comprobar "cuenta desde que se
+  // pega" apuntando un ángulo/potencia real.
+  private fusibleAdherenciaForzadoPasos: number | null = null;
   private datosEscena: DatosEscenaPartida = {};
   private naves!: [Nave, Nave];
   private indicadorDeriva!: IndicadorDeriva;
   private animador!: AnimadorProyectil;
+  // arma-mina-adherente (min-2): cuenta atrás anclada al mundo del vuelo
+  // REAL en curso -- nunca el de repetición, mismo criterio que la estela y
+  // que actualizarCuentaAtrasMecha.
+  private contadorAdherencia!: ContadorAdherencia;
   // humor-6: instancia SEPARADA del animador real -- reproduce el último
   // vuelo de nuevo sin tocar this.estado ni this.naves, así que un jugador
   // puede pedir la repetición sin que eso cuente como un turno.
@@ -256,6 +267,10 @@ export class Partida extends Phaser.Scene {
     // de un arma "mecha" -- ausente salvo que el arma disparada sea "mecha"
     // (ver más abajo), igual que perturbacion para "erratico".
     readonly pasosHastaDetonarMecha?: number;
+    // arma-mina-adherente (min-1): pasos de simulación que cuenta la mina
+    // TRAS adherirse -- ausente salvo que el arma disparada sea
+    // "adherente-con-mecha" (ver más abajo), igual que pasosHastaDetonarMecha.
+    readonly pasosHastaDetonarTrasAdherencia?: number;
   } | null = null;
   private selectorFrases!: SelectorFrases;
   private selectorBromas!: SelectorBromas;
@@ -451,6 +466,7 @@ export class Partida extends Phaser.Scene {
 
     this.animador = new AnimadorProyectil(this);
     this.animadorRepeticion = new AnimadorProyectil(this);
+    this.contadorAdherencia = new ContadorAdherencia(this);
     this.estadisticas = [estadisticasIniciales(), estadisticasIniciales()];
 
     const lienzoParticula = this.make.graphics({ x: 0, y: 0 });
@@ -564,6 +580,12 @@ export class Partida extends Phaser.Scene {
     window.__debug.forzarFusibleMechaPasos = (pasos) => {
       this.fusibleMechaForzadoPasos = pasos;
     };
+    // arma-mina-adherente (min-1, solo e2e): ver el comentario del campo
+    // fusibleAdherenciaForzadoPasos -- se consume en el disparo siguiente,
+    // sea el que sea.
+    window.__debug.forzarFusibleAdherenciaPasos = (pasos) => {
+      this.fusibleAdherenciaForzadoPasos = pasos;
+    };
     // contacto-honesto: aterrizar un vuelo real EXACTAMENTE en la banda de
     // roce (fuera del radio de colisión, dentro de la silueta dibujada) no
     // es determinista de apuntar a mano -- este hook reproduce el mismo
@@ -617,6 +639,7 @@ export class Partida extends Phaser.Scene {
     window.__debug!.repeticionEnCurso = this.animadorRepeticion.enVuelo();
     this.actualizarEstelaYDebugProyectil();
     this.actualizarCuentaAtrasMecha();
+    this.actualizarCuentaAtrasAdherencia();
 
     // humor-1: la cámara sacude durante la reacción a un evento de humor --
     // hay que refrescar el rectángulo visible cada fotograma mientras dura
@@ -655,6 +678,29 @@ export class Partida extends Phaser.Scene {
     }
     publicarCuentaAtras(segundos);
     window.__debug!.cuentaAtrasMecha = { segundosRestantes: segundos };
+  }
+
+  // arma-mina-adherente (min-2, min-3): publica cada fotograma la posición
+  // de adherencia y los segundos restantes del vuelo REAL en curso (nunca
+  // el de repetición) -- null en cuanto no hay una mina pegada contando,
+  // para que el contador de mundo y window.__debug se apaguen solos. A
+  // diferencia de actualizarCuentaAtrasMecha, esto NUNCA toca
+  // cuentaAtrasStore (ese store alimenta el HUD fijo de la granada, que
+  // min-2 exige mantener fuera de este contador).
+  private actualizarCuentaAtrasAdherencia(): void {
+    if (!this.animador.estaAdherido()) {
+      this.contadorAdherencia.actualizar(null, null);
+      window.__debug!.cuentaAtrasAdherencia = null;
+      return;
+    }
+    const posicion = this.animador.obtenerPosicion();
+    const segundos = this.animador.obtenerSegundosRestantesAdherencia();
+    this.contadorAdherencia.actualizar(posicion, segundos);
+    if (posicion === null || segundos === null) {
+      window.__debug!.cuentaAtrasAdherencia = null;
+      return;
+    }
+    window.__debug!.cuentaAtrasAdherencia = { x: posicion.x, y: posicion.y, segundosRestantes: segundos };
   }
 
   // proy-4/proy-5: un único punto que emite la estela del vuelo REAL en
@@ -903,6 +949,15 @@ export class Partida extends Phaser.Scene {
         ? this.fusibleMechaForzadoPasos ?? pasosDeMecha(armaDisparada.comportamiento.segundosHastaDetonar)
         : undefined;
     this.fusibleMechaForzadoPasos = null;
+    // arma-mina-adherente (min-1, min-4): mismo cálculo que el núcleo
+    // (resolverDisparo, vía resolver.ts) para la mecha DE LA ADHERENCIA --
+    // esComportamientoAdherente() es la misma condición de datos que ya
+    // consumía el núcleo, nunca una comparación de arma.id aparte.
+    const pasosHastaDetonarTrasAdherencia =
+      esComportamientoAdherente(armaDisparada.comportamiento) && armaDisparada.comportamiento.tipo === "adherente-con-mecha"
+        ? this.fusibleAdherenciaForzadoPasos ?? pasosDeMecha(armaDisparada.comportamiento.segundosHastaDetonar)
+        : undefined;
+    this.fusibleAdherenciaForzadoPasos = null;
     // mos-3: insumos completos del vuelo -- el e2e reconstruye la trayectoria
     // RESUELTA llamando a simularVuelo en Node con estos mismos valores, sin
     // depender de que el núcleo la exponga en ningún estado serializable.
@@ -926,6 +981,7 @@ export class Partida extends Phaser.Scene {
       arma: armaDisparada,
       perturbacion,
       pasosHastaDetonarMecha,
+      pasosHastaDetonarTrasAdherencia,
     };
 
     this.animador.iniciar(
@@ -952,6 +1008,11 @@ export class Partida extends Phaser.Scene {
       // resto del turno mientras se resuelve el impacto.
       limpiarCuentaAtras();
       window.__debug!.cuentaAtrasMecha = null;
+      // arma-mina-adherente (min-2, min-3): mismo motivo que la granada --
+      // el contador de mundo no debe quedarse pegado en pantalla mientras
+      // se resuelve el impacto y responde la máquina.
+      window.__debug!.cuentaAtrasAdherencia = null;
+      this.contadorAdherencia.actualizar(null, null);
       this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma);
       // Encadenar aquí (y no dentro de aplicarResultadoTurno) es lo que
       // evita que jugarTurnosGuionizados/forzarFinDePartida -- que también
@@ -966,6 +1027,7 @@ export class Partida extends Phaser.Scene {
       armaDisparada,
       perturbacion,
       pasosHastaDetonarMecha,
+      pasosHastaDetonarTrasAdherencia,
     );
   }
 
@@ -1165,6 +1227,7 @@ export class Partida extends Phaser.Scene {
       arma,
       perturbacion,
       pasosHastaDetonarMecha,
+      pasosHastaDetonarTrasAdherencia,
     } = this.ultimoVueloParaRepetir;
     // Rastreador fresco en cada repetición: es con estado (gracia del propio
     // casco) y no puede reutilizar la instancia del vuelo real ni la de una
@@ -1184,6 +1247,7 @@ export class Partida extends Phaser.Scene {
       arma,
       perturbacion,
       pasosHastaDetonarMecha,
+      pasosHastaDetonarTrasAdherencia,
     );
   }
 

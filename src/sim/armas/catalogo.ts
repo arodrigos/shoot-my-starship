@@ -213,6 +213,27 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
       impacto: ["Cero. Exactamente donde le tocaba, ni un paso antes."],
     },
   },
+  // arma-mina-adherente (min-1..min-6): la segunda arma de cuenta atrás, la
+  // que Adrián llamó "una especie de gancho" -- "adherente-con-mecha" con
+  // fiabilidad 1 y sin dispersionGrados, igual que la granada. La diferencia
+  // de verdad entre las dos no es de catálogo, es de cuándo arranca el
+  // reloj: la granada cuenta desde el disparo, la mina cuenta desde que se
+  // pega (notaAyuda de cada una lo deja explícito, min-5).
+  {
+    id: "gancho-pegajoso",
+    nombre: "Gancho Pegajoso",
+    descripcion: "No explota al llegar. Se agarra, espera cinco segundos y entonces sí, con toda la mala fe del mundo.",
+    comportamiento: { tipo: "adherente-con-mecha", segundosHastaDetonar: 5 },
+    huella: { tipo: "circular", radio: 40, signo: "restar" },
+    efecto: { tipo: "danio", radioEfectoPx: 60, danioMaximo: 24 },
+    fiabilidad: 1,
+    coste: 50,
+    notaAyuda: "La cuenta empieza al pegarse, no al disparar: se queda fija donde toque y explota 5 s después.",
+    bromaPropia: {
+      disparo: ["Ahí va, a buscar dónde agarrarse."],
+      impacto: ["Se pegó, contó hasta cinco y cumplió su palabra."],
+    },
+  },
 ];
 
 export function buscarArma(id: string): Arma {
