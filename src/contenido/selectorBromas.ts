@@ -13,6 +13,12 @@ import { bancoDisparoDe, bancoImpactoDe, type IdVoz } from "@/contenido/bancoBro
 export interface SelectorBromas {
   elegirDisparo(voz: IdVoz): string;
   elegirImpacto(voz: IdVoz, categoria: CategoriaBroma): string;
+  // arma-mosca (mos-5): misma bolsa de sorteo, indexada por arma en vez de
+  // por voz -- el llamante (Partida.ts) solo la invoca cuando el arma
+  // disparada declara `bromaPropia`, así que aquí no hace falta ninguna
+  // condición sobre qué arma es.
+  elegirDisparoArma(armaId: string, banco: readonly string[]): string;
+  elegirImpactoArma(armaId: string, banco: readonly string[]): string;
 }
 
 function barajar(banco: readonly string[], aleatorioInicial: EstadoAleatorio): { bolsa: string[]; estado: EstadoAleatorio } {
@@ -66,6 +72,12 @@ export function crearSelectorBromas(semilla: number): SelectorBromas {
     },
     elegirImpacto(voz, categoria) {
       return elegir(`impacto:${voz}:${categoria}`, bancoImpactoDe(voz, categoria));
+    },
+    elegirDisparoArma(armaId, banco) {
+      return elegir(`disparo-arma:${armaId}`, banco);
+    },
+    elegirImpactoArma(armaId, banco) {
+      return elegir(`impacto-arma:${armaId}`, banco);
     },
   };
 }

@@ -4,6 +4,8 @@ import type { EstadoAudio } from "@/juego/audio/motor";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import type { IdVoz } from "@/contenido/bancoBromas";
 import type { IdNave } from "@/sim/partida/tipos";
+import type { EstadoProyectil } from "@/sim/fisica/proyectil";
+import type { EstadoAleatorio } from "@/sim/aleatorio";
 
 // Punto de observación que los tests de Playwright leen desde fuera del
 // juego (window.__debug.*). Vive en un módulo aparte para que cada bloque
@@ -41,6 +43,17 @@ export interface DebugUltimoDisparo {
   // repetición se compara contra este valor, el que de verdad se vio en
   // pantalla, no contra el teórico.
   impactoReal?: { x: number; y: number };
+  // arma-mosca (mos-3): insumos completos del vuelo RESUELTO -- el e2e no
+  // tiene forma de leer el resultado del núcleo desde fuera del proceso, así
+  // que le da todo lo que simularVuelo necesita para recalcularlo ella misma
+  // en Node y comparar esa trayectoria, punto a punto, contra la animada
+  // (trayectoriaAnimadaUltimoVuelo). Opcional: solo lo rellenan los disparos
+  // posteriores a este bloque.
+  armaId?: string;
+  inicial?: EstadoProyectil;
+  gravedad?: number;
+  deriva?: number;
+  aleatorioAntes?: EstadoAleatorio;
 }
 
 // control-apuntado: el ajuste vivo del HUD (fuera del lienzo) y lo que ya se
@@ -96,6 +109,10 @@ export interface DebugGlobal {
   ultimoPunto?: { x: number; y: number };
   terreno?: DebugTerreno;
   ultimoDisparo?: DebugUltimoDisparo;
+  // arma-mosca (mos-3): posición inicial y de cada paso animado del último
+  // vuelo -- el e2e la compara contra ResultadoVuelo.trayectoria del mismo
+  // disparo resuelto de nuevo en Node (ver AnimadorProyectil.obtenerTrayectoria).
+  trayectoriaAnimadaUltimoVuelo?: readonly { readonly x: number; readonly y: number }[];
   control?: DebugControl;
   deriva?: DebugDeriva;
   naves?: readonly DebugNave[];

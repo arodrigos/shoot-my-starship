@@ -441,6 +441,14 @@ export function ControlHUD() {
                     {enPresupuesto && <span data-testid={`precio-${arma.id}`}>{coste > 0 ? ` — ${coste} cr` : " — Gratis"}</span>}
                     <br />
                     <span>{arma.descripcion}</span>
+                    {arma.notaAyuda && (
+                      <>
+                        <br />
+                        <span data-testid={`ayuda-arma-${arma.id}`} style={{ color: "#9fd3ff", fontStyle: "italic" }}>
+                          {arma.notaAyuda}
+                        </span>
+                      </>
+                    )}
                     {faltan > 0 && (
                       <>
                         <br />

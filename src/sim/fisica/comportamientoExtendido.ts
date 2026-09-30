@@ -22,6 +22,18 @@ export interface PerturbacionErratica {
 // del PRNG, disfrazados de deriva/gravedad extra de ESE paso -- el mismo
 // truco que ya usa la gravedad de N cuerpos para no bifurcar
 // integrarPasoProyectil.
+// arma-mosca (mos-3): único punto que decide "¿este comportamiento necesita
+// insumo de perturbación?" -- el cliente (AnimadorProyectil vía Partida.ts)
+// consulta esto en vez de ramificar sobre `comportamiento.tipo === "erratico"`
+// por su cuenta (comprobar-vuelo-unica-definicion.mjs lo exige: cualquier
+// rama sobre un tipo de vuelo-extensible tiene que pasar por el núcleo).
+export function insumoPerturbacionErratica(
+  comportamiento: ComportamientoDeVuelo,
+  aleatorio: EstadoAleatorio,
+): { readonly magnitudPxS2: number; readonly aleatorio: EstadoAleatorio } | undefined {
+  return comportamiento.tipo === "erratico" ? { magnitudPxS2: comportamiento.magnitudPxS2, aleatorio } : undefined;
+}
+
 export function siguientePerturbacionErratica(estado: EstadoAleatorio, magnitudPxS2: number): PerturbacionErratica {
   const pasoDeriva = siguienteAleatorio(estado);
   const pasoGravedad = siguienteAleatorio(pasoDeriva.estado);

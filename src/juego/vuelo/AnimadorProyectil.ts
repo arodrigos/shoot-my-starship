@@ -8,6 +8,8 @@ import type { RastreadorImpactoNaves } from "@/sim/naves/impacto";
 import type { Arma } from "@/sim/armas/tipos";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { puntosSilueta } from "@/juego/proyectiles/geometriaProyectil";
+import { siguientePerturbacionErratica } from "@/sim/fisica/comportamientoExtendido";
+import type { EstadoAleatorio } from "@/sim/aleatorio";
 
 const PASO_FIJO_S = PASO_FIJO_MS / 1000;
 
@@ -55,9 +57,26 @@ export class AnimadorProyectil {
   // estela sepa de dónde salir y el debug de visibilidad pueda comprobar que
   // la silueta que ve el jugador corresponde al arma seleccionada.
   private armaActual: Arma | undefined;
+  // arma-mosca (mos-3): reproduce EXACTAMENTE la misma perturbación por paso
+  // que ya consumió el núcleo al resolver este disparo (comportamientoExtendido.ts,
+  // la misma función que usa vuelo.ts) -- nunca una ondulación decorativa
+  // aparte, que es justo lo que este criterio prohíbe. null/0 en cualquier
+  // arma sin comportamiento "erratico": el resto del catálogo anima igual
+  // que antes de este bloque.
+  private aleatorioPerturbacion: EstadoAleatorio | null = null;
+  private magnitudPerturbacion = 0;
+  // mos-1/mos-3: la posición inicial y la de cada paso animado, en el mismo
+  // orden que las recorre este bucle -- expuesta a window.__debug (ver
+  // Partida.ts) para que el e2e compare, paso a paso, contra
+  // ResultadoVuelo.trayectoria del mismo disparo resuelto por el núcleo.
+  private trayectoria: EstadoProyectil[] = [];
 
   constructor(escena: Phaser.Scene) {
     this.punto = escena.add.graphics().setVisible(false).setDepth(50);
+  }
+
+  obtenerTrayectoria(): readonly EstadoProyectil[] {
+    return this.trayectoria;
   }
 
   enVuelo(): boolean {
@@ -99,6 +118,12 @@ export class AnimadorProyectil {
     planetas?: RegistroPlanetas,
     rastreadorNaves?: RastreadorImpactoNaves,
     arma?: Arma,
+    // arma-mosca (mos-3): el MISMO EstadoAleatorio hilvanado que el núcleo
+    // usó como semilla de la perturbación de este disparo -- Partida.ts lo
+    // saca de estadoAntes.aleatorio, previo a la tirada. Opcional y aditivo:
+    // sin él (todo llamante de un arma que no sea "erratico"), el
+    // comportamiento es exactamente el de siempre.
+    perturbacion?: { readonly magnitudPxS2: number; readonly aleatorio: EstadoAleatorio },
   ): void {
     this.proyectil = inicial;
     this.gravedad = gravedad;
@@ -109,6 +134,9 @@ export class AnimadorProyectil {
     this.alTerminar = alTerminar;
     this.rastreadorNaves = rastreadorNaves;
     this.armaActual = arma;
+    this.aleatorioPerturbacion = perturbacion?.aleatorio ?? null;
+    this.magnitudPerturbacion = perturbacion?.magnitudPxS2 ?? 0;
+    this.trayectoria = [inicial];
     this.acumulador = acumuladorInicial();
     this.anguloActualRad = Math.atan2(inicial.vy, inicial.vx);
     this.dibujarSilueta(arma);
@@ -170,13 +198,23 @@ export class AnimadorProyectil {
       // en cada paso se disfraza de gravedad/deriva de ESE paso, para
       // reutilizar integrarPasoProyectil tal cual en vez de bifurcar el
       // integrador entre núcleo y vista.
-      const [gravedadPaso, derivaPaso] = planetas
+      let [gravedadPaso, derivaPaso] = planetas
         ? (() => {
             const aceleracion = calcularAceleracionGravitatoria(planetas, p.x, p.y);
             return [this.gravedad + aceleracion.y / GRAVEDAD_REFERENCIA_PX_S2, this.deriva + aceleracion.x] as const;
           })()
         : ([this.gravedad, this.deriva] as const);
+      // arma-mosca (mos-3): misma perturbación, mismo orden (deriva antes que
+      // gravedad) y misma función que consume vuelo.ts -- ver el comentario
+      // de campo de aleatorioPerturbacion más arriba.
+      if (this.aleatorioPerturbacion !== null && this.magnitudPerturbacion !== 0) {
+        const perturbacion = siguientePerturbacionErratica(this.aleatorioPerturbacion, this.magnitudPerturbacion);
+        this.aleatorioPerturbacion = perturbacion.estado;
+        gravedadPaso += perturbacion.gravedadExtra;
+        derivaPaso += perturbacion.derivaPxS2;
+      }
       const siguiente = integrarPasoProyectil(p, gravedadPaso, derivaPaso, PASO_FIJO_S);
+      this.trayectoria.push(siguiente);
       if (planetas) this.pasos++;
       // Mismo orden que simularVuelo: el casco se comprueba en cada paso,
       // por delante del propio detenerse() de terreno -- así el impacto de

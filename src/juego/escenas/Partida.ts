@@ -6,7 +6,7 @@ import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPh
 import { crearFondoEspacial } from "@/juego/fondo/FondoEspacial";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { colocarNaves } from "@/sim/naves/colocacion";
-import { crearEstadoAleatorio } from "@/sim/aleatorio";
+import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
 import { SALDO_INICIAL } from "@/sim/partida/economia";
@@ -60,6 +60,7 @@ import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFr
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
 import type { DatosEscenaPartida } from "@/juego/main";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
+import { insumoPerturbacionErratica } from "@/sim/fisica/comportamientoExtendido";
 import "@/debug/tipos";
 
 // render-espacio (esp-6): el texto del panel "resultado del turno" -- un
@@ -239,6 +240,9 @@ export class Partida extends Phaser.Scene {
     // la misma silueta que el vuelo real en vez de caer al arma por
     // defecto.
     readonly arma: Arma;
+    // arma-mosca (mos-3): insumo de la perturbación errática de ESTE vuelo --
+    // ausente salvo que el arma disparada sea "erratico" (ver más abajo).
+    readonly perturbacion?: { readonly magnitudPxS2: number; readonly aleatorio: EstadoAleatorio };
   } | null = null;
   private selectorFrases!: SelectorFrases;
   private selectorBromas!: SelectorBromas;
@@ -843,6 +847,24 @@ export class Partida extends Phaser.Scene {
     // devuelve estados nuevos en cada paso (nunca muta el que recibe), así
     // que esta referencia sigue intacta cuando se pida la repetición.
     const armaDisparada = buscarArma(entrada.arma);
+    // arma-mosca (mos-3): mismo aleatorio hilvanado que resolverDisparo usó
+    // como semilla de la perturbación -- válido porque la mosca declara
+    // fiabilidad 1 y ninguna dispersionGrados (ningún eje anterior a la
+    // resolución de vuelo consume tirada), así que estadoAntes.aleatorio es
+    // EXACTAMENTE lo que vio simularVuelo. Un arma futura "erratico" que sí
+    // declare esos ejes necesitaría hilvanar aquí lo mismo que resolver.ts.
+    const perturbacion = insumoPerturbacionErratica(armaDisparada.comportamiento, estadoAntes.aleatorio);
+    // mos-3: insumos completos del vuelo -- el e2e reconstruye la trayectoria
+    // RESUELTA llamando a simularVuelo en Node con estos mismos valores, sin
+    // depender de que el núcleo la exponga en ningún estado serializable.
+    window.__debug!.ultimoDisparo = {
+      ...window.__debug!.ultimoDisparo!,
+      armaId: entrada.arma,
+      inicial,
+      gravedad: estadoAntes.mundo.gravedad,
+      deriva: estadoAntes.mundo.deriva,
+      aleatorioAntes: estadoAntes.aleatorio,
+    };
 
     this.ultimoVueloParaRepetir = {
       inicial,
@@ -853,6 +875,7 @@ export class Partida extends Phaser.Scene {
       navesParaRastreador: navesVivas,
       tiradorId: tirador,
       arma: armaDisparada,
+      perturbacion,
     };
 
     this.animador.iniciar(
@@ -867,7 +890,13 @@ export class Partida extends Phaser.Scene {
       // animación arranque) -- se guarda aparte para que la repetición se
       // compare contra lo que de verdad se vio, no contra el valor teórico.
       window.__debug!.ultimoDisparo = { ...window.__debug!.ultimoDisparo!, impactoReal: { x: final.x, y: final.y } };
-      this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma);
+      // arma-mosca (mos-3): la trayectoria animada de ESTE vuelo, expuesta
+      // tras terminar -- el e2e la compara paso a paso contra
+      // ResultadoVuelo.trayectoria del mismo disparo, resuelto de nuevo en
+      // Node con el mismo aleatorio/magnitud (ver comentario de perturbacion
+      // más arriba).
+      window.__debug!.trayectoriaAnimadaUltimoVuelo = this.animador.obtenerTrayectoria();
+      this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma);
       // Encadenar aquí (y no dentro de aplicarResultadoTurno) es lo que
       // evita que jugarTurnosGuionizados/forzarFinDePartida -- que también
       // llaman a aplicarResultadoTurno, pero con su propio guion de
@@ -879,6 +908,7 @@ export class Partida extends Phaser.Scene {
       estadoAntes.planetas,
       rastreadorNaves,
       armaDisparada,
+      perturbacion,
     );
   }
 
@@ -932,6 +962,7 @@ export class Partida extends Phaser.Scene {
     estadoDespues: EstadoPartida,
     eventos: readonly EventoSimulacion[],
     categoriaBroma?: CategoriaBroma,
+    armaId?: string,
   ): void {
     // estadoAntes es this.estado ANTES de reasignarlo más abajo -- se captura
     // aquí (y no en cada llamador) para que jugarTurnosGuionizados y
@@ -948,7 +979,7 @@ export class Partida extends Phaser.Scene {
     this.manejarEventosVisuales(eventos);
     this.reaccionarAHumor(eventos);
     if (categoriaBroma) {
-      this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos);
+      this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos, armaId ? buscarArma(armaId) : undefined);
     }
     publicarResultadoTurno(resumenTurno(eventos));
 
@@ -1027,14 +1058,25 @@ export class Partida extends Phaser.Scene {
     numeroTurnoAntes: number,
     categoria: CategoriaBroma,
     eventos: readonly EventoSimulacion[],
+    arma?: Arma,
   ): void {
     const voz = vozDeNave(tirador, this.rival.id);
     let textoDisparo: string | null = null;
     if (debeMostrarBromaDeDisparo(FRECUENCIA_BROMAS_POR_DEFECTO, numeroTurnoAntes)) {
       textoDisparo = this.selectorBromas.elegirDisparo(voz);
+      // arma-mosca (mos-5): la broma propia del arma se AÑADE a la de la voz,
+      // nunca la sustituye -- así hum-1..hum-7 siguen viendo intacta la frase
+      // de personalidad de siempre, y el catálogo entero salvo el arma que
+      // declare bromaPropia se comporta exactamente como antes de este bloque.
+      if (arma?.bromaPropia) {
+        textoDisparo = `${textoDisparo} ${this.selectorBromas.elegirDisparoArma(arma.id, arma.bromaPropia.disparo)}`;
+      }
       publicarBromaDisparo(textoDisparo);
     }
-    const textoImpacto = this.selectorBromas.elegirImpacto(voz, categoria);
+    let textoImpacto = this.selectorBromas.elegirImpacto(voz, categoria);
+    if (arma?.bromaPropia) {
+      textoImpacto = `${textoImpacto} ${this.selectorBromas.elegirImpactoArma(arma.id, arma.bromaPropia.impacto)}`;
+    }
     publicarBromaImpacto(textoImpacto, categoria);
 
     // hum-1: un registro por turno, para que el test pueda comprobar "sin
@@ -1055,7 +1097,8 @@ export class Partida extends Phaser.Scene {
     if (!this.ultimoVueloParaRepetir || this.animadorRepeticion.enVuelo()) {
       return;
     }
-    const { inicial, gravedad, deriva, detenerse, planetas, navesParaRastreador, tiradorId, arma } = this.ultimoVueloParaRepetir;
+    const { inicial, gravedad, deriva, detenerse, planetas, navesParaRastreador, tiradorId, arma, perturbacion } =
+      this.ultimoVueloParaRepetir;
     // Rastreador fresco en cada repetición: es con estado (gracia del propio
     // casco) y no puede reutilizar la instancia del vuelo real ni la de una
     // repetición anterior.
@@ -1072,6 +1115,7 @@ export class Partida extends Phaser.Scene {
       planetas,
       rastreadorNaves,
       arma,
+      perturbacion,
     );
   }
 
@@ -1239,7 +1283,7 @@ export class Partida extends Phaser.Scene {
         anguloGrados: solucion.anguloGrados,
         potencia: solucion.potencia,
       });
-      this.aplicarResultadoTurno(estado, eventos, categoriaBroma);
+      this.aplicarResultadoTurno(estado, eventos, categoriaBroma, ARMA_DESENLACE);
     }
   }
 }
