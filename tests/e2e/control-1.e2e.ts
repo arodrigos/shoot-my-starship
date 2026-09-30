@@ -1,23 +1,15 @@
 import { test, expect } from "@playwright/test";
+import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
+import { arrastrarBarraHasta } from "./utilesControl";
 
-// Deben coincidir con src/juego/control/apuntado.ts (GANANCIA_ANGULO_GRADOS,
-// GANANCIA_POTENCIA, ANGULO_INICIAL_GRADOS, POTENCIA_INICIAL): el e2e no
-// importa del código fuente (convención ya establecida en render-4/andamiaje,
-// que tampoco lo hacen), así que estas constantes viven duplicadas a
-// propósito. Si alguna vez divergen, este test falla de forma ruidosa, no en
-// silencio.
-const GANANCIA_ANGULO_GRADOS = 120;
-const GANANCIA_POTENCIA = 150;
-const ANGULO_INICIAL_GRADOS = 45;
-const POTENCIA_INICIAL = 50;
-
-// control-1: de punta a punta en móvil -- elige arma, ajusta ángulo/potencia
-// con un gesto de arrastre real, dispara; el terreno pierde píxeles, la nave
+// control-1 / ctl-3 (control-angulo-potencia): de punta a punta en móvil --
+// elige arma, apunta con los DOS controles independientes (ya no con el
+// arrastre único combinado) y dispara; el terreno pierde píxeles, la nave
 // objetivo pierde integridad, el turno pasa a la máquina y la máquina
 // dispara a su vez. Se navega con ?mapa=calma-de-los-restos (deriva 0) para
 // que la solución balística expuesta por window.__debug sea exacta -- el
-// gesto en sí sigue siendo un arrastre real de Playwright, no un salto
-// directo al ángulo objetivo.
+// gesto en sí sigue siendo un arrastre real de Playwright sobre cada barra,
+// no un salto directo al ángulo objetivo.
 test("elegir arma, apuntar por gesto y disparar hace perder píxeles de terreno e integridad, y la máquina responde", async ({
   page,
 }) => {
@@ -53,17 +45,11 @@ test("elegir arma, apuntar por gesto y disparar hace perder píxeles de terreno 
     puntoBajoNave,
   );
 
-  const deltaY = -(solucion!.anguloGrados - ANGULO_INICIAL_GRADOS) / GANANCIA_ANGULO_GRADOS;
-  const deltaX = (solucion!.potencia - POTENCIA_INICIAL) / GANANCIA_POTENCIA;
+  const fraccionAngulo = (solucion!.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS);
+  const fraccionPotencia = (solucion!.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA);
 
-  const inicio = { x: 195, y: 760 };
-  const fin = { x: inicio.x + deltaX * 390, y: inicio.y + deltaY * 844 };
-
-  await page.mouse.move(inicio.x, inicio.y);
-  await page.mouse.down();
-  await page.mouse.move((inicio.x + fin.x) / 2, (inicio.y + fin.y) / 2, { steps: 5 });
-  await page.mouse.move(fin.x, fin.y, { steps: 5 });
-  await page.mouse.up();
+  await arrastrarBarraHasta(page, "barra-angulo", fraccionAngulo);
+  await arrastrarBarraHasta(page, "barra-potencia", fraccionPotencia);
 
   const ajuste = await page.evaluate(() => window.__debug.control!.ajuste);
   expect(Math.abs(ajuste.anguloGrados - solucion!.anguloGrados)).toBeLessThanOrEqual(0.5);
