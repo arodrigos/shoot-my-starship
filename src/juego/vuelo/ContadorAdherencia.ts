@@ -15,9 +15,11 @@ import Phaser from "phaser";
 // heredaría ese mismo encogido (el lienzo entero se escala como una sola
 // imagen) y terminaría en unos pocos píxeles CSS, ilegible -- justo lo que
 // le pasaría a CuentaAtrasHUD si viviera dentro del lienzo en vez de como
-// overlay DOM. `scale.displayScale` (tamaño de pantalla real / tamaño base
-// del juego) es el factor exacto para deshacer ese encogido: se agranda la
-// fuente y el acolchado en mundo por su inverso para que el tamaño VISTO en
+// overlay DOM. `scale.displayScale` YA es baseSize/displaySize (a 360 de
+// ancho vale 1920/360 = 5,33): es directamente el factor de compensación,
+// no su inverso -- multiplicar la fuente y el acolchado en mundo por ese
+// valor (min-2, hallazgo del gatekeeper: la versión anterior usaba 1/displayScale
+// y encogía el texto en vez de agrandarlo) hace que el tamaño VISTO en
 // pantalla sea el mismo con independencia del viewport, sin perder la
 // ancla al punto de mundo donde se pegó la mina.
 const TAMANO_FUENTE_CSS_PX = 20;
@@ -30,7 +32,7 @@ export class ContadorAdherencia {
   private readonly compensacionEscala: number;
 
   constructor(escena: Phaser.Scene) {
-    this.compensacionEscala = 1 / escena.scale.displayScale.x;
+    this.compensacionEscala = escena.scale.displayScale.x;
     this.texto = escena.add
       .text(0, 0, "", {
         fontFamily: "system-ui, sans-serif",
