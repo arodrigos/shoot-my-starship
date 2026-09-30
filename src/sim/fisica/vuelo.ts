@@ -1,8 +1,10 @@
 import { PASO_FIJO_MS } from "@/sim/tiempo";
 import { GRAVEDAD_REFERENCIA_PX_S2, integrarPasoProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { calcularAceleracionGravitatoria } from "@/sim/gravedad/nCuerpos";
+import { siguientePerturbacionErratica } from "@/sim/fisica/comportamientoExtendido";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { ImpactoNave, RastreadorImpactoNaves, RoceNave } from "@/sim/naves/impacto";
+import type { EstadoAleatorio } from "@/sim/aleatorio";
 
 // Cota defensiva, no una regla de diseño: a la gravedad y velocidades de
 // este juego ningún vuelo real necesita más pasos que esto para aterrizar.
@@ -58,6 +60,12 @@ export interface ResultadoVuelo {
   // sin que `detenerse` se cumpliera nunca: un proyectil en órbita estable
   // (grav-6). En el modo de un único mapa (sin planetas) es siempre false.
   readonly perdido: boolean;
+  // vuelo-extensible (vex-3): estado del PRNG hilvanado tras consumir la
+  // perturbación errática de este vuelo -- null cuando `opciones.perturbacion`
+  // no se pidió (todo llamante de antes de este bloque). El llamante
+  // (resolverDisparo) lo hilvana hacia el resto del disparo, igual que ya
+  // hace con la tirada de fiabilidad y la de dispersión.
+  readonly aleatorioFinal: EstadoAleatorio | null;
 }
 
 export interface OpcionesVueloGravitatorio {
@@ -75,6 +83,13 @@ export interface OpcionesVueloGravitatorio {
   // mundo). Es lo que hace que el casco "siempre gane" al terreno cuando el
   // mismo paso cruza los dos.
   readonly rastreadorNaves?: RastreadorImpactoNaves;
+  // vuelo-extensible (vex-3): arma "erratico" (mosca) -- perturbación por
+  // paso que consume el MISMO EstadoAleatorio hilvanado del disparo (nunca
+  // azar sin hilvanar), disfrazada de deriva/gravedad extra de ESE paso --
+  // el mismo truco que ya usa la gravedad de N cuerpos para no bifurcar
+  // integrarPasoProyectil. Opcional y aditiva: sin ella, el comportamiento
+  // es exactamente el de siempre.
+  readonly perturbacion?: { readonly magnitudPxS2: number; readonly aleatorio: EstadoAleatorio };
 }
 
 // Resuelve un vuelo completo en pasos fijos, sin necesitar tiempo real: es
@@ -105,16 +120,32 @@ export function simularVuelo(
   const pasoS = PASO_FIJO_MS / 1000;
   const planetas = opciones?.planetas;
   const rastreadorNaves = opciones?.rastreadorNaves;
+  const magnitudPerturbacion = opciones?.perturbacion?.magnitudPxS2 ?? 0;
+  let aleatorioPerturbacion = opciones?.perturbacion?.aleatorio ?? null;
   let proyectil = inicial;
   let pasos = 0;
   let roceNave: RoceNave | null = null;
+
+  // vex-3: aplica (si la hay) la perturbación errática de este paso sobre
+  // gravedad/deriva base, y avanza el PRNG hilvanado -- un único punto para
+  // los dos bucles de abajo, para no duplicar la tirada entre el modo con y
+  // sin planetas.
+  function conPerturbacion(gravedadBase: number, derivaBase: number): { gravedad: number; deriva: number } {
+    if (aleatorioPerturbacion === null || magnitudPerturbacion === 0) {
+      return { gravedad: gravedadBase, deriva: derivaBase };
+    }
+    const perturbacion = siguientePerturbacionErratica(aleatorioPerturbacion, magnitudPerturbacion);
+    aleatorioPerturbacion = perturbacion.estado;
+    return { gravedad: gravedadBase + perturbacion.gravedadExtra, deriva: derivaBase + perturbacion.derivaPxS2 };
+  }
 
   if (!planetas || planetas.length === 0) {
     while (!detenerse(proyectil)) {
       if (pasos >= PASOS_MAXIMOS_VUELO) {
         throw new Error("simularVuelo: la condición de parada nunca se cumple (posible vuelo infinito)");
       }
-      const siguiente = integrarPasoProyectil(proyectil, gravedad, deriva, pasoS);
+      const { gravedad: gravedadPaso, deriva: derivaPaso } = conPerturbacion(gravedad, deriva);
+      const siguiente = integrarPasoProyectil(proyectil, gravedadPaso, derivaPaso, pasoS);
       const impactoNave = rastreadorNaves?.comprobarPaso(proyectil, siguiente) ?? null;
       pasos++;
       if (impactoNave) {
@@ -124,6 +155,7 @@ export function simularVuelo(
           impactoNave,
           roceNave: null,
           perdido: false,
+          aleatorioFinal: aleatorioPerturbacion,
         };
       }
       if (!roceNave) {
@@ -131,21 +163,20 @@ export function simularVuelo(
       }
       proyectil = siguiente;
     }
-    return { proyectil, pasos, impactoNave: null, roceNave, perdido: false };
+    return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion };
   }
 
   const presupuesto = opciones?.presupuestoPasos ?? PRESUPUESTO_VUELO_MULTIPOZO_PASOS;
   while (!detenerse(proyectil)) {
     if (pasos >= presupuesto) {
-      return { proyectil, pasos, impactoNave: null, roceNave, perdido: true };
+      return { proyectil, pasos, impactoNave: null, roceNave, perdido: true, aleatorioFinal: aleatorioPerturbacion };
     }
     const aceleracion = calcularAceleracionGravitatoria(planetas, proyectil.x, proyectil.y);
-    const siguiente = integrarPasoProyectil(
-      proyectil,
+    const { gravedad: gravedadPaso, deriva: derivaPaso } = conPerturbacion(
       gravedad + aceleracion.y / GRAVEDAD_REFERENCIA_PX_S2,
       deriva + aceleracion.x,
-      pasoS,
     );
+    const siguiente = integrarPasoProyectil(proyectil, gravedadPaso, derivaPaso, pasoS);
     const impactoNave = rastreadorNaves?.comprobarPaso(proyectil, siguiente) ?? null;
     pasos++;
     if (impactoNave) {
@@ -155,6 +186,7 @@ export function simularVuelo(
         impactoNave,
         roceNave: null,
         perdido: false,
+        aleatorioFinal: aleatorioPerturbacion,
       };
     }
     if (!roceNave) {
@@ -162,5 +194,5 @@ export function simularVuelo(
     }
     proyectil = siguiente;
   }
-  return { proyectil, pasos, impactoNave: null, roceNave, perdido: false };
+  return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion };
 }

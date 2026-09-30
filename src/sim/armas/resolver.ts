@@ -1,5 +1,6 @@
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { simularVuelo } from "@/sim/fisica/vuelo";
+import { pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import type { Arma } from "@/sim/armas/tipos";
@@ -133,6 +134,29 @@ function crearDetenerseConPenetracion(mascara: Mascara, ancho: number, alto: num
   return { detenerse, puntosPenetrados };
 }
 
+// vuelo-extensible (vex-1, vex-2, vex-4): variante de detenerseEnSuelo para
+// el arma "mecha" (granada de espoleta) -- fuerza la parada cuando el
+// contador de PASOS DE SIMULACIÓN alcanza pasosHastaDetonar, tanto si el
+// contacto con sólido o casco ya paró antes como si no: la granada detona
+// en el aire si el temporizador gana, y en tierra/casco si el contacto
+// llega primero. `detenerse` se llama una vez por posición candidata ANTES
+// de integrar el siguiente paso (mismo orden que el bucle de simularVuelo),
+// así que la primera llamada ve 0 pasos dados: se detona cuando el número
+// de pasos YA INTEGRADOS alcanza pasosHastaDetonar, nunca antes ni un paso
+// tarde. Mismo patrón de cierre con estado propio que
+// crearDetenerseConPenetracion, exportada para que el animador del cliente
+// (vex-2) construya la MISMA condición en vez de temporizar por su cuenta.
+export function crearDetenerseConMecha(detenerseBase: (p: EstadoProyectil) => boolean, pasosHastaDetonar: number) {
+  let llamadas = 0;
+  return (p: EstadoProyectil): boolean => {
+    if (detenerseBase(p)) {
+      return true;
+    }
+    llamadas++;
+    return llamadas > pasosHastaDetonar;
+  };
+}
+
 // La Pelota de Chatarra (comportamiento "rodante"): tras el primer contacto,
 // camina columna a columna hacia el lado más bajo hasta distanciaMaximaPx o
 // hasta encontrar un hueco (una caída brusca -- un cráter ya existente, o el
@@ -198,6 +222,12 @@ interface ResultadoPuntosDeImpacto {
   readonly puntosPenetrados?: readonly { readonly x: number; readonly y: number }[];
   // contacto-honesto: ver el comentario de ResultadoDisparo.roce.
   readonly roce?: RoceNave;
+  // vuelo-extensible (vex-3): estado del PRNG hilvanado tras este disparo --
+  // idéntico al recibido en cualquier arma que no sea "erratico" (no
+  // consume tiradas de vuelo), y avanzado tras cada perturbación consumida
+  // en las que sí lo son. resolverDisparo lo usa para el aleatorio final del
+  // ResultadoDisparo completo.
+  readonly aleatorio: EstadoAleatorio;
 }
 
 function resolverSubmuniciones(
@@ -211,7 +241,7 @@ function resolverSubmuniciones(
   dispersionPxS: number,
   planetas?: RegistroPlanetas,
   rastreadorNaves?: RastreadorImpactoNaves,
-): ResultadoPuntosDeImpacto {
+): Omit<ResultadoPuntosDeImpacto, "aleatorio"> {
   const detenerse = detenerseEnSuelo(mascara, ancho, alto);
   const {
     proyectil: apice,
@@ -277,11 +307,16 @@ function resolverUnDisparo(
   mascara: Mascara,
   ancho: number,
   alto: number,
+  aleatorio: EstadoAleatorio,
   planetas?: RegistroPlanetas,
   rastreadorNaves?: RastreadorImpactoNaves,
 ): ResultadoPuntosDeImpacto {
   if (arma.comportamiento.tipo === "submuniciones") {
-    return resolverSubmuniciones(
+    // Ninguna variante de vuelo-extensible consume el PRNG de vuelo aquí:
+    // "submuniciones" ya ocupa el eje de comportamiento del arma (una
+    // declara UNO de los siete tipos, nunca dos a la vez), así que el
+    // estado del PRNG que entra sale intacto.
+    const resultado = resolverSubmuniciones(
       inicial,
       gravedad,
       deriva,
@@ -293,6 +328,7 @@ function resolverUnDisparo(
       planetas,
       rastreadorNaves,
     );
+    return { ...resultado, aleatorio };
   }
 
   if (arma.comportamiento.tipo === "instantaneo") {
@@ -313,12 +349,55 @@ function resolverUnDisparo(
     const detenerse = (p: EstadoProyectil): boolean => p.y < 0 || detenerseSuelo(p);
     const { proyectil, perdido, impactoNave, roceNave } = simularVuelo(inicial, 0, 0, detenerse, { rastreadorNaves });
     if (perdido) {
-      return { puntos: [], perdido: true };
+      return { puntos: [], perdido: true, aleatorio };
     }
     return {
       puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
       perdido: false,
       roce: roceNave ?? undefined,
+      aleatorio,
+    };
+  }
+
+  if (arma.comportamiento.tipo === "erratico") {
+    // vex-1/vex-3: mosca -- perturbación por paso hilvanada al PRNG del
+    // disparo, disfrazada de deriva/gravedad extra (ver
+    // comportamientoExtendido.ts). Detiene igual que cualquier arma sin
+    // penetración: primer sólido, borde de mundo o casco.
+    const detenerse = detenerseEnSuelo(mascara, ancho, alto);
+    const { proyectil, perdido, impactoNave, roceNave, aleatorioFinal } = simularVuelo(inicial, gravedad, deriva, detenerse, {
+      planetas,
+      rastreadorNaves,
+      perturbacion: { magnitudPxS2: arma.comportamiento.magnitudPxS2, aleatorio },
+    });
+    const aleatorioTrasVuelo = aleatorioFinal ?? aleatorio;
+    if (perdido) {
+      return { puntos: [], perdido: true, aleatorio: aleatorioTrasVuelo };
+    }
+    return {
+      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
+      perdido: false,
+      roce: roceNave ?? undefined,
+      aleatorio: aleatorioTrasVuelo,
+    };
+  }
+
+  if (arma.comportamiento.tipo === "mecha") {
+    // vex-1/vex-4: granada de espoleta -- detona al primer contacto O al
+    // agotar pasosHastaDetonar, lo que llegue antes; ambos se resuelven
+    // dentro de esta misma llamada síncrona, así que no queda ningún
+    // proyectil pendiente al terminar el turno.
+    const detenerseBase = detenerseEnSuelo(mascara, ancho, alto);
+    const detenerse = crearDetenerseConMecha(detenerseBase, pasosDeMecha(arma.comportamiento.segundosHastaDetonar));
+    const { proyectil, perdido, impactoNave, roceNave } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
+    if (perdido) {
+      return { puntos: [], perdido: true, aleatorio };
+    }
+    return {
+      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
+      perdido: false,
+      roce: roceNave ?? undefined,
+      aleatorio,
     };
   }
 
@@ -328,7 +407,7 @@ function resolverUnDisparo(
 
   const { proyectil, perdido, impactoNave, roceNave } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
   if (perdido) {
-    return { puntos: [], perdido: true };
+    return { puntos: [], perdido: true, aleatorio };
   }
 
   // impacto-naves: la rodadura es terreno, no física de proyectil -- un
@@ -337,14 +416,20 @@ function resolverUnDisparo(
   // detona" aplica igual de fuerte a la rodadura).
   if (arma.comportamiento.tipo === "rodante" && !impactoNave) {
     const punto = resolverRodadura(mascara, proyectil.x, arma.comportamiento.distanciaMaximaPx, arma.comportamiento.pasoPx);
-    return { puntos: [punto], perdido: false, roce: roceNave ?? undefined };
+    return { puntos: [punto], perdido: false, roce: roceNave ?? undefined, aleatorio };
   }
 
+  // "impacto-simple" y "adherente-con-mecha" comparten esta misma parada
+  // (vex-1): la mina se queda pegada en vez de detonar, pero eso es una
+  // condición de datos (esComportamientoAdherente) que consume el cliente
+  // al pintar la cuenta atrás -- no una física de vuelo distinta, así que
+  // no hace falta ninguna rama nueva aquí.
   return {
     puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
     perdido: false,
     puntosPenetrados: tracker?.puntosPenetrados,
     roce: roceNave ?? undefined,
+    aleatorio,
   };
 }
 
@@ -360,12 +445,13 @@ function resolverPuntosDeImpacto(
   mascara: Mascara,
   ancho: number,
   alto: number,
+  aleatorio: EstadoAleatorio,
   planetas?: RegistroPlanetas,
   rastreadorNaves?: RastreadorImpactoNaves,
 ): ResultadoPuntosDeImpacto {
   const rafaga = arma.disparosSimultaneos;
   if (!rafaga || rafaga.cantidad <= 1) {
-    return resolverUnDisparo(arma, inicial, gravedad, deriva, mascara, ancho, alto, planetas, rastreadorNaves);
+    return resolverUnDisparo(arma, inicial, gravedad, deriva, mascara, ancho, alto, aleatorio, planetas, rastreadorNaves);
   }
 
   const velocidad = Math.hypot(inicial.vx, inicial.vy);
@@ -374,6 +460,10 @@ function resolverPuntosDeImpacto(
   const puntosPenetrados: { x: number; y: number }[] = [];
   let algunoLlego = false;
   let roce: RoceNave | undefined;
+  // vex-3: cada proyectil del abanico hilvana el PRNG desde donde lo dejó
+  // el anterior -- mismo patrón que ya usa submuniciones al hilvanar el
+  // ESTADO de simulación entre sub-proyectiles, aplicado aquí al PRNG.
+  let aleatorioActual = aleatorio;
 
   for (let i = 0; i < rafaga.cantidad; i++) {
     const offsetGrados = (i - (rafaga.cantidad - 1) / 2) * (rafaga.aperturaGrados / Math.max(1, rafaga.cantidad - 1));
@@ -384,7 +474,8 @@ function resolverPuntosDeImpacto(
       vx: velocidad * Math.cos(anguloRad),
       vy: -velocidad * Math.sin(anguloRad),
     };
-    const resultado = resolverUnDisparo(arma, subInicial, gravedad, deriva, mascara, ancho, alto, planetas, rastreadorNaves);
+    const resultado = resolverUnDisparo(arma, subInicial, gravedad, deriva, mascara, ancho, alto, aleatorioActual, planetas, rastreadorNaves);
+    aleatorioActual = resultado.aleatorio;
     // Igual que en submuniciones: una flecha perdida en órbita no invalida
     // el resto del abanico, que sigue contando si alguna aterriza.
     if (!resultado.perdido) {
@@ -399,7 +490,13 @@ function resolverPuntosDeImpacto(
     }
   }
 
-  return { puntos, perdido: !algunoLlego, puntosPenetrados: puntosPenetrados.length > 0 ? puntosPenetrados : undefined, roce };
+  return {
+    puntos,
+    perdido: !algunoLlego,
+    puntosPenetrados: puntosPenetrados.length > 0 ? puntosPenetrados : undefined,
+    roce,
+    aleatorio: aleatorioActual,
+  };
 }
 
 function aplicarHuellaDeArma(mascara: Mascara, arma: Arma, punto: PuntoDeImpacto): void {
@@ -491,7 +588,13 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
   const rastreadorNaves =
     params.naves && params.tiradorId !== undefined ? crearRastreadorImpactoNaves(params.naves, params.tiradorId) : undefined;
 
-  const { puntos: puntosDeImpacto, perdido: proyectilPerdido, puntosPenetrados, roce } = resolverPuntosDeImpacto(
+  const {
+    puntos: puntosDeImpacto,
+    perdido: proyectilPerdido,
+    puntosPenetrados,
+    roce,
+    aleatorio: aleatorioTrasVuelo,
+  } = resolverPuntosDeImpacto(
     arma,
     inicial,
     params.gravedad,
@@ -499,6 +602,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     mascara,
     params.ancho,
     params.alto,
+    aleatorio,
     params.planetas,
     rastreadorNaves,
   );
@@ -507,7 +611,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     const danioPorPunto = puntosDeImpacto.map(() => 0);
     return {
       mascara,
-      aleatorio,
+      aleatorio: aleatorioTrasVuelo,
       fallo,
       danioObjetivo: 0,
       danioPorPunto,
@@ -577,7 +681,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
 
   return {
     mascara,
-    aleatorio,
+    aleatorio: aleatorioTrasVuelo,
     fallo,
     danioObjetivo,
     danioPorPunto,

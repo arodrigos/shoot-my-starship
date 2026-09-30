@@ -59,6 +59,10 @@ jobs:
       # arm-1: el catálogo de armas sigue siendo datos -- ninguna rama por
       # identificador de arma dentro de resolver.ts.
       - run: node scripts/comprobar-sin-ramas-por-arma.mjs
+      # vex-2: perturbación errática, cuenta de mecha y adherencia viven UNA
+      # sola vez en src/sim/fisica/comportamientoExtendido.ts -- el cliente
+      # las consume, nunca las reimplementa.
+      - run: node scripts/comprobar-vuelo-unica-definicion.mjs
       # cie-3: ningún activo binario ni URL externa de activos en src/ o
       # public/ -- ver ACTIVOS.md.
       - run: npm run verificar:activos
