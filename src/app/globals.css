@@ -21,6 +21,26 @@
   }
 }
 
+/* contacto-honesto (con-3): el panel de roce llevaba fondo con alfa 0,16 y
+   texto en --color-cromado-texto -- en esquema claro ese texto es casi negro
+   y compuesto sobre la consola oscura de fondo daba 1,34:1 (gatekeeper,
+   iteración 6). El panel necesita identidad de color propia (azulada,
+   distinta de resultado-turno/broma) sin dejar de cumplir esp-5: fondo con
+   alfa 1 y texto con 4,5:1 medido contra ÉL, no contra lo que haya detrás. */
+:root {
+  --color-roce-fondo: #0a222e;
+  --color-roce-texto: #cdeeff;
+  --color-roce-borde: rgba(90, 200, 250, 0.6);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-roce-fondo: #dff2fb;
+    --color-roce-texto: #063142;
+    --color-roce-borde: rgba(6, 90, 130, 0.45);
+  }
+}
+
 /* touch-action: none evita que el navegador se lleve el gesto de arrastre
    (scroll, tirón de recarga) antes de que control-apuntado exista -- fijarlo
    aquí desde el primer bloque evita que se rompa por accidente más tarde. */

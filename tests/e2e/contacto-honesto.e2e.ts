@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ratioDeContraste, RATIO_MINIMO_TEXTO } from "../utils/contraste";
 
 // contacto-honesto: aterrizar un vuelo real justo en la banda de roce (fuera
 // del radio de colisión, dentro de la silueta dibujada -- unos pocos píxeles
@@ -109,4 +110,35 @@ test("contacto-honesto: el núcleo real se dibuja a escala exacta y se realza al
   expect(realzadoApuntando).toBe(1);
 
   await page.screenshot({ path: "capturas/contacto-honesto-2-nucleo-realzado.png" });
+});
+
+// con-3 (gatekeeper, iteración 6): el fondo con alfa 0,16 que llevaba antes
+// el panel de roce daba 1,34:1 en esquema claro (casi ilegible) aunque en
+// oscuro se viera bien -- Playwright arranca en claro por defecto, así que
+// el fallo pasaba desapercibido si solo se miraba un esquema. Se comprueba
+// aquí, explícitamente, en los dos.
+test("contacto-honesto: el panel de roce cumple 4,5:1 de contraste en los dos esquemas (con-3)", async ({ page }) => {
+  for (const esquema of ["dark", "light"] as const) {
+    await page.emulateMedia({ colorScheme: esquema });
+    await page.setViewportSize({ width: 360, height: 640 });
+    await page.goto("/?mapa=calma-de-los-restos");
+    await page.getByTestId("boton-jugar").click();
+    await page.waitForSelector("#game-container canvas");
+    await page.waitForFunction(() => window.__debug.naves !== undefined);
+    if (await page.getByTestId("ayuda-cerrar").isVisible()) {
+      await page.getByTestId("ayuda-cerrar").click();
+    }
+
+    await page.evaluate(() => window.__debug.dispararEventoRoce!(1, 200, 300));
+
+    const panelRoce = page.getByTestId("panel-roce");
+    await expect(panelRoce).toBeVisible();
+    const { fondo, texto } = await panelRoce.evaluate((el) => {
+      const estilo = getComputedStyle(el);
+      return { fondo: estilo.backgroundColor, texto: estilo.color };
+    });
+
+    const ratio = ratioDeContraste(fondo, texto);
+    expect(ratio, `esquema ${esquema}: fondo ${fondo}, texto ${texto}`).toBeGreaterThanOrEqual(RATIO_MINIMO_TEXTO);
+  }
 });
