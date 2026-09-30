@@ -1,6 +1,66 @@
 import { test, expect } from "@playwright/test";
+import { createCanvas, loadImage } from "canvas";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
+import { MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { arrastrarBarraHasta } from "./utilesControl";
+
+// min-2 (hallazgo del gatekeeper): el guardia anterior solo comprobaba el
+// DATO publicado en window.__debug, nunca lo que de verdad se pintaba en el
+// lienzo -- así coló un contador comprimido a ~0,75px CSS (el bug de
+// ContadorAdherencia.ts que invertía displayScale.x). Esta comprobación
+// decodifica el PNG real de la captura con el paquete "canvas" (ya
+// dependencia del repo, nunca del lado del navegador: no toca el guardia
+// terreno-6/comprobar-sin-lectura-canvas.mjs, que solo vigila src/juego y
+// src/sim) y mide en PÍXELES DE PANTALLA el bloque de color de fondo del
+// contador (#2a0a0a) alrededor de su punto de ancla, para que un contador
+// invisible o microscópico vuelva a hacer fallar el test aunque el dato
+// publicado sea correcto.
+const FONDO_CONTADOR_RGB = { r: 0x2a, g: 0x0a, b: 0x0a };
+const TOLERANCIA_COLOR = 40;
+const ALTO_MINIMO_LEGIBLE_CSS_PX = 12;
+
+async function medirBloqueDeFondo(
+  buffer: Buffer,
+  ventana: { left: number; top: number; right: number; bottom: number },
+): Promise<{ ancho: number; alto: number; muestras: number }> {
+  const imagen = await loadImage(buffer);
+  const lienzo = createCanvas(imagen.width, imagen.height);
+  const contexto = lienzo.getContext("2d");
+  contexto.drawImage(imagen, 0, 0);
+
+  const left = Math.max(0, Math.floor(ventana.left));
+  const top = Math.max(0, Math.floor(ventana.top));
+  const right = Math.min(imagen.width, Math.ceil(ventana.right));
+  const bottom = Math.min(imagen.height, Math.ceil(ventana.bottom));
+  const { data } = contexto.getImageData(left, top, right - left, bottom - top);
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let muestras = 0;
+  const ancho = right - left;
+  for (let y = 0; y < bottom - top; y++) {
+    for (let x = 0; x < ancho; x++) {
+      const i = (y * ancho + x) * 4;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const distancia = Math.abs(r - FONDO_CONTADOR_RGB.r) + Math.abs(g - FONDO_CONTADOR_RGB.g) + Math.abs(b - FONDO_CONTADOR_RGB.b);
+      if (distancia <= TOLERANCIA_COLOR) {
+        muestras++;
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+  if (muestras === 0) {
+    return { ancho: 0, alto: 0, muestras: 0 };
+  }
+  return { ancho: maxX - minX + 1, alto: maxY - minY + 1, muestras };
+}
 
 // min-2 (camino crítico): a diferencia de gra-2 (panel DOM position:fixed),
 // el contador de la mina es un GameObject DENTRO del lienzo de Phaser
@@ -48,8 +108,14 @@ test("min-2: el contador de la mina está anclado al punto de adherencia, es dis
   // que se fuerza una mecha corta y determinista tras la adherencia.
   await page.evaluate(() => window.__debug.forzarFusibleAdherenciaPasos!(100));
 
-  const anguloObjetivo = 45;
-  const potenciaObjetivo = 80;
+  // min-2 (hallazgo del gatekeeper): el ángulo/potencia anteriores (45/80)
+  // resolvían un punto de adherencia en (1928,96, -277,54), FUERA del mundo
+  // de 1920x1080 -- ahí no habría nada visible aunque el tamaño fuese
+  // correcto. Este disparo se pega cerca de la nave rival (1632, 414),
+  // dentro del mundo y por tanto del lienzo, comprobado con la sonda
+  // dedicada antes de fijar los valores.
+  const anguloObjetivo = 30;
+  const potenciaObjetivo = 50;
   const fraccionAngulo = (anguloObjetivo - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS);
   const fraccionPotencia = (potenciaObjetivo - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA);
   await arrastrarBarraHasta(page, "barra-angulo", fraccionAngulo);
@@ -131,8 +197,29 @@ test("min-2: el contador de la mina está anclado al punto de adherencia, es dis
       expect(Math.abs(instante.contador.x - impactoResuelto.x)).toBeLessThanOrEqual(2);
       expect(Math.abs(instante.contador.y - impactoResuelto.y)).toBeLessThanOrEqual(2);
       if (!capturada) {
-        await page.screenshot({ path: "capturas/arma-mina-adherente-18-cuenta-atras.png" });
+        const buffer = await page.screenshot({ path: "capturas/arma-mina-adherente-18-cuenta-atras.png" });
         capturada = true;
+
+        // Ventana de búsqueda en px de PANTALLA alrededor del punto de
+        // ancla (world -> screen vía el rectángulo real del lienzo, no un
+        // valor de cámara supuesto): generosa hacia arriba porque el texto
+        // se dibuja DESPLAZAMIENTO_VERTICAL_CSS_PX por encima del ancla.
+        const escalaX = (rectLienzo.right - rectLienzo.left) / MUNDO_ANCHO;
+        const escalaY = (rectLienzo.bottom - rectLienzo.top) / MUNDO_ALTO;
+        const anclaScreenX = rectLienzo.left + instante.contador.x * escalaX;
+        const anclaScreenY = rectLienzo.top + instante.contador.y * escalaY;
+        const bloque = await medirBloqueDeFondo(buffer, {
+          left: anclaScreenX - 40,
+          right: anclaScreenX + 40,
+          top: anclaScreenY - 70,
+          bottom: anclaScreenY + 10,
+        });
+
+        // min-2 (hallazgo del gatekeeper): esto es justo lo que el guardia
+        // anterior no comprobaba -- antes del arreglo de ContadorAdherencia
+        // (compensacionEscala invertida) este bloque medía ~1px de alto.
+        expect(bloque.muestras).toBeGreaterThan(0);
+        expect(bloque.alto).toBeGreaterThanOrEqual(ALTO_MINIMO_LEGIBLE_CSS_PX);
       }
     }
     await page.waitForTimeout(15);
