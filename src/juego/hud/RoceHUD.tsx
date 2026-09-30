@@ -26,11 +26,15 @@ export function RoceHUD() {
         minWidth: 0,
         maxHeight: 70,
         overflowY: "auto",
-        background: "rgba(90,200,250,0.16)",
-        border: "1px solid rgba(90,200,250,0.6)",
+        // con-3 (gatekeeper, iteración 6): fondo opaco propio en vez de la
+        // rgba con alfa 0,16 que llevaba antes -- con transparencia el
+        // contraste real depende de qué haya detrás (globals.css lo prohíbe
+        // para el cromado desde esp-5, y este panel se saltaba esa regla).
+        background: "var(--color-roce-fondo)",
+        border: "1px solid var(--color-roce-borde)",
         borderRadius: 10,
         padding: "6px 10px",
-        color: "var(--color-cromado-texto)",
+        color: "var(--color-roce-texto)",
         font: "11px system-ui, sans-serif",
         pointerEvents: "none",
         wordBreak: "break-word",
