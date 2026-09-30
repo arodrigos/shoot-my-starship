@@ -16,7 +16,7 @@ export interface PerturbacionErratica {
 }
 
 // vex-3: dos tiradas del MISMO EstadoAleatorio hilvanado del disparo, en
-// orden fijo (deriva antes que gravedad) -- nunca Math.random (nucleo-4).
+// orden fijo (deriva antes que gravedad) -- nunca azar sin hilvanar (nucleo-4).
 // La magnitud declarada en el catálogo (arma.comportamiento.magnitudPxS2)
 // fija la amplitud máxima del zigzag; el signo y la fracción exacta salen
 // del PRNG, disfrazados de deriva/gravedad extra de ESE paso -- el mismo

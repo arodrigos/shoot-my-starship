@@ -85,8 +85,8 @@ export interface OpcionesVueloGravitatorio {
   readonly rastreadorNaves?: RastreadorImpactoNaves;
   // vuelo-extensible (vex-3): arma "erratico" (mosca) -- perturbación por
   // paso que consume el MISMO EstadoAleatorio hilvanado del disparo (nunca
-  // Math.random), disfrazada de deriva/gravedad extra de ESE paso -- el
-  // mismo truco que ya usa la gravedad de N cuerpos para no bifurcar
+  // azar sin hilvanar), disfrazada de deriva/gravedad extra de ESE paso --
+  // el mismo truco que ya usa la gravedad de N cuerpos para no bifurcar
   // integrarPasoProyectil. Opcional y aditiva: sin ella, el comportamiento
   // es exactamente el de siempre.
   readonly perturbacion?: { readonly magnitudPxS2: number; readonly aleatorio: EstadoAleatorio };
