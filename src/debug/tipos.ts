@@ -226,6 +226,10 @@ export interface DebugGlobal {
   // después de varios turnos e impactos, porque el fondo no es terreno y
   // ningún redibujado por rectángulo sucio debería tocarlo.
   fondoEspacial?: { bakes: number };
+  // fondo-y-pozos (fnd-1, fnd-3): mismo contrato que fondoEspacial.bakes --
+  // los pozos de gravedad se hornean una sola vez al crear la escena, nunca
+  // por fotograma ni por impacto.
+  pozosGravedad?: { bakes: number };
   // esp-6: el resultado del turno que acaba de cerrarse -- incluye el caso
   // "proyectil perdido en órbita" con su propio texto (qué ha pasado y qué
   // hacer), no solo el genérico de impacto/fallo.

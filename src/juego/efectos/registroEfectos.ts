@@ -88,6 +88,26 @@ export const REGISTRO_EFECTOS = {
     techoObjetosVivos: 8,
     reutilizaPool: true,
   },
+  // fondo-y-pozos (fnd-3): ni la capa cercana del paralaje ni los pozos de
+  // gravedad son emisores de partículas (`Image` horneada una sola vez con
+  // `generateTexture`, igual que `destello-explosion`/`onda-de-choque`), por
+  // eso techoParticulas es 0 -- pero siguen siendo objetos vivos que hay que
+  // declarar antes de que existan, como pre-1 exige de todo efecto visual.
+  "fondo-paralaje-cercano": {
+    id: "fondo-paralaje-cercano",
+    descripcion: "Capa cercana del paralaje estelar (fondo-y-pozos): una imagen horneada que se mueve con una deriva propia.",
+    techoParticulas: 0,
+    techoObjetosVivos: 1,
+    reutilizaPool: false,
+  },
+  "pozos-gravedad": {
+    id: "pozos-gravedad",
+    descripcion:
+      "Halo de gravedad alrededor de cada planeta (fondo-y-pozos, fnd-1): una sola imagen horneada a partir de la aceleración real del integrador, no redibujada por fotograma.",
+    techoParticulas: 0,
+    techoObjetosVivos: 1,
+    reutilizaPool: false,
+  },
 } as const satisfies Record<string, EfectoVisual>;
 
 export type IdEfectoVisual = keyof typeof REGISTRO_EFECTOS;
