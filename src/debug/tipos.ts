@@ -66,6 +66,9 @@ export interface DebugControl {
   puedeDisparar: boolean;
   ayudaVisible: boolean;
   usosPorArma: Readonly<Record<string, number>>;
+  // realce-impacto (rlc-3): espejo de EstadoControl.sacudidaActiva, para que
+  // el e2e lea el ajuste persistido sin depender de leer el DOM del botón.
+  sacudidaActiva: boolean;
 }
 
 // render-6: lo que el indicador de deriva dibujó de verdad, no el dato
@@ -180,7 +183,11 @@ export interface DebugGlobal {
   // que el e2e compruebe el efecto en pantalla sin depender de apuntar a mano
   // una banda de pocos píxeles.
   dispararEventoRoce?: (nave: IdNave, x: number, y: number) => void;
-  dispararEventoImpactoReal?: (nave: IdNave, x: number, y: number) => void;
+  // realce-impacto (rlc-2): danio es opcional (por defecto 0, el mismo
+  // comportamiento que con-2/con-3 ya probaban) -- un e2e que quiera un
+  // impacto CON daño real para ejercer la sacudida/destello nuevos lo pasa
+  // explícito, sin tocar los tests existentes que llaman con 3 argumentos.
+  dispararEventoImpactoReal?: (nave: IdNave, x: number, y: number, danio?: number) => void;
   // con-2: un registro por destello real del núcleo (nunca se resetea a []
   // salvo en create(), igual que historialBromas) -- así el e2e comprueba que
   // el punto de contacto quedó centrado en la resolución real sin leer
@@ -240,6 +247,11 @@ export interface DebugGlobal {
   // la escena, no Date.now(): fasesActivasExplosion(elapsedMs) espera un
   // desfase relativo a ESE instante, no al reloj del sistema.
   ultimaExplosionPorCapas?: DatosExplosionPorCapas;
+  // realce-impacto (rlc-1, rlc-2): datos del último realce de impacto (solo
+  // en un impacto con daño real y con la sacudida activada) -- amplitud ya
+  // calculada por la misma función pura que el unitario ejerce, para que el
+  // e2e compruebe "mayor que cero y proporcional" sin leer píxeles.
+  ultimoRealceImpacto?: { danio: number; amplitud: number } | null;
   // explosiones-por-capas (exl-1): pura y determinista -- dado un desfase en
   // ms desde el impacto, qué capas de la explosión están activas. No lee
   // nada de la escena: es la misma función que usa el juego para decidir qué

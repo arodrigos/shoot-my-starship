@@ -11,6 +11,7 @@ import {
   costeDeArma,
   fijarAnguloDesdeFraccion,
   fijarPotenciaDesdeFraccion,
+  fijarSacudidaActiva,
   iniciarArrastre,
   obtenerEstadoControl,
   puedeCostearArma,
@@ -113,6 +114,7 @@ export function ControlHUD() {
       puedeDisparar: estado.puedeDisparar,
       ayudaVisible: estado.ayudaVisible,
       usosPorArma: estado.usosPorArma,
+      sacudidaActiva: estado.sacudidaActiva,
     };
     window.__debug.modoEspacial = estado.modoEspacial;
   }, [estado]);
@@ -222,7 +224,31 @@ export function ControlHUD() {
             </div>
           )}
         </div>
-        <IntegridadHUD />
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6 }}>
+          {/* realce-impacto (rlc-3): "no marea ni estorba" -- interruptor
+              propio, fuera del lienzo, que persiste entre partidas (store). */}
+          <button
+            type="button"
+            data-testid="toggle-sacudida"
+            aria-pressed={estado.sacudidaActiva}
+            onClick={() => fijarSacudidaActiva(!estado.sacudidaActiva)}
+            title={estado.sacudidaActiva ? "Desactivar sacudida de impacto" : "Activar sacudida de impacto"}
+            style={{
+              minWidth: TAMANO_MINIMO_BOTON_PX,
+              height: TAMANO_MINIMO_BOTON_PX,
+              padding: "0 8px",
+              borderRadius: 8,
+              border: "none",
+              background: "var(--color-cromado-fondo)",
+              color: "var(--color-cromado-texto)",
+              font: "11px system-ui, sans-serif",
+              cursor: "pointer",
+            }}
+          >
+            Sacudida: {estado.sacudidaActiva ? "On" : "Off"}
+          </button>
+          <IntegridadHUD />
+        </div>
       </div>
 
       {/* control-angulo-potencia: dos controles independientes de verdad --

@@ -61,6 +61,7 @@ import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reprod
 import type { DatosEscenaPartida } from "@/juego/main";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
 import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorCapas";
+import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { calcularPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
@@ -236,6 +237,13 @@ export class Partida extends Phaser.Scene {
   private naves!: [Nave, Nave];
   private indicadorDeriva!: IndicadorDeriva;
   private animador!: AnimadorProyectil;
+  // realce-impacto (rlc-1): avance de turno retrasado mientras dura la
+  // sacudida de cámara, contado a mano con el mismo `delta` del bucle de
+  // update() -- NUNCA this.time.delayedCall, porque dispararRafagaTurbo
+  // (proy-4, proy-5, hum-1) avanza turnos con un bucle síncrono que llama a
+  // this.update() a mano sin que corra el bucle real de Phaser por debajo:
+  // un delayedCall ahí se quedaría pendiente para siempre.
+  private avanceTurnoPendiente: { restanteMs: number; avanzar: () => void } | null = null;
   // arma-mina-adherente (min-2): cuenta atrás anclada al mundo del vuelo
   // REAL en curso -- nunca el de repetición, mismo criterio que la estela y
   // que actualizarCuentaAtrasMecha.
@@ -616,9 +624,12 @@ export class Partida extends Phaser.Scene {
     // camino que un roce real (manejarEventosVisuales, el mismo método que
     // usa un turno jugado) para que el e2e compruebe con-2/con-3/con-6 sobre
     // el efecto en pantalla, no sobre la puntería.
-    window.__debug.dispararEventoRoce = (nave, x, y) => this.manejarEventosVisuales([{ tipo: "roce", nave, x, y }]);
-    window.__debug.dispararEventoImpactoReal = (nave, x, y) =>
-      this.manejarEventosVisuales([{ tipo: "impacto", x, y, objetivo: nave, danio: 0, impactoNave: nave }]);
+    window.__debug.dispararEventoRoce = (nave, x, y) => {
+      this.manejarEventosVisuales([{ tipo: "roce", nave, x, y }]);
+    };
+    window.__debug.dispararEventoImpactoReal = (nave, x, y, danio = 0) => {
+      this.manejarEventosVisuales([{ tipo: "impacto", x, y, objetivo: nave, danio, impactoNave: nave }]);
+    };
     // nve-1, nve-3: fuerza la integridad de una nave sin jugar el turno real
     // que la produciría -- aterrizar a mano en los tres tramos de daño no es
     // reproducible con un disparo balístico exacto. Muta this.estado.naves
@@ -674,6 +685,19 @@ export class Partida extends Phaser.Scene {
       window.__debug!.camara = { x: vista.x, y: vista.y, ancho: vista.width, alto: vista.height };
     }
     window.__debug!.sacudiendoCamara = this.cameras.main.shakeEffect.isRunning;
+
+    // realce-impacto (rlc-1): mismo delta que mueve animador/animadorRepeticion
+    // arriba -- así el avance de turno retrasado resuelve igual en el bucle
+    // real de Phaser que dentro de dispararRafagaTurbo (ver el comentario de
+    // avanceTurnoPendiente).
+    if (this.avanceTurnoPendiente) {
+      this.avanceTurnoPendiente.restanteMs -= delta;
+      if (this.avanceTurnoPendiente.restanteMs <= 0) {
+        const avanzar = this.avanceTurnoPendiente.avanzar;
+        this.avanceTurnoPendiente = null;
+        avanzar();
+      }
+    }
 
     const jugable = this.puedeJugarAhora();
     publicarJugable(jugable);
@@ -864,7 +888,11 @@ export class Partida extends Phaser.Scene {
           { arma: CATALOGO_ARMAS[0].id, anguloGrados: ajuste.anguloGrados, potencia: ajuste.potencia },
           true,
         );
-      } else if (this.animador.enVuelo() || this.animadorRepeticion.enVuelo()) {
+      } else if (this.animador.enVuelo() || this.animadorRepeticion.enVuelo() || this.avanceTurnoPendiente) {
+        // realce-impacto (rlc-1): avanceTurnoPendiente también cuenta como
+        // "sigue resolviéndose" -- sin este caso, un impacto directo dentro
+        // de la ráfaga caería en la guardia defensiva de abajo y la ráfaga
+        // se cortaría antes de llegar al número de disparos pedido.
         this.update(0, PASO_TURBO_MS);
       } else {
         // No debería ocurrir: dispararTurnoIA se encadena en el propio
@@ -880,7 +908,13 @@ export class Partida extends Phaser.Scene {
       this.estado.resultado.tipo !== "terminada" &&
       this.estado.turno === ID_JUGADOR &&
       !this.animador.enVuelo() &&
-      !this.animadorRepeticion.enVuelo()
+      !this.animadorRepeticion.enVuelo() &&
+      // realce-impacto (rlc-1): this.estado todavía es el de ANTES del
+      // disparo mientras la sacudida no ha vuelto a reposo -- sin este gate,
+      // un vuelo ya resuelto pero con el turno retrasado se leería como
+      // "sigue siendo tu turno, sin animación", y el botón de disparar se
+      // reactivaría antes de que el turno real haya pasado.
+      !this.avanceTurnoPendiente
     );
   }
 
@@ -1104,14 +1138,21 @@ export class Partida extends Phaser.Scene {
       // se resuelve el impacto y responde la máquina.
       window.__debug!.cuentaAtrasAdherencia = null;
       this.contadorAdherencia.actualizar(null, null);
-      this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma);
-      // Encadenar aquí (y no dentro de aplicarResultadoTurno) es lo que
-      // evita que jugarTurnosGuionizados/forzarFinDePartida -- que también
-      // llaman a aplicarResultadoTurno, pero con su propio guion de
-      // fuentes -- disparen un turno extra no contado por su bucle.
-      if (this.estado.resultado.tipo !== "terminada" && this.estado.turno !== ID_JUGADOR) {
-        this.dispararTurnoIA();
-      }
+      // realce-impacto (rlc-1): alAvanzarTurno encadena la respuesta de la
+      // IA DESPUÉS de que el turno haya avanzado de verdad (inmediato, o
+      // retrasado hasta que la sacudida vuelva a reposo) -- mismo motivo que
+      // ya explicaba este comentario antes de este bloque: evita que
+      // jugarTurnosGuionizados/forzarFinDePartida, que también llaman a
+      // aplicarResultadoTurno pero con su propio guion de fuentes y SIN
+      // estas opciones, disparen un turno extra no contado por su bucle.
+      this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma, {
+        retrasarSiHaySacudida: true,
+        alAvanzarTurno: () => {
+          if (this.estado.resultado.tipo !== "terminada" && this.estado.turno !== ID_JUGADOR) {
+            this.dispararTurnoIA();
+          }
+        },
+      });
       },
       estadoAntes.planetas,
       rastreadorNaves,
@@ -1136,7 +1177,12 @@ export class Partida extends Phaser.Scene {
   // (pruebas) pueda reproducir exactamente el mismo camino que un turno real,
   // en vez de duplicar la lógica de emisores/HUD -- mismo motivo que
   // crearEventoDePruebaHumor para los eventos de humor.
-  private manejarEventosVisuales(eventos: readonly EventoSimulacion[]): void {
+  // realce-impacto (rlc-1): devuelve cuántos ms hay que esperar a que la
+  // sacudida de cámara dispare para que aplicarResultadoTurno pueda retrasar
+  // el avance de turno hasta que la cámara vuelva a reposo -- 0 si ningún
+  // evento la disparó (roce, impacto sin daño, o ajuste desactivado).
+  private manejarEventosVisuales(eventos: readonly EventoSimulacion[]): number {
+    let esperaSacudidaMs = 0;
     for (const evento of eventos) {
       if (evento.tipo === "impacto") {
         if (evento.danio > 0) {
@@ -1164,6 +1210,19 @@ export class Partida extends Phaser.Scene {
             ...(window.__debug!.destellosNucleo ?? []),
             { nave: evento.impactoNave, x: evento.x, y: evento.y },
           ];
+
+          // realce-impacto (rlc-1, rlc-2): solo en el impacto que de verdad
+          // hizo daño -- un impacto a cero daño se queda con el destello de
+          // contacto honesto de arriba, sin sacudida ni destello rojo, igual
+          // que un roce (que ni siquiera entra en esta rama). Con el ajuste
+          // desactivado (rlc-3), ningún desplazamiento de cámara.
+          if (evento.danio > 0 && obtenerEstadoControl().sacudidaActiva) {
+            const amplitud = amplitudSacudida(evento.danio);
+            this.cameras.main.shake(DURACION_SACUDIDA_IMPACTO_MS, amplitud);
+            this.naves[evento.impactoNave].destellarDanio(intensidadDestelloDanio(evento.danio));
+            window.__debug!.ultimoRealceImpacto = { danio: evento.danio, amplitud };
+            esperaSacudidaMs = Math.max(esperaSacudidaMs, DURACION_SACUDIDA_IMPACTO_MS);
+          }
         }
       } else if (evento.tipo === "roce") {
         comprobarCantidadDentroDelTecho("roce-chispazo", CANTIDAD_PARTICULAS_ROCE);
@@ -1172,6 +1231,7 @@ export class Partida extends Phaser.Scene {
         publicarRoce(`Roce: el disparo ha pasado rozando ${naveNombre} sin tocar su casco. Sin daño.`);
       }
     }
+    return esperaSacudidaMs;
   }
 
   private aplicarResultadoTurno(
@@ -1179,6 +1239,17 @@ export class Partida extends Phaser.Scene {
     eventos: readonly EventoSimulacion[],
     categoriaBroma?: CategoriaBroma,
     armaId?: string,
+    // realce-impacto (rlc-1): opciones EXCLUSIVAS del turno animado real
+    // (ver el callback de this.animador.iniciar más arriba) -- ninguno de
+    // los otros tres llamadores (proyectil-perdido, jugarTurnosGuionizados,
+    // forzarFinDePartida) las pasa, así que su avance sigue siendo
+    // síncrono, exactamente igual que antes de este bloque: esos guiones no
+    // corren el update() de Phaser entre turnos, y una sacudida retrasada
+    // ahí se quedaría pendiente para siempre, no solo unos ms.
+    opciones?: {
+      readonly retrasarSiHaySacudida?: boolean;
+      readonly alAvanzarTurno?: () => void;
+    },
   ): void {
     // estadoAntes es this.estado ANTES de reasignarlo más abajo -- se captura
     // aquí (y no en cada llamador) para que jugarTurnosGuionizados y
@@ -1192,30 +1263,43 @@ export class Partida extends Phaser.Scene {
 
     this.terreno.sincronizarDesde(estadoDespues.mascara);
 
-    this.manejarEventosVisuales(eventos);
+    const esperaSacudidaMs = this.manejarEventosVisuales(eventos);
     this.reaccionarAHumor(eventos);
     if (categoriaBroma) {
       this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos, armaId ? buscarArma(armaId) : undefined);
     }
     publicarResultadoTurno(resumenTurno(eventos));
 
-    this.estado = estadoDespues;
-    this.refrescarNaves();
-    this.refrescarDebugNaves();
-    this.refrescarEconomia();
-    window.__debug!.turno = this.estado.turno;
-    window.__debug!.numeroTurno = this.estado.numeroTurno;
-    publicarJugable(this.puedeJugarAhora());
+    // rlc-1: "la sacudida... termina siempre antes de que el turno pase al
+    // siguiente jugador" -- numeroTurno (dentro de estadoDespues) no avanza
+    // hasta que la cámara ya volvió a reposo, en vez de en el mismo tick en
+    // que la sacudida arranca.
+    const avanzarTurno = (): void => {
+      this.estado = estadoDespues;
+      this.refrescarNaves();
+      this.refrescarDebugNaves();
+      this.refrescarEconomia();
+      window.__debug!.turno = this.estado.turno;
+      window.__debug!.numeroTurno = this.estado.numeroTurno;
+      publicarJugable(this.puedeJugarAhora());
 
-    if (estadoDespues.resultado.tipo === "terminada") {
-      const estadisticasGanador = this.estadisticas[estadoDespues.resultado.ganador];
-      const parte = generarParteDeGuerra(estadisticasGanador);
-      publicarParteDeGuerra(parte, estadisticasGanador);
-      window.__debug!.parteDeGuerra = { ...parte, estadisticas: estadisticasGanador };
-      // partida-5: intento de guardado best-effort -- si localStorage no
-      // está disponible, guardarUltimaPartida se degrada en silencio (ver
-      // progreso.ts) y la partida ya jugada no se pierde por eso.
-      guardarUltimaPartida(parte, estadisticasGanador);
+      if (estadoDespues.resultado.tipo === "terminada") {
+        const estadisticasGanador = this.estadisticas[estadoDespues.resultado.ganador];
+        const parte = generarParteDeGuerra(estadisticasGanador);
+        publicarParteDeGuerra(parte, estadisticasGanador);
+        window.__debug!.parteDeGuerra = { ...parte, estadisticas: estadisticasGanador };
+        // partida-5: intento de guardado best-effort -- si localStorage no
+        // está disponible, guardarUltimaPartida se degrada en silencio (ver
+        // progreso.ts) y la partida ya jugada no se pierde por eso.
+        guardarUltimaPartida(parte, estadisticasGanador);
+      }
+      opciones?.alAvanzarTurno?.();
+    };
+
+    if (opciones?.retrasarSiHaySacudida && esperaSacudidaMs > 0) {
+      this.avanceTurnoPendiente = { restanteMs: esperaSacudidaMs, avanzar: avanzarTurno };
+    } else {
+      avanzarTurno();
     }
   }
 

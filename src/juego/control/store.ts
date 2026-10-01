@@ -44,6 +44,11 @@ export interface EstadoControl {
   // saldo, ni siquiera uno enorme).
   readonly modo: ModoJuego;
   readonly saldo: number | null;
+  // realce-impacto (rlc-3): si la sacudida de cámara y el destello de daño
+  // están activados -- persistido como ayudaVisible (localStorage, no se
+  // resetea en reiniciarControl porque es preferencia del navegador, no de
+  // la partida).
+  readonly sacudidaActiva: boolean;
 }
 
 const CLAVE_AYUDA_VISTA = "control-apuntado:ayuda-vista";
@@ -101,6 +106,31 @@ function guardarAjuste(ajuste: EstadoAjuste): void {
   }
 }
 
+// realce-impacto (rlc-3): "no marea ni estorba" -- por defecto activada
+// (true cuando no hay nada guardado todavía), igual que el resto de
+// ajustes de este bloque, sin forzar al jugador a descubrir un interruptor
+// para ver el efecto nuevo la primera vez.
+const CLAVE_SACUDIDA_ACTIVA = "realce-impacto:sacudida-activa";
+
+function leerSacudidaActivaGuardada(): boolean {
+  try {
+    const bruto = window.localStorage.getItem(CLAVE_SACUDIDA_ACTIVA);
+    return bruto === null ? true : bruto === "1";
+  } catch {
+    return true;
+  }
+}
+
+function guardarSacudidaActiva(valor: boolean): void {
+  try {
+    window.localStorage.setItem(CLAVE_SACUDIDA_ACTIVA, valor ? "1" : "0");
+  } catch {
+    // Cuota agotada o almacenamiento no disponible: el ajuste no persiste
+    // entre partidas, un fallo visible y sin consecuencias, no una
+    // excepción sin capturar.
+  }
+}
+
 let estado: EstadoControl = {
   ajuste: leerAjusteGuardado() ?? {
     anguloGrados: ANGULO_INICIAL_GRADOS,
@@ -114,6 +144,7 @@ let estado: EstadoControl = {
   modoEspacial: false,
   modo: "barra-libre",
   saldo: null,
+  sacudidaActiva: leerSacudidaActivaGuardada(),
 };
 
 const escuchas = new Set<() => void>();
@@ -252,6 +283,14 @@ export function publicarDisparoJugadorResuelto(ajuste: EstadoAjuste): void {
 export function cerrarAyuda(): void {
   marcarAyudaVista();
   fijar({ ayudaVisible: false });
+}
+
+// realce-impacto (rlc-3): único punto de escritura del ajuste -- persiste de
+// inmediato, igual que fijarAjuste con el apuntado, para que sobreviva a
+// recargar la página sin depender de ningún otro evento.
+export function fijarSacudidaActiva(valor: boolean): void {
+  fijar({ sacudidaActiva: valor });
+  guardarSacudidaActiva(valor);
 }
 
 type ManejadorDisparo = (entrada: EntradaDeTurno) => void;
