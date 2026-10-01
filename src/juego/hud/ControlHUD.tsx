@@ -6,6 +6,7 @@ import {
   actualizarArrastre,
   ajustarAnguloFino,
   ajustarPotenciaFino,
+  alternarSilenciado,
   armaEstaAgotada,
   cerrarAyuda,
   costeDeArma,
@@ -21,6 +22,7 @@ import {
   suscribirControl,
   terminarArrastre,
 } from "@/juego/control/store";
+import { obtenerHistorialEfectos, sonidoSilenciado } from "@/juego/audio/motor";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
@@ -115,8 +117,14 @@ export function ControlHUD() {
       ayudaVisible: estado.ayudaVisible,
       usosPorArma: estado.usosPorArma,
       sacudidaActiva: estado.sacudidaActiva,
+      silenciado: estado.silenciado,
     };
     window.__debug.modoEspacial = estado.modoEspacial;
+    // sonido-procedimental (snd-2): función en vivo, no una instantánea --
+    // los efectos de sonido se registran desde Partida.ts (Phaser) entre dos
+    // renders de React, así que un valor fijado aquí quedaría obsoleto
+    // (mismo motivo que estadoAudio, ver src/debug/tipos.ts).
+    window.__debug.audio = () => ({ silenciado: sonidoSilenciado(), historial: obtenerHistorialEfectos() });
   }, [estado]);
 
   useEffect(() => {
@@ -398,6 +406,33 @@ export function ControlHUD() {
           }}
         >
           Sacudida: {estado.sacudidaActiva ? "On" : "Off"}
+        </button>
+        {/* sonido-procedimental (snd-1): "siempre accesible" -- mismo sitio y
+            mismo patrón que toggle-sacudida (fila de alto fijo, nunca se
+            desplaza ni desaparece con el resto del HUD), nunca dentro de un
+            menú ni una pantalla aparte. El gesto de pulsar ESTE botón para
+            activar sonido es, a la vez, el gesto de usuario que exige la
+            política de autoplay (ver alternarSonido en motor.ts). */}
+        <button
+          type="button"
+          data-testid="toggle-silenciado"
+          aria-pressed={!estado.silenciado}
+          onClick={() => alternarSilenciado()}
+          title={estado.silenciado ? "Activar sonido" : "Silenciar"}
+          style={{
+            flex: "0 0 auto",
+            minWidth: TAMANO_MINIMO_BOTON_PX,
+            height: TAMANO_MINIMO_BOTON_PX,
+            padding: "0 8px",
+            borderRadius: 8,
+            border: "none",
+            background: "var(--color-cromado-fondo)",
+            color: "var(--color-cromado-texto)",
+            font: "11px system-ui, sans-serif",
+            cursor: "pointer",
+          }}
+        >
+          Sonido: {estado.silenciado ? "Off" : "On"}
         </button>
       </div>
 

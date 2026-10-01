@@ -1,6 +1,6 @@
 import type { EventoSimulacion, TipoEventoHumor } from "@/sim/partida/eventos";
 import type { EstadisticasPartida, ParteDeGuerra } from "@/sim/partida/parteDeGuerra";
-import type { EstadoAudio } from "@/juego/audio/motor";
+import type { EstadoAudio, IdEfectoSonoro } from "@/juego/audio/motor";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import type { IdVoz } from "@/contenido/bancoBromas";
 import type { IdNave } from "@/sim/partida/tipos";
@@ -81,6 +81,10 @@ export interface DebugControl {
   // realce-impacto (rlc-3): espejo de EstadoControl.sacudidaActiva, para que
   // el e2e lea el ajuste persistido sin depender de leer el DOM del botón.
   sacudidaActiva: boolean;
+  // sonido-procedimental (snd-1): espejo de EstadoControl.silenciado, mismo
+  // motivo que sacudidaActiva -- leer el ajuste persistido sin depender del
+  // DOM del botón de silenciar.
+  silenciado: boolean;
 }
 
 // render-6: lo que el indicador de deriva dibujó de verdad, no el dato
@@ -173,6 +177,12 @@ export interface DebugGlobal {
   // navegador con el audio mudo o suspendido sigue mostrando la reacción
   // visual igualmente.
   estadoAudio?: () => EstadoAudio;
+  // sonido-procedimental (snd-1, snd-2): función en vivo (mismo patrón que
+  // estadoAudio) en vez de un valor congelado en el último render de
+  // ControlHUD -- el historial de efectos se escribe desde Partida.ts
+  // (Phaser), fuera del ciclo de React, así que una instantánea fijada en un
+  // efecto quedaría obsoleta entre disparos.
+  audio?: () => { silenciado: boolean; historial: readonly { id: IdEfectoSonoro; enMs: number }[] };
   // humor-6: dispara la repetición instantánea del último disparo resuelto
   // (de cualquiera de las dos naves) sin tocar el estado de partida; expone
   // el punto de impacto que la repetición reproduce para comparar con el
