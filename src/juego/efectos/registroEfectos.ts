@@ -47,6 +47,47 @@ export const REGISTRO_EFECTOS = {
     techoObjetosVivos: 4,
     reutilizaPool: false,
   },
+  // explosiones-por-capas (exl-1..exl-5): destello y onda son `graphics`
+  // (Arc), no emisores de partículas -- su techoParticulas es 0 a propósito,
+  // pero se dan de alta igual que las demás porque pre-1 exige que TODO
+  // efecto visual declare su techo antes de existir, no solo los que crean
+  // un emisor de partículas.
+  "destello-explosion": {
+    id: "destello-explosion",
+    descripcion: "Capa 1 de la explosión por capas: disco breve que se abre y se apaga casi al instante.",
+    techoParticulas: 0,
+    techoObjetosVivos: 1,
+    reutilizaPool: false,
+  },
+  "onda-de-choque": {
+    id: "onda-de-choque",
+    descripcion: "Capa 2: anillo que crece y se desvanece, más lento y más amplio que el destello.",
+    techoParticulas: 0,
+    techoObjetosVivos: 1,
+    reutilizaPool: false,
+  },
+  "escombros-impacto": {
+    id: "escombros-impacto",
+    descripcion: "Capa 3: escombros con rebote (gravityY + bounce) y desvanecimiento, un `.explode()` por impacto.",
+    techoParticulas: 16,
+    techoObjetosVivos: 16,
+    reutilizaPool: false,
+  },
+  "humo-residual": {
+    id: "humo-residual",
+    descripcion: "Capa 4: humo que flota y se desvanece después de que escombros y onda ya han terminado.",
+    techoParticulas: 10,
+    techoObjetosVivos: 10,
+    reutilizaPool: false,
+  },
+  "marca-terreno": {
+    id: "marca-terreno",
+    descripcion:
+      "Capa 5: huella persistente del impacto sobre el terreno. No es un emisor de partículas -- es un pool de graphics de tamaño fijo (la más antigua se recicla al llegar al techo), por eso reutilizaPool=true con techoParticulas=0.",
+    techoParticulas: 0,
+    techoObjetosVivos: 8,
+    reutilizaPool: true,
+  },
 } as const satisfies Record<string, EfectoVisual>;
 
 export type IdEfectoVisual = keyof typeof REGISTRO_EFECTOS;

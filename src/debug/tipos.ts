@@ -6,6 +6,7 @@ import type { IdVoz } from "@/contenido/bancoBromas";
 import type { IdNave } from "@/sim/partida/tipos";
 import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
+import type { DatosExplosionPorCapas, NombreFaseExplosion } from "@/juego/efectos/ExplosionPorCapas";
 
 // Punto de observación que los tests de Playwright leen desde fuera del
 // juego (window.__debug.*). Vive en un módulo aparte para que cada bloque
@@ -233,6 +234,17 @@ export interface DebugGlobal {
   // -- para que el test compruebe la distinción visual hit/sin-daño sin
   // tener que leer píxeles de pantalla.
   ultimoTipoExplosion?: "danio" | "sin-danio";
+  // explosiones-por-capas (exl-1): datos del último impacto con daño real --
+  // x/y/danio tal como los resolvió el núcleo, más la escala (función pura
+  // de danio) y el instante en que se disparó. inicioMs es this.time.now de
+  // la escena, no Date.now(): fasesActivasExplosion(elapsedMs) espera un
+  // desfase relativo a ESE instante, no al reloj del sistema.
+  ultimaExplosionPorCapas?: DatosExplosionPorCapas;
+  // explosiones-por-capas (exl-1): pura y determinista -- dado un desfase en
+  // ms desde el impacto, qué capas de la explosión están activas. No lee
+  // nada de la escena: es la misma función que usa el juego para decidir qué
+  // dibujar, expuesta para que el test no tenga que adivinar un sleep.
+  fasesActivasExplosion?: (elapsedMs: number) => readonly NombreFaseExplosion[];
   // contacto-honesto (con-4): qué nave lleva el anillo de realce del núcleo
   // en este fotograma -- null fuera de modo de apuntado. Así el test
   // comprueba "se realza al entrar en modo de apuntado" leyendo un valor, no

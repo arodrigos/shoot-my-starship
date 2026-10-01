@@ -60,6 +60,7 @@ import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFr
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
 import type { DatosEscenaPartida } from "@/juego/main";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
+import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorCapas";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { calcularPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
@@ -289,6 +290,12 @@ export class Partida extends Phaser.Scene {
   // detona, así que reutilizar cualquiera de los dos emisores de arriba se
   // leería como un impacto que en realidad no ha ocurrido.
   private emisorRoce!: Phaser.GameObjects.Particles.ParticleEmitter;
+  // explosiones-por-capas: las cinco capas (destello, onda, escombros, humo,
+  // marca persistente) viven agrupadas en su propia clase -- a diferencia de
+  // los tres emisores de arriba, no es un solo GameObject sino un conjunto
+  // coordinado, así que no tiene sentido repetir aquí su construcción campo
+  // a campo.
+  private explosionPorCapas!: ExplosionPorCapas;
   // proy-4: estela de pool ACOTADO -- maxParticles en la config del emisor
   // (no un contador propio) es lo que garantiza el tope, así que
   // getAliveParticleCount() nunca puede superarlo, también con varios vuelos
@@ -318,6 +325,12 @@ export class Partida extends Phaser.Scene {
 
   create(): void {
     window.__debug = window.__debug ?? {};
+    // explosiones-por-capas (exl-1): función PURA (no lee nada de la escena
+    // ni del DOM) -- el e2e la usa para preguntar "¿qué capas tocan a los X
+    // ms del impacto?" sin depender de un sleep ni de la velocidad real del
+    // runner (issue #151): la respuesta es la misma en un portátil rápido y
+    // en el runner de CI cargado.
+    window.__debug.fasesActivasExplosion = fasesActivasEn;
     // esc-1: geometría real, calculada UNA vez con las mismas funciones que
     // dibujan la nave y el catálogo de proyectiles -- no cambia entre
     // turnos ni con el mapa, así que no hace falta recalcularla más abajo.
@@ -522,6 +535,8 @@ export class Partida extends Phaser.Scene {
       quantity: 0,
       emitting: false,
     });
+
+    this.explosionPorCapas = new ExplosionPorCapas(this);
 
     // proy-4: partícula quieta que solo se desvanece (speed 0) -- es un
     // punto de estela, no una chispa de explosión, así que no debe salir
@@ -1128,6 +1143,12 @@ export class Partida extends Phaser.Scene {
           comprobarCantidadDentroDelTecho("explosion-con-danio", CANTIDAD_PARTICULAS_EXPLOSION);
           this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
           window.__debug!.ultimoTipoExplosion = "danio";
+          // explosiones-por-capas (exl-1): solo en el impacto que hace daño
+          // de verdad -- un "sin-danio" ya tiene su propio fogonazo apagado
+          // (imp-12) y un roce su chispa (con-3); las cinco capas son el
+          // refuerzo del impacto real, no un efecto genérico de cualquier
+          // detonación.
+          window.__debug!.ultimaExplosionPorCapas = this.explosionPorCapas.reproducir(evento.x, evento.y, evento.danio);
         } else {
           comprobarCantidadDentroDelTecho("explosion-sin-danio", CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO);
           this.emisorExplosionSinDanio.explode(CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO, evento.x, evento.y);
