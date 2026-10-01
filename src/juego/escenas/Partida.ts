@@ -61,6 +61,7 @@ import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reprod
 import type { DatosEscenaPartida } from "@/juego/main";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
+import { calcularPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
 import "@/debug/tipos";
@@ -293,6 +294,10 @@ export class Partida extends Phaser.Scene {
   // getAliveParticleCount() nunca puede superarlo, también con varios vuelos
   // seguidos sin que el pool "en reposo" entre turnos crezca.
   private emisorEstela!: Phaser.GameObjects.Particles.ParticleEmitter;
+  // prevision-real: se dibuja en coordenadas de MUNDO (como la estela, no
+  // como IndicadorDeriva, que es HUD de pantalla) -- misma convención que
+  // "dibujados en el mundo y no en un recuadro" del diseño.
+  private graficosPrevisualizacion!: Phaser.GameObjects.Graphics;
   private cancelarManejadorDisparo: (() => void) | null = null;
   private cancelarManejadorRepeticion: (() => void) | null = null;
 
@@ -467,6 +472,10 @@ export class Partida extends Phaser.Scene {
     this.animador = new AnimadorProyectil(this);
     this.animadorRepeticion = new AnimadorProyectil(this);
     this.contadorAdherencia = new ContadorAdherencia(this);
+    // Depth 30: por debajo de la estela del proyectil real (40, que solo
+    // existe durante el vuelo, cuando la previsualización ya está oculta),
+    // por encima del terreno y las naves.
+    this.graficosPrevisualizacion = this.add.graphics().setDepth(30);
     this.estadisticas = [estadisticasIniciales(), estadisticasIniciales()];
 
     const lienzoParticula = this.make.graphics({ x: 0, y: 0 });
@@ -662,6 +671,73 @@ export class Partida extends Phaser.Scene {
     const objetivoApuntado: IdNave = naveContraria(this.estado.turno);
     this.naves.forEach((nave, id) => nave.realzarNucleo(jugable && (id as IdNave) === objetivoApuntado));
     window.__debug!.nucleoRealzado = jugable ? objetivoApuntado : null;
+
+    this.actualizarPrevisualizacion(jugable);
+  }
+
+  // prevision-real (pvr-1, pvr-2, pvr-3): recalcula y redibuja la mira cada
+  // fotograma mientras se puede jugar -- el mismo gate `jugable` que ya usa
+  // el núcleo realzado (con-4) es, literalmente, "turno del jugador sin
+  // animación en curso", así que la previsualización se oculta sola durante
+  // el vuelo real o el turno rival sin ningún caso especial aparte (pvr-2).
+  private actualizarPrevisualizacion(jugable: boolean): void {
+    this.graficosPrevisualizacion.clear();
+
+    if (!jugable) {
+      window.__debug!.previsualizacion = null;
+      return;
+    }
+
+    const estado = this.estado;
+    const tirador = estado.turno;
+    const naveTiradora = estado.naves[tirador];
+    const naveObjetivo = estado.naves[naveContraria(tirador)];
+    const origenX = naveTiradora.x;
+    const origenY = naveTiradora.y ?? alturaSuperficie(estado.mascara, origenX) ?? estado.mundo.alto - 1;
+    const { anguloGrados, potencia, armaId } = obtenerEstadoControl().ajuste;
+    const arma = buscarArma(armaId);
+
+    // impacto-naves: mismo criterio que dispararEntrada -- el casco solo
+    // existe como cuerpo de colisión en modo espacial, con naves vivas.
+    const modoEspacial = naveTiradora.y !== undefined && naveObjetivo.y !== undefined;
+    const navesVivas = modoEspacial
+      ? estado.naves
+          .map((nave, id) => ({ id: id as IdNave, nave }))
+          .filter(({ nave }) => nave.integridad > 0)
+          .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }))
+      : undefined;
+    const rastreadorNaves = navesVivas ? crearRastreadorImpactoNaves(navesVivas, tirador) : undefined;
+
+    const puntos = calcularPrevisualizacion({
+      mascara: estado.mascara,
+      gravedad: estado.mundo.gravedad,
+      deriva: estado.mundo.deriva,
+      ancho: estado.mundo.ancho,
+      alto: estado.mundo.alto,
+      planetas: estado.planetas,
+      rastreadorNaves,
+      origenX,
+      origenY,
+      anguloGrados,
+      potencia,
+      comportamiento: arma.comportamiento,
+      aleatorio: estado.aleatorio,
+    });
+
+    if (puntos.length < 2) {
+      window.__debug!.previsualizacion = null;
+      return;
+    }
+
+    this.graficosPrevisualizacion.lineStyle(2, 0x9ad1ff, 0.6);
+    this.graficosPrevisualizacion.beginPath();
+    this.graficosPrevisualizacion.moveTo(puntos[0].x, puntos[0].y);
+    for (let i = 1; i < puntos.length; i++) {
+      this.graficosPrevisualizacion.lineTo(puntos[i].x, puntos[i].y);
+    }
+    this.graficosPrevisualizacion.strokePath();
+
+    window.__debug!.previsualizacion = { puntos: puntos.map((p) => ({ x: p.x, y: p.y })), visible: true };
   }
 
   // arma-granada-espoleta (gra-2, gra-3): publica cada fotograma los
