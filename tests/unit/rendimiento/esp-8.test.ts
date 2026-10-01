@@ -8,6 +8,10 @@ import { crearProyectil } from "@/sim/fisica/proyectil";
 import { detenerseEnSuelo } from "@/sim/armas/resolver";
 import { PASO_FIJO_MS } from "@/sim/tiempo";
 import { efectosRegistrados } from "@/juego/efectos/registroEfectos";
+import { calcularPrevisualizacion } from "@/sim/armas/previsualizacion";
+import { buscarArma } from "@/sim/armas/catalogo";
+import { crearEstadoAleatorio } from "@/sim/aleatorio";
+import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS } from "@/juego/control/apuntado";
 
 // esp-8 (camino crítico): sustituto sin GPU de render-3/esp-7 -- el runner de
 // CI (ubuntu-latest) no tiene GPU real, así que aquí se presupuesta el coste
@@ -111,4 +115,69 @@ test("esp-8: coste de simulación+draw-prep por fotograma en el peor caso (6 pla
   const p95 = duracionesMs[indiceP95];
 
   assert.ok(p95 < P95_MAXIMO_MS, `p95 de ${p95.toFixed(3)}ms supera el presupuesto de ${P95_MAXIMO_MS}ms`);
+});
+
+// prevision-real (pvr-3, camino crítico): la mira se recalcula cada
+// fotograma mientras se arrastra el control de ángulo o de potencia -- y a
+// diferencia del vuelo+efectos de arriba, eso ocurre SIN proyectil en vuelo
+// (jugable == true es, por construcción, "sin animación en curso"), así que
+// es un presupuesto propio, no una suma sobre el de arriba. Se cubren las
+// cuatro ramas de comportamiento que calcularPrevisualizacion trata
+// distinto (impacto-simple, erratico, mecha, adherente-con-mecha) con un
+// arma real del catálogo cada una, sobre el mismo peor sistema (6 planetas,
+// 2 anillos, 40 asteroides) que el resto de esp-8.
+const ARMAS_REPRESENTATIVAS_PREVISUALIZACION = [
+  "pepinazo-cortesia",
+  "mosca-cojonera",
+  "granada-de-espoleta",
+  "gancho-pegajoso",
+] as const;
+
+test("esp-8 (pvr-3, camino crítico): recalcular la previsualización cada fotograma cambiando el ángulo tiene p95 < 8ms en el peor sistema, para cada comportamiento de vuelo del catálogo", () => {
+  const sistema = generarSistema(20260926, MUNDO_ANCHO, MUNDO_ALTO, {
+    numPlanetas: 6,
+    numAnillos: 2,
+    numAsteroides: 40,
+  });
+
+  for (const armaId of ARMAS_REPRESENTATIVAS_PREVISUALIZACION) {
+    const arma = buscarArma(armaId);
+    // mos-1/pvr-3: el mismo EstadoAleatorio hilvanado se reutiliza en TODAS
+    // las lecturas, nunca se hilvana de vuelta -- exactamente como hace
+    // Partida.ts al leer estado.aleatorio cada fotograma mientras se apunta.
+    const aleatorio = crearEstadoAleatorio(99);
+    const duracionesMs: number[] = [];
+
+    for (let i = 0; i < NUM_FOTOGRAMAS; i++) {
+      // Simula el barrido completo de un arrastre real de ángulo, un grado
+      // distinto cada fotograma, dentro del rango que expone el control.
+      const anguloGrados = ANGULO_MINIMO_GRADOS + (i % Math.floor(ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
+      const inicio = process.hrtime.bigint();
+      calcularPrevisualizacion({
+        mascara: sistema.mascara,
+        gravedad: 1,
+        deriva: 0,
+        ancho: MUNDO_ANCHO,
+        alto: MUNDO_ALTO,
+        planetas: sistema.planetas,
+        origenX: MUNDO_ANCHO / 2,
+        origenY: 45,
+        anguloGrados,
+        potencia: 70,
+        comportamiento: arma.comportamiento,
+        aleatorio,
+      });
+      const fin = process.hrtime.bigint();
+      duracionesMs.push(Number(fin - inicio) / 1e6);
+    }
+
+    duracionesMs.sort((a, b) => a - b);
+    const indiceP95 = Math.floor(duracionesMs.length * 0.95);
+    const p95 = duracionesMs[indiceP95];
+
+    assert.ok(
+      p95 < P95_MAXIMO_MS,
+      `${armaId}: p95 de ${p95.toFixed(3)}ms de recalcular la previsualización supera el presupuesto de ${P95_MAXIMO_MS}ms`,
+    );
+  }
 });
