@@ -225,6 +225,9 @@ export interface DebugGlobal {
   // que arrancó esta escena -- tiene que quedarse en 1 para siempre, también
   // después de varios turnos e impactos, porque el fondo no es terreno y
   // ningún redibujado por rectángulo sucio debería tocarlo.
+  // fondo-y-pozos: la capa estelar cercana y los pozos de gravedad se
+  // hornean fundidos en esta misma textura (ver FondoEspacial.ts), así que
+  // comparten este único contador en vez de tener uno propio.
   fondoEspacial?: { bakes: number };
   // esp-6: el resultado del turno que acaba de cerrarse -- incluye el caso
   // "proyectil perdido en órbita" con su propio texto (qué ha pasado y qué

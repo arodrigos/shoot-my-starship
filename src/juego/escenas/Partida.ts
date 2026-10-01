@@ -467,7 +467,11 @@ export class Partida extends Phaser.Scene {
       // esp-3: se hornea una sola vez aquí, en create() -- ninguna otra
       // ruta de este fichero vuelve a llamar a crearFondoEspacial, así que
       // window.__debug.fondoEspacial.bakes se queda en 1 para siempre.
-      crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial");
+      // fondo-y-pozos (fnd-1, fnd-2): la capa cercana del paralaje y los
+      // pozos de gravedad se funden en esta misma textura (ver el porqué en
+      // FondoEspacial.ts) -- `sistema.planetas` es el mismo registro que usa
+      // la gravedad real, nunca una copia.
+      crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", sistema.planetas);
       window.__debug.fondoEspacial = { bakes: 1 };
       this.selectorFrases = crearSelectorFrases(semillaSistema);
       this.selectorBromas = crearSelectorBromas(semillaSistema);
