@@ -13,6 +13,7 @@ import {
   sanearAjusteNumericoGuardado,
   type FraccionDeVentana,
 } from "@/juego/control/apuntado";
+import { alternarSonido, sonidoSilenciado } from "@/juego/audio/motor";
 
 // Puente entre React (ControlHUD, fuera del lienzo) y la escena de Phaser
 // (que sí sabe de terreno y física): un módulo-singleton con
@@ -49,6 +50,12 @@ export interface EstadoControl {
   // resetea en reiniciarControl porque es preferencia del navegador, no de
   // la partida).
   readonly sacudidaActiva: boolean;
+  // sonido-procedimental (snd-1): espejo de motor.ts/sonidoSilenciado() para
+  // que el HUD (React) se reactive al alternar -- motor.ts sigue siendo la
+  // única fuente de verdad y la que persiste en localStorage; este campo solo
+  // evita que ControlHUD tenga que leer un módulo imperativo fuera de su
+  // ciclo de render.
+  readonly silenciado: boolean;
 }
 
 const CLAVE_AYUDA_VISTA = "control-apuntado:ayuda-vista";
@@ -145,6 +152,7 @@ let estado: EstadoControl = {
   modo: "barra-libre",
   saldo: null,
   sacudidaActiva: leerSacudidaActivaGuardada(),
+  silenciado: sonidoSilenciado(),
 };
 
 const escuchas = new Set<() => void>();
@@ -291,6 +299,14 @@ export function cerrarAyuda(): void {
 export function fijarSacudidaActiva(valor: boolean): void {
   fijar({ sacudidaActiva: valor });
   guardarSacudidaActiva(valor);
+}
+
+// sonido-procedimental (snd-1): único punto de alternado del sonido -- delega
+// en motor.ts (que persiste y gestiona el AudioContext real) y solo refleja
+// el resultado en el store para que el HUD se reactive.
+export function alternarSilenciado(): void {
+  const valor = alternarSonido();
+  fijar({ silenciado: valor });
 }
 
 type ManejadorDisparo = (entrada: EntradaDeTurno) => void;

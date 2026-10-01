@@ -57,7 +57,8 @@ import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
-import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirTono } from "@/juego/audio/motor";
+import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirEfecto, reproducirTono } from "@/juego/audio/motor";
+import { indiceTic } from "@/juego/audio/cadenciaTicTac";
 import type { DatosEscenaPartida } from "@/juego/main";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
 import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorCapas";
@@ -204,6 +205,14 @@ export class Partida extends Phaser.Scene {
   // haga falta corregir -- resetear ahí descartaba toda la racha aprendida y
   // la máquina volvía a fallar gordo el turno siguiente, en un vaivén que no
   // converge nunca. Solo crece; ya no hace daño quedarse "de más" precisa.
+  // sonido-procedimental (snd-2): último índice de indiceTic() publicado por
+  // cada cuenta atrás -- null mientras no hay ninguna activa. Comparar el
+  // índice nuevo contra este valor (en vez de disparar el tic cada fotograma)
+  // es lo que convierte la cadencia continua en un tic discreto, y hacerlo
+  // con dos campos separados es lo que permite que mecha y mina suenen cada
+  // una a su propio ritmo si llegara a haber dos cuentas atrás a la vez.
+  private ultimoIndiceTicMecha: number | null = null;
+  private ultimoIndiceTicMina: number | null = null;
   private fallosConsecutivosIA = 0;
   // ia-n8: turnos SEGUIDOS que la máquina ha disparado sin causar daño real
   // al jugador -- decidirTurnoIA lo usa para forzar un arma con daño > 0 al
@@ -793,10 +802,19 @@ export class Partida extends Phaser.Scene {
     if (segundos === null) {
       limpiarCuentaAtras();
       window.__debug!.cuentaAtrasMecha = null;
+      this.ultimoIndiceTicMecha = null;
       return;
     }
     publicarCuentaAtras(segundos);
     window.__debug!.cuentaAtrasMecha = { segundosRestantes: segundos };
+    // snd-2: segundos viene de la propia simulación de vuelo (determinista,
+    // no del reloj real), así que comparar el índice cuantizado entre dos
+    // fotogramas es en sí mismo determinista -- ver cadenciaTicTac.ts.
+    const indice = indiceTic(segundos);
+    if (indice !== this.ultimoIndiceTicMecha) {
+      this.ultimoIndiceTicMecha = indice;
+      reproducirEfecto("tictac-mecha");
+    }
   }
 
   // arma-mina-adherente (min-2, min-3): publica cada fotograma la posición
@@ -810,6 +828,7 @@ export class Partida extends Phaser.Scene {
     if (!this.animador.estaAdherido()) {
       this.contadorAdherencia.actualizar(null, null);
       window.__debug!.cuentaAtrasAdherencia = null;
+      this.ultimoIndiceTicMina = null;
       return;
     }
     const posicion = this.animador.obtenerPosicion();
@@ -817,9 +836,17 @@ export class Partida extends Phaser.Scene {
     this.contadorAdherencia.actualizar(posicion, segundos);
     if (posicion === null || segundos === null) {
       window.__debug!.cuentaAtrasAdherencia = null;
+      this.ultimoIndiceTicMina = null;
       return;
     }
     window.__debug!.cuentaAtrasAdherencia = { x: posicion.x, y: posicion.y, segundosRestantes: segundos };
+    // snd-2: mismo mecanismo que actualizarCuentaAtrasMecha, timbre distinto
+    // (tictac-mina) para distinguir al oído cuál de las dos armas apremia.
+    const indice = indiceTic(segundos);
+    if (indice !== this.ultimoIndiceTicMina) {
+      this.ultimoIndiceTicMina = indice;
+      reproducirEfecto("tictac-mina");
+    }
   }
 
   // proy-4/proy-5: un único punto que emite la estela del vuelo REAL en
@@ -972,6 +999,11 @@ export class Partida extends Phaser.Scene {
     // cuenta atrás vieja no debe quedarse en pantalla al empezar el disparo
     // siguiente (que puede ni siquiera ser una granada).
     limpiarCuentaAtras();
+    // sonido-procedimental (snd-2): el disparo se marca aquí, el único punto
+    // que dispara un turno real (jugador o IA) -- nunca en los guiones de
+    // prueba (jugarTurnosGuionizados, forzarFinDePartida), igual que la
+    // estela de proy-4/proy-5.
+    reproducirEfecto("disparo");
 
     const tirador: IdNave = estadoAntes.turno;
     const naveTiradora = estadoAntes.naves[tirador];
@@ -1189,6 +1221,12 @@ export class Partida extends Phaser.Scene {
     let esperaSacudidaMs = 0;
     for (const evento of eventos) {
       if (evento.tipo === "impacto") {
+        // sonido-procedimental (snd-2): distinto de "roce" de abajo -- el
+        // mismo contraste que ya hace contacto-honesto a nivel visual, ahora
+        // también al oído, sin importar si el impacto hizo daño o no (eso lo
+        // sigue distinguiendo el propio timbre de "impacto" frente al "roce",
+        // no una tercera variante).
+        reproducirEfecto("impacto");
         if (evento.danio > 0) {
           comprobarCantidadDentroDelTecho("explosion-con-danio", CANTIDAD_PARTICULAS_EXPLOSION);
           this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
@@ -1229,6 +1267,7 @@ export class Partida extends Phaser.Scene {
           }
         }
       } else if (evento.tipo === "roce") {
+        reproducirEfecto("roce");
         comprobarCantidadDentroDelTecho("roce-chispazo", CANTIDAD_PARTICULAS_ROCE);
         this.emisorRoce.explode(CANTIDAD_PARTICULAS_ROCE, evento.x, evento.y);
         const naveNombre = evento.nave === ID_JUGADOR ? "tu nave" : "la nave rival";

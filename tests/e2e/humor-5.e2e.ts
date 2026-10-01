@@ -47,19 +47,26 @@ async function dispararTiroLargo(
 
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
 
+  // sonido-procedimental (snd-1): el sonido arranca silenciado por defecto,
+  // así que el pointerdown de apuntado ya no desbloquea el audio por sí solo
+  // -- hace falta el gesto explícito del interruptor del HUD antes de poder
+  // esperar "en-marcha". La preferencia persiste en localStorage (snd-1), así
+  // que en la segunda pasada de esta prueba (mismo storage, nuevo `goto`) ya
+  // llega activada: el clic solo se da si todavía está silenciado, para no
+  // volver a apagarlo.
+  if (await page.evaluate(() => window.__debug.audio!().silenciado)) {
+    await page.getByTestId("toggle-silenciado").click();
+  }
+
   const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
   expect(solucion).not.toBeNull();
   const deltaY = -(solucion!.anguloGrados - ANGULO_INICIAL_GRADOS) / GANANCIA_ANGULO_GRADOS;
   const deltaX = (solucion!.potencia - POTENCIA_INICIAL) / GANANCIA_POTENCIA;
   const inicio = { x: 195, y: 760 };
   const fin = { x: inicio.x + deltaX * 390, y: inicio.y + deltaY * 844 };
+  await page.waitForFunction(() => window.__debug.estadoAudio!() === "en-marcha");
   await page.mouse.move(inicio.x, inicio.y);
   await page.mouse.down();
-  // El pointerdown que arranca el arrastre de apuntado es EL gesto real que
-  // desbloquea el audio (ver desbloquearAudio en motor.ts) -- el único que
-  // está garantizado en las dos pasadas de esta prueba, a diferencia del
-  // clic en ayuda-cerrar.
-  await page.waitForFunction(() => window.__debug.estadoAudio!() === "en-marcha");
   await page.mouse.move((inicio.x + fin.x) / 2, (inicio.y + fin.y) / 2, { steps: 5 });
   await page.mouse.move(fin.x, fin.y, { steps: 5 });
   await page.mouse.up();
