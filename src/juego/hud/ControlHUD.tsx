@@ -11,6 +11,7 @@ import {
   costeDeArma,
   fijarAnguloDesdeFraccion,
   fijarPotenciaDesdeFraccion,
+  fijarSacudidaActiva,
   iniciarArrastre,
   obtenerEstadoControl,
   puedeCostearArma,
@@ -113,6 +114,7 @@ export function ControlHUD() {
       puedeDisparar: estado.puedeDisparar,
       ayudaVisible: estado.ayudaVisible,
       usosPorArma: estado.usosPorArma,
+      sacudidaActiva: estado.sacudidaActiva,
     };
     window.__debug.modoEspacial = estado.modoEspacial;
   }, [estado]);
@@ -222,7 +224,9 @@ export function ControlHUD() {
             </div>
           )}
         </div>
-        <IntegridadHUD />
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <IntegridadHUD />
+        </div>
       </div>
 
       {/* control-angulo-potencia: dos controles independientes de verdad --
@@ -363,6 +367,38 @@ export function ControlHUD() {
       >
         <BromaHUD />
         <RoceHUD />
+        {/* realce-impacto (rlc-3): "no marea ni estorba" -- interruptor propio,
+            fuera del lienzo, que persiste entre partidas (store). Vive aquí
+            (no en fila-estado) porque fila-estado ya agota su presupuesto
+            horizontal con resultado-turno + IntegridadHUD (338 de 344px en
+            360x640, visto al medir dev antes de este bloque) -- cualquier
+            elemento nuevo ahí fuerza el shrink-to-fit de resultado-turno muy
+            por debajo de su ancho natural y dispara el envoltorio a varias
+            líneas (lay-5). fila-avisos, en cambio, tiene alto FIJO
+            independiente de su contenido, así que un hijo flex:"0 0 auto"
+            más no cambia su alto ni el de ninguna fila posterior. */}
+        <button
+          type="button"
+          data-testid="toggle-sacudida"
+          aria-pressed={estado.sacudidaActiva}
+          onClick={() => fijarSacudidaActiva(!estado.sacudidaActiva)}
+          title={estado.sacudidaActiva ? "Desactivar sacudida de impacto" : "Activar sacudida de impacto"}
+          style={{
+            flex: "0 0 auto",
+            marginLeft: "auto",
+            minWidth: TAMANO_MINIMO_BOTON_PX,
+            height: TAMANO_MINIMO_BOTON_PX,
+            padding: "0 8px",
+            borderRadius: 8,
+            border: "none",
+            background: "var(--color-cromado-fondo)",
+            color: "var(--color-cromado-texto)",
+            font: "11px system-ui, sans-serif",
+            cursor: "pointer",
+          }}
+        >
+          Sacudida: {estado.sacudidaActiva ? "On" : "Off"}
+        </button>
       </div>
 
       {/* fila-armas: selector de arma y disparo/repetir -- el paso fino de

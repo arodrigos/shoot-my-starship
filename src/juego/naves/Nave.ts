@@ -3,6 +3,7 @@ import { ALTO_CASCO, ANCHO_CASCO, LARGO_CANON } from "@/sim/naves/geometriaCasco
 import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 import { OPACIDAD_NUCLEO, TECHO_OPACIDAD_FUERA_NUCLEO } from "@/juego/naves/opacidadCasco";
 import { anclaTobera, hashPuntos, nivelDanio, puntosCascoConDanio, type NivelDanio } from "@/juego/naves/formaCasco";
+import { DURACION_DESTELLO_DANIO_MS } from "@/juego/efectos/realceImpacto";
 
 const COLOR_NAVE_0 = 0x5ac8fa;
 const COLOR_NAVE_1 = 0xff6b4a;
@@ -13,6 +14,12 @@ const COLOR_CABINA = 0xd6f4ff;
 const COLOR_TOBERA_SANA = 0xffb347;
 const COLOR_TOBERA_CRITICA = 0x8a4a2c;
 const COLOR_CICATRIZ = 0x0c0d10;
+// realce-impacto (rlc-2): rojo, sobre TODA la silueta -- claramente distinto
+// del destello blanco de contacto honesto (solo el núcleo, intensidad fija)
+// y del chispazo naranja del roce (partículas en el punto de contacto, no
+// sobre la nave), para que la diferencia entre "tocó y dolió" y cualquier
+// otro contacto se perciba sin leer ningún texto.
+const COLOR_DESTELLO_DANIO = 0xff3b30;
 
 // nve-1: opacidad de la tobera por tramo de daño -- la llama se apaga
 // visiblemente a medida que la nave pierde integridad, sin superar nunca el
@@ -164,6 +171,25 @@ export class Nave {
       targets: destello,
       alpha: 0,
       duration: 180,
+      onComplete: () => destello.destroy(),
+    });
+  }
+
+  // realce-impacto (rlc-1, rlc-2): destello de daño proporcional, sobre toda
+  // la silueta dibujada (no solo el núcleo, a diferencia de destellarNucleo)
+  // -- geometría transitoria propia, igual que destellarNucleo, así que
+  // tampoco compite por el techo de partículas de registroEfectos.ts.
+  // intensidad ya viene acotada por intensidadDestelloDanio: aquí solo se
+  // consume.
+  destellarDanio(intensidad: number): void {
+    const destello = this.escena.add.graphics();
+    destello.fillStyle(COLOR_DESTELLO_DANIO, intensidad);
+    destello.fillCircle(0, 0, Math.max(ANCHO_CASCO, ALTO_CASCO) * 0.6);
+    this.contenedor.add(destello);
+    this.escena.tweens.add({
+      targets: destello,
+      alpha: 0,
+      duration: DURACION_DESTELLO_DANIO_MS,
       onComplete: () => destello.destroy(),
     });
   }
