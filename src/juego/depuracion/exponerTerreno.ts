@@ -1,5 +1,7 @@
 import type Phaser from "phaser";
 import type { Terreno } from "@/juego/terreno/Terreno";
+import { obtenerMaterial } from "@/sim/terreno/mascara";
+import { clasificarPixelVisual, type TipoVisualPixel } from "@/juego/terreno/clasificacionVisual";
 import "@/debug/tipos";
 
 // Puente entre el terreno real del juego y los tests de Playwright
@@ -37,6 +39,40 @@ export function exponerDepuracionDeTerreno(terreno: Terreno, texturaCanvas: Phas
     },
 
     aplicarHuella: (cx, cy, radio, signo) => terreno.aplicarHuella(cx, cy, radio, signo),
+
+    // crateres-y-escombros (crt-1): qué DIBUJARÍA este píxel -- misma
+    // función pura que usan SuperficieCanvasPhaser/SuperficieEspacio, nunca
+    // una copia -- para que el e2e pida "dame un punto de borde quemado" sin
+    // tener que calcular a mano dónde cae la banda tras una huella real.
+    clasificarVisual: (x, y): TipoVisualPixel => clasificarPixelVisual(terreno.obtenerMascara(), x, y),
+
+    // crateres-y-escombros (crt-1): primer píxel de la máscara REAL que
+    // tiene el material pedido, o null si no hay ninguno -- así el e2e no
+    // depende de coordenadas fijas que una semilla distinta movería
+    // (mismo motivo que "planetas" en DebugGlobal).
+    buscarPixelDeMaterial: (material) => {
+      const mascara = terreno.obtenerMascara();
+      for (let y = 0; y < mascara.alto; y++) {
+        for (let x = 0; x < mascara.ancho; x++) {
+          if (obtenerMaterial(mascara, x, y) === material) {
+            return { x, y };
+          }
+        }
+      }
+      return null;
+    },
+
+    // crateres-y-escombros (crt-1): color RGBA real ya pintado en el lienzo
+    // para un lote de puntos, con UNA sola lectura del canvas (mismo patrón
+    // que comprobarPuntos) -- lo que de verdad ve el jugador, no lo que la
+    // máscara dice que debería verse.
+    leerColores: (puntos) => {
+      const imagen = texturaCanvas.context.getImageData(0, 0, texturaCanvas.width, texturaCanvas.height);
+      return puntos.map(({ x, y }) => {
+        const base = (y * imagen.width + x) * 4;
+        return { r: imagen.data[base], g: imagen.data[base + 1], b: imagen.data[base + 2], a: imagen.data[base + 3] };
+      });
+    },
 
     listo: false,
   };

@@ -2,7 +2,8 @@ import type Phaser from "phaser";
 import { esMaterialPlaneta, obtenerMaterial, type Mascara } from "@/sim/terreno/mascara";
 import type { RectanguloSucio } from "@/sim/terreno/huella";
 import type { SuperficieDeTerreno } from "@/juego/terreno/Terreno";
-import { PALETA_ESPACIO_ESCOMBRO, PALETA_ESPACIO_PLANETAS, type PaletaTerreno } from "@/juego/paleta";
+import { FACTOR_BORDE_QUEMADO, PALETA_ESPACIO_ESCOMBRO, PALETA_ESPACIO_PLANETAS, type PaletaTerreno, oscurecer } from "@/juego/paleta";
+import { clasificarPixelVisual } from "@/juego/terreno/clasificacionVisual";
 
 // Geometría de un planeta a efectos de sombreado: cx/cy/radio, FIJOS de por
 // vida (nucleo-gravedad -- el centro de atracción y el radio declarado nunca
@@ -36,17 +37,36 @@ function factorSombra(dx: number, dy: number, radio: number): number {
   return AMBIENTE + (1 - AMBIENTE) * Math.max(0, producto);
 }
 
-function colorPixel(material: number, x: number, y: number, geometrias: ReadonlyMap<number, GeometriaPlaneta>): PaletaTerreno {
+// crateres-y-escombros: el borde quemado se oscurece SOBRE el color ya
+// sombreado del planeta (no sobre el color base plano), para que un cráter
+// en la cara oscura siga leyéndose más oscuro que uno en la cara iluminada
+// -- el chamuscado tizna el material, no sustituye su iluminación. El
+// escombro no lleva este tratamiento (ver el comentario de
+// PALETA_ESPACIO_ESCOMBRO): son fragmentos sueltos, no un cráter sobre un
+// cuerpo esférico.
+function colorPixel(
+  mascara: Mascara,
+  material: number,
+  x: number,
+  y: number,
+  geometrias: ReadonlyMap<number, GeometriaPlaneta>,
+): PaletaTerreno {
   if (!esMaterialPlaneta(material)) {
     return PALETA_ESPACIO_ESCOMBRO;
   }
   const base = PALETA_ESPACIO_PLANETAS[material] ?? PALETA_ESPACIO_ESCOMBRO;
   const geometria = geometrias.get(material);
-  if (!geometria) {
-    return base;
+  const sombreado = geometria
+    ? (() => {
+        const sombra = factorSombra(x - geometria.cx, y - geometria.cy, geometria.radio);
+        return { r: Math.round(base.r * sombra), g: Math.round(base.g * sombra), b: Math.round(base.b * sombra) };
+      })()
+    : base;
+
+  if (clasificarPixelVisual(mascara, x, y) === "borde-quemado") {
+    return oscurecer(sombreado, FACTOR_BORDE_QUEMADO);
   }
-  const sombra = factorSombra(x - geometria.cx, y - geometria.cy, geometria.radio);
-  return { r: Math.round(base.r * sombra), g: Math.round(base.g * sombra), b: Math.round(base.b * sombra) };
+  return sombreado;
 }
 
 // Implementación de SuperficieDeTerreno para el hito espacial (render-espacio,
@@ -89,7 +109,7 @@ export class SuperficieEspacio implements SuperficieDeTerreno {
           }
           contexto.clearRect(inicioTramo, y, x - inicioTramo + 1, 1);
         } else {
-          const color = colorPixel(material, x, y, this.geometrias);
+          const color = colorPixel(mascara, material, x, y, this.geometrias);
           contexto.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
           contexto.fillRect(x, y, 1, 1);
         }
@@ -116,7 +136,7 @@ export class SuperficieEspacio implements SuperficieDeTerreno {
           imagen.data[base + 3] = 0;
           continue;
         }
-        const color = colorPixel(material, x, y, this.geometrias);
+        const color = colorPixel(mascara, material, x, y, this.geometrias);
         imagen.data[base] = color.r;
         imagen.data[base + 1] = color.g;
         imagen.data[base + 2] = color.b;

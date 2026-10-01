@@ -7,6 +7,7 @@ import type { IdNave } from "@/sim/partida/tipos";
 import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
 import type { DatosExplosionPorCapas, NombreFaseExplosion } from "@/juego/efectos/ExplosionPorCapas";
+import type { TipoVisualPixel } from "@/juego/terreno/clasificacionVisual";
 
 // Punto de observación que los tests de Playwright leen desde fuera del
 // juego (window.__debug.*). Vive en un módulo aparte para que cada bloque
@@ -24,6 +25,17 @@ export interface DebugTerreno {
     radio: number,
     signo: "restar" | "sumar",
   ) => { x: number; y: number; ancho: number; alto: number };
+  // crateres-y-escombros (crt-1): qué tipo visual dibuja este punto, misma
+  // clasificación pura que usa el renderizador real.
+  clasificarVisual: (x: number, y: number) => TipoVisualPixel;
+  // crateres-y-escombros (crt-1): primer punto de la máscara real con ese
+  // material (ver mascara.ts: 0 aire, 1..6 planeta, 255 escombro), o null si
+  // no hay ninguno -- evita coordenadas fijas atadas a una semilla concreta.
+  buscarPixelDeMaterial: (material: number) => { x: number; y: number } | null;
+  // crateres-y-escombros (crt-1): color RGBA ya pintado en el lienzo real
+  // para un lote de puntos, con una sola lectura (mismo patrón que
+  // comprobarPuntos).
+  leerColores: (puntos: { x: number; y: number }[]) => { r: number; g: number; b: number; a: number }[];
   // true en cuanto el guion de huellas de la escena de pruebas ha terminado
   // de aplicarse -- así el test no depende de una espera fija (issue #151).
   listo: boolean;

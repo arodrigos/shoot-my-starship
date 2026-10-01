@@ -12,6 +12,8 @@ import { calcularPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS } from "@/juego/control/apuntado";
+import { SuperficieEspacio, type GeometriaPlaneta } from "@/juego/terreno/SuperficieEspacio";
+import { aplicarHuellaCircular } from "@/sim/terreno/huella";
 
 // esp-8 (camino crítico): sustituto sin GPU de render-3/esp-7 -- el runner de
 // CI (ubuntu-latest) no tiene GPU real, así que aquí se presupuesta el coste
@@ -180,4 +182,87 @@ test("esp-8 (pvr-3, camino crítico): recalcular la previsualización cada fotog
       `${armaId}: p95 de ${p95.toFixed(3)}ms de recalcular la previsualización supera el presupuesto de ${P95_MAXIMO_MS}ms`,
     );
   }
+});
+
+// crateres-y-escombros (crt-3): el borde quemado añade un barrido por vecinos
+// (clasificarPixelVisual) a los dos caminos de dibujo de terreno que antes
+// eran O(1) por píxel -- este presupuesto existe para que ese coste nuevo no
+// se cuele sin que nadie lo mida. Doble de CanvasTexture con el mismo
+// contrato que SuperficieEspacio usa de verdad (fillRect/clearRect en el
+// camino de impacto, createImageData/putImageData solo en la pasada
+// completa), sin canvas real -- igual que crearEscenaDeMentira de arriba,
+// aquí no hace falta pintar de verdad para medir el coste de CPU.
+function crearTexturaDeMentira(ancho: number, alto: number): Phaser.Textures.CanvasTexture {
+  const contexto = {
+    fillStyle: "",
+    fillRect: () => {},
+    clearRect: () => {},
+    createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4), width: w, height: h }),
+    putImageData: () => {},
+  };
+  return { context: contexto, width: ancho, height: alto, update: () => {} } as unknown as Phaser.Textures.CanvasTexture;
+}
+
+test("esp-8 (crt-3, camino crítico): pintarCompleta del peor sistema tiene coste acotado (una sola pasada, nunca por fotograma)", () => {
+  const sistema = generarSistema(20260926, MUNDO_ANCHO, MUNDO_ALTO, {
+    numPlanetas: 6,
+    numAnillos: 2,
+    numAsteroides: 40,
+  });
+  const geometrias = new Map<number, GeometriaPlaneta>(
+    sistema.planetas.map((planeta) => [planeta.id, { cx: planeta.cx, cy: planeta.cy, radio: planeta.radio }]),
+  );
+  const superficie = new SuperficieEspacio(crearTexturaDeMentira(MUNDO_ANCHO, MUNDO_ALTO), geometrias);
+
+  const inicio = process.hrtime.bigint();
+  superficie.pintarCompleta(sistema.mascara);
+  const duracionMs = Number(process.hrtime.bigint() - inicio) / 1e6;
+
+  // Presupuesto generoso (no es un coste por fotograma, se paga una vez al
+  // generar el mapa): solo existe para detectar una regresión gruesa, no
+  // para presupuestar al milisegundo -- medido en ~300ms en CI, el margen
+  // es amplio a propósito para no ser un test intermitente por carga de la
+  // máquina (issue #151).
+  assert.ok(duracionMs < 1000, `pintarCompleta tardó ${duracionMs.toFixed(1)}ms, por encima del presupuesto de 1000ms`);
+});
+
+test("esp-8 (crt-3, camino crítico): refrescar el rectángulo de un impacto, con el planeta ya muy dañado, tiene p95 < 8ms", () => {
+  const sistema = generarSistema(20260926, MUNDO_ANCHO, MUNDO_ALTO, {
+    numPlanetas: 6,
+    numAnillos: 2,
+    numAsteroides: 40,
+  });
+  const geometrias = new Map<number, GeometriaPlaneta>(
+    sistema.planetas.map((planeta) => [planeta.id, { cx: planeta.cx, cy: planeta.cy, radio: planeta.radio }]),
+  );
+  const superficie = new SuperficieEspacio(crearTexturaDeMentira(MUNDO_ANCHO, MUNDO_ALTO), geometrias);
+  const planeta = sistema.planetas[0];
+
+  // "Terreno muy dañado": acribilla el primer planeta de cráteres solapados
+  // ANTES de medir, para que el barrido de vecinos del bloque tenga que
+  // cruzar de verdad muchos bordes quemados, no un disco intacto.
+  for (let i = 0; i < 60; i++) {
+    const anguloRad = (i * 137) % 360 * (Math.PI / 180);
+    const distancia = (i * 7) % Math.max(1, planeta.radio - 10);
+    const cx = planeta.cx + Math.cos(anguloRad) * distancia;
+    const cy = planeta.cy + Math.sin(anguloRad) * distancia;
+    aplicarHuellaCircular(sistema.mascara, cx, cy, 8, "restar");
+  }
+
+  const duracionesMs: number[] = [];
+  for (let i = 0; i < 100; i++) {
+    const anguloRad = (i * 53) % 360 * (Math.PI / 180);
+    const cx = planeta.cx + Math.cos(anguloRad) * (planeta.radio * 0.5);
+    const cy = planeta.cy + Math.sin(anguloRad) * (planeta.radio * 0.5);
+    const rectangulo = aplicarHuellaCircular(sistema.mascara, cx, cy, 15, "restar");
+
+    const inicio = process.hrtime.bigint();
+    superficie.refrescarRectangulo(sistema.mascara, rectangulo);
+    duracionesMs.push(Number(process.hrtime.bigint() - inicio) / 1e6);
+  }
+
+  duracionesMs.sort((a, b) => a - b);
+  const p95 = duracionesMs[Math.floor(duracionesMs.length * 0.95)];
+
+  assert.ok(p95 < P95_MAXIMO_MS, `refrescarRectangulo en terreno muy dañado: p95 de ${p95.toFixed(3)}ms supera el presupuesto de ${P95_MAXIMO_MS}ms`);
 });

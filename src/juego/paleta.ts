@@ -34,5 +34,23 @@ export const PALETA_ESPACIO_PLANETAS: Readonly<Record<number, PaletaTerreno>> = 
 
 // Escombro (anillos, cinturón de asteroides): un gris neutro plano, sin
 // sombreado esférico -- no son un cuerpo con "arriba" y "abajo" propios como
-// un planeta, son fragmentos sueltos (sis-*, generador-sistema).
+// un planeta, son fragmentos sueltos (sis-*, generador-sistema). Lo reutiliza
+// también SuperficieCanvasPhaser (crateres-y-escombros) para el escombro que
+// pueda aparecer en una máscara de planeta único: es un gris neutro, no un
+// color "de espacio" en sí, así que no hace falta una constante aparte.
 export const PALETA_ESPACIO_ESCOMBRO: PaletaTerreno = { r: 0x8a, g: 0x8a, b: 0x92 };
+
+// crateres-y-escombros: factor de oscurecimiento del borde quemado de un
+// cráter -- se multiplica sobre el color base de "roca" (sea la paleta plana
+// de un mapa de planeta único o el color ya sombreado de un planeta del
+// sistema), nunca se reemplaza por un color fijo, para que el chamuscado siga
+// leyéndose como el mismo material, solo tiznado.
+export const FACTOR_BORDE_QUEMADO = 0.45;
+
+export function oscurecer(color: PaletaTerreno, factor: number): PaletaTerreno {
+  return {
+    r: Math.round(color.r * factor),
+    g: Math.round(color.g * factor),
+    b: Math.round(color.b * factor),
+  };
+}
