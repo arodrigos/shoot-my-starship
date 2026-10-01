@@ -13,6 +13,12 @@ export interface PerturbacionErratica {
   readonly derivaPxS2: number;
   readonly gravedadExtra: number;
   readonly estado: EstadoAleatorio;
+  // mos-2 (fix, iteración 21): velocidad lateral "de mosca" hilvanada entre
+  // pasos -- la memoria real de la restitución (ver comentario de
+  // DECAIMIENTO_VELOCIDAD_ERRATICA más abajo). El llamante la devuelve tal
+  // cual en la siguiente llamada; no se deriva del EstadoAleatorio.
+  readonly velocidadLateralXPxS: number;
+  readonly velocidadLateralYPxS: number;
 }
 
 // vex-3: dos tiradas del MISMO EstadoAleatorio hilvanado del disparo, en
@@ -34,13 +40,49 @@ export function insumoPerturbacionErratica(
   return comportamiento.tipo === "erratico" ? { magnitudPxS2: comportamiento.magnitudPxS2, aleatorio } : undefined;
 }
 
-export function siguientePerturbacionErratica(estado: EstadoAleatorio, magnitudPxS2: number): PerturbacionErratica {
+// mos-2 (fix, iteración 21): la versión original dibujaba dos valores
+// independientes por paso y los trataba como ACELERACIÓN lateral --
+// integrada dos veces (aceleración -> velocidad -> posición), eso es un
+// paseo aleatorio de segundo orden que se ALEJA de la trayectoria de
+// referencia en vez de revolotear a su alrededor (hallazgo del Gatekeeper,
+// con medición sobre el lote de 200 semillas de mos-2.test.ts: media de
+// 1.91 cruces/vuelo, muy por debajo del "al menos 3" del criterio).
+//
+// La corrección hilvana una velocidad lateral propia (un Ornstein-Uhlenbeck
+// discreto) en vez de dos aceleraciones sueltas: cada paso, la velocidad
+// anterior se encoge por DECAIMIENTO_VELOCIDAD_ERRATICA (negativo y cercano
+// a -1, para que tienda a invertir el signo de un paso a otro, como el
+// aleteo real de una mosca) y se le suma ruido nuevo del PRNG. La
+// aceleración que se le pide a integrarPasoProyectil es justo la que hace
+// falta para que la velocidad del proyectil telescope hasta esa nueva
+// velocidad objetivo -- una sola integración neta sobre la velocidad, nunca
+// dos sobre la aceleración, así que la posición ya no explota con el tiempo
+// de vuelo. GANANCIA_RUIDO_ERRATICA solo reescala la amplitud resultante, no
+// el patrón de cruces (comprobado a mano sobre el mismo lote de 200
+// semillas, con magnitudPxS2 de 90 a 1600, igual que ya documentaba el test
+// para la fórmula anterior).
+const DECAIMIENTO_VELOCIDAD_ERRATICA = -0.95;
+const GANANCIA_RUIDO_ERRATICA = 4;
+const PASO_FIJO_S = PASO_FIJO_MS / 1000;
+
+export function siguientePerturbacionErratica(
+  estado: EstadoAleatorio,
+  magnitudPxS2: number,
+  velocidadLateralXPxS = 0,
+  velocidadLateralYPxS = 0,
+): PerturbacionErratica {
   const pasoDeriva = siguienteAleatorio(estado);
   const pasoGravedad = siguienteAleatorio(pasoDeriva.estado);
+  const ruidoX = (pasoDeriva.valor * 2 - 1) * magnitudPxS2 * GANANCIA_RUIDO_ERRATICA;
+  const ruidoY = (pasoGravedad.valor * 2 - 1) * magnitudPxS2 * GANANCIA_RUIDO_ERRATICA;
+  const nuevaVelocidadX = velocidadLateralXPxS * DECAIMIENTO_VELOCIDAD_ERRATICA + ruidoX;
+  const nuevaVelocidadY = velocidadLateralYPxS * DECAIMIENTO_VELOCIDAD_ERRATICA + ruidoY;
   return {
-    derivaPxS2: (pasoDeriva.valor * 2 - 1) * magnitudPxS2,
-    gravedadExtra: ((pasoGravedad.valor * 2 - 1) * magnitudPxS2) / GRAVEDAD_REFERENCIA_PX_S2,
+    derivaPxS2: (nuevaVelocidadX - velocidadLateralXPxS) / PASO_FIJO_S,
+    gravedadExtra: (nuevaVelocidadY - velocidadLateralYPxS) / PASO_FIJO_S / GRAVEDAD_REFERENCIA_PX_S2,
     estado: pasoGravedad.estado,
+    velocidadLateralXPxS: nuevaVelocidadX,
+    velocidadLateralYPxS: nuevaVelocidadY,
   };
 }
 

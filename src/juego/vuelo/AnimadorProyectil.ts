@@ -65,6 +65,11 @@ export class AnimadorProyectil {
   // que antes de este bloque.
   private aleatorioPerturbacion: EstadoAleatorio | null = null;
   private magnitudPerturbacion = 0;
+  // mos-2 (fix): memoria de velocidad lateral del Ornstein-Uhlenbeck discreto
+  // de siguientePerturbacionErratica -- debe arrancar en reposo igual que en
+  // vuelo.ts para que animación y resolución telescopen la misma trayectoria.
+  private velocidadLateralXPxS = 0;
+  private velocidadLateralYPxS = 0;
   // arma-granada-espoleta (gra-2, gra-4): pasos de simulación ya integrados
   // desde el disparo para un arma "mecha", contados por ESTE bucle -- nunca
   // contando cuántas veces se invoca `detenerse`, porque ese callback recibe
@@ -204,6 +209,8 @@ export class AnimadorProyectil {
     this.armaActual = arma;
     this.aleatorioPerturbacion = perturbacion?.aleatorio ?? null;
     this.magnitudPerturbacion = perturbacion?.magnitudPxS2 ?? 0;
+    this.velocidadLateralXPxS = 0;
+    this.velocidadLateralYPxS = 0;
     this.pasosMecha = 0;
     this.pasosHastaDetonarMecha = pasosHastaDetonarMecha ?? null;
     this.adherido = false;
@@ -305,8 +312,15 @@ export class AnimadorProyectil {
       // gravedad) y misma función que consume vuelo.ts -- ver el comentario
       // de campo de aleatorioPerturbacion más arriba.
       if (this.aleatorioPerturbacion !== null && this.magnitudPerturbacion !== 0) {
-        const perturbacion = siguientePerturbacionErratica(this.aleatorioPerturbacion, this.magnitudPerturbacion);
+        const perturbacion = siguientePerturbacionErratica(
+          this.aleatorioPerturbacion,
+          this.magnitudPerturbacion,
+          this.velocidadLateralXPxS,
+          this.velocidadLateralYPxS,
+        );
         this.aleatorioPerturbacion = perturbacion.estado;
+        this.velocidadLateralXPxS = perturbacion.velocidadLateralXPxS;
+        this.velocidadLateralYPxS = perturbacion.velocidadLateralYPxS;
         gravedadPaso += perturbacion.gravedadExtra;
         derivaPaso += perturbacion.derivaPxS2;
       }

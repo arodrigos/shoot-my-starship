@@ -60,32 +60,24 @@ function contarCruces(referencia: readonly EstadoProyectil[], perturbada: readon
   return { cruces, separacionMaxima };
 }
 
-// mos-2 (camino crítico): revolotea de verdad alrededor de la trayectoria
-// marcada, sobre un lote determinista de 200 semillas -- acotado dentro del
-// rango declarado, y (ver DESVIACIÓN) casi nunca plano.
+// mos-2 (camino crítico, fix iteración 21): revolotea de verdad alrededor de
+// la trayectoria marcada, sobre un lote determinista de 200 semillas --
+// acotado dentro del rango declarado, y cruza al menos tres veces por vuelo
+// EN TODOS LOS CASOS, tal cual exige el criterio.
 //
-// DESVIACIÓN (declarada también en el entregable de este bloque): el
-// criterio pide "cruza al menos tres veces POR vuelo" y la verificación
-// declara que falla si el revoloteo es "plano" (cero cruces). La
-// perturbación de vuelo-extensible (siguientePerturbacionErratica, ya
-// mergeada) dibuja dos valores INDEPENDIENTES por paso -- la posición
-// resultante es un paseo aleatorio de segundo orden (acelera al azar,
-// integra dos veces), y su patrón de cruces por semilla es EXACTAMENTE
-// invariante a magnitudPxS2 (escalar la magnitud escala la amplitud, nunca
-// el patrón de signos -- comprobado a mano antes de escribir este test, con
-// magnitudPxS2 de 90 a 1600 sin ningún cambio en qué semillas cruzan y
-// cuántas veces). Sobre este lote, con este catálogo, ~5% de las semillas
-// producen un vuelo sin ningún cruce y la media medida es ~1.9, lejos del
-// "al menos 3" del criterio. Corregirlo de verdad exigiría cambiar la FORMA de
-// siguientePerturbacionErratica (p.ej. una componente de baja frecuencia
-// que perturbación no tiene hoy), que es cimiento compartido con
-// arma-granada-espoleta y arma-mina-adherente y ya pasó su propia puerta de
-// CI -- no se toca en este bloque sin que diseño lo revise. Se deja como
-// hueco declarado y medido, no como un criterio silenciosamente relajado.
-test("mos-2: revolotea alrededor de la trayectoria marcada, acotado y casi nunca plano, sobre un lote determinista de 200 semillas", () => {
+// La versión anterior de siguientePerturbacionErratica dibujaba dos valores
+// INDEPENDIENTES por paso y los trataba como aceleración -- un paseo
+// aleatorio de segundo orden que se aleja de la referencia en vez de
+// revolotear a su alrededor (el Gatekeeper lo midió: media de 1,91
+// cruces/vuelo, 11/200 vuelos sin ningún cruce). La corrección (ver
+// comportamientoExtendido.ts) hilvana una velocidad lateral con restitución
+// -- comprobado sobre este mismo lote: mínimo observado 6 cruces/vuelo,
+// cero vuelos planos, cero por debajo del mínimo exigido. Se deja un margen
+// por debajo de lo medido, nunca el valor exacto.
+test("mos-2: revolotea alrededor de la trayectoria marcada, acotado y cruza al menos tres veces, sobre un lote determinista de 200 semillas", () => {
   const distancias = [200, 400, 600, 800, 1000, 1200, 1400, 1600];
   let vuelosFueraDeRango = 0;
-  let vuelosPlanos = 0;
+  let vuelosPorDebajoDelMinimo = 0;
   let sumaCruces = 0;
   let vuelosMedidos = 0;
 
@@ -100,23 +92,25 @@ test("mos-2: revolotea alrededor de la trayectoria marcada, acotado y casi nunca
     const { cruces, separacionMaxima } = contarCruces(referencia.trayectoria!, perturbada.trayectoria!);
 
     if (separacionMaxima > RANGO_MAXIMO_PX) vuelosFueraDeRango++;
-    if (cruces === 0) vuelosPlanos++;
+    if (cruces < 3) vuelosPorDebajoDelMinimo++;
     sumaCruces += cruces;
     vuelosMedidos++;
   }
 
   assert.equal(vuelosFueraDeRango, 0, `${vuelosFueraDeRango} vuelo(s) superan el rango declarado del arma (${RANGO_MAXIMO_PX}px)`);
 
-  // Tolerancia medida (ver DESVIACIÓN arriba): a día de hoy no es 0/200, es
-  // ~11/200 -- se deja un margen sobre lo medido, no un valor mágico.
-  const proporcionPlanos = vuelosPlanos / vuelosMedidos;
-  assert.ok(proporcionPlanos <= 0.1, `${vuelosPlanos}/${vuelosMedidos} vuelos sin ningún cruce (revoloteo plano), por encima del 10% tolerado`);
+  // El criterio exige "al menos tres veces POR vuelo" -- sin excepción, no
+  // en promedio. Medido: 0/200. Cualquier vuelo por debajo del mínimo es un
+  // fallo real del criterio, no un valor a tolerar.
+  assert.equal(
+    vuelosPorDebajoDelMinimo,
+    0,
+    `${vuelosPorDebajoDelMinimo}/${vuelosMedidos} vuelos con menos de 3 cruces, el criterio exige "al menos tres" en todos`,
+  );
 
-  // Tolerancia medida (ver DESVIACIÓN arriba): a día de hoy la media es
-  // ~1.9, no las "al menos 3" del criterio -- se deja el umbral por debajo
-  // de lo medido, con margen, no un valor mágico ni una copia del resultado.
+  // Medido: media ~50.4 -- se deja un margen amplio por debajo de lo medido.
   const mediaCruces = sumaCruces / vuelosMedidos;
-  assert.ok(mediaCruces >= 1.5, `la media de cruces por vuelo (${mediaCruces.toFixed(2)}) es demasiado baja -- el revoloteo apenas se nota`);
+  assert.ok(mediaCruces >= 10, `la media de cruces por vuelo (${mediaCruces.toFixed(2)}) es demasiado baja -- el revoloteo apenas se nota`);
 });
 
 // mos-2: "en ningún caso el vuelo termina agotando el presupuesto de pasos
