@@ -238,6 +238,11 @@ export interface DebugGlobal {
   // comprueba "se realza al entrar en modo de apuntado" leyendo un valor, no
   // píxeles del canvas.
   nucleoRealzado?: IdNave | null;
+  // prevision-real (pvr-1, pvr-2, pvr-3): los puntos de mundo que dibuja la
+  // mira este fotograma -- null cuando está oculta (fuera de turno, en
+  // vuelo, o el tiro se corta antes del primer punto útil). Así el test
+  // comprueba la trayectoria y su ocultación leyendo datos, nunca píxeles.
+  previsualizacion?: { puntos: readonly { x: number; y: number }[]; visible: true } | null;
   // proy-4: partículas vivas del pool de estela y su tope declarado -- así
   // el test comprueba el límite leyendo un contador, no contando objetos de
   // escena ni leyendo píxeles.

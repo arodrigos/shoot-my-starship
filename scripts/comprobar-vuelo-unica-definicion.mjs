@@ -15,7 +15,16 @@ import path from "node:path";
 
 const DIRECTORIO = "src/juego";
 
-const FUNCIONES_NUCLEO = ["siguientePerturbacionErratica", "pasosDeMecha", "esComportamientoAdherente", "crearDetenerseConMecha"];
+const FUNCIONES_NUCLEO = [
+  "siguientePerturbacionErratica",
+  "pasosDeMecha",
+  "esComportamientoAdherente",
+  "crearDetenerseConMecha",
+  // prevision-real (pvr-4): calcularPrevisualizacion es, igual que las
+  // anteriores, UNA SOLA DEFINICIÓN -- vive en src/sim/armas/previsualizacion.ts
+  // y se consume, nunca se reimplementa en el cliente.
+  "calcularPrevisualizacion",
+];
 
 // Los tres tipos de ComportamientoDeVuelo que este bloque introduce. Si el
 // cliente rama sobre alguno de ellos, es porque necesita perturbación, mecha
@@ -23,6 +32,13 @@ const FUNCIONES_NUCLEO = ["siguientePerturbacionErratica", "pasosDeMecha", "esCo
 // reinventarla.
 const PATRON_RAMA_TIPO_EXTENDIDO = /\.tipo\s*===\s*["'](erratico|mecha|adherente-con-mecha)["']/;
 const PATRON_IMPORT_NUCLEO = /from\s*["']@\/sim\/fisica\/comportamientoExtendido["']/;
+
+// prevision-real (pvr-4): el hallazgo propio del diseño era "trayectoriaPreviaSVG",
+// una parábola de gravedad uniforme calculada a mano en el HUD. Si ese nombre
+// (o cualquier variante) reaparece en src/juego sin pasar por el oráculo real
+// de previsualización, es la misma mentira volviendo a colarse.
+const PATRON_NOMBRE_RETIRADO = /trayectoriaPrevia/i;
+const PATRON_IMPORT_PREVISUALIZACION = /from\s*["']@\/sim\/armas\/previsualizacion["']/;
 
 // Redeclarar cualquiera de las funciones del núcleo con el mismo nombre
 // (function o const) es la forma más directa de "reimplementar en vez de
@@ -63,6 +79,12 @@ async function encontrarInfracciones(directorio) {
         `${relativo}: rama sobre un comportamiento de vuelo-extensible (erratico/mecha/adherente-con-mecha) sin importar las funciones puras de comportamientoExtendido.ts -- reimplementación sospechosa`,
       );
     }
+
+    if (PATRON_NOMBRE_RETIRADO.test(contenido) && !PATRON_IMPORT_PREVISUALIZACION.test(contenido)) {
+      infracciones.push(
+        `${relativo}: menciona una trayectoria previa sin importar el oráculo real de src/sim/armas/previsualizacion.ts -- vuelve la parábola de gravedad uniforme calculada a mano (pvr-4)`,
+      );
+    }
   }
   return infracciones;
 }
@@ -99,8 +121,36 @@ async function comprobarQueElGuardiaDetectaUnaReimplementacion() {
   }
 }
 
+// Caso negativo de pvr-4: un fichero ficticio que menciona "trayectoriaPrevia"
+// sin importar el oráculo real -- la reaparición exacta que el criterio pide
+// vigilar.
+async function comprobarQueElGuardiaDetectaUnaTrayectoriaPropia() {
+  const ficheroFicticio = path.join(DIRECTORIO, "hud", "_autotest_trayectoria_propia.ts");
+  const contenidoConTrayectoriaPropia = [
+    "// Fichero temporal del autotest de comprobar-vuelo-unica-definicion.mjs:",
+    "// una trayectoriaPreviaSVG calculada a mano, exactamente lo que el guardia debe atrapar.",
+    "export function trayectoriaPreviaSVG(anguloGrados: number, potencia: number): string {",
+    "  return `M0,0 Q${potencia},${anguloGrados} 60,60`;",
+    "}",
+    "",
+  ].join("\n");
+
+  await writeFile(ficheroFicticio, contenidoConTrayectoriaPropia, "utf8");
+  try {
+    const infracciones = await encontrarInfracciones(DIRECTORIO);
+    const relativoFicticio = path.relative(process.cwd(), ficheroFicticio).split(path.sep).join("/");
+    const detectado = infracciones.some((linea) => linea.startsWith(`${relativoFicticio}:`));
+    if (!detectado) {
+      throw new Error("el autotest negativo introdujo una trayectoriaPreviaSVG propia a propósito y el guardia NO la detectó -- está roto");
+    }
+  } finally {
+    await rm(ficheroFicticio, { force: true });
+  }
+}
+
 async function main() {
   await comprobarQueElGuardiaDetectaUnaReimplementacion();
+  await comprobarQueElGuardiaDetectaUnaTrayectoriaPropia();
 
   const infracciones = await encontrarInfracciones(DIRECTORIO);
   if (infracciones.length > 0) {
