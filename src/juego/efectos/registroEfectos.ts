@@ -88,22 +88,17 @@ export const REGISTRO_EFECTOS = {
     techoObjetosVivos: 8,
     reutilizaPool: true,
   },
-  // fondo-y-pozos (fnd-3): ni la capa cercana del paralaje ni los pozos de
-  // gravedad son emisores de partículas (`Image` horneada una sola vez con
-  // `generateTexture`, igual que `destello-explosion`/`onda-de-choque`), por
-  // eso techoParticulas es 0 -- pero siguen siendo objetos vivos que hay que
-  // declarar antes de que existan, como pre-1 exige de todo efecto visual.
-  "fondo-paralaje-cercano": {
-    id: "fondo-paralaje-cercano",
-    descripcion: "Capa cercana del paralaje estelar (fondo-y-pozos): una imagen horneada que se mueve con una deriva propia.",
-    techoParticulas: 0,
-    techoObjetosVivos: 1,
-    reutilizaPool: false,
-  },
-  "pozos-gravedad": {
-    id: "pozos-gravedad",
+  // fondo-y-pozos (fnd-3, reescrito en la iteración 32 tras el diagnóstico
+  // de rendimiento de la iteración 31): la capa cercana del paralaje y los
+  // pozos de gravedad NO son `Image` propias -- se funden en el mismo
+  // lienzo que hornea FondoEspacial (ver crearFondoEspacial), así que no
+  // añaden ningún objeto vivo nuevo que declarar aquí. El guardia de pre-1
+  // solo vigila la creación de emisores de partículas, y ninguno de los dos
+  // crea uno.
+  "fondo-espacial": {
+    id: "fondo-espacial",
     descripcion:
-      "Halo de gravedad alrededor de cada planeta (fondo-y-pozos, fnd-1): una sola imagen horneada a partir de la aceleración real del integrador, no redibujada por fotograma.",
+      "render-espacio/fondo-y-pozos: una sola imagen horneada (nebulosa, estrellas lejanas y cercanas, y los pozos de gravedad fundidos en el mismo lienzo), nunca redibujada por fotograma ni por impacto.",
     techoParticulas: 0,
     techoObjetosVivos: 1,
     reutilizaPool: false,

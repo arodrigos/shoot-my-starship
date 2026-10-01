@@ -4,8 +4,6 @@ import { generarMascara } from "@/sim/terreno/generador";
 import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
 import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPhaser";
 import { crearFondoEspacial } from "@/juego/fondo/FondoEspacial";
-import { crearCapaEstelarCercana, type CapaEstelarCercana } from "@/juego/fondo/CapaEstelarCercana";
-import { crearPozosGravedad } from "@/juego/fondo/PozosGravedad";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
@@ -250,11 +248,6 @@ export class Partida extends Phaser.Scene {
   // REAL en curso -- nunca el de repetición, mismo criterio que la estela y
   // que actualizarCuentaAtrasMecha.
   private contadorAdherencia!: ContadorAdherencia;
-  // fondo-y-pozos: capa cercana del paralaje, solo existe en el hito
-  // espacial (modo suelo plano no tiene fondo estelar). Null fuera de ese
-  // modo en vez de "!" -- a diferencia de contadorAdherencia, que se crea
-  // siempre, esta solo nace condicionalmente más abajo.
-  private capaEstelarCercana: CapaEstelarCercana | null = null;
   // humor-6: instancia SEPARADA del animador real -- reproduce el último
   // vuelo de nuevo sin tocar this.estado ni this.naves, así que un jugador
   // puede pedir la repetición sin que eso cuente como un turno.
@@ -474,15 +467,12 @@ export class Partida extends Phaser.Scene {
       // esp-3: se hornea una sola vez aquí, en create() -- ninguna otra
       // ruta de este fichero vuelve a llamar a crearFondoEspacial, así que
       // window.__debug.fondoEspacial.bakes se queda en 1 para siempre.
-      crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial");
+      // fondo-y-pozos (fnd-1, fnd-2): la capa cercana del paralaje y los
+      // pozos de gravedad se funden en esta misma textura (ver el porqué en
+      // FondoEspacial.ts) -- `sistema.planetas` es el mismo registro que usa
+      // la gravedad real, nunca una copia.
+      crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", sistema.planetas);
       window.__debug.fondoEspacial = { bakes: 1 };
-      // fondo-y-pozos (fnd-1, fnd-2): capa cercana del paralaje y pozos de
-      // gravedad, en ese orden de profundidad (-0.8 y -0.5 respectivamente,
-      // ver sus propios ficheros) -- los dos leen `sistema.planetas`, el
-      // mismo registro que usa la gravedad real, nunca una copia.
-      this.capaEstelarCercana = crearCapaEstelarCercana(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-estelar-cercana");
-      crearPozosGravedad(this, sistema.planetas, MUNDO_ANCHO, MUNDO_ALTO, "pozos-gravedad");
-      window.__debug.pozosGravedad = { bakes: 1 };
       this.selectorFrases = crearSelectorFrases(semillaSistema);
       this.selectorBromas = crearSelectorBromas(semillaSistema);
     }
@@ -689,7 +679,6 @@ export class Partida extends Phaser.Scene {
     this.actualizarEstelaYDebugProyectil();
     this.actualizarCuentaAtrasMecha();
     this.actualizarCuentaAtrasAdherencia();
-    this.capaEstelarCercana?.actualizar(delta);
 
     // humor-1: la cámara sacude durante la reacción a un evento de humor --
     // hay que refrescar el rectángulo visible cada fotograma mientras dura
