@@ -114,7 +114,16 @@ test("exl-4: un disparo de submuniciones con varias explosiones encadenadas cier
   await page.getByTestId("disparar").click();
 
   await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurnoAntes, { timeout: 60000 });
-  expect(await page.evaluate(() => window.__debug.animacionEnCurso)).toBe(false);
+  // No comprobar animacionEnCurso justo aquí: si la partida sigue, la
+  // máquina dispara su propio turno de forma SÍNCRONA dentro del mismo
+  // callback que cierra el del jugador (ver dispararTurnoIA en Partida.ts),
+  // así que "false" solo existe durante un instante que este proceso nunca
+  // llega a observar -- comprobarlo de inmediato es una carrera, no un
+  // bloqueo real. Lo que exl-4 exige es que la animación TERMINE por
+  // resolverse sola (la del jugador, y si la hay, la de respuesta de la
+  // máquina), así que se espera a que vuelva a false con polling y
+  // timeout generoso (issue #151), nunca con un sleep fijo.
+  await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 60000 });
   await expect(page.getByTestId("resultado-turno")).toBeVisible();
   const texto = (await page.getByTestId("resultado-turno").textContent())!.trim();
   expect(texto.length).toBeGreaterThan(0);
