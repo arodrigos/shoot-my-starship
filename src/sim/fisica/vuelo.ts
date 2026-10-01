@@ -133,6 +133,10 @@ export function simularVuelo(
   const rastreadorNaves = opciones?.rastreadorNaves;
   const magnitudPerturbacion = opciones?.perturbacion?.magnitudPxS2 ?? 0;
   let aleatorioPerturbacion = opciones?.perturbacion?.aleatorio ?? null;
+  // mos-2 (fix): memoria de velocidad lateral del Ornstein-Uhlenbeck discreto
+  // de siguientePerturbacionErratica -- arranca en reposo en cada vuelo.
+  let velocidadLateralXPxS = 0;
+  let velocidadLateralYPxS = 0;
   let proyectil = inicial;
   let pasos = 0;
   let roceNave: RoceNave | null = null;
@@ -146,8 +150,15 @@ export function simularVuelo(
     if (aleatorioPerturbacion === null || magnitudPerturbacion === 0) {
       return { gravedad: gravedadBase, deriva: derivaBase };
     }
-    const perturbacion = siguientePerturbacionErratica(aleatorioPerturbacion, magnitudPerturbacion);
+    const perturbacion = siguientePerturbacionErratica(
+      aleatorioPerturbacion,
+      magnitudPerturbacion,
+      velocidadLateralXPxS,
+      velocidadLateralYPxS,
+    );
     aleatorioPerturbacion = perturbacion.estado;
+    velocidadLateralXPxS = perturbacion.velocidadLateralXPxS;
+    velocidadLateralYPxS = perturbacion.velocidadLateralYPxS;
     return { gravedad: gravedadBase + perturbacion.gravedadExtra, deriva: derivaBase + perturbacion.derivaPxS2 };
   }
 

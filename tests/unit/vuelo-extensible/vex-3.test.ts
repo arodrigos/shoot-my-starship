@@ -42,26 +42,36 @@ function dispararErratico(semilla: number) {
 
 test("vex-3: siguientePerturbacionErratica es pura -- misma entrada, misma salida", () => {
   const estado = crearEstadoAleatorio(42);
-  const a = siguientePerturbacionErratica(estado, 300);
-  const b = siguientePerturbacionErratica(estado, 300);
+  const a = siguientePerturbacionErratica(estado, 300, 12, -7);
+  const b = siguientePerturbacionErratica(estado, 300, 12, -7);
   assert.deepEqual(a, b);
 });
 
-// vex-3: orden fijo por paso -- deriva sale de la PRIMERA tirada y gravedad
-// extra de la SEGUNDA, encadenada al estado que deja la primera. Se
-// reconstruye a mano con siguienteAleatorio para comprobar que
-// siguientePerturbacionErratica no invierte el orden ni reutiliza una
-// tirada para las dos magnitudes.
+// vex-3 / mos-2 (fix): orden fijo por paso -- deriva sale de la PRIMERA
+// tirada y gravedad extra de la SEGUNDA, encadenada al estado que deja la
+// primera. Se reconstruye a mano (misma restitución Ornstein-Uhlenbeck que
+// la implementación) para comprobar que siguientePerturbacionErratica no
+// invierte el orden ni reutiliza una tirada para las dos magnitudes, y que
+// la velocidad lateral hilvanada (no solo el PRNG) decide el resultado.
 test("vex-3: deriva sale de la primera tirada y gravedad extra de la segunda, en ese orden", () => {
   const estado = crearEstadoAleatorio(7);
   const magnitud = 300;
+  const decaimiento = -0.95;
+  const ganancia = 4;
+  const velocidadXPrevia = 50;
+  const velocidadYPrevia = -20;
   const pasoDeriva = siguienteAleatorio(estado);
   const pasoGravedad = siguienteAleatorio(pasoDeriva.estado);
+  const pasoFijoS = 1000 / 60 / 1000;
 
-  const perturbacion = siguientePerturbacionErratica(estado, magnitud);
+  const perturbacion = siguientePerturbacionErratica(estado, magnitud, velocidadXPrevia, velocidadYPrevia);
 
-  assert.equal(perturbacion.derivaPxS2, (pasoDeriva.valor * 2 - 1) * magnitud);
-  assert.equal(perturbacion.gravedadExtra, ((pasoGravedad.valor * 2 - 1) * magnitud) / GRAVEDAD_REFERENCIA_PX_S2);
+  const nuevaVelocidadX = velocidadXPrevia * decaimiento + (pasoDeriva.valor * 2 - 1) * magnitud * ganancia;
+  const nuevaVelocidadY = velocidadYPrevia * decaimiento + (pasoGravedad.valor * 2 - 1) * magnitud * ganancia;
+  assert.equal(perturbacion.derivaPxS2, (nuevaVelocidadX - velocidadXPrevia) / pasoFijoS);
+  assert.equal(perturbacion.gravedadExtra, (nuevaVelocidadY - velocidadYPrevia) / pasoFijoS / GRAVEDAD_REFERENCIA_PX_S2);
+  assert.equal(perturbacion.velocidadLateralXPxS, nuevaVelocidadX);
+  assert.equal(perturbacion.velocidadLateralYPxS, nuevaVelocidadY);
   assert.deepEqual(perturbacion.estado, pasoGravedad.estado);
 });
 
