@@ -12,10 +12,26 @@ export interface EstadoBromas {
   readonly impacto: string | null;
   readonly categoriaImpacto: CategoriaBroma | null;
   readonly clave: number;
+  // hud-canales-3: histórico consultable, uno por turno resuelto (no uno por
+  // cada publicarBroma* -- el disparo es opcional por turno, el impacto no,
+  // así que ambos se combinan en una sola entrada cuando llega el impacto).
+  readonly historico: readonly EntradaHistoricoBroma[];
 }
 
-let estado: EstadoBromas = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0 };
+export interface EntradaHistoricoBroma {
+  readonly numeroTurno: number;
+  readonly disparo: string | null;
+  readonly impacto: string;
+  readonly categoriaImpacto: CategoriaBroma;
+}
+
+let estado: EstadoBromas = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0, historico: [] };
 const escuchas = new Set<() => void>();
+
+// Disparo publicado a la espera del impacto del mismo turno -- el impacto
+// siempre llega (hum-1: "sin excepción"), así que esto nunca se queda
+// colgado de un turno al siguiente sin resolverse.
+let pendienteDeTurno: { numeroTurno: number; disparo: string } | null = null;
 
 function fijar(parcial: Partial<EstadoBromas>): void {
   estado = { ...estado, ...parcial, clave: estado.clave + 1 };
@@ -34,15 +50,20 @@ export function suscribirBromas(escucha: () => void): () => void {
 // hum-6: el audio nunca decide si esto se llama -- Partida.ts publica la
 // broma siempre, independientemente de si reproducirTono() ha podido sonar
 // o no (ver reaccionarABroma).
-export function publicarBromaDisparo(texto: string): void {
+export function publicarBromaDisparo(numeroTurno: number, texto: string): void {
+  pendienteDeTurno = { numeroTurno, disparo: texto };
   fijar({ disparo: texto });
 }
 
-export function publicarBromaImpacto(texto: string, categoria: CategoriaBroma): void {
-  fijar({ impacto: texto, categoriaImpacto: categoria });
+export function publicarBromaImpacto(numeroTurno: number, texto: string, categoria: CategoriaBroma): void {
+  const disparo = pendienteDeTurno && pendienteDeTurno.numeroTurno === numeroTurno ? pendienteDeTurno.disparo : null;
+  pendienteDeTurno = null;
+  const entrada: EntradaHistoricoBroma = { numeroTurno, disparo, impacto: texto, categoriaImpacto: categoria };
+  fijar({ impacto: texto, categoriaImpacto: categoria, historico: [...estado.historico, entrada] });
 }
 
 export function reiniciarBromas(): void {
-  estado = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0 };
+  pendienteDeTurno = null;
+  estado = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0, historico: [] };
   for (const escucha of escuchas) escucha();
 }

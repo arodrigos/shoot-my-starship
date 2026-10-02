@@ -1,6 +1,6 @@
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { costeArma, puedeCostearArma as puedeCostearArmaSim } from "@/sim/partida/economia";
-import type { EntradaDeTurno, ModoJuego } from "@/sim/partida/tipos";
+import type { EntradaDeTurno, IdNave, ModoJuego } from "@/sim/partida/tipos";
 import {
   ANGULO_INICIAL_GRADOS,
   POTENCIA_INICIAL,
@@ -56,6 +56,15 @@ export interface EstadoControl {
   // evita que ControlHUD tenga que leer un módulo imperativo fuera de su
   // ciclo de render.
   readonly silenciado: boolean;
+  // hud-canales-1/2: de quién es el turno, para el canal de estado -- la
+  // escena ya lo sabía (window.__debug.turno, solo para e2e); esto es lo
+  // mismo pero reactivo para la UI real. nombreRival llega una sola vez por
+  // partida (la personalidad no cambia a media partida), de ahí que no haga
+  // falta un "nombresPorNave" todavía -- IdNave sigue siendo 0|1 a propósito
+  // (ver sim/partida/tipos.ts), así que el canal de estado pinta solo esas
+  // dos y reserva sitio visual para hasta cuatro sin fingir que ya existen.
+  readonly turno: IdNave;
+  readonly nombreRival: string;
 }
 
 const CLAVE_AYUDA_VISTA = "control-apuntado:ayuda-vista";
@@ -153,6 +162,8 @@ let estado: EstadoControl = {
   saldo: null,
   sacudidaActiva: leerSacudidaActivaGuardada(),
   silenciado: sonidoSilenciado(),
+  turno: 0,
+  nombreRival: "Rival",
 };
 
 const escuchas = new Set<() => void>();
@@ -274,6 +285,19 @@ export function publicarJugable(valor: boolean): void {
   if (estado.puedeDisparar !== valor) fijar({ puedeDisparar: valor });
 }
 
+// hud-canales-2: la escena la llama en los mismos puntos donde ya fijaba
+// window.__debug.turno -- el canal de estado cambia de nave resaltada en
+// cuanto la escena decide que el turno pasó, sin duplicar esa decisión aquí.
+export function publicarTurno(turno: IdNave): void {
+  if (estado.turno !== turno) fijar({ turno });
+}
+
+// hud-canales-1: una sola vez por partida, al crear la escena (la
+// personalidad rival no cambia a media partida).
+export function publicarNombreRival(nombre: string): void {
+  if (estado.nombreRival !== nombre) fijar({ nombreRival: nombre });
+}
+
 export function fijarModoEspacial(valor: boolean): void {
   if (estado.modoEspacial !== valor) fijar({ modoEspacial: valor });
 }
@@ -339,5 +363,7 @@ export function reiniciarControl(): void {
     modoEspacial: false,
     modo: "barra-libre",
     saldo: null,
+    turno: 0,
+    nombreRival: "Rival",
   });
 }
