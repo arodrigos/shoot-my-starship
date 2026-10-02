@@ -6,8 +6,9 @@ import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { MUNDO_ANCHO, MUNDO_ALTO } from "../../utils/sistemaGenerado";
 import type { ParametrosMundo } from "@/sim/partida/tipos";
+import { muestra } from "../../utils/muestra";
 
-const NUM_SEMILLAS = 500;
+const NUM_SEMILLAS = muestra(500);
 const MUNDO: ParametrosMundo = {
   ancho: MUNDO_ANCHO,
   alto: MUNDO_ALTO,
@@ -23,7 +24,7 @@ const MUNDO: ParametrosMundo = {
 // SIEMPRE tienen un disparo del arma base que hace daño de verdad, y que
 // colocarNaves nunca deja de devolver una colocación (imp-9: siempre
 // termina, en algún escalón).
-test("nav-3: 500 semillas tienen siempre un tiro real y viable entre las naves colocadas", () => {
+test(`nav-3: ${NUM_SEMILLAS} semillas tienen siempre un tiro real y viable entre las naves colocadas`, () => {
   const armaBase = buscarArma("pepinazo-cortesia");
 
   for (let semilla = 0; semilla < NUM_SEMILLAS; semilla++) {

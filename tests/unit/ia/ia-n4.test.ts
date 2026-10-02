@@ -15,8 +15,9 @@ import {
 import { ALMIRANTE_BISAGRA, CHISPA, LA_CONTABLE } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
 import { generarLoteDeSistemas, MUNDO_MULTIPOZO } from "../../utils/loteMultipozo";
+import { muestra } from "../../utils/muestra";
 
-const NUM_SISTEMAS = 200;
+const NUM_SISTEMAS = muestra(200);
 // Réplica de decidir.ts (ARMA_BASE_ID/PRESUPUESTO_VIABILIDAD_REFERENCIA, no
 // exportadas a propósito -- son detalle interno, no contrato público): el
 // mismo criterio de "bloqueada" que ia-n10 exige que comparta con colocación.
@@ -175,7 +176,7 @@ function medirDispersionMedia(personalidad: Personalidad, lote: ReturnType<typeo
   return distancias.reduce((total, d) => total + d, 0) / distancias.length;
 }
 
-test("ia-n4b: las tres personalidades siguen ordenadas por dispersión media en 200 disparos, en modo multipozo", () => {
+test(`ia-n4b: las tres personalidades siguen ordenadas por dispersión media en ${NUM_SISTEMAS} disparos, en modo multipozo`, () => {
   const lote = generarLoteDeSistemas(NUM_SISTEMAS);
 
   const dispersionContable = medirDispersionMedia(LA_CONTABLE, lote);

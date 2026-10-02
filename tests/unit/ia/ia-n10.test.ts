@@ -4,8 +4,9 @@ import { buscarArma } from "@/sim/armas/catalogo";
 import { existeTiroViable } from "@/sim/balistica/rejilla";
 import { buscarSolucionRival } from "@/sim/ia/busquedaMultipozo";
 import { generarLoteDeSistemas, MUNDO_MULTIPOZO } from "../../utils/loteMultipozo";
+import { muestra } from "../../utils/muestra";
 
-const NUM_SISTEMAS = 200;
+const NUM_SISTEMAS = muestra(200);
 
 // ia-n10: cierra explícitamente el fallo que costó la iteración 1 de este
 // run -- dos definiciones de "hay tiro" conviviendo, cada una pasando sus
@@ -14,7 +15,7 @@ const NUM_SISTEMAS = 200;
 // (con la MISMA arma base) tiene que encontrar en ella un disparo con daño
 // real. No debe haber ni un solo caso en el que una diga sí y la otra no
 // encuentre nada.
-test("ia-n10: colocación y rival nunca discrepan sobre si hay tiro, en 200 sistemas", () => {
+test(`ia-n10: colocación y rival nunca discrepan sobre si hay tiro, en ${NUM_SISTEMAS} sistemas`, () => {
   const armaBase = buscarArma("pepinazo-cortesia");
   const lote = generarLoteDeSistemas(NUM_SISTEMAS);
 
