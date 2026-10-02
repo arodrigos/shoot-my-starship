@@ -316,25 +316,41 @@ const ANCHO_FRANJA_SEGUNDA_OPCION_SIN_DANIO = 0.08;
 // lo arregle. Además, tras dos turnos seguidos sin causar daño, una regla
 // dura por encima de la política de personalidad fuerza un arma con daño
 // real: ninguna personalidad la declara, ni falta que hace.
+// ia-autodanio-3: arma agotada es la que ya alcanzó su usosMaximos (Despedida,
+// la única del catálogo que lo declara) -- igual que decide store.ts para el
+// jugador humano (control-6).
+function armaAgotada(id: string, usosPorArma: Readonly<Record<string, number>>): boolean {
+  const arma = buscarArma(id);
+  return arma.usosMaximos !== undefined && (usosPorArma[id] ?? 0) >= arma.usosMaximos;
+}
+
 function elegirArma(
   personalidad: Personalidad,
   bloqueada: boolean,
   aleatorio: EstadoAleatorio,
   turnosSeguidosSinDanio: number,
   desistirDeCavar: boolean = false,
+  usosPorArma: Readonly<Record<string, number>> = {},
 ): { readonly armaId: string; readonly aleatorio: EstadoAleatorio } {
+  // Filtra ANTES de aplicar la política de la personalidad, nunca después:
+  // así los índices 0/1/2 de abajo siguen significando "primera, segunda,
+  // tercera preferida de verdad disponibles" sin que ninguna rama tenga que
+  // saber de usosMaximos por separado. Con usosPorArma vacío (ia-1..ia-6, que
+  // nunca lo pasan) la lista filtrada es idéntica a la original.
+  const disponibles = personalidad.ordenPreferenciaArmas.filter((id) => !armaAgotada(id, usosPorArma));
+  const opciones = disponibles.length > 0 ? disponibles : personalidad.ordenPreferenciaArmas;
+
   if (desistirDeCavar) {
-    return { armaId: elegirMejorArmaPorDanio(personalidad.ordenPreferenciaArmas), aleatorio };
+    return { armaId: elegirMejorArmaPorDanio(opciones), aleatorio };
   }
   if (bloqueada) {
     return { armaId: ARMA_DE_DESBLOQUEO, aleatorio };
   }
   if (turnosSeguidosSinDanio >= UMBRAL_TURNOS_SIN_DANIO_FORZADO) {
-    const primeraConDanio = personalidad.ordenPreferenciaArmas.find((id) => danioMaximoDeArma(id) > 0);
-    return { armaId: primeraConDanio ?? personalidad.ordenPreferenciaArmas[0], aleatorio };
+    const primeraConDanio = opciones.find((id) => danioMaximoDeArma(id) > 0);
+    return { armaId: primeraConDanio ?? opciones[0], aleatorio };
   }
   const paso = siguienteAleatorio(aleatorio);
-  const opciones = personalidad.ordenPreferenciaArmas;
   const segundaOpcion = opciones[1] ?? opciones[0];
   const anchoFranjaSegunda = danioMaximoDeArma(segundaOpcion) === 0 ? ANCHO_FRANJA_SEGUNDA_OPCION_SIN_DANIO : ANCHO_FRANJA_SEGUNDA_OPCION;
 
@@ -439,6 +455,13 @@ export interface ParametrosDecisionIA {
   // Solo para ia-n3 (forzar el agotamiento de presupuesto en el test): ausente
   // reproduce PRESUPUESTO_VUELOS_RIVAL_DEFAULT de busquedaMultipozo.ts.
   readonly presupuestoVuelosMax?: number;
+  // ia-autodanio-3: cuántas veces lleva disparada cada id de arma esta nave
+  // en la partida -- el mismo dato que ya trackea store.ts para el jugador
+  // humano (control-6), pero la IA no pasaba por ahí y podía reelegir un
+  // arma con usosMaximos ya agotado sin límite (p.ej. Despedida, que SIEMPRE
+  // autodaña al dispararse). Ausente o {} reproduce EXACTAMENTE el camino de
+  // siempre: ninguna arma se trata como agotada.
+  readonly usosPorArma?: Readonly<Record<string, number>>;
 }
 
 export interface ResultadoDecisionIA {
@@ -490,6 +513,7 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
     tiradorId,
     objetivoId,
     presupuestoVuelosMax,
+    usosPorArma = {},
   } = params;
 
   const enModoMultipozo =
@@ -524,6 +548,7 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
       params.aleatorio,
       turnosSeguidosSinDanio,
       desistirDeCavar,
+      usosPorArma,
     );
 
     const resultadoBusqueda = buscarSolucionRival({
@@ -634,7 +659,14 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
   // siempre (ia-4 lo exige bit a bit).
   const factorCorreccion = FACTOR_DE_CORRECCION ** fallosParaCorregir * factorSensibilidad;
   const { error, aleatorio: aleatorioTrasError } = calcularErrorInyectado(personalidad, params.aleatorio, factorCorreccion);
-  const { armaId, aleatorio: aleatorioFinal } = elegirArma(personalidad, bloqueada, aleatorioTrasError, turnosSeguidosSinDanio);
+  const { armaId, aleatorio: aleatorioFinal } = elegirArma(
+    personalidad,
+    bloqueada,
+    aleatorioTrasError,
+    turnosSeguidosSinDanio,
+    false,
+    usosPorArma,
+  );
 
   const anguloGrados = Math.min(180, Math.max(0, solucionExacta.anguloGrados + error.anguloGrados));
   const potencia = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));

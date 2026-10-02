@@ -60,6 +60,9 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     efecto: { tipo: "danio", radioEfectoPx: 0, danioMaximo: 0 },
     fiabilidad: 1,
     coste: 20,
+    // ia-autodanio-4: daño 0 a propósito (rellena terreno, no hiere), no un
+    // descuido del catálogo -- ver tipos.ts.
+    utilitaria: true,
   },
   {
     id: "racimo-de-tuppers",

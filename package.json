@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test:e2e": "playwright test",
     "test:unit": "node --import tsx --test --test-concurrency=1 tests/unit/**/*.test.ts",
+    "medir:ia": "tsx scripts/medir-ia.ts",
     "verificar:presupuesto-bundle": "node scripts/comprobar-presupuesto-bundle.mjs",
     "verificar:activos": "node scripts/comprobar-activos.mjs"
   },

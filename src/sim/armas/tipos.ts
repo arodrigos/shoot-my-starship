@@ -113,4 +113,12 @@ export interface Arma {
   // resto del catálogo: ese es el comportamiento de siempre, sin broma
   // añadida.
   readonly bromaPropia?: { readonly disparo: readonly string[]; readonly impacto: readonly string[] };
+  // ia-autodanio-4: marca las armas cuyo valor táctico no es el daño directo
+  // (el Vertedero Portátil rellena terreno para enterrar, con
+  // efecto.danioMaximo === 0 a propósito). Sin esta marca, un test que
+  // cruza personalidades.ts con el catálogo no puede distinguir "arma de
+  // daño 0 porque es utilitaria" de "arma de daño 0 por error de datos" --
+  // ausente en el resto del catálogo, donde toda arma preferida sí hace
+  // daño.
+  readonly utilitaria?: boolean;
 }
