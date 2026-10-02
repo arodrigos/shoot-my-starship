@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { buscarSolucionRival } from "@/sim/ia/busquedaMultipozo";
 import { generarLoteDeSistemas, MUNDO_MULTIPOZO } from "../../utils/loteMultipozo";
+import { minimoProporcional, muestra } from "../../utils/muestra";
 
-const NUM_SISTEMAS = 200;
-const MINIMO_CON_DANIO = 190;
+const NUM_SISTEMAS = muestra(200);
+// 190 de 200 en la batería completa; misma proporción con muestra reducida.
+const MINIMO_CON_DANIO = minimoProporcional(190, 200, NUM_SISTEMAS);
 
 // ia-n1: "causar daño" sustituye a la formulación anterior ("terminar a
 // menos de una tolerancia"), que era inverificable porque nada detenía el
@@ -13,7 +15,7 @@ const MINIMO_CON_DANIO = 190;
 // 200 sistemas con colocación ya garantizada viable, la búsqueda del rival
 // (rejilla + refinamiento + resolutor real) debe encontrar un disparo con
 // daño > 0 en al menos 190.
-test("ia-n1: la búsqueda del rival encuentra un disparo con daño real en >=190/200 sistemas", () => {
+test(`ia-n1: la búsqueda del rival encuentra un disparo con daño real en >=${MINIMO_CON_DANIO}/${NUM_SISTEMAS} sistemas`, () => {
   const armaBase = buscarArma("pepinazo-cortesia");
   const lote = generarLoteDeSistemas(NUM_SISTEMAS);
 

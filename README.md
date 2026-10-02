@@ -90,11 +90,15 @@ npm run build                         # build de producción
 npm run verificar:presupuesto-bundle  # JS del primer arranque <= 1.3MB gzip
 npm run verificar:activos             # sin activos binarios ni URLs externas (ver ACTIVOS.md)
 npm run test:unit                     # núcleo de simulación, sin navegador
+PRUEBA_LARGA=1 npm run test:unit      # ídem, con la muestra completa de los tests estadísticos
 npm run test:e2e                      # Playwright, contra un build local
 ```
 
 El CI (`.github/workflows/ci.yml`) ejecuta todas estas comprobaciones en
-cada push y cada pull request. El smoke test de traspaso
+cada push y cada pull request. Los tests estadísticos largos (ia-n*, arm-6,
+partida-3, nav-3, nucleo-4...) corren ahí con una muestra reducida
+(`tests/utils/muestra.ts`); la batería completa (`PRUEBA_LARGA=1`) corre cada
+noche en `.github/workflows/pruebas-largas.yml`. El smoke test de traspaso
 (`tests/smoke/traspaso.spec.ts`) es independiente de esta lista: lo ejecuta
 la etapa de traspaso contra la URL real ya desplegada, con
 `BASE_URL="$DEPLOY_URL" npx playwright test tests/smoke/traspaso.spec.ts`.

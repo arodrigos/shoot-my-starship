@@ -4,9 +4,11 @@ import { buscarArma } from "@/sim/armas/catalogo";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { buscarSolucionRival } from "@/sim/ia/busquedaMultipozo";
 import { generarLoteDeSistemas, MUNDO_MULTIPOZO } from "../../utils/loteMultipozo";
+import { minimoProporcional, muestra } from "../../utils/muestra";
 
-const NUM_SISTEMAS = 200;
-const MINIMO_IMPACTO_DIRECTO = 120;
+const NUM_SISTEMAS = muestra(200);
+// 120 de 200 en la batería completa; misma proporción con muestra reducida.
+const MINIMO_IMPACTO_DIRECTO = minimoProporcional(120, 200, NUM_SISTEMAS);
 
 // ia-n9: se separa de ia-n1 a propósito -- el criterio que bloquea es causar
 // daño (ia-n1); este mide la CALIDAD de la puntería, sobre el mismo lote de
@@ -14,7 +16,7 @@ const MINIMO_IMPACTO_DIRECTO = 120;
 // conjunto). Un disparo elegido por la búsqueda "acierta de verdad" cuando
 // el resultado es un impacto directo en el casco (imp-1), no solo daño por
 // radio de explosión.
-test("ia-n9: el disparo elegido termina en impacto directo de casco en >=120/200 sistemas", () => {
+test(`ia-n9: el disparo elegido termina en impacto directo de casco en >=${MINIMO_IMPACTO_DIRECTO}/${NUM_SISTEMAS} sistemas`, () => {
   const armaBase = buscarArma("pepinazo-cortesia");
   const lote = generarLoteDeSistemas(NUM_SISTEMAS);
 

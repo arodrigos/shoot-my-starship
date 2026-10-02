@@ -9,9 +9,10 @@ import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
 import { naveContraria, type EstadoPartida, type FuenteDeTurno, type ParametrosMundo } from "@/sim/partida/tipos";
 import { MUNDO_ANCHO, MUNDO_ALTO } from "../../utils/sistemaGenerado";
+import { muestra } from "../../utils/muestra";
 
 const SEMILLA_MAESTRA = 90210;
-const NUMERO_DE_PARTIDAS = 200;
+const NUMERO_DE_PARTIDAS = muestra(200);
 const TURNOS_MAXIMOS = 40;
 // Red de seguridad para detectar "se cuelga" (un bucle sin ganador que no
 // terminaría nunca), muy por encima del objetivo de diseño de 40 -- igual
@@ -128,7 +129,7 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
   return { turnos: estado.numeroTurno, disparos, proyectilesPerdidos };
 }
 
-test("ia-n7 / partida-3: en 200 partidas simuladas en modo espacial real, casi todas terminan con ganador en 40 turnos o menos y menos del 15% de los disparos se pierden", async (t) => {
+test(`ia-n7 / partida-3: en ${NUMERO_DE_PARTIDAS} partidas simuladas en modo espacial real, casi todas terminan con ganador en 40 turnos o menos y menos del 15% de los disparos se pierden`, async (t) => {
   let estadoAleatorio = crearEstadoAleatorio(SEMILLA_MAESTRA);
   const resultados: { readonly turnos: number; readonly disparos: number; readonly proyectilesPerdidos: number; readonly pareja: string }[] = [];
 

@@ -13,6 +13,7 @@ import { buscarArma } from "@/sim/armas/catalogo";
 import { buscarSolucionRival, PRESUPUESTO_VUELOS_RIVAL_TURNO } from "@/sim/ia/busquedaMultipozo";
 import { generarLoteDeSistemas, MUNDO_MULTIPOZO } from "../../utils/loteMultipozo";
 import { MUNDO_ANCHO, MUNDO_ALTO } from "../../utils/sistemaGenerado";
+import { minimoProporcional, muestra } from "../../utils/muestra";
 
 // arm-6: repite EXACTAMENTE el escenario de ia-n7 (tests/unit/partida/
 // partida-3.test.ts) con el catálogo ya crecido a 13 armas -- incluidas las
@@ -22,7 +23,7 @@ import { MUNDO_ANCHO, MUNDO_ALTO } from "../../utils/sistemaGenerado";
 // aquí a propósito, para que la comparación de presupuesto de cómputo
 // (antes/después del catálogo nuevo) sea posible dentro del mismo test.
 const SEMILLA_MAESTRA = 90210;
-const NUMERO_DE_PARTIDAS = 200;
+const NUMERO_DE_PARTIDAS = muestra(200);
 const TURNOS_MAXIMOS = 40;
 const LIMITE_TURNOS_SEGURIDAD = 800;
 const TECHO_PROPORCION_PROYECTIL_PERDIDO = 0.15;
@@ -109,7 +110,7 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
   return { turnos: estado.numeroTurno, disparos, proyectilesPerdidos, vuelosSimulados: vuelosSimuladosTotales() - vuelosAntes };
 }
 
-test("arm-6: las 200 partidas de ia-n7 con el catálogo de 13 armas siguen dentro del presupuesto de cómputo, y casi todas terminan en 40 turnos o menos", async (t) => {
+test(`arm-6: las ${NUMERO_DE_PARTIDAS} partidas de ia-n7 con el catálogo de 13 armas siguen dentro del presupuesto de cómputo, y casi todas terminan en 40 turnos o menos`, async (t) => {
   reiniciarContadorVuelosSimulados();
   let estadoAleatorio = crearEstadoAleatorio(SEMILLA_MAESTRA);
   const resultados: { readonly turnos: number; readonly disparos: number; readonly proyectilesPerdidos: number; readonly vuelosSimulados: number; readonly pareja: string }[] = [];
@@ -175,7 +176,8 @@ test("arm-6: las 200 partidas de ia-n7 con el catálogo de 13 armas siguen dentr
 // el mismo resolutor que usa el rival real, sin pasar por elegirArma() -- y
 // comprobar que el presupuesto de vuelos se respeta y que sigue encontrando
 // daño real con cada una.
-const NUM_SISTEMAS_ARMAS_NUEVAS = 150;
+const NUM_SISTEMAS_ARMAS_NUEVAS_COMPLETO = 150;
+const NUM_SISTEMAS_ARMAS_NUEVAS = muestra(NUM_SISTEMAS_ARMAS_NUEVAS_COMPLETO);
 // andanada-de-flechas y barrena-planetaria siguen una parábola normal (la
 // gravedad las cura alrededor de los planetas, igual que a cualquier otra
 // arma del catálogo), así que se les exige el mismo listón que ia-n1. El
@@ -186,6 +188,8 @@ const NUM_SISTEMAS_ARMAS_NUEVAS = 150;
 // El listón bajo del láser es del acierto real medido (53/150), no un
 // número arbitrario: exige que la búsqueda siga encontrando el disparo
 // cuando sí hay línea de visión, sin fingir que la tiene cuando no.
+// Mínimos sobre los 150 sistemas completos; con muestra reducida se exige
+// la misma proporción (minimoProporcional).
 const MINIMOS_CON_DANIO: Record<string, number> = {
   "andanada-de-flechas": 130,
   "barrena-planetaria": 130,
@@ -228,7 +232,7 @@ test("arm-6: la búsqueda del rival respeta el presupuesto de vuelos y sigue enc
       maximoVuelos <= PRESUPUESTO_VUELOS_RIVAL_TURNO,
       `${idArma}: una búsqueda ha simulado ${maximoVuelos} vuelos, presupuesto ${PRESUPUESTO_VUELOS_RIVAL_TURNO}`,
     );
-    const minimoConDanio = MINIMOS_CON_DANIO[idArma];
+    const minimoConDanio = minimoProporcional(MINIMOS_CON_DANIO[idArma], NUM_SISTEMAS_ARMAS_NUEVAS_COMPLETO, NUM_SISTEMAS_ARMAS_NUEVAS);
     assert.ok(
       conDanio >= minimoConDanio,
       `${idArma}: solo ${conDanio}/${NUM_SISTEMAS_ARMAS_NUEVAS} sistemas obtuvieron un disparo con daño real (mínimo exigido ${minimoConDanio})`,

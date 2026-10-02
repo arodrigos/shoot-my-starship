@@ -7,8 +7,9 @@ import { decidirTurnoIA } from "@/sim/ia/decidir";
 import type { EstadoPartida } from "@/sim/partida/tipos";
 import type { Personalidad } from "@/sim/ia/tipos";
 import { generarLoteDeSistemas, MUNDO_MULTIPOZO } from "../../utils/loteMultipozo";
+import { muestra } from "../../utils/muestra";
 
-const NUM_ENTRADAS = 200;
+const NUM_ENTRADAS = muestra(200);
 
 // arma-mosca (mos-4): fixture de prueba, nunca una personalidad de
 // producción -- las tres personalidades reales deliberadamente no listan
