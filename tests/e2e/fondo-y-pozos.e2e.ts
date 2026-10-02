@@ -1,8 +1,5 @@
 import { test, expect } from "@playwright/test";
 
-const MUNDO_ANCHO = 1920;
-const MUNDO_ALTO = 1080;
-
 // fondo-y-pozos (fnd-2): la mitad determinista del criterio (misma semilla
 // -> mismo cielo, estrellas dentro del lienzo) ya la cubre
 // tests/unit/fondo/fnd-2.test.ts; lo que faltaba desde el PR #62 (iteración
@@ -24,19 +21,25 @@ test("fondo-y-pozos: naves y planetas quedan dentro del lienzo visible sobre el 
   await page.goto("/");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
-  await page.waitForFunction(() => window.__debug.naves !== undefined && window.__debug.planetas !== undefined);
+  await page.waitForFunction(
+    () => window.__debug.naves !== undefined && window.__debug.planetas !== undefined && window.__debug.mundo !== undefined,
+  );
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {
     await page.getByTestId("ayuda-cerrar").click();
   }
 
   const naves = (await page.evaluate(() => window.__debug.naves))!;
   const planetas = (await page.evaluate(() => window.__debug.planetas))!;
+  // DESVIACIÓN (encuadre-movil): MUNDO_ANCHO/MUNDO_ALTO ya no son fijos --
+  // se lee el tamaño de mundo real que quedó activo (window.__debug.mundo)
+  // en vez de asumir 1920x1080.
+  const mundo = (await page.evaluate(() => window.__debug.mundo))!;
   const anchoLienzoPx = await page.evaluate(() => {
     const lienzo = document.querySelector("#game-container canvas") as HTMLCanvasElement;
     return lienzo.getBoundingClientRect().width;
   });
-  const escalaEfectiva = anchoLienzoPx / MUNDO_ANCHO;
-  const altoLienzoPx = MUNDO_ALTO * escalaEfectiva;
+  const escalaEfectiva = anchoLienzoPx / mundo.ancho;
+  const altoLienzoPx = mundo.alto * escalaEfectiva;
 
   expect(naves.length).toBeGreaterThanOrEqual(2);
   for (const nave of naves) {

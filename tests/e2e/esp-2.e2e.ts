@@ -115,8 +115,10 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
 
   // Máscara y textura siguen coincidiendo en un muestreo amplio tras los dos
   // impactos reales (mismo contrato que terreno-3/render-2).
-  const MUNDO_ANCHO = 1920;
-  const MUNDO_ALTO = 1080;
+  // DESVIACIÓN (encuadre-movil): se lee window.__debug.mundo en vez de
+  // asumir 1920x1080 -- este hito espacial también se reconfigura al
+  // aspecto real del contenedor.
+  const mundo = (await page.evaluate(() => window.__debug.mundo))!;
   const NUM_PUNTOS = 3000;
   const resultados = await page.evaluate(
     ({ ancho, alto, numeroDePuntos }) => {
@@ -131,7 +133,7 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
       }));
       return window.__debug.terreno!.comprobarPuntos(puntos);
     },
-    { ancho: MUNDO_ANCHO, alto: MUNDO_ALTO, numeroDePuntos: NUM_PUNTOS },
+    { ancho: mundo.ancho, alto: mundo.alto, numeroDePuntos: NUM_PUNTOS },
   );
   expect(resultados).toHaveLength(NUM_PUNTOS);
   expect(resultados.every(Boolean)).toBe(true);

@@ -420,8 +420,15 @@ export class Partida extends Phaser.Scene {
       const mascara = generarMascara(mapa.semillaTerreno, MUNDO_ANCHO, MUNDO_ALTO);
       const xNave0 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_0);
       const xNave1 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_1);
+      // DESVIACIÓN (encuadre-movil): mapa.mundo.ancho/alto quedan congelados
+      // en el valor que tenía MUNDO_ANCHO/MUNDO_ALTO cuando mapas.ts se
+      // evaluó por primera vez (antes de que configurarTamanoMundo ajuste
+      // el mundo al contenedor real) -- se pisan aquí con el tamaño vivo
+      // para que la física no use un mundo distinto del que de verdad se
+      // renderiza.
+      const mundoAjustado = { ...mapa.mundo, ancho: MUNDO_ANCHO, alto: MUNDO_ALTO };
       this.estado = {
-        ...crearPartidaInicial(mapa.mundo, mascara, xNave0, xNave1, mapa.semillaPartida),
+        ...crearPartidaInicial(mundoAjustado, mascara, xNave0, xNave1, mapa.semillaPartida),
         modo,
         ...(saldoInicial !== undefined ? { saldo: saldoInicial } : {}),
       };
