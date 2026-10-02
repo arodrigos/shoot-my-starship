@@ -365,6 +365,10 @@ export class Partida extends Phaser.Scene {
       radioCascoColisionPx: RADIO_CASCO_NAVE_PX,
       proyectilLadoMayorMaximoPx: Math.max(...CATALOGO_ARMAS.map((arma) => dimensionMayor(puntosSilueta(arma)))),
     };
+    // encuadre-movil: main.ts ya recalculó MUNDO_ANCHO/MUNDO_ALTO antes de
+    // construir esta escena -- el e2e no tiene otra forma de comprobar qué
+    // tamaño de mundo quedó activo sin este canal.
+    window.__debug.mundo = { ancho: MUNDO_ANCHO, alto: MUNDO_ALTO };
     // "Otra partida" reutiliza los mismos stores de módulo (singletons, no
     // ligados al ciclo de vida de React) para una escena de Phaser
     // completamente nueva: sin esto arrastrarían el ajuste, el arma agotada,

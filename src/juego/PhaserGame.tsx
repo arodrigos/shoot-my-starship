@@ -9,12 +9,15 @@ import { ReaccionHUD } from "@/juego/hud/ReaccionHUD";
 import { ParteDeGuerraHUD } from "@/juego/hud/ParteDeGuerraHUD";
 import { CuentaAtrasHUD } from "@/juego/hud/CuentaAtrasHUD";
 import type { DatosEscenaPartida, IdEscena } from "@/juego/main";
+import { FRACCION_ALTO_ZONA_JUEGO } from "@/juego/layoutContenedor";
 
 const ID_CONTENEDOR = "game-container";
 // layout-dos-zonas (lay-1): la zona de juego reserva al menos el 55% del
 // alto de la ventana -- se deja un 58% para que el redondeo de subpíxeles
-// nunca la tire por debajo del mínimo exigido.
-const ALTO_ZONA_JUEGO = "58%";
+// nunca la tire por debajo del mínimo exigido. encuadre-movil mueve el
+// número a layoutContenedor.ts para que main.ts calcule el mismo tamaño de
+// contenedor sin tener que medir el DOM.
+const ALTO_ZONA_JUEGO = `${FRACCION_ALTO_ZONA_JUEGO * 100}%`;
 
 type Estado = "disponible" | "sin-webgl";
 
