@@ -530,7 +530,15 @@ export function ControlHUD() {
       <div
         style={{
           position: "absolute",
-          inset: 0,
+          // hud-canales (cierre lay-3): anclar a inset:0 a secas deja solo
+          // los 4px del gap de flex column entre fila-avisos y fila-armas
+          // como margen frente a selector-arma-abrir/disparar -- demasiado
+          // ajustado para sobrevivir al redondeo de subpíxel del motor de
+          // layout (medido en repetición: el panel y el control quedan a
+          // una distancia de exactamente ese gap, cero margen de verdad).
+          // Reservar 8px de borde inferior aquí suma un colchón de 12px en
+          // total, muy por encima del redondeo observado.
+          inset: "0 0 8px 0",
           display: "flex",
           flexDirection: "column",
           justifyContent: "flex-end",
