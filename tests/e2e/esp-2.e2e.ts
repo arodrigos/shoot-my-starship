@@ -11,16 +11,27 @@ import { ANGULO_INICIAL_GRADOS, POTENCIA_INICIAL, GANANCIA_ANGULO_GRADOS, GANANC
 // el mismo contrato de terreno-3/render-2 (máscara y textura coinciden en un
 // muestreo amplio) tras los dos impactos reales.
 //
-// Ángulo/potencia (72.5°, 79%) son los mismos que esp-1: se comprobó aparte
-// (ver esp-1.e2e.ts) que para la semilla por defecto y la colocación de
-// naves actual ese disparo impacta de verdad dentro del mundo, así que sirve
-// igual para comprobar qué pasa al repetirlo.
+// encuadre-movil (corrección): (72.5°, 79%), heredados de esp-1, dejaron de
+// valer en cuanto el mundo pasó a reconfigurarse por el aspecto del
+// contenedor -- con el viewport por defecto de Playwright (1280x720,
+// layout-dos-zonas da el 58% del alto a la zona de juego) el mundo sale
+// mucho más ancho y bajo que el 1920x1080 de siempre (2521x822, medido), y
+// ESE disparo concreto ya no lo capturan los planetas: sale por el borde
+// derecho del mundo todavía muy por encima de su parte visible (y ~ -6841),
+// así que el "impacto" que detenerseEnSuelo reporta es en realidad una
+// salida de mundo, no un choque con terreno -- el cráter que se talla ahí
+// no tiene ningún efecto real y el segundo disparo repite el mismo punto
+// (distancia medida: ~0,2px), justo el fallo que destapó este bloque.
 //
-// impacto-naves (bloque 8, declarado en desviaciones del entregable de
-// Desarrollo): sustituyen a los (56°, 54%) originales de render-espacio por
-// el mismo motivo que en esp-1.e2e.ts -- ver el comentario allí.
-const ANGULO_OBJETIVO_GRADOS = 72.5;
-const POTENCIA_OBJETIVO = 79;
+// (26°, 56%) se buscó por barrido exhaustivo sobre la misma física real
+// (resolverDisparo, incluido el rastreador de naves) para la semilla y
+// colocación de naves actuales: el primer disparo SÍ impacta dentro del
+// mundo (contra un planeta), y el segundo, tras el cráter, continúa por la
+// MISMA trayectoria determinista y aterriza ~474px más allá -- igual de
+// holgado que el margen anterior (~44,7px) frente al umbral de 30px, solo
+// que ahora de verdad atraviesa algo.
+const ANGULO_OBJETIVO_GRADOS = 26;
+const POTENCIA_OBJETIVO = 56;
 
 function esEventoImpacto(evento: EventoSimulacion): evento is Extract<EventoSimulacion, { tipo: "impacto" }> {
   return evento.tipo === "impacto";
@@ -100,9 +111,10 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
   const dy = segundoImpacto!.y - primerImpacto!.y;
   const distancia = Math.sqrt(dx * dx + dy * dy);
   // El diseño fija el umbral en 30px (ver bloque render-espacio, esp-2); la
-  // comprobación previa por guion aparte dio ~44.7px de distancia real entre
-  // el primer y el segundo impacto para este ángulo/potencia, así que 30px
-  // sigue siendo un margen holgado, no un ajuste fino al resultado observado.
+  // comprobación previa por guion aparte (encuadre-movil, ver arriba) dio
+  // ~474px de distancia real entre el primer y el segundo impacto para
+  // este ángulo/potencia, así que 30px sigue siendo un margen holgado, no
+  // un ajuste fino al resultado observado.
   expect(distancia).toBeGreaterThan(30);
 
   // El punto del primer cráter debe seguir siendo aire (no sólido) tras el
