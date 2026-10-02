@@ -194,6 +194,12 @@ export class Partida extends Phaser.Scene {
   // no ve el resultado de su propio disparo; aquí sí se ve, un turno
   // después, así que este campo es el puente entre los dos.
   private ultimoIntentoIA: UltimoIntentoIA | null = null;
+  // ia-autodanio-3: cuántas veces lleva disparada cada arma la máquina en
+  // esta partida -- store.ts ya lleva esta cuenta para el jugador humano
+  // (control-6), pero la IA dispara por su propio camino (dispararTurnoIA,
+  // más abajo) y sin esto podía reelegir Despedida sin límite, autodañándose
+  // en casi cada turno (usosMaximos no se comprueba dentro del núcleo).
+  private usosPorArmaIA: Record<string, number> = {};
   // partida-3/hallazgo: a la distancia real entre naves, el único arco
   // viable suele ser casi vertical, donde el 0.35x de un solo fallo (ia-5)
   // no basta para que la máquina converja -- se cuentan los fallos seguidos
@@ -368,6 +374,7 @@ export class Partida extends Phaser.Scene {
     reiniciarBromas();
     reiniciarIntegridad();
     this.ultimoIntentoIA = null;
+    this.usosPorArmaIA = {};
     this.fallosConsecutivosIA = 0;
     this.turnosSeguidosSinDanioIA = 0;
     this.turnosSeguidosDanioInsuficienteIA = 0;
@@ -1204,8 +1211,9 @@ export class Partida extends Phaser.Scene {
   // circuito completo (elegir, apuntar, disparar, responder) sin que el
   // bloque siguiente (partida-completa) tenga que reconstruir este enganche.
   private dispararTurnoIA(): void {
-    const { entrada, estado } = crearFuenteIA(this.rival, this.ultimoIntentoIA)(this.estado);
+    const { entrada, estado } = crearFuenteIA(this.rival, this.ultimoIntentoIA, this.usosPorArmaIA)(this.estado);
     this.estado = estado;
+    this.usosPorArmaIA = { ...this.usosPorArmaIA, [entrada.arma]: (this.usosPorArmaIA[entrada.arma] ?? 0) + 1 };
     this.dispararEntrada(entrada, false);
   }
 

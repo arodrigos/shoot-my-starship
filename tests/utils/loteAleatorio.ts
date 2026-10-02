@@ -52,8 +52,12 @@ export interface ResultadoPartidaLote {
   readonly problemas: readonly string[];
 }
 
-const NAVE0_X = 150;
-const NAVE1_X = 810;
+// Exportadas (ia-autodanio-5): medir-ia.ts reconstruye exactamente el mismo
+// mundo que el lote para que el jugador patrón se comporte igual en ambos
+// sitios -- duplicar estos números sería la clase de desviación silenciosa
+// que el Gatekeeper busca.
+export const NAVE0_X = 150;
+export const NAVE1_X = 810;
 
 function jugarUnaPartidaDelLote(semilla: number, mascara: Mascara): ResultadoPartidaLote {
   const inicial: EstadoPartida = crearPartidaInicial(MUNDO_LOTE, mascara, NAVE0_X, NAVE1_X, semilla);

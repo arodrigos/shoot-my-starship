@@ -19,7 +19,15 @@ import { naveContraria, type EstadoPartida, type FuenteDeTurno, type IdNave } fr
 // entre llamadas), y el bucle de partida en vivo (partida-completa,
 // Partida.ts) sí puede leer el evento de impacto real antes del turno
 // siguiente y pasarlo aquí.
-export function crearFuenteIA(personalidad: Personalidad, ultimoIntento: UltimoIntentoIA | null = null): FuenteDeTurno {
+export function crearFuenteIA(
+  personalidad: Personalidad,
+  ultimoIntento: UltimoIntentoIA | null = null,
+  // ia-autodanio-3: cuántas veces lleva disparada cada arma esta nave en la
+  // partida -- quien llama (Partida.ts para la partida en vivo, el lote de
+  // medición para medir:ia) lo trackea y lo pasa aquí por el mismo motivo que
+  // ultimoIntento: esta función no ve el resultado de turnos anteriores.
+  usosPorArma: Readonly<Record<string, number>> = {},
+): FuenteDeTurno {
   return (estado: EstadoPartida) => {
     const tirador = estado.turno;
     const objetivoId = naveContraria(tirador);
@@ -57,6 +65,7 @@ export function crearFuenteIA(personalidad: Personalidad, ultimoIntento: UltimoI
       naves,
       tiradorId: modoEspacial ? tirador : undefined,
       objetivoId: modoEspacial ? objetivoId : undefined,
+      usosPorArma,
     });
 
     return {
