@@ -6,8 +6,10 @@ Artillería por turnos (estilo Scorched Earth / Worms) en el Cinturón de la
 Deriva: naves varadas disparándose en mundos de chatarra con terreno
 destructible. **100% cliente**: Next.js (App Router, TypeScript estricto) +
 Phaser 4, sin base de datos, sin Auth, sin ninguna llamada a un servicio
-propio. Se despliega en Vercel; el único secreto del repo es el token de
-Vercel que usa el propio CI para disparar el despliegue.
+propio. Se despliega en Vercel a través de su integración con GitHub: el
+repo no tiene ningún secret de Actions y el CI no despliega nada. El repo
+es público, así que nada de lo que se escriba aquí (código, commits, issues
+o PRs) puede llevar secretos ni referencias internas de la infraestructura.
 
 ## Arquitectura (resumen; el diseño completo vive en el pipeline horizontal)
 
