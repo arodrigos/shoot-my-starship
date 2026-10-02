@@ -2,7 +2,9 @@ import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
 import type { SolucionBalistica } from "@/sim/balistica/solucionador";
 import { existeTiroViable } from "@/sim/balistica/rejilla";
-import { buscarSolucionRival } from "@/sim/ia/busquedaMultipozo";
+import { resolverDisparo } from "@/sim/armas/resolver";
+import type { Arma } from "@/sim/armas/tipos";
+import { buscarSolucionRival, PRESUPUESTO_VUELOS_RIVAL_TURNO } from "@/sim/ia/busquedaMultipozo";
 import type { NavePosicion } from "@/sim/naves/impacto";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { EntradaDeTurno, IdNave } from "@/sim/partida/tipos";
@@ -16,6 +18,14 @@ import type { Personalidad, RangoDeError } from "@/sim/ia/tipos";
 // razonable intentarlo sea cual sea el carácter del rival.
 const ARMA_DE_DESBLOQUEO = "zanjadora-manolita";
 const ANGULO_POR_DEFECTO: SolucionBalistica = { anguloGrados: 45, potencia: 70 };
+
+// ia-autodanio-2: la rejilla ya evita el autodaño (ia-autodanio-1), pero el
+// error de personalidad se suma DESPUÉS de elegir el candidato -- un tiro
+// que salió seguro puede dejar de serlo tras el ruido. Se vuelve a simular
+// (siempre con resolverDisparo, nunca una comprobación propia) antes de
+// disparar de verdad, y si se autoimpacta se resortea el error hasta 3
+// veces -- nunca más, para no comerse el presupuesto de vuelos del turno.
+const MAX_REINTENTOS_AUTOIMPACTO = 3;
 
 // ia-multipozo (ia-n10): la misma arma y el mismo presupuesto que colocacion.ts
 // usa para existeTiroViable -- así "bloqueada" en modo multipozo se apoya en
@@ -168,6 +178,102 @@ export function calcularErrorInyectado(
     },
     aleatorio: pasoPotencia.estado,
   };
+}
+
+export interface ParametrosEvitarAutoimpacto {
+  readonly mascara: Mascara;
+  readonly gravedad: number;
+  readonly deriva: number;
+  readonly ancho: number;
+  readonly alto: number;
+  readonly planetas?: RegistroPlanetas;
+  readonly origenX: number;
+  readonly origenY: number;
+  readonly objetivoX: number;
+  readonly objetivoY: number;
+  readonly naves: readonly NavePosicion[];
+  readonly tiradorId: IdNave;
+  readonly arma: Arma;
+  readonly personalidad: Personalidad;
+  readonly solucionExacta: SolucionBalistica;
+  readonly anguloInicial: number;
+  readonly potenciaInicial: number;
+  readonly aleatorio: EstadoAleatorio;
+  readonly factorSensibilidadAngulo: number;
+  readonly factorSensibilidadPotencia: number;
+  readonly factorBaseCorreccion: number;
+  // Vuelos ya gastados por la búsqueda (rejilla + refinamiento + sondas) ANTES
+  // de esta verificación -- para no superar nunca presupuestoTotal entre las dos.
+  readonly vuelosYaSimulados: number;
+  readonly presupuestoTotal: number;
+}
+
+export interface ResultadoEvitarAutoimpacto {
+  readonly anguloGrados: number;
+  readonly potencia: number;
+  readonly aleatorio: EstadoAleatorio;
+}
+
+// ia-autodanio-2: la rejilla (ia-autodanio-1) ya elige un candidato sin
+// autodaño siempre que existe alternativa, pero el error de personalidad se
+// suma DESPUÉS -- un tiro que salió seguro puede dejar de serlo tras el
+// ruido. Se re-simula con el MISMO resolutor real antes de disparar de
+// verdad (nunca una comprobación propia) y, si se autoimpacta, se resortea
+// el error hasta MAX_REINTENTOS_AUTOIMPACTO veces -- nunca más, y nunca por
+// encima de presupuestoTotal entre la búsqueda y esta verificación. Agotados
+// los reintentos sin un tiro seguro, se cae a solucionExacta sin error (que
+// ia-autodanio-1 garantiza segura si existía alguna alternativa segura):
+// exportada para que el test de reproducibilidad (ia-n4a) recalcule el mismo
+// camino en vez de reimplementarlo.
+export function evitarAutoimpactoConReintento(params: ParametrosEvitarAutoimpacto): ResultadoEvitarAutoimpacto {
+  let anguloGrados = params.anguloInicial;
+  let potencia = params.potenciaInicial;
+  let aleatorio = params.aleatorio;
+
+  for (let intento = 0; intento < MAX_REINTENTOS_AUTOIMPACTO; intento++) {
+    if (params.vuelosYaSimulados + intento + 1 > params.presupuestoTotal) break;
+    const verificacion = resolverDisparo({
+      mascara: params.mascara,
+      gravedad: params.gravedad,
+      deriva: params.deriva,
+      aleatorio,
+      arma: params.arma,
+      origenX: params.origenX,
+      origenY: params.origenY,
+      anguloGrados,
+      potencia,
+      objetivoX: params.objetivoX,
+      objetivoY: params.objetivoY,
+      ancho: params.ancho,
+      alto: params.alto,
+      planetas: params.planetas,
+      naves: params.naves,
+      tiradorId: params.tiradorId,
+    });
+    const autoimpactoTotal = verificacion.danioPropio + (verificacion.impactoPropio?.danio ?? 0);
+    if (autoimpactoTotal === 0) break;
+
+    if (intento === MAX_REINTENTOS_AUTOIMPACTO - 1) {
+      anguloGrados = params.solucionExacta.anguloGrados;
+      potencia = params.solucionExacta.potencia;
+      break;
+    }
+
+    // Se resortea el error con la MISMA amortiguación por sensibilidad que el
+    // intento original -- un reintento no es una segunda personalidad, solo
+    // una segunda tirada de la misma.
+    const reintento = calcularErrorInyectado(
+      params.personalidad,
+      aleatorio,
+      params.factorBaseCorreccion * params.factorSensibilidadAngulo,
+      params.factorBaseCorreccion * params.factorSensibilidadPotencia,
+    );
+    aleatorio = reintento.aleatorio;
+    anguloGrados = Math.min(180, Math.max(0, params.solucionExacta.anguloGrados + reintento.error.anguloGrados));
+    potencia = Math.min(100, Math.max(0, params.solucionExacta.potencia + reintento.error.potencia));
+  }
+
+  return { anguloGrados, potencia, aleatorio };
 }
 
 // 0 para el Gravitón (empuje), su daño declarado para todo lo demás -- ia-n8
@@ -462,12 +568,40 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
       factorBaseCorreccion * factorSensibilidadPotencia,
     );
 
-    const anguloGrados = Math.min(180, Math.max(0, solucionExacta.anguloGrados + error.anguloGrados));
-    const potencia = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));
+    const anguloConError = Math.min(180, Math.max(0, solucionExacta.anguloGrados + error.anguloGrados));
+    const potenciaConError = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));
+
+    // ia-autodanio-2: re-simular el tiro final (con el error ya puesto) y
+    // reintentar si se autoimpacta -- ver evitarAutoimpactoConReintento.
+    const { anguloGrados, potencia, aleatorio: aleatorioTrasReintentos } = evitarAutoimpactoConReintento({
+      mascara,
+      gravedad,
+      deriva,
+      ancho,
+      alto,
+      planetas,
+      origenX,
+      origenY: origenY as number,
+      objetivoX,
+      objetivoY: objetivoY as number,
+      naves: naves as readonly NavePosicion[],
+      tiradorId: tiradorId as IdNave,
+      arma: buscarArma(armaProvisional),
+      personalidad,
+      solucionExacta,
+      anguloInicial: anguloConError,
+      potenciaInicial: potenciaConError,
+      aleatorio: aleatorioFinal,
+      factorSensibilidadAngulo,
+      factorSensibilidadPotencia,
+      factorBaseCorreccion,
+      vuelosYaSimulados: resultadoBusqueda.vuelosSimulados,
+      presupuestoTotal: presupuestoVuelosMax ?? PRESUPUESTO_VUELOS_RIVAL_TURNO,
+    });
 
     return {
       entrada: { arma: armaProvisional, anguloGrados, potencia },
-      aleatorio: aleatorioFinal,
+      aleatorio: aleatorioTrasReintentos,
       bloqueada,
       solucionExacta,
     };

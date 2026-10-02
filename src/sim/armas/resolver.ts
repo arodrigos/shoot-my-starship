@@ -163,9 +163,17 @@ export function crearDetenerseConMecha(detenerseBase: (p: EstadoProyectil) => bo
 // final del soporte), que es donde detona. Es terreno, no física de
 // proyectil, así que no reutiliza integrarPasoProyectil: es un recorrido
 // discreto sobre la máscara.
-function resolverRodadura(mascara: Mascara, xInicial: number, distanciaMaximaPx: number, pasoPx: number): PuntoDeImpacto {
+function resolverRodadura(mascara: Mascara, xInicial: number, yInicial: number, distanciaMaximaPx: number, pasoPx: number): PuntoDeImpacto {
   const alturaEn = (x: number): number => alturaSuperficie(mascara, x) ?? Number.POSITIVE_INFINITY;
-  const yInicial = alturaEn(xInicial);
+  // ia-autodanio: yInicial es el punto de contacto REAL del proyectil
+  // (detenerseEnSuelo también para en el borde del mapa, sin suelo sólido
+  // debajo -- ahí alturaSuperficie no encuentra nada en toda la columna y
+  // devolvía Infinity, haciendo rodar la bola hacia un punto de impacto
+  // también infinito). Si no hay un contacto real que rodar, se detona donde
+  // cayó, sin intentar rodar sobre un suelo que no existe.
+  if (!Number.isFinite(yInicial)) {
+    return { x: xInicial, y: yInicial };
+  }
   const yIzquierda = alturaEn(xInicial - pasoPx);
   const yDerecha = alturaEn(xInicial + pasoPx);
 
@@ -437,7 +445,7 @@ function resolverUnDisparo(
   // "la penetración atraviesa sólido pero nunca un casco, que siempre
   // detona" aplica igual de fuerte a la rodadura).
   if (arma.comportamiento.tipo === "rodante" && !impactoNave) {
-    const punto = resolverRodadura(mascara, proyectil.x, arma.comportamiento.distanciaMaximaPx, arma.comportamiento.pasoPx);
+    const punto = resolverRodadura(mascara, proyectil.x, proyectil.y, arma.comportamiento.distanciaMaximaPx, arma.comportamiento.pasoPx);
     return { puntos: [punto], perdido: false, roce: roceNave ?? undefined, aleatorio };
   }
 
