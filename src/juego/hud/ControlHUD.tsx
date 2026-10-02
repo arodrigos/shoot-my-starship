@@ -25,9 +25,11 @@ import {
 import { obtenerHistorialEfectos, sonidoSilenciado } from "@/juego/audio/motor";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/resultadoTurnoStore";
+import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { RoceHUD } from "@/juego/hud/RoceHUD";
+import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import "@/debug/tipos";
 
 // La cáscara React del control (fuera del lienzo, ver arquitectura): todo lo
@@ -106,7 +108,9 @@ function crearClicConToleranciaDeArrastre(accion: () => void) {
 export function ControlHUD() {
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const resultadoTurno = useSyncExternalStore(suscribirResultadoTurno, obtenerResultadoTurno, obtenerResultadoTurno);
+  const bromas = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
+  const [historicoAbierto, setHistoricoAbierto] = useState(false);
 
   useEffect(() => {
     window.__debug = window.__debug ?? {};
@@ -159,11 +163,17 @@ export function ControlHUD() {
   // lay-6: motivo concreto de por qué "Disparar" no responde -- distinto de
   // puedeDisparar (que gobierna la escena: turno, animación en curso...) y
   // que por eso necesita su propio texto en vez de reusar el de la escena.
+  // hud-canales-5: "disparar" ya viene disabled con !puedeDisparar (nunca se
+  // encola un segundo disparo); esto solo pone en pantalla la causa concreta
+  // -- vuelo en curso o turno del rival, las dos cosas que puedeDisparar ya
+  // combina sin que el HUD reimplemente esa condición por su cuenta.
   const avisoAccionImposible = potenciaEnCero
     ? "Potencia a 0: arrastra hacia arriba en la consola para cargar el disparo."
     : saldoInsuficienteParaSeleccionada
       ? `Saldo insuficiente para ${armaSeleccionada.nombre}: elige otra arma o acierta un disparo para ingresar.`
-      : null;
+      : !estado.puedeDisparar
+        ? "Espera a que termine el disparo: no puedes disparar mientras hay un proyectil en vuelo o es el turno del rival."
+        : null;
 
   return (
     // layout-dos-zonas: esta consola ocupa el 100% de su contenedor (la
@@ -198,9 +208,17 @@ export function ControlHUD() {
       onPointerCancel={terminarArrastre}
       data-testid="superficie-arrastre"
     >
-      {/* fila-estado: resultado del turno (+ saldo, en modo presupuesto) a la
-          izquierda, integridad de ambas naves a la derecha. */}
-      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
+      {/* canal-estado (hud-canales-1): permanente -- de quién es el turno y
+          el nombre del rival ya no son una fila propia (ver IntegridadHUD:
+          resalta la nave de quien juega y sustituye su etiqueta genérica),
+          porque esta sección ya agotaba casi todo el presupuesto de alto de
+          la consola en 360x640 (lay-5: sin ni 2px de margen) y una fila
+          nueva, o incluso un botón nuevo aquí dentro, la hacía desbordar la
+          ventana -- el botón de histórico (gra-2, mismo criterio que
+          CuentaAtrasHUD) vive fuera de la consola, superpuesto a la zona de
+          juego con position:fixed, así que no reserva nada de su alto. */}
+      <div data-testid="canal-estado" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: "56%", minWidth: 0 }}>
           <div
             role="status"
@@ -235,7 +253,72 @@ export function ControlHUD() {
         <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6 }}>
           <IntegridadHUD />
         </div>
+        </div>
+
       </div>
+
+      {/* hud-canales-3: "accesible desde el canal de estado" -- fixed, igual
+          que CuentaAtrasHUD (gra-2), para que no compita por el presupuesto
+          de alto/ancho de la consola, que ya está al límite. */}
+      <button
+        type="button"
+        data-testid="historico-bromas-toggle"
+        aria-expanded={historicoAbierto}
+        onClick={() => setHistoricoAbierto((valor) => !valor)}
+        style={{
+          position: "fixed",
+          top: 10,
+          left: 10,
+          zIndex: 15,
+          minHeight: 24,
+          padding: "4px 10px",
+          borderRadius: 8,
+          border: "none",
+          background: "var(--color-cromado-fondo)",
+          color: "var(--color-cromado-texto)",
+          font: "11px system-ui, sans-serif",
+          cursor: "pointer",
+        }}
+      >
+        Histórico{bromas.historico.length > 0 ? ` (${bromas.historico.length})` : ""}
+      </button>
+
+      {historicoAbierto && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            top: 0,
+            height: "58%",
+            zIndex: 20,
+            display: "flex",
+            flexDirection: "column",
+            padding: 8,
+            background: "rgba(5,6,10,0.88)",
+          }}
+        >
+          <button
+            type="button"
+            data-testid="historico-bromas-cerrar"
+            aria-label="Cerrar histórico"
+            onClick={() => setHistoricoAbierto(false)}
+            style={{
+              alignSelf: "flex-end",
+              minWidth: TAMANO_MINIMO_BOTON_PX,
+              minHeight: TAMANO_MINIMO_BOTON_PX,
+              background: "transparent",
+              border: "none",
+              color: "#cfe8ff",
+              font: "16px system-ui, sans-serif",
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </button>
+          <HistoricoBromasHUD />
+        </div>
+      )}
 
       {/* control-angulo-potencia: dos controles independientes de verdad --
           cada uno en su propio elemento, con su propio gesto de arrastre
@@ -362,6 +445,7 @@ export function ControlHUD() {
           fila ya encogida, invadiendo geométricamente fila-armas aunque no
           se viera clípticamente -- exactamente lo que medía panel-bromas
           solapando selector-arma-abrir. */}
+      <div style={{ position: "relative" }}>
       <div
         style={{
           display: "flex",
@@ -373,7 +457,6 @@ export function ControlHUD() {
           overflowY: "auto",
         }}
       >
-        <BromaHUD />
         <RoceHUD />
         {/* realce-impacto (rlc-3): "no marea ni estorba" -- interruptor propio,
             fuera del lienzo, que persiste entre partidas (store). Vive aquí
@@ -434,6 +517,28 @@ export function ControlHUD() {
         >
           Sonido: {estado.silenciado ? "Off" : "On"}
         </button>
+      </div>
+
+      {/* hud-canales-1: canal PASIVO de la broma -- superpuesto (no ocupa
+          hueco en el flujo, así que quitarla o que se desvanezca sola nunca
+          mueve control-angulo/potencia/armas, lay-4) y anclado por el borde
+          INFERIOR a este mismo contenedor: si el texto necesita más alto del
+          que fila-avisos ya reservaba para roce/interruptores, crece hacia
+          ARRIBA (hacia fila-estado), nunca hacia abajo -- así nunca alcanza
+          ángulo, potencia, arma ni disparar (lay-3), que es justo el solape
+          que medía el hallazgo del gatekeeper anterior. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          pointerEvents: "none",
+        }}
+      >
+        <BromaHUD />
+      </div>
       </div>
 
       {/* fila-armas: selector de arma y disparo/repetir -- el paso fino de

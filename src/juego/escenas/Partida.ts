@@ -41,7 +41,9 @@ import {
   obtenerEstadoControl,
   publicarDisparoJugadorResuelto,
   publicarJugable,
+  publicarNombreRival,
   publicarSaldo,
+  publicarTurno,
   registrarManejadorDisparo,
   reiniciarControl,
 } from "@/juego/control/store";
@@ -382,6 +384,8 @@ export class Partida extends Phaser.Scene {
     const parametrosUrl = new URLSearchParams(window.location.search);
     const idMapa = parametrosUrl.get("mapa") ?? this.datosEscena.mapaId;
     this.rival = this.datosEscena.personalidadId ? buscarPersonalidad(this.datosEscena.personalidadId) : RIVAL_POR_DEFECTO;
+    // hud-canales-1: una sola vez por partida, para el canal de estado.
+    publicarNombreRival(this.rival.nombre);
 
     // modos-y-presupuesto: ?modo= sigue la misma convención que ?mapa=/
     // ?semilla= -- atajo determinista para los tests e2e, con la última
@@ -683,6 +687,7 @@ export class Partida extends Phaser.Scene {
     // preRender.
     window.__debug.camara = { x: 0, y: 0, ancho: this.scale.width, alto: this.scale.height };
     window.__debug.turno = this.estado.turno;
+    publicarTurno(this.estado.turno);
     window.__debug.numeroTurno = this.estado.numeroTurno;
     publicarJugable(this.puedeJugarAhora());
   }
@@ -1332,6 +1337,7 @@ export class Partida extends Phaser.Scene {
       this.refrescarEconomia();
       window.__debug!.turno = this.estado.turno;
       window.__debug!.numeroTurno = this.estado.numeroTurno;
+      publicarTurno(this.estado.turno);
       publicarJugable(this.puedeJugarAhora());
 
       if (estadoDespues.resultado.tipo === "terminada") {
@@ -1422,13 +1428,13 @@ export class Partida extends Phaser.Scene {
       if (arma?.bromaPropia) {
         textoDisparo = `${textoDisparo} ${this.selectorBromas.elegirDisparoArma(arma.id, arma.bromaPropia.disparo)}`;
       }
-      publicarBromaDisparo(textoDisparo);
+      publicarBromaDisparo(numeroTurnoAntes, textoDisparo);
     }
     let textoImpacto = this.selectorBromas.elegirImpacto(voz, categoria);
     if (arma?.bromaPropia) {
       textoImpacto = `${textoImpacto} ${this.selectorBromas.elegirImpactoArma(arma.id, arma.bromaPropia.impacto)}`;
     }
-    publicarBromaImpacto(textoImpacto, categoria);
+    publicarBromaImpacto(numeroTurnoAntes, textoImpacto, categoria);
 
     // hum-1: un registro por turno, para que el test pueda comprobar "sin
     // excepción" a lo largo de varios turnos y cruzar la frase contra el
