@@ -16,7 +16,7 @@ test("ia-autodanio-1: PESO_AUTODANIO pondera el autodaño con peso >= 2", () => 
 });
 
 function candidato(danio: number, autodanioTotal: number): CandidatoDisparo {
-  return { anguloGrados: 0, potencia: 0, danio, autodanioTotal, puntuacion: danio - PESO_AUTODANIO * autodanioTotal };
+  return { anguloGrados: 0, potencia: 0, danio, autodanioTotal, puntuacion: danio - PESO_AUTODANIO * autodanioTotal, pasosVuelo: 0 };
 }
 
 test("ia-autodanio-1: compararCandidatos nunca prefiere un candidato con autodaño frente a uno sin autodaño, aunque el primero haga más daño al objetivo", () => {

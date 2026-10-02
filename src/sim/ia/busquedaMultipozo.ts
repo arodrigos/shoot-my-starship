@@ -190,6 +190,7 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
   // candidato seguro de partida con el que arrancó esta fase.
   let mejorAutodanio = candidatos[0]?.autodanioTotal ?? 0;
   let mejorPuntuacion = candidatos[0]?.puntuacion ?? 0;
+  let mejorPasosVuelo = candidatos[0]?.pasosVuelo ?? 0;
 
   // Fase 2: refinamiento ternario dentro de la celda gruesa alrededor del
   // mejor candidato, a su misma potencia -- solo tiene sentido si la rejilla
@@ -213,6 +214,7 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
         danio: r1.danioObjetivo,
         autodanioTotal: r1.danioPropio + (r1.impactoPropio?.danio ?? 0),
         puntuacion: r1.danioObjetivo - PESO_AUTODANIO * (r1.danioPropio + (r1.impactoPropio?.danio ?? 0)),
+        pasosVuelo: r1.pasosVuelo,
       };
       const candidato2 = {
         anguloGrados: m2,
@@ -220,12 +222,33 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
         danio: r2.danioObjetivo,
         autodanioTotal: r2.danioPropio + (r2.impactoPropio?.danio ?? 0),
         puntuacion: r2.danioObjetivo - PESO_AUTODANIO * (r2.danioPropio + (r2.impactoPropio?.danio ?? 0)),
+        pasosVuelo: r2.pasosVuelo,
       };
-      if (compararCandidatos(candidato1, { anguloGrados: mejorAngulo, potencia: mejorPotencia, danio: mejorDanio, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion }) < 0) {
-        ({ danio: mejorDanio, anguloGrados: mejorAngulo, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion } = candidato1);
+      if (
+        compararCandidatos(candidato1, {
+          anguloGrados: mejorAngulo,
+          potencia: mejorPotencia,
+          danio: mejorDanio,
+          autodanioTotal: mejorAutodanio,
+          puntuacion: mejorPuntuacion,
+          pasosVuelo: mejorPasosVuelo,
+        }) < 0
+      ) {
+        ({ danio: mejorDanio, anguloGrados: mejorAngulo, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion, pasosVuelo: mejorPasosVuelo } =
+          candidato1);
       }
-      if (compararCandidatos(candidato2, { anguloGrados: mejorAngulo, potencia: mejorPotencia, danio: mejorDanio, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion }) < 0) {
-        ({ danio: mejorDanio, anguloGrados: mejorAngulo, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion } = candidato2);
+      if (
+        compararCandidatos(candidato2, {
+          anguloGrados: mejorAngulo,
+          potencia: mejorPotencia,
+          danio: mejorDanio,
+          autodanioTotal: mejorAutodanio,
+          puntuacion: mejorPuntuacion,
+          pasosVuelo: mejorPasosVuelo,
+        }) < 0
+      ) {
+        ({ danio: mejorDanio, anguloGrados: mejorAngulo, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion, pasosVuelo: mejorPasosVuelo } =
+          candidato2);
       }
       if (compararCandidatos(candidato1, candidato2) < 0) hi = m2;
       else lo = m1;
