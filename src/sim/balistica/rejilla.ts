@@ -58,6 +58,30 @@ export interface CandidatoDisparo {
   readonly anguloGrados: number;
   readonly potencia: number;
   readonly danio: number;
+  // ia-autodanio: autodanioTotal junta las dos vías de hacerse daño a sí
+  // mismo que expone resolverDisparo -- danioPropio (garantizado, p.ej.
+  // "Despedida") e impactoPropio.danio (por gravedad, un disparo curvo que
+  // vuelve a golpear el propio casco). puntuacion es lo que ordena de
+  // verdad: ver PESO_AUTODANIO y compararCandidatos más abajo.
+  readonly autodanioTotal: number;
+  readonly puntuacion: number;
+}
+
+// ia-autodanio-1: peso >=2 para que un candidato con autodaño nunca gane por
+// puntuación a uno sin autodaño que haga igual o menos del doble de daño --
+// en la práctica da igual porque compararCandidatos ya separa en dos grupos
+// (seguro vs. con autodaño) antes de mirar la puntuación, pero el peso sigue
+// marcando el orden DENTRO del grupo con autodaño.
+export const PESO_AUTODANIO = 2;
+
+// ia-autodanio-1: nunca elegir un candidato que se hace daño a sí mismo
+// mientras exista uno sin autodaño con daño real al objetivo -- por eso la
+// separación en dos grupos va ANTES que la puntuación, no mezclada con ella.
+export function compararCandidatos(a: CandidatoDisparo, b: CandidatoDisparo): number {
+  const aSeguro = a.autodanioTotal === 0;
+  const bSeguro = b.autodanioTotal === 0;
+  if (aSeguro !== bSeguro) return aSeguro ? -1 : 1;
+  return b.puntuacion - a.puntuacion;
 }
 
 function* combinacionesDeLaRejilla(): Generator<{ anguloGrados: number; potencia: number }> {
@@ -68,13 +92,19 @@ function* combinacionesDeLaRejilla(): Generator<{ anguloGrados: number; potencia
   }
 }
 
+interface ResultadoCandidato {
+  readonly danio: number;
+  readonly autodanioTotal: number;
+  readonly puntuacion: number;
+}
+
 function danioDelCandidato(
   params: ParametrosBarridoRejilla,
   tirador: NavePosicion,
   objetivo: NavePosicion,
   anguloGrados: number,
   potencia: number,
-): number {
+): ResultadoCandidato {
   const resultado = resolverDisparo({
     mascara: params.mascara,
     gravedad: params.gravedad,
@@ -93,7 +123,12 @@ function danioDelCandidato(
     naves: params.naves,
     tiradorId: params.tiradorId,
   });
-  return resultado.danioObjetivo;
+  const autodanioTotal = resultado.danioPropio + (resultado.impactoPropio?.danio ?? 0);
+  return {
+    danio: resultado.danioObjetivo,
+    autodanioTotal,
+    puntuacion: resultado.danioObjetivo - PESO_AUTODANIO * autodanioTotal,
+  };
 }
 
 // Barrido de ángulo x potencia sobre el vuelo real y el resolutor real:
@@ -111,13 +146,13 @@ export function barridoRejilla(params: ParametrosBarridoRejilla): readonly Candi
   for (const { anguloGrados, potencia } of combinacionesDeLaRejilla()) {
     if (params.presupuestoIntentos !== undefined && evaluados >= params.presupuestoIntentos) break;
     evaluados++;
-    const danio = danioDelCandidato(params, tirador, objetivo, anguloGrados, potencia);
-    if (danio > 0) {
-      candidatos.push({ anguloGrados, potencia, danio });
+    const resultado = danioDelCandidato(params, tirador, objetivo, anguloGrados, potencia);
+    if (resultado.danio > 0) {
+      candidatos.push({ anguloGrados, potencia, danio: resultado.danio, autodanioTotal: resultado.autodanioTotal, puntuacion: resultado.puntuacion });
     }
   }
 
-  return candidatos.sort((a, b) => b.danio - a.danio);
+  return candidatos.sort(compararCandidatos);
 }
 
 // Usado por colocarNaves (aceptar/rechazar una disposición) y, en el
@@ -137,7 +172,7 @@ export function existeTiroViable(params: ParametrosBarridoRejilla): boolean {
   for (const { anguloGrados, potencia } of combinacionesDeLaRejilla()) {
     if (params.presupuestoIntentos !== undefined && evaluados >= params.presupuestoIntentos) return false;
     evaluados++;
-    if (danioDelCandidato(params, tirador, objetivo, anguloGrados, potencia) > 0) return true;
+    if (danioDelCandidato(params, tirador, objetivo, anguloGrados, potencia).danio > 0) return true;
   }
   return false;
 }

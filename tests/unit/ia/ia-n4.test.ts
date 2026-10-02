@@ -4,12 +4,13 @@ import { siguienteAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { existeTiroViable } from "@/sim/balistica/rejilla";
-import { buscarSolucionRival } from "@/sim/ia/busquedaMultipozo";
+import { buscarSolucionRival, PRESUPUESTO_VUELOS_RIVAL_TURNO } from "@/sim/ia/busquedaMultipozo";
 import {
   calcularErrorInyectado,
   calcularFactorSensibilidad,
   calcularFactorSensibilidadPotencia,
   decidirTurnoIA,
+  evitarAutoimpactoConReintento,
 } from "@/sim/ia/decidir";
 import { ALMIRANTE_BISAGRA, CHISPA, LA_CONTABLE } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
@@ -85,12 +86,37 @@ test("ia-n4a: el error inyectado sigue siendo exactamente la diferencia entre la
       resultadoBusqueda.sensibilidadPxPorPorcentajePotencia,
       magnitudMaximaErrorPotencia,
     );
-    const { error } = calcularErrorInyectado(CHISPA, aleatorioTrasArma, factorSensibilidadAngulo, factorSensibilidadPotencia);
-    const anguloEsperado = Math.min(180, Math.max(0, decision.solucionExacta.anguloGrados + error.anguloGrados));
-    const potenciaEsperada = Math.min(100, Math.max(0, decision.solucionExacta.potencia + error.potencia));
+    const { error, aleatorio: aleatorioFinal } = calcularErrorInyectado(CHISPA, aleatorioTrasArma, factorSensibilidadAngulo, factorSensibilidadPotencia);
+    const anguloConError = Math.min(180, Math.max(0, decision.solucionExacta.anguloGrados + error.anguloGrados));
+    const potenciaConError = Math.min(100, Math.max(0, decision.solucionExacta.potencia + error.potencia));
 
-    assert.equal(decision.entrada.anguloGrados, anguloEsperado, `semilla ${semilla}: ángulo no coincide con solución exacta + error`);
-    assert.equal(decision.entrada.potencia, potenciaEsperada, `semilla ${semilla}: potencia no coincide con solución exacta + error`);
+    // ia-autodanio-2: decidirTurnoIA ya no emite solucionExacta + error tal
+    // cual -- antes de disparar re-simula y reintenta si ese tiro se
+    // autoimpacta (evitarAutoimpactoConReintento). fallosConsecutivos y
+    // turnosSeguidosSinDanio están fijados a 0 arriba, así que
+    // factorBaseCorreccion = FACTOR_DE_CORRECCION**0 = 1, como en el resto de
+    // este test.
+    const resultadoEsperado = evitarAutoimpactoConReintento({
+      ...parametrosComunes,
+      origenX: naveA.x,
+      origenY: naveA.y,
+      objetivoX: naveB.x,
+      objetivoY: naveB.y,
+      arma: buscarArma(decision.entrada.arma),
+      personalidad: CHISPA,
+      solucionExacta: decision.solucionExacta,
+      anguloInicial: anguloConError,
+      potenciaInicial: potenciaConError,
+      aleatorio: aleatorioFinal,
+      factorSensibilidadAngulo,
+      factorSensibilidadPotencia,
+      factorBaseCorreccion: 1,
+      vuelosYaSimulados: resultadoBusqueda.vuelosSimulados,
+      presupuestoTotal: PRESUPUESTO_VUELOS_RIVAL_TURNO,
+    });
+
+    assert.equal(decision.entrada.anguloGrados, resultadoEsperado.anguloGrados, `semilla ${semilla}: ángulo no coincide con solución exacta + error (+ reintentos)`);
+    assert.equal(decision.entrada.potencia, resultadoEsperado.potencia, `semilla ${semilla}: potencia no coincide con solución exacta + error (+ reintentos)`);
   }
 });
 

@@ -2,7 +2,9 @@ import {
   ANGULO_MAX_GRADOS,
   ANGULO_MIN_GRADOS,
   barridoRejilla,
+  compararCandidatos,
   PASO_ANGULO_GRUESO_GRADOS,
+  PESO_AUTODANIO,
   TOTAL_COMBINACIONES_REJILLA,
 } from "@/sim/balistica/rejilla";
 import { resolverDisparo } from "@/sim/armas/resolver";
@@ -181,30 +183,51 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
   let mejorAngulo = huboCandidato ? candidatos[0].anguloGrados : anguloDeEmergenciaHaciaObjetivo(tirador, objetivo);
   const mejorPotencia = candidatos[0]?.potencia ?? 70;
   let mejorDanio = candidatos[0]?.danio ?? 0;
+  // ia-autodanio-1: el refinamiento ternario parte del candidato que ya
+  // ganó en la rejilla (sin autodaño siempre que hubiera alternativa), así
+  // que arranca con su mismo autodaño/puntuación en vez de 0 -- si no, un
+  // vuelo de refinamiento con más daño pero autodaño>0 podría desplazar al
+  // candidato seguro de partida con el que arrancó esta fase.
+  let mejorAutodanio = candidatos[0]?.autodanioTotal ?? 0;
+  let mejorPuntuacion = candidatos[0]?.puntuacion ?? 0;
 
   // Fase 2: refinamiento ternario dentro de la celda gruesa alrededor del
   // mejor candidato, a su misma potencia -- solo tiene sentido si la rejilla
   // ya encontró algo que mejorar y queda presupuesto para al menos una ronda
-  // (dos vuelos).
+  // (dos vuelos). Compara con compararCandidatos (ia-autodanio-1), nunca con
+  // daño bruto: un ángulo vecino que hace más daño pero se autogolpea no
+  // puede ganarle a uno sin autodaño, ni aquí ni en la rejilla.
   if (huboCandidato) {
     let lo = mejorAngulo - PASO_ANGULO_GRUESO_GRADOS;
     let hi = mejorAngulo + PASO_ANGULO_GRUESO_GRADOS;
     for (let ronda = 0; ronda < RONDAS_REFINAMIENTO && vuelosSimulados + 2 <= presupuestoMax; ronda++) {
       const m1 = lo + (hi - lo) / 3;
       const m2 = hi - (hi - lo) / 3;
-      const d1 = volar(params, tirador, objetivo, m1, mejorPotencia).danioObjetivo;
+      const r1 = volar(params, tirador, objetivo, m1, mejorPotencia);
       vuelosSimulados++;
-      const d2 = volar(params, tirador, objetivo, m2, mejorPotencia).danioObjetivo;
+      const r2 = volar(params, tirador, objetivo, m2, mejorPotencia);
       vuelosSimulados++;
-      if (d1 > mejorDanio) {
-        mejorDanio = d1;
-        mejorAngulo = m1;
+      const candidato1 = {
+        anguloGrados: m1,
+        potencia: mejorPotencia,
+        danio: r1.danioObjetivo,
+        autodanioTotal: r1.danioPropio + (r1.impactoPropio?.danio ?? 0),
+        puntuacion: r1.danioObjetivo - PESO_AUTODANIO * (r1.danioPropio + (r1.impactoPropio?.danio ?? 0)),
+      };
+      const candidato2 = {
+        anguloGrados: m2,
+        potencia: mejorPotencia,
+        danio: r2.danioObjetivo,
+        autodanioTotal: r2.danioPropio + (r2.impactoPropio?.danio ?? 0),
+        puntuacion: r2.danioObjetivo - PESO_AUTODANIO * (r2.danioPropio + (r2.impactoPropio?.danio ?? 0)),
+      };
+      if (compararCandidatos(candidato1, { anguloGrados: mejorAngulo, potencia: mejorPotencia, danio: mejorDanio, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion }) < 0) {
+        ({ danio: mejorDanio, anguloGrados: mejorAngulo, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion } = candidato1);
       }
-      if (d2 > mejorDanio) {
-        mejorDanio = d2;
-        mejorAngulo = m2;
+      if (compararCandidatos(candidato2, { anguloGrados: mejorAngulo, potencia: mejorPotencia, danio: mejorDanio, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion }) < 0) {
+        ({ danio: mejorDanio, anguloGrados: mejorAngulo, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion } = candidato2);
       }
-      if (d1 > d2) hi = m2;
+      if (compararCandidatos(candidato1, candidato2) < 0) hi = m2;
       else lo = m1;
     }
   }
