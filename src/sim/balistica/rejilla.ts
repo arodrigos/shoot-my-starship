@@ -65,6 +65,11 @@ export interface CandidatoDisparo {
   // verdad: ver PESO_AUTODANIO y compararCandidatos más abajo.
   readonly autodanioTotal: number;
   readonly puntuacion: number;
+  // armas-metrica: pasos de vuelo (ver ResultadoDisparo.pasosVuelo) del
+  // candidato -- aditivo, nadie más lo leía hasta ahora. Permite calcular
+  // "tiempo de vuelo medio" sobre los MISMOS candidatos que ya acepta
+  // barridoRejilla, sin un segundo barrido de la rejilla aparte.
+  readonly pasosVuelo: number;
 }
 
 // ia-autodanio-1: peso >=2 para que un candidato con autodaño nunca gane por
@@ -96,6 +101,7 @@ interface ResultadoCandidato {
   readonly danio: number;
   readonly autodanioTotal: number;
   readonly puntuacion: number;
+  readonly pasosVuelo: number;
 }
 
 function danioDelCandidato(
@@ -128,6 +134,7 @@ function danioDelCandidato(
     danio: resultado.danioObjetivo,
     autodanioTotal,
     puntuacion: resultado.danioObjetivo - PESO_AUTODANIO * autodanioTotal,
+    pasosVuelo: resultado.pasosVuelo,
   };
 }
 
@@ -148,7 +155,14 @@ export function barridoRejilla(params: ParametrosBarridoRejilla): readonly Candi
     evaluados++;
     const resultado = danioDelCandidato(params, tirador, objetivo, anguloGrados, potencia);
     if (resultado.danio > 0) {
-      candidatos.push({ anguloGrados, potencia, danio: resultado.danio, autodanioTotal: resultado.autodanioTotal, puntuacion: resultado.puntuacion });
+      candidatos.push({
+        anguloGrados,
+        potencia,
+        danio: resultado.danio,
+        autodanioTotal: resultado.autodanioTotal,
+        puntuacion: resultado.puntuacion,
+        pasosVuelo: resultado.pasosVuelo,
+      });
     }
   }
 

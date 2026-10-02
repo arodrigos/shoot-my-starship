@@ -31,6 +31,7 @@ function resultado(parcial: Partial<ResultadoDisparo>): ResultadoDisparo {
     fallo: false,
     proyectilPerdido: false,
     roce: null,
+    pasosVuelo: 0,
     ...parcial,
   };
 }
