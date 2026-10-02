@@ -1,7 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { createCanvas, loadImage } from "canvas";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
-import { MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { arrastrarBarraHasta } from "./utilesControl";
 
 // min-2 (hallazgo del gatekeeper): el guardia anterior solo comprobaba el
@@ -108,16 +107,17 @@ test("min-2: el contador de la mina está anclado al punto de adherencia, es dis
   // que se fuerza una mecha corta y determinista tras la adherencia.
   await page.evaluate(() => window.__debug.forzarFusibleAdherenciaPasos!(100));
 
-  // min-2 (hallazgo del gatekeeper): el ángulo/potencia anteriores (45/80)
-  // resolvían un punto de adherencia en (1928,96, -277,54), FUERA del mundo
-  // de 1920x1080 -- ahí no habría nada visible aunque el tamaño fuese
-  // correcto. Este disparo se pega cerca de la nave rival (1632, 414),
-  // dentro del mundo y por tanto del lienzo, comprobado con la sonda
-  // dedicada antes de fijar los valores.
-  const anguloObjetivo = 30;
-  const potenciaObjetivo = 50;
-  const fraccionAngulo = (anguloObjetivo - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS);
-  const fraccionPotencia = (potenciaObjetivo - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA);
+  // DESVIACIÓN (encuadre-movil): el ángulo/potencia fijos (30/50) se
+  // calibraron a mano contra el mundo 1920x1080 de antes de este bloque --
+  // con encuadre-movil el mundo cambia de tamaño con el contenedor real, así
+  // que ese punto de adherencia ya no cae cerca de la nave rival ni dentro
+  // del mundo en todos los dispositivos. Mismo patrón que min-3/gra-3: se
+  // usa la solución balística exacta del propio motor (independiente del
+  // tamaño de mundo) en vez de un ángulo/potencia adivinado.
+  const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
+  expect(solucion).not.toBeNull();
+  const fraccionAngulo = (solucion!.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS);
+  const fraccionPotencia = (solucion!.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA);
   await arrastrarBarraHasta(page, "barra-angulo", fraccionAngulo);
   await arrastrarBarraHasta(page, "barra-potencia", fraccionPotencia);
 
@@ -204,8 +204,13 @@ test("min-2: el contador de la mina está anclado al punto de adherencia, es dis
         // ancla (world -> screen vía el rectángulo real del lienzo, no un
         // valor de cámara supuesto): generosa hacia arriba porque el texto
         // se dibuja DESPLAZAMIENTO_VERTICAL_CSS_PX por encima del ancla.
-        const escalaX = (rectLienzo.right - rectLienzo.left) / MUNDO_ANCHO;
-        const escalaY = (rectLienzo.bottom - rectLienzo.top) / MUNDO_ALTO;
+        // DESVIACIÓN (encuadre-movil): se lee window.__debug.mundo en vez
+        // de importar MUNDO_ANCHO/MUNDO_ALTO -- ese import es del lado
+        // Node del test y nunca ve el ajuste que hace configurarTamanoMundo
+        // en el navegador.
+        const mundo = (await page.evaluate(() => window.__debug.mundo))!;
+        const escalaX = (rectLienzo.right - rectLienzo.left) / mundo.ancho;
+        const escalaY = (rectLienzo.bottom - rectLienzo.top) / mundo.alto;
         const anclaScreenX = rectLienzo.left + instante.contador.x * escalaX;
         const anclaScreenY = rectLienzo.top + instante.contador.y * escalaY;
         const bloque = await medirBloqueDeFondo(buffer, {

@@ -365,6 +365,10 @@ export class Partida extends Phaser.Scene {
       radioCascoColisionPx: RADIO_CASCO_NAVE_PX,
       proyectilLadoMayorMaximoPx: Math.max(...CATALOGO_ARMAS.map((arma) => dimensionMayor(puntosSilueta(arma)))),
     };
+    // encuadre-movil: main.ts ya recalculó MUNDO_ANCHO/MUNDO_ALTO antes de
+    // construir esta escena -- el e2e no tiene otra forma de comprobar qué
+    // tamaño de mundo quedó activo sin este canal.
+    window.__debug.mundo = { ancho: MUNDO_ANCHO, alto: MUNDO_ALTO };
     // "Otra partida" reutiliza los mismos stores de módulo (singletons, no
     // ligados al ciclo de vida de React) para una escena de Phaser
     // completamente nueva: sin esto arrastrarían el ajuste, el arma agotada,
@@ -416,8 +420,15 @@ export class Partida extends Phaser.Scene {
       const mascara = generarMascara(mapa.semillaTerreno, MUNDO_ANCHO, MUNDO_ALTO);
       const xNave0 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_0);
       const xNave1 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_1);
+      // DESVIACIÓN (encuadre-movil): mapa.mundo.ancho/alto quedan congelados
+      // en el valor que tenía MUNDO_ANCHO/MUNDO_ALTO cuando mapas.ts se
+      // evaluó por primera vez (antes de que configurarTamanoMundo ajuste
+      // el mundo al contenedor real) -- se pisan aquí con el tamaño vivo
+      // para que la física no use un mundo distinto del que de verdad se
+      // renderiza.
+      const mundoAjustado = { ...mapa.mundo, ancho: MUNDO_ANCHO, alto: MUNDO_ALTO };
       this.estado = {
-        ...crearPartidaInicial(mapa.mundo, mascara, xNave0, xNave1, mapa.semillaPartida),
+        ...crearPartidaInicial(mundoAjustado, mascara, xNave0, xNave1, mapa.semillaPartida),
         modo,
         ...(saldoInicial !== undefined ? { saldo: saldoInicial } : {}),
       };

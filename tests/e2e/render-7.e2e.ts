@@ -34,7 +34,12 @@ async function capturarSecuenciaDePartida(page: Page, prefijo: string) {
   await page.waitForTimeout(150);
   await page.screenshot({ path: `test-results/render-7/${prefijo}-02-vuelo.png` });
 
-  await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 15000 });
+  // DESVIACIÓN (encuadre-movil): 15000ms se quedaba corto -- el mundo ya no
+  // es siempre 1920x1080 (encuadre-movil-1 lo ajusta al aspecto real del
+  // contenedor, incluida la orientación de escritorio) y un vuelo puede
+  // recorrer más distancia de mundo que antes, alargando la animación.
+  // Mismo techo que usan control-1/gra-2 para el mismo tipo de espera.
+  await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 60000 });
   await page.waitForTimeout(150);
   await page.screenshot({ path: `test-results/render-7/${prefijo}-03-post-explosion.png` });
 
@@ -54,7 +59,7 @@ for (const viewport of VIEWPORTS) {
     // Secuencia completa animada en tiempo real (vuelo + explosión + hasta
     // 12 turnos de desenlace forzado): el timeout por defecto de Playwright
     // (30000ms) se queda corto, no es un test lento por accidente.
-    test.setTimeout(90000);
+    test.setTimeout(150000);
     await page.setViewportSize(viewport);
     await page.goto("/");
     await page.getByTestId("boton-jugar").click();

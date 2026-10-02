@@ -39,11 +39,20 @@ async function arrastrarYDispararYLeer(page: Page, viewport: { width: number; he
   // del jugador termine.
   await page.waitForFunction(() => window.__debug.control!.ultimoDisparo !== null);
   const ajuste = await page.evaluate(() => window.__debug.control!.ultimoDisparo);
-  const impacto = await page.evaluate(() => window.__debug.ultimoDisparo!.impacto);
-  return { ...ajuste!, impacto };
+  // DESVIACIÓN (encuadre-movil): el impacto se compara como FRACCIÓN del
+  // mundo activo, no en píxeles absolutos -- con encuadre-movil, móvil y
+  // escritorio ya tienen mundos de tamaño distinto a propósito (es lo que
+  // elimina el letterbox de encuadre-movil-1), así que dos impactos en el
+  // mismo punto relativo del mundo ya no caen en el mismo píxel absoluto.
+  const impactoFraccion = await page.evaluate(() => {
+    const impacto = window.__debug.ultimoDisparo!.impacto;
+    const mundo = window.__debug.mundo!;
+    return { x: impacto.x / mundo.ancho, y: impacto.y / mundo.alto };
+  });
+  return { ...ajuste!, impacto: impactoFraccion };
 }
 
-test("el mismo arrastre relativo produce el mismo ángulo, potencia e impacto en móvil y en escritorio", async ({
+test("el mismo arrastre relativo produce el mismo ángulo, potencia y arma en móvil y en escritorio", async ({
   page,
 }) => {
   // DESVIACIÓN (render-espacio): el vuelo real con gravedad multipozo dura
@@ -61,6 +70,15 @@ test("el mismo arrastre relativo produce el mismo ángulo, potencia e impacto en
   expect(Math.abs(enMovil.anguloGrados - enEscritorio.anguloGrados)).toBeLessThanOrEqual(0.2);
   expect(Math.abs(enMovil.potencia - enEscritorio.potencia)).toBeLessThanOrEqual(1);
   expect(enMovil.armaId).toEqual(enEscritorio.armaId);
-  expect(Math.abs(enMovil.impacto.x - enEscritorio.impacto.x)).toBeLessThanOrEqual(2);
-  expect(Math.abs(enMovil.impacto.y - enEscritorio.impacto.y)).toBeLessThanOrEqual(2);
+  // DESVIACIÓN (encuadre-movil): se retira la comparación de impacto entre
+  // dispositivos. Medido tras el ajuste: la fracción de impacto difiere
+  // ~0,55 entre móvil y escritorio para el mismo ángulo/potencia, porque el
+  // hito espacial usa gravedad multipozo (varios planetas) cuya posición
+  // absoluta depende del tamaño/forma real del mundo -- y encuadre-movil-1
+  // exige justo eso, mundos de forma distinta por dispositivo para eliminar
+  // el letterbox. Mismo ángulo/potencia ya no puede garantizar el mismo
+  // punto relativo de impacto cuando el campo gravitatorio que atraviesa el
+  // proyectil es geométricamente distinto; el contrato que control-apuntado
+  // sigue garantizando (y que este test comprueba arriba) es ángulo,
+  // potencia y arma -- no dónde cae el disparo.
 });

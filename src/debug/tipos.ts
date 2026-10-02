@@ -160,6 +160,10 @@ export interface DebugGlobal {
   // comprobar que el campo de batalla entero cabe sin recorte sin tener que
   // inferirlo de una captura de pantalla.
   camara?: { x: number; y: number; ancho: number; alto: number };
+  // encuadre-movil: el tamaño de mundo lógico que quedó activo tras ajustar
+  // al contenedor real -- MUNDO_ANCHO/MUNDO_ALTO ya no son fijos, así que el
+  // e2e necesita este canal en vez de asumir 1920x1080.
+  mundo?: { ancho: number; alto: number };
   // humor-1: la sacudida de cámara es una transformación de la matriz de
   // render (Camera.shakeEffect), no un desplazamiento de worldView/scroll --
   // no hay forma de detectarla comparando el rectángulo de cámara entre dos

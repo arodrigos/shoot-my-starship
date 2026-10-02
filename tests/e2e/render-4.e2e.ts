@@ -1,8 +1,5 @@
 import { test, expect } from "@playwright/test";
 
-const MUNDO_ANCHO = 1920;
-const MUNDO_ALTO = 1080;
-
 // render-4: a estos tres tamaños el lienzo debe llenar el viewport sin
 // barras de desplazamiento, y el campo de batalla entero (las dos naves y
 // el terreno entre ellas) tiene que caber en la vista de cámara -- se
@@ -24,6 +21,11 @@ for (const viewport of VIEWPORTS) {
     await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");
     await page.waitForFunction(() => window.__debug.camara !== undefined);
+    // encuadre-movil: MUNDO_ANCHO/MUNDO_ALTO ya no son fijos -- se leen del
+    // mundo que quedó activo tras ajustar al contenedor real, no de una
+    // constante hardcodeada en el test.
+    const mundo = await page.evaluate(() => window.__debug.mundo!);
+    const { ancho: MUNDO_ANCHO, alto: MUNDO_ALTO } = mundo;
 
     const sinScroll = await page.evaluate(() => ({
       ancho: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
