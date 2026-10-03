@@ -1,4 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
+import { writeFileSync } from "node:fs";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { arrastrarBarraHasta } from "./utilesControl";
 
@@ -36,13 +39,22 @@ const MARGEN_VISIBILIDAD_PX = 14;
 // con window.__debug.mundo (MUNDO_ANCHO/ALTO ya no son fijos, ver
 // encuadre-movil) caiga dentro del lienzo y lejos de los botones fixed que
 // lo tapan.
-async function proyectilVisibleEnPantalla(page: Page): Promise<boolean> {
+// arte-siluetas-5 (octava corrección): la quinta corrección comprobaba la
+// posición con page.evaluate() y LUEGO pedía la foto con page.screenshot(),
+// dos llamadas separadas por el puente CDP -- el gatekeeper midió que el
+// proyectil cruza el lienzo en menos de 80ms, así que para cuando el
+// obturador disparaba ya habían pasado varios fotogramas y la imagen salía
+// vacía aunque la comprobación hubiera dado "visible". Aquí la posición y
+// la captura salen del MISMO page.evaluate(): canvas.toDataURL() lee los
+// píxeles ya pintados en el instante exacto en que se confirmó la posición,
+// sin ceder el hilo de JS entre medias (no hay frame posible que se cuele).
+async function capturarLienzoSiProyectilVisible(page: Page): Promise<string | null> {
   return page.evaluate(
     ({ testIds, margen }) => {
       const proyectil = window.__debug.proyectilEnVuelo;
       const mundo = window.__debug.mundo;
-      const lienzo = document.querySelector("#game-container canvas");
-      if (!proyectil || !mundo || lienzo === null) return false;
+      const lienzo = document.querySelector("#game-container canvas") as HTMLCanvasElement | null;
+      if (!proyectil || !mundo || lienzo === null) return null;
 
       const rectLienzo = lienzo.getBoundingClientRect();
       const pantalla = {
@@ -55,9 +67,9 @@ async function proyectilVisibleEnPantalla(page: Page): Promise<boolean> {
         pantalla.x <= rectLienzo.left + rectLienzo.width - margen &&
         pantalla.y >= rectLienzo.top + margen &&
         pantalla.y <= rectLienzo.top + rectLienzo.height - margen;
-      if (!dentroDelLienzo) return false;
+      if (!dentroDelLienzo) return null;
 
-      return !testIds.some((testId) => {
+      const tapado = testIds.some((testId) => {
         const el = document.querySelector(`[data-testid="${testId}"]`);
         if (el === null) return false;
         const b = el.getBoundingClientRect();
@@ -68,24 +80,51 @@ async function proyectilVisibleEnPantalla(page: Page): Promise<boolean> {
           pantalla.y <= b.bottom + margen
         );
       });
+      if (tapado) return null;
+
+      // mismo tick de JS que la comprobación de arriba: el canvas 2D no
+      // vuelve a pintar hasta el siguiente requestAnimationFrame, así que
+      // esto es exactamente lo que se acaba de medir, no un instante
+      // posterior.
+      return lienzo.toDataURL("image/png");
     },
     { testIds: TESTIDS_HUD_SOBRE_LIENZO, margen: MARGEN_VISIBILIDAD_PX },
   );
+}
+
+function pngDesdeDataUrl(dataUrl: string): PNG {
+  return PNG.sync.read(Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"));
 }
 
 // Sondea mientras el vuelo real está en curso (nunca una espera fija) hasta
 // encontrar un fotograma visible, o hasta que el vuelo termine sin dar
 // ninguno -- en cuyo caso el turno siguiente lo vuelve a intentar con la
 // trayectoria real de esa nueva posición, en vez de forzar un instante que
-// no se puede defender.
-async function intentarCapturarVueloVisible(page: Page, ruta: string): Promise<boolean> {
+// no se puede defender. `basal` es un lienzo sin proyectil (el mismo mapa,
+// tomado antes de disparar) para que la aserción final sea sobre la IMAGEN
+// -- que el fotograma capturado difiera de verdad del fondo, no solo que la
+// comprobación de posición haya dado "visible" (issue del gatekeeper,
+// séptima vuelta: "lo que pasó fue la comprobación, no la foto").
+async function intentarCapturarVueloVisible(page: Page, ruta: string, basal: PNG): Promise<boolean> {
   const limite = Date.now() + 8000;
   while (Date.now() < limite) {
     const enVuelo = await page.evaluate(() => window.__debug.animacionEnCurso === true);
     if (!enVuelo) return false;
-    if (await proyectilVisibleEnPantalla(page)) {
-      await page.screenshot({ path: ruta });
-      return true;
+    const dataUrl = await capturarLienzoSiProyectilVisible(page);
+    if (dataUrl !== null) {
+      const capturado = pngDesdeDataUrl(dataUrl);
+      if (capturado.width === basal.width && capturado.height === basal.height) {
+        const diferentes = pixelmatch(basal.data, capturado.data, undefined, capturado.width, capturado.height, {
+          threshold: 0.1,
+        });
+        // Un proyectil de verdad pintado mueve de sitio más píxeles que el
+        // ruido de antialiasing entre dos capturas idénticas (medido: por
+        // debajo de 20 entre dos lecturas del mismo fondo quieto).
+        if (diferentes > 20) {
+          writeFileSync(ruta, Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"));
+          return true;
+        }
+      }
     }
     await page.waitForTimeout(40);
   }
@@ -129,17 +168,23 @@ test("recorrido completo a 360x640 con capturas en apuntado, vuelo e impacto", a
     await arrastrarBarraHasta(page, "barra-angulo", fraccionAngulo);
     await arrastrarBarraHasta(page, "barra-potencia", fraccionPotencia);
 
+    // Fondo SIN proyectil de este mismo turno (naves y terreno ya en su
+    // sitio, justo antes de disparar) -- la referencia contra la que se
+    // mide si el fotograma de vuelo capturado de verdad pintó algo encima.
+    const basal = !huboVueloCapturado
+      ? pngDesdeDataUrl((await page.evaluate(() => (document.querySelector("#game-container canvas") as HTMLCanvasElement).toDataURL("image/png"))))
+      : null;
+
     numeroTurnoEsperado += 2; // el disparo del jugador y la respuesta de la IA
     await page.getByTestId("disparar").click();
 
     // Vuelo: el proyectil ya en el aire, lejos de la nave que dispara,
     // orientado a su velocidad (arte-siluetas-2) y de verdad visible en
-    // PANTALLA (ver proyectilVisibleEnPantalla) -- si este turno no da
-    // ningún fotograma así, el siguiente lo reintenta con la trayectoria
-    // real de la nueva posición.
-    if (!huboVueloCapturado) {
+    // PANTALLA -- si este turno no da ningún fotograma así, el siguiente lo
+    // reintenta con la trayectoria real de la nueva posición.
+    if (!huboVueloCapturado && basal !== null) {
       await page.waitForFunction(() => window.__debug.animacionEnCurso === true);
-      huboVueloCapturado = await intentarCapturarVueloVisible(page, "capturas/arte-siluetas-5-2-vuelo-360x640.png");
+      huboVueloCapturado = await intentarCapturarVueloVisible(page, "capturas/arte-siluetas-5-2-vuelo-360x640.png", basal);
     }
 
     await page.waitForFunction(
