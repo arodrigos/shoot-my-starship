@@ -10,10 +10,18 @@ import { contarPixelesPorMaterial, masaPlaneta, recalcularRegistro, type Planeta
 // un punto donde 2 s de vuelo real produzcan una desviación de decenas de
 // píxeles -- lo bastante para que el margen de >15px del criterio no dependa
 // de una casualidad numérica.
+// gravedad-calibracion: con CONSTANTE_GRAVITACIONAL en 1200 (antes 6), la
+// combinación original (CY=560, 60px de distancia a la línea de tiro --
+// menos que el propio radio del planeta -- y 1.000.000 de masa) cae en un
+// régimen tan fuerte que "menos masa, menos desviación" deja de ser
+// monótono (el proyectil pasa a rozar el planeta y la trayectoria se vuelve
+// caótica con pequeños cambios de masa). CY y MASA_OBJETIVO se recalibran
+// para quedar en el régimen donde la relación masa->desviación sigue siendo
+// monótona y la diferencia de >15px del criterio no es casualidad numérica.
 const RADIO_PLANETA = 80;
 const CX = 600;
-const CY = 560;
-const MASA_OBJETIVO = 1_000_000;
+const CY = 640;
+const MASA_OBJETIVO = 5_000;
 const PASOS_3S = Math.round(3000 / (1000 / 60));
 
 test("grav-3: recalcular la masa desde la máscara tras un cráter cambia el punto de caída del mismo disparo", () => {

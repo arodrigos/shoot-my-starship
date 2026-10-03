@@ -59,7 +59,11 @@ test("imp-5: un tiro casi vertical que la gravedad de un planeta devuelve sobre 
   // que importa para curvar la trayectoria de vuelta. Ángulo casi vertical
   // (88°, no exactamente 90°) para que el retorno sea obra de la gravedad y
   // no de una simetría trivial de tiro puramente vertical.
-  const planetas: RegistroPlanetas = [{ id: 1, cx: naveX, cy: naveY + 300, radio: 50, densidad: 1_000_000, pixelesVivos: 20 }];
+  // gravedad-calibracion: CONSTANTE_GRAVITACIONAL subió de 6 a 1200 (200x);
+  // la densidad se divide por los mismos 200x (de 1.000.000 a 5.000) para
+  // que G*masa, y por tanto la trayectoria exacta que este test depende de
+  // reproducir, no cambien.
+  const planetas: RegistroPlanetas = [{ id: 1, cx: naveX, cy: naveY + 300, radio: 50, densidad: 5_000, pixelesVivos: 20 }];
 
   const resultado = resolverDisparo({
     mascara,
