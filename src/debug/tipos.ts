@@ -107,6 +107,11 @@ export interface DebugNave {
   // hashes en los tres tramos en vez de leer píxeles del canvas.
   readonly nivelDanio: "alta" | "media" | "baja";
   readonly hashSilueta: number;
+  // arte-siluetas-3: el indicador de nave propia (triángulo sobre la nave
+  // de quien tiene el turno) no tenía forma de comprobarse desde fuera de
+  // Phaser -- ni un e2e podía mirar window.__debug para ver a quién
+  // marcarActiva() dejó visible. Refleja Nave.estaActiva() tal cual.
+  readonly activa: boolean;
 }
 
 // hum-1: un registro por turno de lo que reaccionarABroma publicó de

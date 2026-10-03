@@ -683,6 +683,12 @@ export class Partida extends Phaser.Scene {
       this.refrescarNaves();
       this.refrescarDebugNaves();
     };
+    // arte-siluetas-3: sin este refrescarNaves() de arranque, marcarActiva()
+    // no se llamaba nunca hasta que se resolvía el primer turno (línea más
+    // abajo, dentro de aplicarResultadoTurno) -- el indicador de nave propia
+    // se quedaba oculto para las dos naves durante todo el apuntado inicial,
+    // que es justo el momento en que más hace falta.
+    this.refrescarNaves();
     this.refrescarDebugNaves();
 
     // render-4: la cámara nunca se mueve ni hace zoom en este bloque (no hay
@@ -1524,6 +1530,7 @@ export class Partida extends Phaser.Scene {
       integridad: nave.integridad,
       nivelDanio: this.naves[indice].obtenerNivelDanio(),
       hashSilueta: this.naves[indice].obtenerHashSilueta(),
+      activa: this.naves[indice].estaActiva(),
     }));
     // imp-11: el HUD (fuera del lienzo Phaser) necesita enterarse de la
     // integridad por el mismo canal pub/sub que ya usan resultado-turno y
