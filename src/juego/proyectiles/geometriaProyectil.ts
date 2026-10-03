@@ -1,5 +1,6 @@
 import type { Arma } from "@/sim/armas/tipos";
 import { cajaCasco } from "@/sim/naves/geometriaCasco";
+import { esComportamientoAdherente } from "@/sim/fisica/comportamientoExtendido";
 
 // Geometría pura del proyectil (sin Phaser), mismo motivo que
 // geometriaCasco.ts: proy-1 exige medir la silueta desde la propia función
@@ -89,29 +90,154 @@ function aspectoDe(arma: Arma): number {
   return Math.max(0.55, Math.min(1.6, normalizado));
 }
 
-function puntosCrudos(familia: FamiliaVisual, aspecto: number): readonly PuntoProyectil[] {
+// arte-siluetas-1: "bomba" agrupa siete armas del catálogo (todo lo que no
+// cae en otra familia por descarte), y el ovoide liso solo variado por
+// aspecto no bastaba -- dos armas con el mismo radio clamp (p. ej.
+// Tostadora y Petardo, ambas por debajo del suelo de aspecto 0,55) acababan
+// con la MISMA silueta exacta. La subvariante se deriva de ejes de
+// comportamiento que ya existen en el catálogo (nunca del id): el reloj de
+// cuenta atrás, el vuelo errático, la adherencia o la dispersión de
+// puntería son rasgos de comportamiento reales, no una etiqueta inventada
+// para que el arnés de verificación pase.
+type SubvarianteBomba = "basica" | "irregular" | "erratica" | "mecha" | "adherente" | "util";
+
+function subvarianteBombaDe(arma: Arma): SubvarianteBomba {
+  // Elección de SILUETA, no de física: comprobar-vuelo-unica-definicion.mjs
+  // (vex-2) vigila que src/juego no reimplemente la perturbación/mecha/
+  // adherencia del núcleo, así que la condición de adherencia se consume
+  // del propio predicado del núcleo (esComportamientoAdherente) en vez de
+  // comparar el tipo a mano, igual que exige ese guardia.
+  if (esComportamientoAdherente(arma.comportamiento)) return "adherente"; // Gancho Pegajoso
+  if (arma.comportamiento.tipo === "mecha") return "mecha"; // Granada de Espoleta
+  if (arma.comportamiento.tipo === "erratico") return "erratica"; // Mosca Cojonera
+  if (arma.utilitaria === true) return "util"; // Vertedero Portátil
+  if (arma.dispersionGrados !== undefined) return "irregular"; // Petardo de Feria
+  return "basica"; // Pepinazo de Cortesía, Tostadora Orbital
+}
+
+// arte-siluetas-1: mismo razonamiento que "bomba" -- "capsula" solo tiene
+// dos miembros, pero Mortero (daño real) y Zanjadora ("no mata a nadie,
+// reorganiza el planeta") son conceptualmente distintos y el catálogo ya
+// lo dice con un daño casi nulo. Un daño mínimo se dibuja como pala/zanja
+// plana en vez de como el torpedo clásico.
+function esZanjaDe(arma: Arma): boolean {
+  return arma.efecto.tipo === "danio" && arma.efecto.danioMaximo < 10;
+}
+
+// arte-siluetas-1: dentro de "flecha", Despedida (danio-y-autodanio, un
+// único disparo desde el propio casco) y Andanada (tres flechas en
+// abanico) ya se distinguen por comportamiento en familiaVisualDe -- aquí
+// se traduce esa misma distinción a un contorno distinto (cometa ancho vs
+// flecha clásica) en vez de dejarlas compartir topología y separarse solo
+// por aspecto.
+function esCometaDe(arma: Arma): boolean {
+  return arma.efecto.tipo === "danio-y-autodanio";
+}
+
+function puntosCrudos(familia: FamiliaVisual, aspecto: number, arma: Arma): readonly PuntoProyectil[] {
   const a = aspecto;
   switch (familia) {
-    // Cuerpo ovoide con aleta trasera: la bomba clásica del género.
-    case "bomba":
-      return [
-        { x: 1, y: 0 },
-        { x: 0.25, y: 0.75 * a },
-        { x: -0.85, y: 0.55 * a },
-        { x: -1.15, y: 0 },
-        { x: -0.85, y: -0.55 * a },
-        { x: 0.25, y: -0.75 * a },
-      ];
-    // Alargada, morro y cola en punta: napalm/mortero.
+    case "bomba": {
+      switch (subvarianteBombaDe(arma)) {
+        // Ovoide liso con aleta trasera: la bomba clásica del género.
+        case "basica":
+          return [
+            { x: 1, y: 0 },
+            { x: 0.25, y: 0.75 * a },
+            { x: -0.85, y: 0.55 * a },
+            { x: -1.15, y: 0 },
+            { x: -0.85, y: -0.55 * a },
+            { x: 0.25, y: -0.75 * a },
+          ];
+        // Mismo cuerpo con el contorno dentado: se lee torcida antes de
+        // mirar el color, como su 25% de fallo total.
+        case "irregular":
+          return [
+            { x: 1.2, y: 0 },
+            { x: 0.55, y: 0.35 * a },
+            { x: 0.1, y: 1.0 * a },
+            { x: -0.5, y: 0.3 * a },
+            { x: -0.9, y: 0.8 * a },
+            { x: -1.3, y: 0 },
+            { x: -0.9, y: -0.8 * a },
+            { x: -0.5, y: -0.3 * a },
+            { x: 0.1, y: -1.0 * a },
+            { x: 0.55, y: -0.35 * a },
+          ];
+        // Cuerpo con dos lóbulos laterales en zigzag: el vuelo errático
+        // dibujado en la propia silueta, no solo en la trayectoria.
+        case "erratica":
+          return [
+            { x: 1.1, y: 0 },
+            { x: 0.4, y: 0.75 * a },
+            { x: -0.1, y: 0.25 * a },
+            { x: -0.6, y: 0.8 * a },
+            { x: -1.1, y: 0 },
+            { x: -0.6, y: -0.8 * a },
+            { x: -0.1, y: -0.25 * a },
+            { x: 0.4, y: -0.75 * a },
+          ];
+        // Ovoide con mecha/espoleta asomando por el morro: la cuenta atrás
+        // que corre desde el disparo.
+        case "mecha":
+          return [
+            { x: 1.5, y: 0 },
+            { x: 0.95, y: 0.2 * a },
+            { x: 0.7, y: 0.6 * a },
+            { x: -0.2, y: 0.75 * a },
+            { x: -1.1, y: 0 },
+            { x: -0.2, y: -0.75 * a },
+            { x: 0.7, y: -0.6 * a },
+            { x: 0.95, y: -0.2 * a },
+          ];
+        // Cuerpo con gancho curvo asomando por el morro: se agarra antes de
+        // contar.
+        case "adherente":
+          return [
+            { x: 0.5, y: 0.3 * a },
+            { x: 1.3, y: 0.55 * a },
+            { x: 1.2, y: 0.1 * a },
+            { x: 0.6, y: 0 },
+            { x: -0.85, y: 0.6 * a },
+            { x: -1.15, y: 0 },
+            { x: -0.85, y: -0.6 * a },
+            { x: 0.25, y: -0.75 * a },
+          ];
+        // Montículo plano, sin morro: no perfora, apila -- la única "bomba"
+        // que suma terreno en vez de restarlo.
+        case "util":
+          return [
+            { x: 0.9, y: 0 },
+            { x: 0.5, y: 0.85 * a },
+            { x: -0.5, y: 0.85 * a },
+            { x: -0.9, y: 0 },
+            { x: -0.5, y: -0.85 * a },
+            { x: 0.5, y: -0.85 * a },
+          ];
+      }
+    }
+    // Alargada, morro y cola en punta: napalm/mortero. La Zanjadora (daño
+    // casi nulo, "reorganiza el planeta") se dibuja como pala plana en vez
+    // de torpedo -- esZanjaDe() lee el daño del catálogo, nunca el id.
     case "capsula":
-      return [
-        { x: 1.6, y: 0 },
-        { x: 0.6, y: 0.45 * a },
-        { x: -0.6, y: 0.45 * a },
-        { x: -1.6, y: 0 },
-        { x: -0.6, y: -0.45 * a },
-        { x: 0.6, y: -0.45 * a },
-      ];
+      return esZanjaDe(arma)
+        ? [
+            { x: 1.3, y: 0.3 * a },
+            { x: 0.5, y: 0.9 * a },
+            { x: -0.9, y: 0.9 * a },
+            { x: -1.3, y: 0 },
+            { x: -0.9, y: -0.9 * a },
+            { x: 0.5, y: -0.9 * a },
+            { x: 1.3, y: -0.3 * a },
+          ]
+        : [
+            { x: 1.6, y: 0 },
+            { x: 0.6, y: 0.45 * a },
+            { x: -0.6, y: 0.45 * a },
+            { x: -1.6, y: 0 },
+            { x: -0.6, y: -0.45 * a },
+            { x: 0.6, y: -0.45 * a },
+          ];
     // proy-1 (sexta devolución): "racimo" se comentaba como tres lóbulos con
     // hueco central y salía un hexágono -- una curva rosa r=cos(3θ) da tres
     // pétalos DE VERDAD, que se pellizcan hasta el centro entre uno y otro
@@ -162,16 +288,31 @@ function puntosCrudos(familia: FamiliaVisual, aspecto: number): readonly PuntoPr
     // sexta devolución de proy-1, también Andanada de Flechas -- que antes
     // caía por descarte en "bomba" y se dibujaba como una granada en vez de
     // como lo que su nombre dice.
+    // Despedida (un único disparo "con estilo" desde el propio casco) se
+    // dibuja como cometa ancho con cola de llama en vez de comparar flecha
+    // fina de Andanada con flecha fina de Andanada -- esCometaDe() lee el
+    // efecto del catálogo (danio-y-autodanio), nunca el id.
     case "flecha":
-      return [
-        { x: 1.7, y: 0 },
-        { x: 0.5, y: 0.55 * a },
-        { x: 0.5, y: 0.18 * a },
-        { x: -1.5, y: 0.18 * a },
-        { x: -1.5, y: -0.18 * a },
-        { x: 0.5, y: -0.18 * a },
-        { x: 0.5, y: -0.55 * a },
-      ];
+      return esCometaDe(arma)
+        ? [
+            { x: 1.7, y: 0 },
+            { x: 0.5, y: 0.9 * a },
+            { x: -0.3, y: 0.55 * a },
+            { x: -1.6, y: 0.95 * a },
+            { x: -1.1, y: 0 },
+            { x: -1.6, y: -0.95 * a },
+            { x: -0.3, y: -0.55 * a },
+            { x: 0.5, y: -0.9 * a },
+          ]
+        : [
+            { x: 1.7, y: 0 },
+            { x: 0.5, y: 0.55 * a },
+            { x: 0.5, y: 0.18 * a },
+            { x: -1.5, y: 0.18 * a },
+            { x: -1.5, y: -0.18 * a },
+            { x: 0.5, y: -0.18 * a },
+            { x: 0.5, y: -0.55 * a },
+          ];
     // proy-1 (sexta devolución): Barrena Planetaria pedía "broca" -- morro
     // en punta y un eje con muescas alternas (el filo en espiral de una
     // broca), no el óvalo liso de "bomba" que tenía antes.
@@ -233,7 +374,7 @@ function clamp01(valor: number): number {
 export function puntosSilueta(arma: Arma): readonly PuntoProyectil[] {
   const familia = familiaVisualDe(arma);
   const aspecto = aspectoDe(arma);
-  const crudos = puntosCrudos(familia, aspecto);
+  const crudos = puntosCrudos(familia, aspecto, arma);
   const dimensionCruda = dimensionMayor(crudos);
   const radioNormalizado = clamp01(
     (radioDeCatalogo(arma) - RADIO_CATALOGO_MIN_PX) / (RADIO_CATALOGO_MAX_PX - RADIO_CATALOGO_MIN_PX),

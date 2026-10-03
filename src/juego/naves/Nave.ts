@@ -4,9 +4,10 @@ import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 import { OPACIDAD_NUCLEO, TECHO_OPACIDAD_FUERA_NUCLEO } from "@/juego/naves/opacidadCasco";
 import { anclaTobera, hashPuntos, nivelDanio, puntosCascoConDanio, type NivelDanio } from "@/juego/naves/formaCasco";
 import { DURACION_DESTELLO_DANIO_MS } from "@/juego/efectos/realceImpacto";
+import { puntosSenaNave } from "@/juego/naves/senaNave";
+import type { VarianteNave } from "@/sim/naves/geometriaCasco";
+import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
 
-const COLOR_NAVE_0 = 0x5ac8fa;
-const COLOR_NAVE_1 = 0xff6b4a;
 const COLOR_CASCO_SOMBRA = 0x1c1e24;
 const COLOR_PATAS = 0x3a3d46;
 const COLOR_CANON = 0xd9dbe0;
@@ -14,6 +15,15 @@ const COLOR_CABINA = 0xd6f4ff;
 const COLOR_TOBERA_SANA = 0xffb347;
 const COLOR_TOBERA_CRITICA = 0x8a4a2c;
 const COLOR_CICATRIZ = 0x0c0d10;
+// arte-siluetas-4: blanco sobre el fuselaje coloreado -- el contraste de
+// luminosidad (no de tono) es lo que hace que la seña siga leyéndose en
+// escala de grises, donde dos colores saturados distintos pueden caer en
+// el mismo gris.
+const COLOR_SENA = 0xffffff;
+// arte-siluetas-3: amarillo de aviso, igual en las cuatro naves -- el
+// indicador dice "a quién le toca", no "de quién es", así que no compite
+// con el color propio de cada nave ni con la seña de forma.
+const COLOR_INDICADOR_ACTIVA = 0xffd23f;
 // realce-impacto (rlc-2): rojo, sobre TODA la silueta -- claramente distinto
 // del destello blanco de contacto honesto (solo el núcleo, intensidad fija)
 // y del chispazo naranja del roce (partículas en el punto de contacto, no
@@ -40,9 +50,12 @@ export class Nave {
   private readonly contenedor: Phaser.GameObjects.Container;
   private readonly casco: Phaser.GameObjects.Graphics;
   private readonly canon: Phaser.GameObjects.Graphics;
+  private readonly indicadorActiva: Phaser.GameObjects.Graphics;
   private anguloActualGrados: number;
   private readonly colorCasco: number;
   private readonly direccion: 1 | -1;
+  private readonly variante: VarianteNave;
+  private activa = false;
   // con-4: si el núcleo real (RADIO_CASCO_NAVE_PX) lleva su anillo de
   // realce encima -- lo activa ControlHUD mientras el jugador apunta a
   // esta nave, para que la mentira visual de escala-legible no esconda
@@ -65,8 +78,12 @@ export class Nave {
     this.anguloActualGrados = anguloInicialGrados;
     this.contenedor = escena.add.container(x, groundY);
 
-    this.colorCasco = idNave === 0 ? COLOR_NAVE_0 : COLOR_NAVE_1;
+    this.colorCasco = COLORES_NAVE[idNave];
     this.direccion = mirarHaciaMasX ? 1 : -1;
+    // nucleo-n-naves (pendiente): con solo dos naves en juego hoy, la
+    // variante coincide con idNave -- las variantes 2 y 3 ya existen en
+    // senaNave.ts, listas para cuando el núcleo deje de ser 0 | 1.
+    this.variante = idNave as VarianteNave;
 
     // Patas: dos apoyos asimétricos, como si la nave hubiese aterrizado mal
     // -- "varada", no aparcada. Nacen en el borde inferior real del casco
@@ -91,6 +108,23 @@ export class Nave {
     this.canon = escena.add.graphics();
     this.contenedor.add(this.canon);
     this.apuntar(anguloInicialGrados);
+
+    // arte-siluetas-3: triángulo invertido sobre la nave, oculto hasta que
+    // marcarActiva(true) lo active -- nunca se redibuja por turno, solo se
+    // muestra u oculta, así que no compite con el presupuesto de render.
+    this.indicadorActiva = escena.add.graphics();
+    this.indicadorActiva.fillStyle(COLOR_INDICADOR_ACTIVA, 1);
+    const yIndicador = -ALTO_CASCO * 0.72;
+    this.indicadorActiva.fillTriangle(
+      -ANCHO_CASCO * 0.1,
+      yIndicador - ALTO_CASCO * 0.18,
+      ANCHO_CASCO * 0.1,
+      yIndicador - ALTO_CASCO * 0.18,
+      0,
+      yIndicador,
+    );
+    this.indicadorActiva.setVisible(false);
+    this.contenedor.add(this.indicadorActiva);
   }
 
   // esc-5: el dibujo miente (opción B) y esto lo hace honesto en la
@@ -105,7 +139,7 @@ export class Nave {
   // polígonos distintos (comprobable por hash, ver hashSiluetaActual).
   private dibujarCasco(): void {
     this.casco.clear();
-    const puntosDanio = puntosCascoConDanio(this.direccion, this.nivelDanioActual);
+    const puntosDanio = puntosCascoConDanio(this.direccion, this.nivelDanioActual, this.variante);
     this.hashSiluetaActual = hashPuntos(puntosDanio);
     const puntos = puntosDanio.map((p) => new Phaser.Math.Vector2(p.x, p.y));
 
@@ -138,6 +172,15 @@ export class Nave {
       this.casco.fillStyle(COLOR_CICATRIZ, TECHO_OPACIDAD_FUERA_NUCLEO * 0.8);
       this.casco.fillCircle(puntoCicatriz.x, puntoCicatriz.y, ANCHO_CASCO * 0.06);
     }
+
+    // arte-siluetas-3/4: insignia de FORMA (no solo color) sobre el lomo
+    // del fuselaje -- es lo que distingue a las naves cuando el color no
+    // sirve (escala de grises, daltonismo).
+    const sena = puntosSenaNave(this.variante, this.direccion, ANCHO_CASCO, ALTO_CASCO).map(
+      (p) => new Phaser.Math.Vector2(p.x, p.y),
+    );
+    this.casco.fillStyle(COLOR_SENA, TECHO_OPACIDAD_FUERA_NUCLEO);
+    this.casco.fillPoints(sena, true);
 
     this.casco.fillStyle(this.colorCasco, OPACIDAD_NUCLEO);
     this.casco.fillCircle(0, 0, RADIO_CASCO_NAVE_PX);
@@ -272,6 +315,23 @@ export class Nave {
 
   obtenerHashSilueta(): number {
     return this.hashSiluetaActual;
+  }
+
+  // arte-siluetas-3: idempotente -- no redibuja nada, solo cambia la
+  // visibilidad del triángulo ya construido en el constructor, para que
+  // llamarlo cada fotograma (como hace refrescarNaves) no cueste nada.
+  marcarActiva(activa: boolean): void {
+    if (this.activa === activa) return;
+    this.activa = activa;
+    this.indicadorActiva.setVisible(activa);
+  }
+
+  estaActiva(): boolean {
+    return this.activa;
+  }
+
+  obtenerVariante(): VarianteNave {
+    return this.variante;
   }
 
   obtenerId(): 0 | 1 {

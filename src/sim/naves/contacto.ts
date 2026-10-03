@@ -1,6 +1,6 @@
 import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { IdNave } from "@/sim/partida/tipos";
-import { puntosCasco, type PuntoCasco } from "@/sim/naves/geometriaCasco";
+import { puntosCascoVariante, type PuntoCasco, type VarianteNave } from "@/sim/naves/geometriaCasco";
 import { RADIO_CASCO_NAVE_PX, type NavePosicion } from "@/sim/naves/impacto";
 
 // contacto-honesto (con-1): dirección de dibujo de cada nave, fija por id --
@@ -10,6 +10,15 @@ import { RADIO_CASCO_NAVE_PX, type NavePosicion } from "@/sim/naves/impacto";
 // toca comparar.
 export function direccionDeNave(id: IdNave): 1 | -1 {
   return id === 0 ? 1 : -1;
+}
+
+// arte-siluetas-3: la variante de silueta por id -- hoy coincide con el id
+// porque el núcleo sigue siendo 0 | 1 (nucleo-n-naves generaliza esto),
+// pero vive aquí y no en Nave.ts para que el roce (comprobarRocePaso, más
+// abajo) compare siempre contra la MISMA silueta que se dibuja, nunca
+// contra la de la variante 0 por defecto.
+export function varianteDeNave(id: IdNave): VarianteNave {
+  return id as VarianteNave;
 }
 
 // Ray casting estándar (par/impar de cruces con los lados del polígono):
@@ -75,7 +84,7 @@ export function comprobarRocePaso(
     if (Math.hypot(localX, localY) <= RADIO_CASCO_NAVE_PX) {
       continue; // eso es impacto (o gracia de casco propio), no roce
     }
-    if (dentroDelPoligono(localX, localY, puntosCasco(direccionDeNave(nave.id)))) {
+    if (dentroDelPoligono(localX, localY, puntosCascoVariante(varianteDeNave(nave.id), direccionDeNave(nave.id)))) {
       return { nave: nave.id, x: cercano.x, y: cercano.y };
     }
   }

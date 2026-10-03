@@ -1508,6 +1508,11 @@ export class Partida extends Phaser.Scene {
       );
       this.naves[indice].posicionarEn(naveEstado.x, y);
       this.naves[indice].actualizarIntegridad(naveEstado.integridad);
+      // arte-siluetas-3: el indicador de nave propia sigue al turno real
+      // (this.estado.turno), no a un parpadeo de animación -- se recalcula
+      // en cada refresco para que nunca quede marcada la nave equivocada
+      // tras un cambio de turno.
+      this.naves[indice].marcarActiva(indice === this.estado.turno);
     }
   }
 
