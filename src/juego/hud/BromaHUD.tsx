@@ -33,9 +33,22 @@ export function BromaHUD() {
         pointerEvents: "auto",
         display: "flex",
         flexDirection: "column",
-        alignItems: "flex-end",
+        // hud-canales-1 (quinta corrección): fila-avisos pasó de fila a
+        // columna -- alignSelf (no alignItems del padre) es lo que sigue
+        // pegando este panel al borde derecho dentro de esa columna, ahora
+        // que ya no comparte ancho con roce ni con el aviso.
+        alignSelf: "flex-end",
         maxWidth: "74%",
         minWidth: 0,
+        // hud-canales (séptima corrección): sin minHeight:0 este item de
+        // flex no se encoge por debajo de su alto de contenido aunque el
+        // aviso ocupe sitio a la vez (lay-3) -- su propio rect (el que mide
+        // el e2e) seguía siendo el de contenido completo y se salía de los
+        // 78px de fila-avisos, solapando selector-arma-abrir de verdad. Con
+        // minHeight:0 el reparto de flex-shrink lo comprime junto al aviso
+        // hasta que la suma cabe, y el sobrante se lee con el scroll que
+        // el panel interior ya tenía.
+        minHeight: 0,
       }}
     >
       <div
@@ -51,13 +64,18 @@ export function BromaHUD() {
           // cortaba la broma a media frase (hallazgo del gatekeeper: "…toda mi
           // confianza y ni un gramo de mi…") porque el catálogo de humor tiene
           // frases de hasta 291 caracteres, muchas más de las 2 líneas que
-          // caben a 12-13px de ancho de panel. El tope ahora es de ALTO sobre
-          // el panel entero (70px, el mismo contenedor que ya reserva
-          // fila-avisos para roce) con scroll propio -- el mensaje se puede
-          // leer entero desplazándose, nunca se pierde media frase sin aviso.
-          // 70px también evita que el panel se salga del overlay de 70px que
-          // lo contiene (ver ControlHUD) hacia control-angulo.
-          maxHeight: 70,
+          // caben a 12-13px de ancho de panel. El tope es de ALTO sobre el
+          // panel entero, con scroll propio -- el mensaje se puede leer
+          // entero desplazándose, nunca se pierde media frase sin aviso.
+          // hud-canales-1 (sexta corrección): 96px se salía del propio tope
+          // de fila-avisos (78px, lo que de verdad cabe en la consola a
+          // 360x640) -- la caja de este panel, aunque se recortara visualmente
+          // por el overflow del padre, seguía midiendo 96px de alto para
+          // getBoundingClientRect, y ese sobrante de 18px es justo lo que
+          // lay-3 medía solapado con selector-arma-abrir. 78px iguala el
+          // propio tope del padre: la frase más larga sigue entera, solo que
+          // alcanzable con scroll en vez de con margen de sobra.
+          maxHeight: 78,
           overflowY: "auto",
           boxSizing: "border-box",
         }}

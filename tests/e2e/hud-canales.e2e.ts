@@ -30,6 +30,45 @@ async function dispararTurnoReal(page: Page): Promise<void> {
   );
 }
 
+// hud-canales-1 (quinta corrección): el fallo real estaba en el estado de
+// apuntado INICIAL -- antes de cualquier disparo, la primera pantalla que
+// ve cualquier jugador -- donde fila-avisos reservaba 78px fijos aunque no
+// hubiera roce, aviso ni broma que mostrar, y ese hueco vacío era
+// exactamente lo que le faltaba al botón Disparar para no salir cortado.
+// Las tres vueltas anteriores de este bloque solo capturaban DESPUÉS de un
+// disparo (el gatekeeper lo señaló expresamente: "mis capturas eran todas
+// posteriores a un disparo"), así que nunca ejercitaban este estado.
+function sinDesbordeDeViewport(caja: { y: number; height: number }, altoViewport: number): boolean {
+  return caja.y >= 0 && caja.y + caja.height <= altoViewport + 1;
+}
+
+test("hud-canales-1: en el estado de apuntado inicial ningún control sale del viewport", async ({ page }) => {
+  test.setTimeout(30000);
+  await irAPartida(page);
+
+  for (const testId of ["selector-arma-abrir", "repetir-disparo", "disparar", "control-angulo", "control-potencia"]) {
+    const caja = (await page.getByTestId(testId).boundingBox())!;
+    expect(sinDesbordeDeViewport(caja, VIEWPORT_MOVIL.height), `${testId} fuera del viewport: ${JSON.stringify(caja)}`).toBe(true);
+  }
+
+  // Ningún panel con overflow debe recortar contenido: el gatekeeper midió
+  // scrollHeight > clientHeight en panel-bromas con el ancho compartido de
+  // antes -- esta aserción lo habría cazado sin depender de leer una
+  // captura a ojo.
+  const desbordesDeContenido = await page.evaluate((testIds: string[]) => {
+    return testIds
+      .map((testId) => {
+        const el = document.querySelector(`[data-testid="${testId}"]`);
+        if (el === null) return null;
+        return { testId, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
+      })
+      .filter((r): r is { testId: string; scrollHeight: number; clientHeight: number } => r !== null && r.scrollHeight > r.clientHeight + 1);
+  }, ["fila-avisos", "aviso-accion-imposible", "panel-bromas", "panel-roce"]);
+  expect(desbordesDeContenido, JSON.stringify(desbordesDeContenido)).toEqual([]);
+
+  await page.screenshot({ path: "capturas/hud-canales-1-inicial-360x640.png" });
+});
+
 test("hud-canales-1: el canal de estado es permanente y la broma se desvanece sola en <=6s", async ({ page }) => {
   test.setTimeout(60000);
   await irAPartida(page);

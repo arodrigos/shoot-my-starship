@@ -63,7 +63,7 @@ export function ReaccionHUD() {
           border: "1px solid rgba(255,255,255,0.25)",
           background: "rgba(30,34,46,0.9)",
           color: "#e8eaf0",
-          font: "11px system-ui, sans-serif",
+          font: "12px system-ui, sans-serif",
           cursor: "pointer",
         }}
       >

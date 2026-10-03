@@ -29,7 +29,7 @@ const BARRA_ESTILO: React.CSSProperties = {
   minWidth: 0,
   borderRadius: 10,
   padding: "4px 6px",
-  font: "10px system-ui, sans-serif",
+  font: "12px system-ui, sans-serif",
   boxSizing: "border-box",
 };
 

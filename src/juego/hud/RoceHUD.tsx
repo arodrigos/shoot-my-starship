@@ -18,12 +18,12 @@ export function RoceHUD() {
       data-testid="panel-roce"
       role="status"
       style={{
-        // lay-3: mismo reparto por flex que BromaHUD (ver su comentario) en
-        // vez de un 48% fijo, y el mismo tope de alto -- panel-roce vive en
-        // la misma fila-avisos de altura fija y sin él podía crecer más que
-        // el hueco reservado exactamente por el mismo motivo que la broma.
-        flex: "1 1 0",
-        minWidth: 0,
+        // hud-canales-1 (quinta corrección): fila-avisos pasó de fila a
+        // columna (ver su comentario en ControlHUD) -- panel-roce ya no
+        // comparte ancho con aviso/broma, así que ocupa el ancho completo
+        // disponible en vez de un tercio.
+        width: "100%",
+        boxSizing: "border-box",
         maxHeight: 70,
         overflowY: "auto",
         // con-3 (gatekeeper, iteración 6): fondo opaco propio en vez de la
@@ -35,7 +35,7 @@ export function RoceHUD() {
         borderRadius: 10,
         padding: "6px 10px",
         color: "var(--color-roce-texto)",
-        font: "11px system-ui, sans-serif",
+        font: "12px system-ui, sans-serif",
         pointerEvents: "none",
         wordBreak: "break-word",
         overflowWrap: "anywhere",
