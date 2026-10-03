@@ -499,17 +499,23 @@ export function ControlHUD() {
         </button>
       </div>
 
-      {/* fila-avisos: hueco reservado de roce (izquierda) -- lay-4 pide el
-          hueco reservado literalmente: altura FIJA (no mínima) y con scroll
-          propio si una frase larga no cabe, para que quitar la broma nunca
-          mueva el resto de controles y para que un texto largo jamás empuje
-          ni solape la fila de abajo (lay-3). flexShrink:0 es el propio
-          arreglo de lay-3: sin él, esta fila era la ÚNICA con
-          overflowY:auto (mínimo automático 0 según CSS Flexbox §7.1.4), así
-          que el algoritmo de flex-shrink la comprimía a ella sola para
-          compensar el déficit de alto de la consola en 360x640. */}
-      <div style={{ position: "relative" }}>
+      {/* fila-avisos: roce (izquierda) y broma (derecha) como hermanos flex
+          REALES de la misma fila -- hud-canales (segunda corrección): la
+          versión anterior superponía panel-bromas como overlay
+          position:absolute sobre TODA esta fila (inset:"0 0 8px 0"), así que
+          su caja coincidía con la de panel-roce en vez de repartirse el
+          ancho con él (hallazgo del gatekeeper: mismo origen x=8,y=513,
+          57%/74% de solape). Con los dos como hijos de un flex-row, el
+          propio algoritmo de flexbox les da cajas que nunca se tocan --
+          roce (flex:"1 1 0") ocupa lo que broma deja libre, nunca al revés.
+          altura FIJA (no mínima) para que quitar la broma nunca mueva el
+          resto de controles (lay-4); flexShrink:0 es el propio arreglo de
+          lay-3: sin él, esta fila era la ÚNICA con overflowY:auto (mínimo
+          automático 0 según CSS Flexbox §7.1.4), así que el algoritmo de
+          flex-shrink la comprimía a ella sola para compensar el déficit de
+          alto de la consola en 360x640. */}
       <div
+        data-testid="fila-avisos"
         style={{
           display: "flex",
           flexDirection: "row",
@@ -521,32 +527,37 @@ export function ControlHUD() {
         }}
       >
         <RoceHUD />
-      </div>
-
-      {/* hud-canales-1: canal PASIVO de la broma -- superpuesto (no ocupa
-          hueco en el flujo, así que quitarla o que se desvanezca sola nunca
-          mueve control-angulo/potencia/armas, lay-4) y anclado por el borde
-          INFERIOR a este mismo contenedor. El propio panel (más abajo) lleva
-          ahora su tope de alto y su scroll interno -- ya no puede desbordar
-          este overlay de 70px hacia el control-angulo de arriba, que era el
-          otro modo de fallo real de recortar con line-clamp en vez de dar
-          alto o scroll al mensaje (hallazgo del gatekeeper). */}
-      <div
-        style={{
-          position: "absolute",
-          // hud-canales (cierre lay-3): 8px de borde inferior suman un
-          // colchón de 12px frente al gap de 4px del flex column, muy por
-          // encima del redondeo de subpíxel observado en repetición.
-          inset: "0 0 8px 0",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "flex-end",
-          pointerEvents: "none",
-        }}
-      >
         <BromaHUD />
       </div>
-      </div>
+
+      {/* hud-canales (segunda corrección): el aviso ya no es un overlay
+          absolute anclado a "bottom:100%" de fila-armas -- creciendo hacia
+          arriba sin hueco propio invadía el mismo espacio que fila-avisos
+          (hallazgo del gatekeeper: 66% de panel-bromas tapado). Como fila
+          de flujo normal entre fila-avisos y fila-armas, el aviso empuja a
+          fila-armas hacia abajo cuando aparece en vez de superponerse a
+          nada -- el único coste es que fila-armas se desplaza mientras el
+          aviso está visible, preferible a tapar contenido (camino_critico
+          de hud-canales-1 es que la broma se pueda leer, no que fila-armas
+          quede inmóvil). */}
+      {avisoAccionImposible && (
+        <div
+          role="status"
+          data-testid="aviso-accion-imposible"
+          style={{
+            background: "var(--color-aviso-fondo)",
+            border: "1px solid var(--color-aviso-borde)",
+            borderRadius: 8,
+            padding: "4px 10px",
+            color: "var(--color-aviso-texto)",
+            font: "12px system-ui, sans-serif",
+            textAlign: "center",
+            pointerEvents: "none",
+          }}
+        >
+          {avisoAccionImposible}
+        </div>
+      )}
 
       {/* fila-armas: selector de arma y disparo/repetir -- el paso fino de
           ángulo/potencia vive ahora en sus propias filas, junto al control
@@ -560,7 +571,7 @@ export function ControlHUD() {
           los tres grupos, con el padding de botonEstilo recortado para
           liberar el ancho que el selector necesita, es lo que hace que el
           presupuesto cierre en una sola línea sin exprimir ni desbordar. */}
-      <div style={{ position: "relative", display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
         <div style={{ position: "relative", flex: "0 0 auto" }}>
           <button
             type="button"
@@ -667,42 +678,6 @@ export function ControlHUD() {
             Disparar
           </button>
         </div>
-
-        {/* hud-canales (corrección): "bottom:4" sobre el contenedor ENTERO
-            (position:absolute, inset:0 en la raíz) ponía este aviso a la
-            misma altura que fila-armas, encima de "Pepinazo de Cortesía" y
-            "Repetir" (hallazgo del gatekeeper). Anclado ahora a bottom:"100%"
-            del propio envoltorio de fila-armas (que lleva position:relative,
-            ver arriba), crece hacia ARRIBA desde el borde superior de esa
-            fila y nunca puede superponerse a sus botones por construcción
-            geométrica, igual que panel-bromas nunca se superpone a
-            fila-armas por el mismo motivo. Identidad de color propia
-            (--color-aviso-*, fondo alfa 1) en vez de la rgba semitransparente
-            que daba 1,22:1 de contraste. */}
-        {avisoAccionImposible && (
-          <div
-            role="status"
-            data-testid="aviso-accion-imposible"
-            style={{
-              position: "absolute",
-              bottom: "100%",
-              marginBottom: 4,
-              left: "50%",
-              transform: "translateX(-50%)",
-              maxWidth: "92%",
-              background: "var(--color-aviso-fondo)",
-              border: "1px solid var(--color-aviso-borde)",
-              borderRadius: 8,
-              padding: "4px 10px",
-              color: "var(--color-aviso-texto)",
-              font: "12px system-ui, sans-serif",
-              textAlign: "center",
-              pointerEvents: "none",
-            }}
-          >
-            {avisoAccionImposible}
-          </div>
-        )}
       </div>
 
       {estado.ayudaVisible && (

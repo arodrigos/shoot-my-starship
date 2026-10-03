@@ -94,17 +94,19 @@ test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en ord
   await expect(page.getByTestId("historico-bromas-entrada-1")).toBeVisible();
 });
 
-// hud-canales (corrección): el axe se mueve al instante EN VUELO (como ya
-// hace hud-canales-5), no tras la resolución completa -- después de resolver,
-// aviso-accion-imposible ya no existe y el gatekeeper encontró justo ahí el
-// hueco de cobertura (su propio contraste nunca llegó a comprobarse). También
-// se compara la caja de panel-bromas/broma-descartar y de
-// aviso-accion-imposible contra sus VECINOS reales (toggle-sacudida/
-// toggle-silenciado, ahora fixed arriba a la derecha, y los botones de
-// fila-armas), no solo contra sí mismos -- ese solape entre elementos
-// distintos era precisamente lo que el hallazgo anterior señalaba y la
-// comprobación previa no podía detectar.
-test("hud-canales-4: sin violaciones de target-size/color-contrast y ningún panel se superpone a los controles vecinos", async ({
+// hud-canales (tercera corrección): el axe se mueve al instante EN VUELO
+// (como ya hace hud-canales-5), no tras la resolución completa -- después de
+// resolver, aviso-accion-imposible ya no existe y el gatekeeper encontró
+// justo ahí el hueco de cobertura (su propio contraste nunca llegó a
+// comprobarse). El guardia de solape ya NO compara contra una lista fija de
+// vecinos -- esa lista fue precisamente el hueco que dejó pasar el solape
+// real de la iteración anterior (broma contra roce, broma contra aviso):
+// ninguno de los dos estaba en "vecinosFilaArmas" ni en
+// "toggle-sacudida"/"toggle-silenciado". Ahora se recoge la caja de TODOS
+// los paneles visibles en el instante (incluido broma-descartar como hijo
+// de panel-bromas, que sí puede solaparse con su propio padre a propósito)
+// y se comparan por parejas entre sí.
+test("hud-canales-4: sin violaciones de target-size/color-contrast y ningún panel visible se superpone a otro", async ({
   page,
 }) => {
   test.setTimeout(60000);
@@ -126,11 +128,33 @@ test("hud-canales-4: sin violaciones de target-size/color-contrast y ningún pan
     );
   }
 
-  const cajaAviso = (await page.getByTestId("aviso-accion-imposible").boundingBox())!;
-  const vecinosFilaArmas = ["selector-arma-abrir", "repetir-disparo", "disparar"];
-  for (const testId of vecinosFilaArmas) {
-    const cajaVecino = (await page.getByTestId(testId).boundingBox())!;
-    expect(sinSolape(cajaAviso, cajaVecino)).toBe(true);
+  // panel-bromas/broma-descartar quedan fuera adrede: el aspa vive DENTRO
+  // de su propio panel (hud-canales-4 ya lo exige así, no es el solape que
+  // se busca aquí). Todo lo demás es independiente entre sí y no debería
+  // compartir ni un píxel.
+  const candidatos = [
+    "aviso-accion-imposible",
+    "panel-bromas",
+    "panel-roce",
+    "selector-arma-abrir",
+    "repetir-disparo",
+    "disparar",
+    "toggle-sacudida",
+    "toggle-silenciado",
+    "historico-bromas-toggle",
+  ];
+
+  const cajas: Array<{ testId: string; caja: { x: number; y: number; width: number; height: number } }> = [];
+  for (const testId of candidatos) {
+    const locator = page.getByTestId(testId);
+    if (!(await locator.isVisible().catch(() => false))) continue;
+    cajas.push({ testId, caja: (await locator.boundingBox())! });
+  }
+
+  for (let i = 0; i < cajas.length; i++) {
+    for (let j = i + 1; j < cajas.length; j++) {
+      expect(sinSolape(cajas[i].caja, cajas[j].caja), `${cajas[i].testId} vs ${cajas[j].testId}`).toBe(true);
+    }
   }
 
   const panel = page.getByTestId("panel-bromas");
@@ -141,11 +165,6 @@ test("hud-canales-4: sin violaciones de target-size/color-contrast y ningún pan
     expect(cajaDescartar.y).toBeGreaterThanOrEqual(cajaPanel.y - 1);
     expect(cajaDescartar.x + cajaDescartar.width).toBeLessThanOrEqual(cajaPanel.x + cajaPanel.width + 1);
     expect(cajaDescartar.y + cajaDescartar.height).toBeLessThanOrEqual(cajaPanel.y + cajaPanel.height + 1);
-
-    for (const testId of ["toggle-sacudida", "toggle-silenciado"]) {
-      const cajaToggle = (await page.getByTestId(testId).boundingBox())!;
-      expect(sinSolape(cajaPanel, cajaToggle)).toBe(true);
-    }
   }
 });
 
