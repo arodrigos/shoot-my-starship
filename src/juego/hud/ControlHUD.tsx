@@ -525,7 +525,17 @@ export function ControlHUD() {
           display: "flex",
           flexDirection: "column",
           gap: 4,
-          ...(bromas.clave > 0 ? { height: 78 } : { maxHeight: 78 }),
+          // hud-canales (octava corrección): 78 -> 96. El aviso de "espera a
+          // que termine el disparo" convive con la broma en TODO turno
+          // propio -- !puedeDisparar ya es cierto en cuanto el proyectil
+          // sale volando, antes de que la broma de impacto aparezca -- así
+          // que no es un caso raro que 78px dejara sin sitio: era el caso
+          // normal. flexShrink:0 en los dos hijos (más abajo) evita que el
+          // flex los comprima por debajo de su propio contenido; si de
+          // verdad no caben los dos (aviso largo + broma larga a la vez),
+          // esta fila es la que se desplaza con su propio overflowY, nunca
+          // los hijos recortando glifos a medias.
+          ...(bromas.clave > 0 ? { height: 96 } : { maxHeight: 96 }),
           overflowY: "auto",
         }}
       >
@@ -536,7 +546,8 @@ export function ControlHUD() {
             data-testid="aviso-accion-imposible"
             style={{
               width: "100%",
-              maxHeight: 70,
+              flexShrink: 0,
+              maxHeight: 90,
               overflowY: "auto",
               background: "var(--color-aviso-fondo)",
               border: "1px solid var(--color-aviso-borde)",
