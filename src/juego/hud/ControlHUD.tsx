@@ -504,24 +504,28 @@ export function ControlHUD() {
           ocultaba el 59% del aviso en cuanto la broma también estaba
           visible (el gatekeeper midió el aviso reducido a 83 de 164px). Se
           apilan en columna, cada uno a ancho completo, así que ninguno le
-          quita sitio a otro. Y la altura ya NO es fija (height:78 estaba
-          reservando ese hueco incluso vacío -- el estado que se ve primero
-          al abrir el juego, sin roce, sin aviso y sin broma todavía -- y
-          eso era justo lo que le faltaba al botón Disparar para no salir
-          cortado): ahora la fila mide 0 cuando no hay nada que mostrar y
-          crece solo lo que necesita cada mensaje real, con el mismo tope de
-          78px que tenía la versión de altura FIJA (lo que de verdad cabe
-          junto al resto de filas en los 268.8px de consola a 360x640) --
-          ahora es un TECHO, no un suelo: si los tres juntos pasan de 78px,
-          se leen con scroll (mismo patrón que ya usan sus hijos) en vez de
-          empujar fila-armas fuera del viewport. */}
+          quita sitio a otro. La altura sigue sin ser fija en el estado
+          vacío inicial (sin roce, sin aviso y sin broma todavía: la fila
+          mide 0, que es justo lo que le faltaba al botón Disparar para no
+          salir cortado) -- pero en cuanto se publica la primera broma
+          (bromas.clave > 0, y hum-1 garantiza que eso pasa en todo turno,
+          "sin excepción") la fila pasa a altura FIJA de 78px para siempre,
+          en vez de seguir el contenido. hud-canales-1 (sexta corrección):
+          con altura por contenido, descartar la broma (lay-4) encogía la
+          fila y desplazaba fila-armas entera -- el propio criterio exige
+          que los controles no se muevan al descartar. 78px es el mismo
+          tope que tenía la versión de altura fija (lo que de verdad cabe
+          junto al resto de filas en los 268.8px de consola a 360x640); si
+          los tres juntos lo superan, se leen con scroll (mismo patrón que
+          ya usan sus hijos) en vez de empujar fila-armas fuera del
+          viewport. */}
       <div
         data-testid="fila-avisos"
         style={{
           display: "flex",
           flexDirection: "column",
           gap: 4,
-          maxHeight: 78,
+          ...(bromas.clave > 0 ? { height: 78 } : { maxHeight: 78 }),
           overflowY: "auto",
         }}
       >

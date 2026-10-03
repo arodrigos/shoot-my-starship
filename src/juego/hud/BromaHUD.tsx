@@ -58,12 +58,15 @@ export function BromaHUD() {
           // caben a 12-13px de ancho de panel. El tope es de ALTO sobre el
           // panel entero, con scroll propio -- el mensaje se puede leer
           // entero desplazándose, nunca se pierde media frase sin aviso.
-          // hud-canales-1 (quinta corrección): 70px seguía recortando a
-          // media palabra con el ancho compartido de antes (scrollHeight 82
-          // medido por el gatekeeper); con fila-avisos en columna este panel
-          // ya tiene más ancho propio (hasta 74% de 344px, no un tercio), y
-          // 96px da margen aun así para la frase más larga del catálogo.
-          maxHeight: 96,
+          // hud-canales-1 (sexta corrección): 96px se salía del propio tope
+          // de fila-avisos (78px, lo que de verdad cabe en la consola a
+          // 360x640) -- la caja de este panel, aunque se recortara visualmente
+          // por el overflow del padre, seguía midiendo 96px de alto para
+          // getBoundingClientRect, y ese sobrante de 18px es justo lo que
+          // lay-3 medía solapado con selector-arma-abrir. 78px iguala el
+          // propio tope del padre: la frase más larga sigue entera, solo que
+          // alcanzable con scroll en vez de con margen de sobra.
+          maxHeight: 78,
           overflowY: "auto",
           boxSizing: "border-box",
         }}
