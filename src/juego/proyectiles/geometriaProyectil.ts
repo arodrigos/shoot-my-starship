@@ -1,5 +1,6 @@
 import type { Arma } from "@/sim/armas/tipos";
 import { cajaCasco } from "@/sim/naves/geometriaCasco";
+import { esComportamientoAdherente } from "@/sim/fisica/comportamientoExtendido";
 
 // Geometría pura del proyectil (sin Phaser), mismo motivo que
 // geometriaCasco.ts: proy-1 exige medir la silueta desde la propia función
@@ -101,8 +102,13 @@ function aspectoDe(arma: Arma): number {
 type SubvarianteBomba = "basica" | "irregular" | "erratica" | "mecha" | "adherente" | "util";
 
 function subvarianteBombaDe(arma: Arma): SubvarianteBomba {
+  // Elección de SILUETA, no de física: comprobar-vuelo-unica-definicion.mjs
+  // (vex-2) vigila que src/juego no reimplemente la perturbación/mecha/
+  // adherencia del núcleo, así que la condición de adherencia se consume
+  // del propio predicado del núcleo (esComportamientoAdherente) en vez de
+  // comparar el tipo a mano, igual que exige ese guardia.
+  if (esComportamientoAdherente(arma.comportamiento)) return "adherente"; // Gancho Pegajoso
   if (arma.comportamiento.tipo === "mecha") return "mecha"; // Granada de Espoleta
-  if (arma.comportamiento.tipo === "adherente-con-mecha") return "adherente"; // Gancho Pegajoso
   if (arma.comportamiento.tipo === "erratico") return "erratica"; // Mosca Cojonera
   if (arma.utilitaria === true) return "util"; // Vertedero Portátil
   if (arma.dispersionGrados !== undefined) return "irregular"; // Petardo de Feria
