@@ -1,8 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apuntado";
+import type { DebugUltimoDisparo } from "@/debug/tipos";
 
 const MUNDO_ANCHO = 1920;
 const MUNDO_ALTO = 1080;
+
+interface CapturaPyl3 {
+  readonly trayectoria: readonly { readonly x: number; readonly y: number }[];
+  readonly disparo: DebugUltimoDisparo;
+}
 
 const TESTIDS_HUD_OPACO = [
   "resultado-turno",
@@ -106,44 +112,85 @@ for (const [familia, armaId] of Object.entries(REPRESENTANTE_POR_FAMILIA)) {
       );
     }
 
+    // arte-siluetas (devuelto en desarrollo-21): la versión anterior medía
+    // visibilidad muestreando window.__debug.proyectilEnVuelo cada 30ms de
+    // reloj real -- una carrera contra el framerate real de la máquina de
+    // CI, no contra el vuelo. Con la gravedad recalibrada (gravedad-
+    // calibracion) este arco (18°, potencia 90) resuelve en pocos pasos, así
+    // que bajo carga de CPU el muestreo de 30ms a veces solo alcanzaba a ver
+    // 0-2 instantes antes de que el vuelo ya hubiera terminado -- el vuelo
+    // no era menos visible, era el reloj de la prueba el que no llegaba a
+    // tiempo de mirar. mos-3 ya resolvió este mismo problema para su propio
+    // criterio: en vez de muestrear en vivo, se instala una trampa ANTES de
+    // disparar que captura la ÚNICA escritura de
+    // trayectoriaAnimadaUltimoVuelo que pertenece a este disparo (antes de
+    // que la respuesta de la IA, encadenada síncronamente, la pise) y se
+    // mide sobre ESA trayectoria completa -- paso a paso, la misma que
+    // AnimadorProyectil grabó mientras animaba, sin depender de cuántos
+    // fotogramas reales cupieron en el vuelo.
+    await page.evaluate(() => {
+      const debug = window.__debug as unknown as { _trayectoriaAnimadaUltimoVuelo?: unknown };
+      let capturado = false;
+      Object.defineProperty(window.__debug, "trayectoriaAnimadaUltimoVuelo", {
+        configurable: true,
+        get() {
+          return debug._trayectoriaAnimadaUltimoVuelo;
+        },
+        set(v) {
+          debug._trayectoriaAnimadaUltimoVuelo = v;
+          if (!capturado) {
+            capturado = true;
+            (window as unknown as { __pyl3Captura: unknown }).__pyl3Captura = {
+              trayectoria: v,
+              disparo: window.__debug.ultimoDisparo,
+            };
+          }
+        },
+      });
+    });
+
     const numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
     await page.getByTestId("disparar").click();
 
-    // Mismo evaluate() único por muestra que proy-5 (issue diagnosticado en
-    // desarrollo-18): leer animacionEnCurso/numeroTurno/proyectilEnVuelo por
-    // separado no es atómico y puede colar una muestra del disparo rival.
-    const muestras: { visible: boolean; armaId: string }[] = [];
-    let capturado = false;
-    for (;;) {
-      const instante = await page.evaluate((n) => {
-        const enCurso = window.__debug.animacionEnCurso === true && (window.__debug.numeroTurno ?? 0) === n;
-        return { enCurso, punto: enCurso ? window.__debug.proyectilEnVuelo : null };
-      }, numeroTurnoAntes);
-      if (!instante.enCurso) break;
-      const punto = instante.punto;
-      if (punto) {
-        const pantalla = mundoAPantalla(punto.x, punto.y);
-        const dentro = dentroDelLienzo(pantalla);
-        const tapado = tapadoPorHud(pantalla);
-        muestras.push({ visible: dentro && !tapado, armaId: punto.armaId });
-        if (!capturado) {
-          await page.screenshot({ path: `capturas/proyectiles-siluetas-9-pyl3-vuelo-${familia}.png` });
-          capturado = true;
-        }
+    // Mejor esfuerzo, para el juicio visual del gatekeeper (rubrica.md, eje
+    // 6): una captura mientras el proyectil está en pantalla. Ya no hace
+    // falta para la aserción de visibilidad (que usa la trayectoria
+    // capturada más abajo), así que perderla bajo carga de CPU no hace
+    // fallar el test.
+    for (let intento = 0; intento < 150; intento++) {
+      const estado = await page.evaluate((id) => {
+        const p = window.__debug.proyectilEnVuelo;
+        const capturado = (window as unknown as { __pyl3Captura?: unknown }).__pyl3Captura !== undefined;
+        return { enVuelo: p !== null && p !== undefined && p.armaId === id, capturado };
+      }, armaId);
+      if (estado.enVuelo) {
+        await page.screenshot({ path: `capturas/proyectiles-siluetas-9-pyl3-vuelo-${familia}.png` });
+        break;
       }
-      await page.waitForTimeout(30);
+      if (estado.capturado) break;
+      await page.waitForTimeout(10);
     }
 
-    expect(muestras.length).toBeGreaterThan(2);
-    expect(muestras.every((m) => m.armaId === armaId)).toBe(true);
-
-    const visibles = muestras.filter((m) => m.visible).length;
-    expect(visibles / muestras.length).toBeGreaterThanOrEqual(0.9);
-
+    await page.waitForFunction(() => (window as unknown as { __pyl3Captura?: unknown }).__pyl3Captura !== undefined, undefined, {
+      timeout: 30000,
+    });
     // Punta a punta (pyl-3): el turno avanza y hay un resultado declarado --
     // no basta con que el proyectil se viera, el disparo tiene que cerrar de
     // verdad.
     await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurnoAntes, { timeout: 60000 });
+
+    const captura = await page.evaluate(() => (window as unknown as { __pyl3Captura: CapturaPyl3 }).__pyl3Captura);
+    const trayectoriaAnimada = captura.trayectoria;
+    expect(trayectoriaAnimada).toBeDefined();
+    expect(trayectoriaAnimada.length).toBeGreaterThan(2);
+    expect(captura.disparo?.armaId).toBe(armaId);
+
+    const visibles = trayectoriaAnimada.filter((punto) => {
+      const pantalla = mundoAPantalla(punto.x, punto.y);
+      return dentroDelLienzo(pantalla) && !tapadoPorHud(pantalla);
+    }).length;
+    expect(visibles / trayectoriaAnimada.length).toBeGreaterThanOrEqual(0.9);
+
     await expect(page.getByTestId("resultado-turno")).toBeVisible();
   });
 }
