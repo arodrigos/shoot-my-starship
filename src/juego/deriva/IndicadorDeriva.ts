@@ -6,6 +6,7 @@ import Phaser from "phaser";
 const DERIVA_REFERENCIA_PX_S2 = 30;
 const LONGITUD_MAXIMA_PX = 70;
 const LONGITUD_MINIMA_VISIBLE_PX = 6;
+const TAMANO_FUENTE_CSS_PX = 16;
 
 export interface EstadoDerivaDibujado {
   readonly valorMundo: number;
@@ -27,9 +28,14 @@ export class IndicadorDeriva {
   constructor(escena: Phaser.Scene, x: number, y: number) {
     this.x = x;
     this.y = y;
+    // hud-canales (corrección): único texto de canvas que no compensaba
+    // scale.displayScale -- en 360px de ancho el displayScale ronda 5.33x,
+    // así que 16px "de juego" se pintaban a ~3px CSS reales (1,31:1 medido
+    // por el gatekeeper). Mismo patrón que ContadorAdherencia.ts.
+    const compensacionEscala = escena.scale.displayScale.x;
     this.grafico = escena.add.graphics().setScrollFactor(0).setDepth(100);
     this.texto = escena.add
-      .text(x, y + 18, "", { fontSize: "16px", color: "#f2f2f2" })
+      .text(x, y + 18, "", { fontSize: `${Math.round(TAMANO_FUENTE_CSS_PX * compensacionEscala)}px`, color: "#f2f2f2" })
       .setScrollFactor(0)
       .setDepth(100);
   }

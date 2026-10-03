@@ -94,15 +94,44 @@ test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en ord
   await expect(page.getByTestId("historico-bromas-entrada-1")).toBeVisible();
 });
 
-test("hud-canales-4: sin violaciones de target-size/color-contrast y el cierre de la broma no se sale del panel", async ({
+// hud-canales (corrección): el axe se mueve al instante EN VUELO (como ya
+// hace hud-canales-5), no tras la resolución completa -- después de resolver,
+// aviso-accion-imposible ya no existe y el gatekeeper encontró justo ahí el
+// hueco de cobertura (su propio contraste nunca llegó a comprobarse). También
+// se compara la caja de panel-bromas/broma-descartar y de
+// aviso-accion-imposible contra sus VECINOS reales (toggle-sacudida/
+// toggle-silenciado, ahora fixed arriba a la derecha, y los botones de
+// fila-armas), no solo contra sí mismos -- ese solape entre elementos
+// distintos era precisamente lo que el hallazgo anterior señalaba y la
+// comprobación previa no podía detectar.
+test("hud-canales-4: sin violaciones de target-size/color-contrast y ningún panel se superpone a los controles vecinos", async ({
   page,
 }) => {
   test.setTimeout(60000);
   await irAPartida(page);
-  await dispararTurnoReal(page);
+
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
+  await page.getByTestId("disparar").click();
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === false);
 
   const resultados = await new AxeBuilder({ page }).withRules(["target-size", "color-contrast"]).analyze();
   expect(resultados.violations).toEqual([]);
+
+  function sinSolape(cajaA: { x: number; y: number; width: number; height: number }, cajaB: { x: number; y: number; width: number; height: number }): boolean {
+    return (
+      cajaA.x + cajaA.width <= cajaB.x + 1 ||
+      cajaB.x + cajaB.width <= cajaA.x + 1 ||
+      cajaA.y + cajaA.height <= cajaB.y + 1 ||
+      cajaB.y + cajaB.height <= cajaA.y + 1
+    );
+  }
+
+  const cajaAviso = (await page.getByTestId("aviso-accion-imposible").boundingBox())!;
+  const vecinosFilaArmas = ["selector-arma-abrir", "repetir-disparo", "disparar"];
+  for (const testId of vecinosFilaArmas) {
+    const cajaVecino = (await page.getByTestId(testId).boundingBox())!;
+    expect(sinSolape(cajaAviso, cajaVecino)).toBe(true);
+  }
 
   const panel = page.getByTestId("panel-bromas");
   if (await panel.isVisible().catch(() => false)) {
@@ -113,8 +142,10 @@ test("hud-canales-4: sin violaciones de target-size/color-contrast y el cierre d
     expect(cajaDescartar.x + cajaDescartar.width).toBeLessThanOrEqual(cajaPanel.x + cajaPanel.width + 1);
     expect(cajaDescartar.y + cajaDescartar.height).toBeLessThanOrEqual(cajaPanel.y + cajaPanel.height + 1);
 
-    const desborde = await panel.evaluate((el) => el.scrollHeight > el.clientHeight + 1);
-    expect(desborde).toBe(false);
+    for (const testId of ["toggle-sacudida", "toggle-silenciado"]) {
+      const cajaToggle = (await page.getByTestId(testId).boundingBox())!;
+      expect(sinSolape(cajaPanel, cajaToggle)).toBe(true);
+    }
   }
 });
 
