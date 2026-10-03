@@ -92,14 +92,27 @@ test("esp-8: coste de simulación+draw-prep por fotograma en el peor caso (6 pla
   // caso caro antes de completar la muestra.
   const detenerse = detenerseEnSuelo(sistema.mascara, MUNDO_ANCHO, MUNDO_ALTO);
   const inicial = crearProyectil(MUNDO_ANCHO / 2, 45, 5, -1);
-  const animador = new AnimadorProyectil(crearEscenaDeMentira());
+  const escena = crearEscenaDeMentira();
+  let animador = new AnimadorProyectil(escena);
   animador.iniciar(inicial, 0, 0, detenerse, () => {}, sistema.planetas);
   const particulas = crearParticulasAlTechoDelRegistro();
   assert.ok(particulas.length > 0, "el registro de efectos está vacío: pre-2 no está ejerciendo nada");
 
+  // gravedad-calibracion: con CONSTANTE_GRAVITACIONAL en 1200 (antes 6), NO
+  // existe ningún punto del mundo donde un proyectil se quede en vuelo 10s
+  // reales sin ser arrastrado a tierra -- la propia calibración exige que
+  // caer sea rápido (gravedad-calibracion-1). El coste por fotograma que
+  // este criterio presupuesta (N cuerpos + draw-prep) no depende de CUÁNTO
+  // lleva volando el proyectil, solo de que haya 6 planetas que sumar cada
+  // paso -- así que, al aterrizar, se relanza el mismo vuelo desde el
+  // mismo origen en vez de exigir una física imposible con los valores
+  // nuevos.
   const duracionesMs: number[] = [];
   for (let i = 0; i < NUM_FOTOGRAMAS; i++) {
-    if (!animador.enVuelo()) break;
+    if (!animador.enVuelo()) {
+      animador = new AnimadorProyectil(escena);
+      animador.iniciar(inicial, 0, 0, detenerse, () => {}, sistema.planetas);
+    }
     const inicio = process.hrtime.bigint();
     animador.actualizar(PASO_FIJO_MS);
     actualizarParticulasSimuladas(particulas, PASO_FIJO_MS);

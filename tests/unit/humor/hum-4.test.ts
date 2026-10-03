@@ -73,7 +73,10 @@ test("hum-4: autoimpacto -- la gravedad devuelve el disparo sobre el propio casc
   const mascara = crearMascaraVacia(ANCHO, ALTO);
   const naveX = 1500;
   const naveY = 1500;
-  const planetas: RegistroPlanetas = [{ id: 1, cx: naveX, cy: naveY + 300, radio: 50, densidad: 1_000_000, pixelesVivos: 20 }];
+  // gravedad-calibracion: CONSTANTE_GRAVITACIONAL subió de 6 a 1200 (200x);
+  // la densidad se divide por los mismos 200x para que G*masa (y la
+  // trayectoria que este test depende de reproducir) no cambien.
+  const planetas: RegistroPlanetas = [{ id: 1, cx: naveX, cy: naveY + 300, radio: 50, densidad: 5_000, pixelesVivos: 20 }];
 
   const res = resolverDisparo({
     mascara,

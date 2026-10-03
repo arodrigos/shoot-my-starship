@@ -30,7 +30,13 @@ import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 // según el tamaño del planeta) y el más cercano (1.1x) satura al tope, así
 // que el pozo se ve como un degradado legible y no como un disco plano de
 // opacidad constante.
-const ESCALA_VISUAL_POZO = 0.16;
+// gravedad-calibracion: CONSTANTE_GRAVITACIONAL subió de 6 a 1200 (200x), y
+// la aceleración real que lee esta función escala linealmente con ella --
+// sin tocar esto, cualquier punto no trivial del mundo saturaría la alpha
+// máxima y el degradado desaparecería. Se divide por los mismos 200x para
+// que la calibración visual descrita arriba (apenas visible a 6x el radio,
+// saturado a 1.1x) siga valiendo con la física nueva.
+const ESCALA_VISUAL_POZO = 0.0008;
 const ALPHA_MAXIMA_POZO = 0.5;
 const COLOR_POZO = 0x3a6fd8;
 

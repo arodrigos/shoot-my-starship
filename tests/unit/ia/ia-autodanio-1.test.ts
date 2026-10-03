@@ -45,13 +45,18 @@ test("ia-autodanio-1: dentro del mismo grupo (ambos seguros, o ambos con autoda�
 // candidato seguro (14), así que el sort antiguo (solo por danio) lo habría
 // puesto primero. Encontrado por barrido exhaustivo sobre resolverDisparo,
 // documentado para que no haya que volver a buscarlo a ciegas.
+// gravedad-calibracion: CONSTANTE_GRAVITACIONAL subió de 6 a 1200 (200x). La
+// aceleración gravitatoria depende del producto G*masa, así que la densidad
+// se divide por los mismos 200x (de 1.500.000 a 7.500) para dejar G*masa
+// exactamente igual que antes de la recalibración -- la trayectoria que
+// este escenario depende de reproducir bit a bit no cambia en absoluto.
 function mundoConAutodanioEnRejilla() {
   const naveX = 1500;
   const naveY = 1500;
   const objetivo = { x: naveX + 30, y: naveY - 10 };
   const mascara = crearMascaraVacia(ANCHO, ALTO);
   const arma = buscarArma("pepinazo-cortesia");
-  const planetas: RegistroPlanetas = [{ id: 1, cx: naveX, cy: naveY + 235, radio: 50, densidad: 1_500_000, pixelesVivos: 20 }];
+  const planetas: RegistroPlanetas = [{ id: 1, cx: naveX, cy: naveY + 235, radio: 50, densidad: 7_500, pixelesVivos: 20 }];
   return { naveX, naveY, objetivo, mascara, arma, planetas };
 }
 
