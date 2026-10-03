@@ -1,7 +1,6 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { IdNave } from "@/sim/partida/tipos";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 
@@ -11,16 +10,27 @@ import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 // Barra con rol de progreso real (role=progressbar, aria-valuenow) para que
 // un disparo que reduce integridad sea un hecho comprobable desde fuera del
 // estado de depuración, no solo desde window.__debug.
-const ETIQUETA_POR_NAVE: Record<0 | 1, string> = {
-  0: "Tu nave",
-  1: "Rival",
-};
+// hud-canales-1: etiqueta por función, no por Record<0|1,string> -- el
+// núcleo sigue teniendo solo dos naves hasta nucleo-n-naves, pero esta
+// función ya no asume que `id` no pueda ser 2 o 3 (el hallazgo del
+// gatekeeper era justo que una tercera nave no compilaba aquí).
+function etiquetaDeNave(id: number, nombreRival: string): string {
+  if (id === 0) return "Tu nave";
+  if (id === 1) return nombreRival;
+  return `Nave ${id + 1}`;
+}
 
+// hud-canales-1: ancho flexible (no 76px fijo) para que hasta cuatro barras
+// se repartan el mismo hueco sin desbordarlo -- con 76px fijos, dos naves ya
+// agotaban los ~156px disponibles en 360x640 y una tercera no cabía ni de
+// casualidad (hallazgo del gatekeeper: harían falta 316px para cuatro).
 const BARRA_ESTILO: React.CSSProperties = {
-  width: 76,
+  flex: "1 1 0",
+  minWidth: 0,
   borderRadius: 10,
-  padding: "4px 8px",
+  padding: "4px 6px",
   font: "10px system-ui, sans-serif",
+  boxSizing: "border-box",
 };
 
 // hud-canales-1: el turno y el nombre del rival viven aquí (no en una fila
@@ -38,12 +48,14 @@ export function IntegridadHUD() {
         display: "flex",
         flexDirection: "row",
         gap: 4,
+        width: "100%",
+        minWidth: 0,
       }}
     >
       {estado.naves.map((nave) => {
         const valor = Math.max(0, Math.min(100, Math.round(nave.integridad)));
-        const esTurno = control.turno === (nave.id as IdNave);
-        const etiqueta = nave.id === 1 ? control.nombreRival : ETIQUETA_POR_NAVE[nave.id];
+        const esTurno = control.turno === nave.id;
+        const etiqueta = etiquetaDeNave(nave.id, control.nombreRival);
         return (
           <div
             key={nave.id}
@@ -62,7 +74,7 @@ export function IntegridadHUD() {
             </div>
             <div
               role="progressbar"
-              aria-label={`Integridad de ${ETIQUETA_POR_NAVE[nave.id]}`}
+              aria-label={`Integridad de ${etiqueta}`}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={valor}

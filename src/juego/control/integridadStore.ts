@@ -1,11 +1,15 @@
-import type { IdNave } from "@/sim/partida/tipos";
-
 // Puente React/Phaser para la barra de integridad por nave (imp-11): mismo
 // patrón singleton pub/sub que resultadoTurnoStore.ts. Vive aparte de
 // EstadoControl porque la integridad es un dato de la PARTIDA (las dos
 // naves), no del ajuste de disparo de quien juega.
+// hud-canales-1: `id` es `number`, no IdNave -- el núcleo sigue teniendo
+// solo dos naves hasta que nucleo-n-naves lo generalice, pero este puente ya
+// no puede depender de ese tipo literal 0|1 sin dejar de compilar el día que
+// se amplíe, que es justo el hallazgo del gatekeeper. publicarIntegridad ya
+// mapea por índice del array que le llega, así que ya acepta cualquier
+// longitud sin cambios.
 export interface IntegridadNave {
-  readonly id: IdNave;
+  readonly id: number;
   readonly integridad: number;
 }
 
@@ -38,7 +42,7 @@ export function suscribirIntegridad(escucha: () => void): () => void {
 }
 
 export function publicarIntegridad(naves: readonly { readonly integridad: number }[]): void {
-  fijar({ naves: naves.map((nave, indice) => ({ id: indice as IdNave, integridad: nave.integridad })) });
+  fijar({ naves: naves.map((nave, indice) => ({ id: indice, integridad: nave.integridad })) });
 }
 
 // partida-completa: mismo motivo que reiniciarResultadoTurno -- singleton de
