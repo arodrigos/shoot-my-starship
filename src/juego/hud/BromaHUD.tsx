@@ -33,7 +33,11 @@ export function BromaHUD() {
         pointerEvents: "auto",
         display: "flex",
         flexDirection: "column",
-        alignItems: "flex-end",
+        // hud-canales-1 (quinta corrección): fila-avisos pasó de fila a
+        // columna -- alignSelf (no alignItems del padre) es lo que sigue
+        // pegando este panel al borde derecho dentro de esa columna, ahora
+        // que ya no comparte ancho con roce ni con el aviso.
+        alignSelf: "flex-end",
         maxWidth: "74%",
         minWidth: 0,
       }}
@@ -51,13 +55,15 @@ export function BromaHUD() {
           // cortaba la broma a media frase (hallazgo del gatekeeper: "…toda mi
           // confianza y ni un gramo de mi…") porque el catálogo de humor tiene
           // frases de hasta 291 caracteres, muchas más de las 2 líneas que
-          // caben a 12-13px de ancho de panel. El tope ahora es de ALTO sobre
-          // el panel entero (70px, el mismo contenedor que ya reserva
-          // fila-avisos para roce) con scroll propio -- el mensaje se puede
-          // leer entero desplazándose, nunca se pierde media frase sin aviso.
-          // 70px también evita que el panel se salga del overlay de 70px que
-          // lo contiene (ver ControlHUD) hacia control-angulo.
-          maxHeight: 70,
+          // caben a 12-13px de ancho de panel. El tope es de ALTO sobre el
+          // panel entero, con scroll propio -- el mensaje se puede leer
+          // entero desplazándose, nunca se pierde media frase sin aviso.
+          // hud-canales-1 (quinta corrección): 70px seguía recortando a
+          // media palabra con el ancho compartido de antes (scrollHeight 82
+          // medido por el gatekeeper); con fila-avisos en columna este panel
+          // ya tiene más ancho propio (hasta 74% de 344px, no un tercio), y
+          // 96px da margen aun así para la frase más larga del catálogo.
+          maxHeight: 96,
           overflowY: "auto",
           boxSizing: "border-box",
         }}

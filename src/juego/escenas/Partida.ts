@@ -522,7 +522,12 @@ export class Partida extends Phaser.Scene {
     const y1 = alturaRenderNave(nave1.y, alturaSuperficie(this.estado.mascara, nave1.x) ?? MUNDO_ALTO - 1);
     this.naves = [new Nave(this, 0, nave0.x, y0, true, 45), new Nave(this, 1, nave1.x, y1, false, 135)];
 
-    this.indicadorDeriva = new IndicadorDeriva(this, 90, 40);
+    // hud-canales-1 (quinta corrección): (180,70) en CSS px, centrado y por
+    // debajo de la banda de botones fixed (historico-bromas-toggle,
+    // toggle-sacudida, toggle-silenciado viven en los 54px superiores) --
+    // ver el comentario de IndicadorDeriva sobre por qué (90,40) en
+    // unidades de juego dejó de servir al cambiar MUNDO_ANCHO.
+    this.indicadorDeriva = new IndicadorDeriva(this, 180, 70);
     this.refrescarIndicadorDeriva();
 
     this.animador = new AnimadorProyectil(this);

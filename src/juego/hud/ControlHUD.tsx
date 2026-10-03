@@ -228,7 +228,7 @@ export function ControlHUD() {
               borderRadius: 10,
               padding: "6px 10px",
               color: "var(--color-cromado-texto)",
-              font: "11px system-ui, sans-serif",
+              font: "12px system-ui, sans-serif",
               wordBreak: "break-word",
               overflowWrap: "anywhere",
             }}
@@ -276,7 +276,7 @@ export function ControlHUD() {
           border: "none",
           background: "var(--color-cromado-fondo)",
           color: "var(--color-cromado-texto)",
-          font: "11px system-ui, sans-serif",
+          font: "12px system-ui, sans-serif",
           cursor: "pointer",
         }}
       >
@@ -467,7 +467,7 @@ export function ControlHUD() {
             border: "none",
             background: "var(--color-cromado-fondo)",
             color: "var(--color-cromado-texto)",
-            font: "11px system-ui, sans-serif",
+            font: "12px system-ui, sans-serif",
             cursor: "pointer",
           }}
         >
@@ -491,7 +491,7 @@ export function ControlHUD() {
             border: "none",
             background: "var(--color-cromado-fondo)",
             color: "var(--color-cromado-texto)",
-            font: "11px system-ui, sans-serif",
+            font: "12px system-ui, sans-serif",
             cursor: "pointer",
           }}
         >
@@ -499,32 +499,29 @@ export function ControlHUD() {
         </button>
       </div>
 
-      {/* fila-avisos: roce, aviso y broma como hermanos flex REALES de la
-          misma fila, los tres repartiendo el mismo presupuesto de alto FIJO
-          -- hud-canales (tercera corrección): la versión anterior metía el
-          aviso como una fila de flujo propia ENTRE fila-avisos y fila-armas,
-          así que aparecer empujaba fila-armas 56px hacia abajo y, al no
-          quedar presupuesto de alto libre en la consola (268.8px exactos
-          para 268.8px de contenido base, medido en 360x640), el botón
-          Disparar acababa a y=695, 55px por debajo del borde de la ventana
-          (hallazgo del gatekeeper: "cortado por el borde inferior de los
-          640 px"). Metido como tercer hijo de flex-row con flex:"1 1 0",
-          el aviso comparte el hueco ya reservado de roce/broma en vez de
-          pedir uno nuevo: la consola nunca crece, así que fila-armas nunca
-          se mueve y nunca se sale del viewport. altura FIJA (no mínima)
-          para que ningún combinado de los tres mueva el resto de controles
-          (lay-4); flexShrink:0 es el arreglo de lay-3 (ver su comentario).
-          El propio algoritmo de flexbox da a los tres cajas que nunca se
-          tocan entre sí, que es justo lo que hud-canales-4 comprueba. */}
+      {/* fila-avisos (hud-canales-1, quinta corrección): roce, aviso y broma
+          ya no comparten el ANCHO de una fila -- compartirlo era lo que
+          ocultaba el 59% del aviso en cuanto la broma también estaba
+          visible (el gatekeeper midió el aviso reducido a 83 de 164px). Se
+          apilan en columna, cada uno a ancho completo, así que ninguno le
+          quita sitio a otro. Y la altura ya NO es fija (height:78 estaba
+          reservando ese hueco incluso vacío -- el estado que se ve primero
+          al abrir el juego, sin roce, sin aviso y sin broma todavía -- y
+          eso era justo lo que le faltaba al botón Disparar para no salir
+          cortado): ahora la fila mide 0 cuando no hay nada que mostrar y
+          crece solo lo que necesita cada mensaje real, con el mismo tope de
+          78px que tenía la versión de altura FIJA (lo que de verdad cabe
+          junto al resto de filas en los 268.8px de consola a 360x640) --
+          ahora es un TECHO, no un suelo: si los tres juntos pasan de 78px,
+          se leen con scroll (mismo patrón que ya usan sus hijos) en vez de
+          empujar fila-armas fuera del viewport. */}
       <div
         data-testid="fila-avisos"
         style={{
           display: "flex",
-          flexDirection: "row",
-          alignItems: "flex-start",
-          gap: 6,
-          height: 78,
-          flexShrink: 0,
+          flexDirection: "column",
+          gap: 4,
+          maxHeight: 78,
           overflowY: "auto",
         }}
       >
@@ -534,8 +531,7 @@ export function ControlHUD() {
             role="status"
             data-testid="aviso-accion-imposible"
             style={{
-              flex: "1 1 0",
-              minWidth: 0,
+              width: "100%",
               maxHeight: 70,
               overflowY: "auto",
               background: "var(--color-aviso-fondo)",
@@ -543,7 +539,7 @@ export function ControlHUD() {
               borderRadius: 8,
               padding: "4px 8px",
               color: "var(--color-aviso-texto)",
-              font: "11px system-ui, sans-serif",
+              font: "12px system-ui, sans-serif",
               textAlign: "center",
               pointerEvents: "none",
               wordBreak: "break-word",

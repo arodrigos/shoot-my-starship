@@ -23,7 +23,7 @@ export function HistoricoBromasHUD() {
         borderRadius: 8,
         padding: "4px 8px",
         color: "var(--color-cromado-texto)",
-        font: "10px system-ui, sans-serif",
+        font: "12px system-ui, sans-serif",
         wordBreak: "break-word",
         overflowWrap: "anywhere",
       }}
