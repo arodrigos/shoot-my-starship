@@ -499,21 +499,23 @@ export function ControlHUD() {
         </button>
       </div>
 
-      {/* fila-avisos: roce (izquierda) y broma (derecha) como hermanos flex
-          REALES de la misma fila -- hud-canales (segunda corrección): la
-          versión anterior superponía panel-bromas como overlay
-          position:absolute sobre TODA esta fila (inset:"0 0 8px 0"), así que
-          su caja coincidía con la de panel-roce en vez de repartirse el
-          ancho con él (hallazgo del gatekeeper: mismo origen x=8,y=513,
-          57%/74% de solape). Con los dos como hijos de un flex-row, el
-          propio algoritmo de flexbox les da cajas que nunca se tocan --
-          roce (flex:"1 1 0") ocupa lo que broma deja libre, nunca al revés.
-          altura FIJA (no mínima) para que quitar la broma nunca mueva el
-          resto de controles (lay-4); flexShrink:0 es el propio arreglo de
-          lay-3: sin él, esta fila era la ÚNICA con overflowY:auto (mínimo
-          automático 0 según CSS Flexbox §7.1.4), así que el algoritmo de
-          flex-shrink la comprimía a ella sola para compensar el déficit de
-          alto de la consola en 360x640. */}
+      {/* fila-avisos: roce, aviso y broma como hermanos flex REALES de la
+          misma fila, los tres repartiendo el mismo presupuesto de alto FIJO
+          -- hud-canales (tercera corrección): la versión anterior metía el
+          aviso como una fila de flujo propia ENTRE fila-avisos y fila-armas,
+          así que aparecer empujaba fila-armas 56px hacia abajo y, al no
+          quedar presupuesto de alto libre en la consola (268.8px exactos
+          para 268.8px de contenido base, medido en 360x640), el botón
+          Disparar acababa a y=695, 55px por debajo del borde de la ventana
+          (hallazgo del gatekeeper: "cortado por el borde inferior de los
+          640 px"). Metido como tercer hijo de flex-row con flex:"1 1 0",
+          el aviso comparte el hueco ya reservado de roce/broma en vez de
+          pedir uno nuevo: la consola nunca crece, así que fila-armas nunca
+          se mueve y nunca se sale del viewport. altura FIJA (no mínima)
+          para que ningún combinado de los tres mueva el resto de controles
+          (lay-4); flexShrink:0 es el arreglo de lay-3 (ver su comentario).
+          El propio algoritmo de flexbox da a los tres cajas que nunca se
+          tocan entre sí, que es justo lo que hud-canales-4 comprueba. */}
       <div
         data-testid="fila-avisos"
         style={{
@@ -527,37 +529,33 @@ export function ControlHUD() {
         }}
       >
         <RoceHUD />
+        {avisoAccionImposible && (
+          <div
+            role="status"
+            data-testid="aviso-accion-imposible"
+            style={{
+              flex: "1 1 0",
+              minWidth: 0,
+              maxHeight: 70,
+              overflowY: "auto",
+              background: "var(--color-aviso-fondo)",
+              border: "1px solid var(--color-aviso-borde)",
+              borderRadius: 8,
+              padding: "4px 8px",
+              color: "var(--color-aviso-texto)",
+              font: "11px system-ui, sans-serif",
+              textAlign: "center",
+              pointerEvents: "none",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+              boxSizing: "border-box",
+            }}
+          >
+            {avisoAccionImposible}
+          </div>
+        )}
         <BromaHUD />
       </div>
-
-      {/* hud-canales (segunda corrección): el aviso ya no es un overlay
-          absolute anclado a "bottom:100%" de fila-armas -- creciendo hacia
-          arriba sin hueco propio invadía el mismo espacio que fila-avisos
-          (hallazgo del gatekeeper: 66% de panel-bromas tapado). Como fila
-          de flujo normal entre fila-avisos y fila-armas, el aviso empuja a
-          fila-armas hacia abajo cuando aparece en vez de superponerse a
-          nada -- el único coste es que fila-armas se desplaza mientras el
-          aviso está visible, preferible a tapar contenido (camino_critico
-          de hud-canales-1 es que la broma se pueda leer, no que fila-armas
-          quede inmóvil). */}
-      {avisoAccionImposible && (
-        <div
-          role="status"
-          data-testid="aviso-accion-imposible"
-          style={{
-            background: "var(--color-aviso-fondo)",
-            border: "1px solid var(--color-aviso-borde)",
-            borderRadius: 8,
-            padding: "4px 10px",
-            color: "var(--color-aviso-texto)",
-            font: "12px system-ui, sans-serif",
-            textAlign: "center",
-            pointerEvents: "none",
-          }}
-        >
-          {avisoAccionImposible}
-        </div>
-      )}
 
       {/* fila-armas: selector de arma y disparo/repetir -- el paso fino de
           ángulo/potencia vive ahora en sus propias filas, junto al control
