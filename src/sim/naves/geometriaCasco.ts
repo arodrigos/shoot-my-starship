@@ -30,7 +30,11 @@ export interface PuntoCasco {
 
 // Silueta poligonal (fuselaje + aleta de cola), en coordenadas locales del
 // contenedor y YA a escala de dibujo. `dir` es +1 (mira hacia +x) o -1
-// (mira hacia -x).
+// (mira hacia -x). Es la silueta de la variante 0 -- se mantiene como
+// función propia (en vez de un alias de puntosCascoVariante(0, dir)) porque
+// es la firma que ya usan contacto.ts, opacidadCasco.ts y los tests de
+// escala-legible/contacto-honesto desde antes de que existieran las otras
+// tres variantes.
 export function puntosCasco(dir: 1 | -1): readonly PuntoCasco[] {
   return [
     { x: -0.5 * ANCHO_CASCO * dir, y: 0.32 * ALTO_CASCO },
@@ -39,6 +43,48 @@ export function puntosCasco(dir: 1 | -1): readonly PuntoCasco[] {
     { x: 0.55 * ANCHO_CASCO * dir, y: -0.11 * ALTO_CASCO },
     { x: 0.2 * ANCHO_CASCO * dir, y: 0.5 * ALTO_CASCO },
   ];
+}
+
+export type VarianteNave = 0 | 1 | 2 | 3;
+
+// arte-siluetas-3: cuatro siluetas de CASCO distintas por forma (no solo
+// mirroring por dirección), listas para cuando nucleo-n-naves deje de ser
+// 0 | 1. Las cuatro mantienen los mismos cinco vértices semánticos que
+// puntosCasco (borde-trasero-inferior, borde-trasero-superior, morro-alto,
+// morro-punta, borde-delantero-inferior) para que puntosCascoConDanio siga
+// insertando sus abolladuras entre los mismos pares de vértices sin
+// importar la variante -- cambia la geometría, no la topología.
+export function puntosCascoVariante(variante: VarianteNave, dir: 1 | -1): readonly PuntoCasco[] {
+  if (variante === 0) return puntosCasco(dir);
+  const factores: Record<Exclude<VarianteNave, 0>, readonly PuntoCasco[]> = {
+    // Variante 1 "lanza": morro muy adelantado y agudo, cola estrecha.
+    1: [
+      { x: -0.3, y: 0.3 },
+      { x: -0.45, y: -0.35 },
+      { x: 0.1, y: -0.5 },
+      { x: 0.65, y: 0 },
+      { x: 0.1, y: 0.4 },
+    ],
+    // Variante 2 "tanque": fuselaje ancho y romo, casi rectangular.
+    2: [
+      { x: -0.55, y: 0.45 },
+      { x: -0.55, y: -0.45 },
+      { x: 0.2, y: -0.5 },
+      { x: 0.5, y: 0 },
+      { x: 0.2, y: 0.5 },
+    ],
+    // Variante 3 "insecto": asimétrica, con el morro desplazado hacia
+    // abajo en vez de hacia arriba -- la silueta más distinta de las
+    // cuatro vista en conjunto.
+    3: [
+      { x: -0.35, y: 0.5 },
+      { x: -0.6, y: -0.15 },
+      { x: 0.05, y: -0.55 },
+      { x: 0.6, y: 0.05 },
+      { x: 0.1, y: 0.35 },
+    ],
+  };
+  return factores[variante].map((p) => ({ x: p.x * ANCHO_CASCO * dir, y: p.y * ALTO_CASCO }));
 }
 
 // Caja delimitadora real de la silueta DIBUJADA (a escala de dibujo) -- lo

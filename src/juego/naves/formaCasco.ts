@@ -7,7 +7,7 @@
 // hacia el centro del casco, nunca un polígono nuevo desde cero, para que
 // el "chapa abollada" del diseño se lea como daño sobre la MISMA nave, no
 // como una nave distinta.
-import { ALTO_CASCO, ANCHO_CASCO, puntosCasco, type PuntoCasco } from "@/sim/naves/geometriaCasco";
+import { ALTO_CASCO, ANCHO_CASCO, puntosCascoVariante, type PuntoCasco, type VarianteNave } from "@/sim/naves/geometriaCasco";
 
 export type NivelDanio = "alta" | "media" | "baja";
 
@@ -39,8 +39,8 @@ function abolladuraEntre(a: PuntoCasco, b: PuntoCasco, profundidad: number): Pun
 // entre ellos, nunca se mueven los originales, así que la caja delimitadora
 // (cajaCasco, de la que dependen esc-1/esc-2/esc-6) no cambia y el tamaño
 // legible del bloque escala-legible sigue intacto.
-export function puntosCascoConDanio(dir: 1 | -1, nivel: NivelDanio): PuntoCasco[] {
-  const base = puntosCasco(dir) as PuntoCasco[];
+export function puntosCascoConDanio(dir: 1 | -1, nivel: NivelDanio, variante: VarianteNave = 0): PuntoCasco[] {
+  const base = puntosCascoVariante(variante, dir) as PuntoCasco[];
   if (nivel === "alta") {
     return [...base];
   }
