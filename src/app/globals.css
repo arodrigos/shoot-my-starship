@@ -59,6 +59,25 @@
   }
 }
 
+/* hud-canales (corrección sobre la validación parcial del hito arte-siluetas):
+   aviso-accion-imposible llevaba fondo con alfa 0,16 sobre --color-cromado-texto,
+   el mismo patrón ya señalado como insuficiente en con-3 (contraste medido:
+   1,22:1) -- identidad de color propia (ámbar, distinta de roce/broma/cuenta
+   atrás) con fondo alfa 1 y texto a 4,5:1 medido contra ÉL. */
+:root {
+  --color-aviso-fondo: #2a1206;
+  --color-aviso-texto: #ffcda6;
+  --color-aviso-borde: rgba(255, 150, 90, 0.6);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-aviso-fondo: #fde6d4;
+    --color-aviso-texto: #5a2a08;
+    --color-aviso-borde: rgba(200, 90, 30, 0.45);
+  }
+}
+
 /* touch-action: none evita que el navegador se lleve el gesto de arrastre
    (scroll, tirón de recarga) antes de que control-apuntado exista -- fijarlo
    aquí desde el primer bloque evita que se rompa por accidente más tarde. */

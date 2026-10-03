@@ -432,42 +432,27 @@ export function ControlHUD() {
         </button>
       </div>
 
-      {/* fila-avisos: hueco reservado de broma (izquierda) y roce (derecha) --
-          lay-4 pide el hueco reservado literalmente: altura FIJA (no
-          mínima) y con scroll propio si una frase larga no cabe, para que
-          quitar la broma nunca mueva el resto de controles y para que un
-          texto largo jamás empuje ni solape la fila de abajo (lay-3).
-          flexShrink:0 es el propio arreglo de lay-3: sin él, esta fila era
-          la ÚNICA con overflowY:auto (mínimo automático 0 según CSS Flexbox
-          §7.1.4), así que el algoritmo de flex-shrink la comprimía a ella
-          sola para compensar el déficit de alto de la consola en 360x640,
-          y su contenido (con maxHeight propio) se salía por debajo de la
-          fila ya encogida, invadiendo geométricamente fila-armas aunque no
-          se viera clípticamente -- exactamente lo que medía panel-bromas
-          solapando selector-arma-abrir. */}
-      <div style={{ position: "relative" }}>
+      {/* hud-canales (corrección): los dos interruptores vivían dentro de
+          fila-avisos, alineados a la derecha igual que panel-bromas (ver más
+          abajo) -- compartir ESE mismo borde derecho en una fila de apenas
+          78px es lo que hacía que panel-bromas, al crecer más allá de dos
+          líneas de texto, se dibujara encima de "Sacudida: On" (hallazgo del
+          gatekeeper sobre la validación del hito arte-siluetas). Mismo patrón
+          que historico-bromas-toggle: fixed, fuera del flujo de la consola,
+          así que ninguna fila compite por su alto ni por su ancho con ellos. */}
       <div
         style={{
+          position: "fixed",
+          top: 10,
+          right: 10,
+          zIndex: 15,
           display: "flex",
           flexDirection: "row",
-          alignItems: "flex-start",
           gap: 6,
-          height: 78,
-          flexShrink: 0,
-          overflowY: "auto",
         }}
       >
-        <RoceHUD />
-        {/* realce-impacto (rlc-3): "no marea ni estorba" -- interruptor propio,
-            fuera del lienzo, que persiste entre partidas (store). Vive aquí
-            (no en fila-estado) porque fila-estado ya agota su presupuesto
-            horizontal con resultado-turno + IntegridadHUD (338 de 344px en
-            360x640, visto al medir dev antes de este bloque) -- cualquier
-            elemento nuevo ahí fuerza el shrink-to-fit de resultado-turno muy
-            por debajo de su ancho natural y dispara el envoltorio a varias
-            líneas (lay-5). fila-avisos, en cambio, tiene alto FIJO
-            independiente de su contenido, así que un hijo flex:"0 0 auto"
-            más no cambia su alto ni el de ninguna fila posterior. */}
+        {/* realce-impacto (rlc-3): "no marea ni estorba" -- interruptor propio
+            que persiste entre partidas (store). */}
         <button
           type="button"
           data-testid="toggle-sacudida"
@@ -475,10 +460,8 @@ export function ControlHUD() {
           onClick={() => fijarSacudidaActiva(!estado.sacudidaActiva)}
           title={estado.sacudidaActiva ? "Desactivar sacudida de impacto" : "Activar sacudida de impacto"}
           style={{
-            flex: "0 0 auto",
-            marginLeft: "auto",
             minWidth: TAMANO_MINIMO_BOTON_PX,
-            height: TAMANO_MINIMO_BOTON_PX,
+            minHeight: TAMANO_MINIMO_BOTON_PX,
             padding: "0 8px",
             borderRadius: 8,
             border: "none",
@@ -490,11 +473,9 @@ export function ControlHUD() {
         >
           Sacudida: {estado.sacudidaActiva ? "On" : "Off"}
         </button>
-        {/* sonido-procedimental (snd-1): "siempre accesible" -- mismo sitio y
-            mismo patrón que toggle-sacudida (fila de alto fijo, nunca se
-            desplaza ni desaparece con el resto del HUD), nunca dentro de un
-            menú ni una pantalla aparte. El gesto de pulsar ESTE botón para
-            activar sonido es, a la vez, el gesto de usuario que exige la
+        {/* sonido-procedimental (snd-1): "siempre accesible" -- nunca dentro
+            de un menú ni una pantalla aparte. El gesto de pulsar ESTE botón
+            para activar sonido es, a la vez, el gesto de usuario que exige la
             política de autoplay (ver alternarSonido en motor.ts). */}
         <button
           type="button"
@@ -503,9 +484,8 @@ export function ControlHUD() {
           onClick={() => alternarSilenciado()}
           title={estado.silenciado ? "Activar sonido" : "Silenciar"}
           style={{
-            flex: "0 0 auto",
             minWidth: TAMANO_MINIMO_BOTON_PX,
-            height: TAMANO_MINIMO_BOTON_PX,
+            minHeight: TAMANO_MINIMO_BOTON_PX,
             padding: "0 8px",
             borderRadius: 8,
             border: "none",
@@ -519,25 +499,44 @@ export function ControlHUD() {
         </button>
       </div>
 
+      {/* fila-avisos: hueco reservado de roce (izquierda) -- lay-4 pide el
+          hueco reservado literalmente: altura FIJA (no mínima) y con scroll
+          propio si una frase larga no cabe, para que quitar la broma nunca
+          mueva el resto de controles y para que un texto largo jamás empuje
+          ni solape la fila de abajo (lay-3). flexShrink:0 es el propio
+          arreglo de lay-3: sin él, esta fila era la ÚNICA con
+          overflowY:auto (mínimo automático 0 según CSS Flexbox §7.1.4), así
+          que el algoritmo de flex-shrink la comprimía a ella sola para
+          compensar el déficit de alto de la consola en 360x640. */}
+      <div style={{ position: "relative" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 6,
+          height: 78,
+          flexShrink: 0,
+          overflowY: "auto",
+        }}
+      >
+        <RoceHUD />
+      </div>
+
       {/* hud-canales-1: canal PASIVO de la broma -- superpuesto (no ocupa
           hueco en el flujo, así que quitarla o que se desvanezca sola nunca
           mueve control-angulo/potencia/armas, lay-4) y anclado por el borde
-          INFERIOR a este mismo contenedor: si el texto necesita más alto del
-          que fila-avisos ya reservaba para roce/interruptores, crece hacia
-          ARRIBA (hacia fila-estado), nunca hacia abajo -- así nunca alcanza
-          ángulo, potencia, arma ni disparar (lay-3), que es justo el solape
-          que medía el hallazgo del gatekeeper anterior. */}
+          INFERIOR a este mismo contenedor. El propio panel (más abajo) lleva
+          ahora su tope de alto y su scroll interno -- ya no puede desbordar
+          este overlay de 70px hacia el control-angulo de arriba, que era el
+          otro modo de fallo real de recortar con line-clamp en vez de dar
+          alto o scroll al mensaje (hallazgo del gatekeeper). */}
       <div
         style={{
           position: "absolute",
-          // hud-canales (cierre lay-3): anclar a inset:0 a secas deja solo
-          // los 4px del gap de flex column entre fila-avisos y fila-armas
-          // como margen frente a selector-arma-abrir/disparar -- demasiado
-          // ajustado para sobrevivir al redondeo de subpíxel del motor de
-          // layout (medido en repetición: el panel y el control quedan a
-          // una distancia de exactamente ese gap, cero margen de verdad).
-          // Reservar 8px de borde inferior aquí suma un colchón de 12px en
-          // total, muy por encima del redondeo observado.
+          // hud-canales (cierre lay-3): 8px de borde inferior suman un
+          // colchón de 12px frente al gap de 4px del flex column, muy por
+          // encima del redondeo de subpíxel observado en repetición.
           inset: "0 0 8px 0",
           display: "flex",
           flexDirection: "column",
@@ -561,7 +560,7 @@ export function ControlHUD() {
           los tres grupos, con el padding de botonEstilo recortado para
           liberar el ancho que el selector necesita, es lo que hace que el
           presupuesto cierre en una sola línea sin exprimir ni desbordar. */}
-      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+      <div style={{ position: "relative", display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
         <div style={{ position: "relative", flex: "0 0 auto" }}>
           <button
             type="button"
@@ -668,31 +667,43 @@ export function ControlHUD() {
             Disparar
           </button>
         </div>
-      </div>
 
-      {avisoAccionImposible && (
-        <div
-          role="status"
-          data-testid="aviso-accion-imposible"
-          style={{
-            position: "absolute",
-            bottom: 4,
-            left: "50%",
-            transform: "translateX(-50%)",
-            maxWidth: "92%",
-            background: "rgba(255,107,74,0.16)",
-            border: "1px solid rgba(255,107,74,0.6)",
-            borderRadius: 8,
-            padding: "4px 10px",
-            color: "var(--color-cromado-texto)",
-            font: "11px system-ui, sans-serif",
-            textAlign: "center",
-            pointerEvents: "none",
-          }}
-        >
-          {avisoAccionImposible}
-        </div>
-      )}
+        {/* hud-canales (corrección): "bottom:4" sobre el contenedor ENTERO
+            (position:absolute, inset:0 en la raíz) ponía este aviso a la
+            misma altura que fila-armas, encima de "Pepinazo de Cortesía" y
+            "Repetir" (hallazgo del gatekeeper). Anclado ahora a bottom:"100%"
+            del propio envoltorio de fila-armas (que lleva position:relative,
+            ver arriba), crece hacia ARRIBA desde el borde superior de esa
+            fila y nunca puede superponerse a sus botones por construcción
+            geométrica, igual que panel-bromas nunca se superpone a
+            fila-armas por el mismo motivo. Identidad de color propia
+            (--color-aviso-*, fondo alfa 1) en vez de la rgba semitransparente
+            que daba 1,22:1 de contraste. */}
+        {avisoAccionImposible && (
+          <div
+            role="status"
+            data-testid="aviso-accion-imposible"
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              marginBottom: 4,
+              left: "50%",
+              transform: "translateX(-50%)",
+              maxWidth: "92%",
+              background: "var(--color-aviso-fondo)",
+              border: "1px solid var(--color-aviso-borde)",
+              borderRadius: 8,
+              padding: "4px 10px",
+              color: "var(--color-aviso-texto)",
+              font: "12px system-ui, sans-serif",
+              textAlign: "center",
+              pointerEvents: "none",
+            }}
+          >
+            {avisoAccionImposible}
+          </div>
+        )}
+      </div>
 
       {estado.ayudaVisible && (
         <div

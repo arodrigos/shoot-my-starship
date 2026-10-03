@@ -36,17 +36,6 @@ export function BromaHUD() {
         alignItems: "flex-end",
         maxWidth: "74%",
         minWidth: 0,
-        // hud-canales-4: ya no tiene maxHeight/overflow PROPIO del panel --
-        // lo que antes se "cortaba" con scroll (el hallazgo del gatekeeper
-        // anterior) era justo eso. Lo que SÍ queda acotado es cada frase por
-        // separado (line-clamp a 2 líneas, más abajo): con texto aleatorio
-        // del catálogo de humor, el hueco libre entre fila-avisos y
-        // control-angulo en 360x640 es de apenas unas decenas de píxeles
-        // (lay-3/lay-5 no dejan más margen), así que sin un tope por frase
-        // una broma larga seguiría pudiendo solapar ángulo/potencia. Un
-        // recorte de 2 líneas con "…" es la desviación declarada aquí frente
-        // al diseño original (que no contemplaba límite de líneas): ver
-        // `desviaciones` en el entregable.
       }}
     >
       <div
@@ -58,6 +47,18 @@ export function BromaHUD() {
           paddingRight: 40,
           width: "100%",
           minHeight: 44,
+          // hud-canales (corrección): el recorte por línea (WebkitLineClamp:2)
+          // cortaba la broma a media frase (hallazgo del gatekeeper: "…toda mi
+          // confianza y ni un gramo de mi…") porque el catálogo de humor tiene
+          // frases de hasta 291 caracteres, muchas más de las 2 líneas que
+          // caben a 12-13px de ancho de panel. El tope ahora es de ALTO sobre
+          // el panel entero (70px, el mismo contenedor que ya reserva
+          // fila-avisos para roce) con scroll propio -- el mensaje se puede
+          // leer entero desplazándose, nunca se pierde media frase sin aviso.
+          // 70px también evita que el panel se salga del overlay de 70px que
+          // lo contiene (ver ControlHUD) hacia control-angulo.
+          maxHeight: 70,
+          overflowY: "auto",
           boxSizing: "border-box",
         }}
       >
@@ -69,10 +70,6 @@ export function BromaHUD() {
               color: "#cfe8ff",
               font: "12px system-ui, sans-serif",
               textAlign: "center",
-              display: "-webkit-box",
-              WebkitBoxOrient: "vertical",
-              WebkitLineClamp: 2,
-              overflow: "hidden",
               wordBreak: "break-word",
               overflowWrap: "anywhere",
             }}
@@ -90,10 +87,6 @@ export function BromaHUD() {
               color: "#ffe08a",
               font: "13px system-ui, sans-serif",
               textAlign: "center",
-              display: "-webkit-box",
-              WebkitBoxOrient: "vertical",
-              WebkitLineClamp: 2,
-              overflow: "hidden",
               wordBreak: "break-word",
               overflowWrap: "anywhere",
             }}
