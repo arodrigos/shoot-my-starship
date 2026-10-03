@@ -40,6 +40,15 @@ export function BromaHUD() {
         alignSelf: "flex-end",
         maxWidth: "74%",
         minWidth: 0,
+        // hud-canales (séptima corrección): sin minHeight:0 este item de
+        // flex no se encoge por debajo de su alto de contenido aunque el
+        // aviso ocupe sitio a la vez (lay-3) -- su propio rect (el que mide
+        // el e2e) seguía siendo el de contenido completo y se salía de los
+        // 78px de fila-avisos, solapando selector-arma-abrir de verdad. Con
+        // minHeight:0 el reparto de flex-shrink lo comprime junto al aviso
+        // hasta que la suma cabe, y el sobrante se lee con el scroll que
+        // el panel interior ya tenía.
+        minHeight: 0,
       }}
     >
       <div
