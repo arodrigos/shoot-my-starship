@@ -40,17 +40,18 @@ export function BromaHUD() {
         alignSelf: "flex-end",
         maxWidth: "74%",
         minWidth: 0,
-        // hud-canales (octava corrección): minHeight:0 (séptima corrección)
-        // evitaba el solape con selector-arma-abrir comprimiendo este panel
-        // por debajo de su propio contenido -- pero esa compresión es
-        // justo lo que dejaba clientHeight por debajo de scrollHeight y
-        // cortaba la broma a media letra, con el aviso ocupando sitio a la
-        // vez. El sitio que faltaba ahora lo da fila-avisos (78 -> 96px),
-        // así que este panel vuelve a flexShrink:0: mantiene su propio
-        // alto (hasta el maxHeight de abajo) sin que el flex lo comprima, y
-        // si de verdad no cabe (caso extremo, no el normal) es fila-avisos
-        // quien se desplaza con su propio overflowY, nunca este panel
-        // recortando a medias.
+        // hud-canales (octava corrección, vigente): minHeight:0 (séptima
+        // corrección) evitaba el solape con selector-arma-abrir comprimiendo
+        // este panel por debajo de su propio contenido -- pero esa
+        // compresión es justo lo que dejaba clientHeight por debajo de
+        // scrollHeight y cortaba la broma a media letra, con el aviso
+        // ocupando sitio a la vez. flexShrink:0 mantiene su propio alto
+        // (hasta el maxHeight de abajo) sin que el flex lo comprima; la
+        // novena corrección le hizo sitio acortando el texto del aviso
+        // (ControlHUD.tsx) en vez de crecer fila-avisos, pero el fondo del
+        // problema es el mismo: si de verdad no cabe (caso extremo, no el
+        // normal) es fila-avisos quien se desplaza con su propio overflowY,
+        // nunca este panel recortando a medias.
         flexShrink: 0,
       }}
     >

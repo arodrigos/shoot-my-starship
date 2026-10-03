@@ -167,12 +167,19 @@ export function ControlHUD() {
   // encola un segundo disparo); esto solo pone en pantalla la causa concreta
   // -- vuelo en curso o turno del rival, las dos cosas que puedeDisparar ya
   // combina sin que el HUD reimplemente esa condición por su cuenta.
+  // hud-canales (novena corrección): el texto largo de antes (hasta 112
+  // caracteres, 3 líneas a 360px) era la mitad real del hueco que faltaba
+  // en fila-avisos -- medido con una partida real, el aviso solo ya
+  // necesitaba 52 de los 78px del hueco, dejando menos de lo que la broma
+  // necesita incluso en su mínimo (minHeight 44). "Qué pasa y qué hacer"
+  // cabe en una frase corta; el resto era repetir la condición de
+  // puedeDisparar que el usuario ya ve en el botón Disparar deshabilitado.
   const avisoAccionImposible = potenciaEnCero
-    ? "Potencia a 0: arrastra hacia arriba en la consola para cargar el disparo."
+    ? "Potencia a 0: arrastra arriba para cargar el disparo."
     : saldoInsuficienteParaSeleccionada
-      ? `Saldo insuficiente para ${armaSeleccionada.nombre}: elige otra arma o acierta un disparo para ingresar.`
+      ? `Saldo insuficiente para ${armaSeleccionada.nombre}: cambia de arma.`
       : !estado.puedeDisparar
-        ? "Espera a que termine el disparo: no puedes disparar mientras hay un proyectil en vuelo o es el turno del rival."
+        ? "Espera a que termine el disparo."
         : null;
 
   return (
@@ -525,17 +532,21 @@ export function ControlHUD() {
           display: "flex",
           flexDirection: "column",
           gap: 4,
-          // hud-canales (octava corrección): 78 -> 96. El aviso de "espera a
-          // que termine el disparo" convive con la broma en TODO turno
-          // propio -- !puedeDisparar ya es cierto en cuanto el proyectil
-          // sale volando, antes de que la broma de impacto aparezca -- así
-          // que no es un caso raro que 78px dejara sin sitio: era el caso
-          // normal. flexShrink:0 en los dos hijos (más abajo) evita que el
-          // flex los comprima por debajo de su propio contenido; si de
-          // verdad no caben los dos (aviso largo + broma larga a la vez),
-          // esta fila es la que se desplaza con su propio overflowY, nunca
-          // los hijos recortando glifos a medias.
-          ...(bromas.clave > 0 ? { height: 96 } : { maxHeight: 96 }),
+          // hud-canales (octava corrección, revertida en la novena): subir
+          // esto a 96 e invadir la fracción del lienzo (ver
+          // layoutContenedor.ts) no llegaba ni de lejos a los 134px reales
+          // que mide una partida real con aviso largo + broma -- y sí rompía
+          // encuadre-movil-2. El aviso de "espera a que termine el disparo"
+          // convive con la broma en TODO turno propio -- !puedeDisparar ya
+          // es cierto en cuanto el proyectil sale volando -- así que la
+          // novena corrección ataca la causa real (el texto del aviso,
+          // acortado donde se define avisoAccionImposible) en vez de pedirle
+          // más alto a esta fila. flexShrink:0 en los dos hijos (más abajo)
+          // evita que el flex los comprima por debajo de su propio
+          // contenido; si de verdad no caben los dos a la vez (un aviso
+          // largo con una broma larga), esta fila es la que se desplaza con
+          // su propio overflowY, nunca los hijos recortando glifos a medias.
+          ...(bromas.clave > 0 ? { height: 78 } : { maxHeight: 78 }),
           overflowY: "auto",
         }}
       >
@@ -547,7 +558,7 @@ export function ControlHUD() {
             style={{
               width: "100%",
               flexShrink: 0,
-              maxHeight: 90,
+              maxHeight: 70,
               overflowY: "auto",
               background: "var(--color-aviso-fondo)",
               border: "1px solid var(--color-aviso-borde)",
