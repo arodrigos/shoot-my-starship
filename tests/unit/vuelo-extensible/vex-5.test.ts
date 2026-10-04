@@ -9,8 +9,11 @@ import { jugarLote, hashDeLote } from "../../utils/loteAleatorio";
 // arma futura llegue a usar las variantes nuevas: arma-mosca ya cablea
 // "erratico" en mosca-cojonera a propósito, así que esa comprobación (que
 // aquí vivía como un segundo test) queda obsoleta por diseño y se retira;
-// el hash es la comprobación de fondo que de verdad sostiene vex-5.
-const HASH_LOTE_PREVIO_A_VUELO_EXTENSIBLE = "f808d6d33aa77d622aa063179efeb98dea2d343cbc64b43528466549468782b4";
+// el hash es la comprobación de fondo que de verdad sostiene vex-5. Hash
+// actualizado en potencia-dispersion: ese bloque SÍ mueve el balance a
+// propósito (dispersión universal en avanzar()), así que el hash nuevo es
+// el que fija ese bloque, no una regresión de este.
+const HASH_LOTE_PREVIO_A_VUELO_EXTENSIBLE = "4337c01beebd691f472d99e604d9bb3c35a1b99607721f2932d795cb1ae1da2a";
 
 test("vex-5: 200 partidas dan exactamente el mismo resultado que antes de vuelo-extensible", () => {
   const lote = jugarLote(20260929, 200);

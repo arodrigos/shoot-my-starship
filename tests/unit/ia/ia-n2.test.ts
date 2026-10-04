@@ -58,6 +58,10 @@ test("ia-n2: la trayectoria y el resultado que usó la búsqueda coinciden, sin 
       planetas: sistema.planetas,
       naves: [naveA, naveB],
       tiradorId: 0,
+      // potencia-dispersion: avanzar() (más abajo) activa esta dispersión
+      // siempre en el disparo real -- sin esto, este resolverDisparo manual
+      // diverge de avanzar() desde el primer paso del vuelo.
+      incluirDispersionPotencia: true,
     });
 
     // "La que produce el disparo real": avanzar() -- la misma función que

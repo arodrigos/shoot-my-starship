@@ -27,6 +27,11 @@ function distanciaDisparo(mascara: ReturnType<typeof crearMascaraPlana>, anguloG
     objetivoX: OBJETIVO_X,
     ancho: ANCHO,
     alto: ALTO,
+    // potencia-dispersion: el disparo real (avanzar()) siempre la activa --
+    // sin esto, "fallo" aquí mide solo el error de personalidad, mucho más
+    // estrecho tras recalibrar CHISPA, y casi nunca se alcanzan los 200
+    // fallos reales que pide la muestra.
+    incluirDispersionPotencia: true,
   });
   return Math.abs(resultado.puntosDeImpacto[0].x - OBJETIVO_X);
 }

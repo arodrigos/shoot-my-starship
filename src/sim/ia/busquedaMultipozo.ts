@@ -536,12 +536,25 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
       semillasRiesgo,
     );
     vuelosSimulados += MUESTRAS_DISPERSION_POTENCIA;
-    const candidatoElegido = compararCandidatos(candidatoMenosArriesgado, candidatoActual) < 0 ? candidatoMenosArriesgado : candidatoActual;
-    mejorPotencia = candidatoElegido.potencia;
-    mejorDanio = candidatoElegido.danio;
-    mejorAutodanio = candidatoElegido.autodanioTotal;
-    mejorPuntuacion = candidatoElegido.puntuacion;
-    mejorPasosVuelo = candidatoElegido.pasosVuelo;
+    // Dos guardas, no una. (1) Un candidato "más seguro" con daño esperado 0
+    // (potencia tan reducida que ya no alcanza el objetivo) nunca puede
+    // ganar: compararCandidatos prioriza la ausencia de autodaño por delante
+    // de la puntuación, así que sin esta guarda la fase 2c podía canjear un
+    // tiro que SÍ hace daño por uno que no hace ninguno, solo por ser
+    // "seguro" (medido: ia-n10 discrepaba con existeTiroViable en las
+    // semillas 16 y 28 por esto). (2) Si NO se canjea, se conservan
+    // mejorDanio/mejorAutodanio/mejorPuntuacion de las fases 1-2b (la tirada
+    // real sin ruido que de verdad se encontró) -- sobrescribirlos con la
+    // MEDIA de solo 3 muestras de candidatoActual convertía un hallazgo
+    // determinista en 0 por pura varianza de muestreo, con el mismo efecto
+    // que la guarda (1) pero sin cambiar de tiro.
+    if (candidatoMenosArriesgado.danio > 0 && compararCandidatos(candidatoMenosArriesgado, candidatoActual) < 0) {
+      mejorPotencia = candidatoMenosArriesgado.potencia;
+      mejorDanio = candidatoMenosArriesgado.danio;
+      mejorAutodanio = candidatoMenosArriesgado.autodanioTotal;
+      mejorPuntuacion = candidatoMenosArriesgado.puntuacion;
+      mejorPasosVuelo = candidatoMenosArriesgado.pasosVuelo;
+    }
   }
 
   // Fase 3: sonda de sensibilidad -- cuántos px 2D se mueve el punto de
