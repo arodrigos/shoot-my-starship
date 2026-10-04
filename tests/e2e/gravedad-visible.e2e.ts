@@ -46,7 +46,12 @@ test("gravedad-visible-3: potencia 30% y 90% producen previsualizaciones que se 
   });
   const escalaEfectiva = anchoLienzoPx / mundo.ancho;
 
-  await arrastrarBarraHasta(page, "barra-angulo", fraccionDeAngulo(55));
+  // 95°, no 55°: con la semilla por defecto, a 55° el tiro de potencia alta
+  // termina su vuelo real (y por tanto su previsualización, recortada por
+  // pvr-2 antes de revelar el impacto) en muy pocos pasos -- la ventana
+  // comparable entre los dos trazados se cierra antes de que la curva llegue
+  // a abrirse. A 95° los dos vuelos son largos de verdad y sí divergen.
+  await arrastrarBarraHasta(page, "barra-angulo", fraccionDeAngulo(95));
 
   // gravedad-visible-5 oculta la mira el fotograma en que calcularla supera
   // su presupuesto de cómputo (una pausa de GC, contención de CPU en el
@@ -165,6 +170,7 @@ test("gravedad-visible-4: el proyectil real pasa por los puntos previsualizados 
   const detenerseTrasNPasos = () => contador++ >= pasosAnimados;
   const resuelto = simularVuelo(ultimoDisparo!.inicial as EstadoProyectil, ultimoDisparo!.gravedad!, ultimoDisparo!.deriva!, detenerseTrasNPasos, {
     grabarTrayectoria: true,
+    planetas: ultimoDisparo!.planetas,
   });
   const trayectoriaReal = resuelto.trayectoria!;
 

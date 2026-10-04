@@ -1172,6 +1172,7 @@ export class Partida extends Phaser.Scene {
       gravedad: estadoAntes.mundo.gravedad,
       deriva: estadoAntes.mundo.deriva,
       aleatorioAntes: estadoAntes.aleatorio,
+      planetas: estadoAntes.planetas,
     };
 
     this.ultimoVueloParaRepetir = {
