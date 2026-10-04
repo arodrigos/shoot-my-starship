@@ -61,6 +61,22 @@ test("ia-punteria-6: La Contable consigue al menos un impacto directo y la parti
       numeroTurnoAntes,
       { timeout: 90000 },
     );
+    // ia-punteria-6 (corrección): entre el impacto del disparo del jugador
+    // y el disparo de la IA que le sigue (dispararTurnoIA, encadenado en
+    // alAvanzarTurno tras la sacudida de cámara) hay un instante real con
+    // animacionEnCurso=false y numeroTurno ya avanzado en 1 -- ninguna de
+    // las dos condiciones de arriba distingue "ya disparó el jugador" de
+    // "ya disparó también la IA". Leer ultimosEventos ahí mismo puede
+    // devolver solo el impacto del jugador, con el disparo de la IA aún sin
+    // ocurrir: no es que la IA no acierte, es que el test mira demasiado
+    // pronto. Se espera además a que el turno haya vuelto de verdad al
+    // jugador (o a que la partida haya terminado, que es cuando el turno no
+    // vuelve nunca) antes de leer el resultado del turno de la IA.
+    await page.waitForFunction(
+      () => window.__debug.control!.puedeDisparar === true || window.__debug.naves!.some((nave) => nave.integridad <= 0),
+      undefined,
+      { timeout: 90000 },
+    );
 
     const eventosTurnoIA = await page.evaluate(() => window.__debug.ultimosEventos);
     if (
