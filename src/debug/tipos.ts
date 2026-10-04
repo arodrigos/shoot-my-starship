@@ -8,6 +8,7 @@ import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
 import type { DatosExplosionPorCapas, NombreFaseExplosion } from "@/juego/efectos/ExplosionPorCapas";
 import type { TipoVisualPixel } from "@/juego/terreno/clasificacionVisual";
+import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 
 // Punto de observación que los tests de Playwright leen desde fuera del
 // juego (window.__debug.*). Vive en un módulo aparte para que cada bloque
@@ -66,6 +67,11 @@ export interface DebugUltimoDisparo {
   inicial?: EstadoProyectil;
   gravedad?: number;
   deriva?: number;
+  // gravedad-visible (grav-vis-4): sin esto, reconstruir el vuelo en Node
+  // con solo gravedad/deriva ignora la atracción de los planetas (que en el
+  // hito espacial es la ÚNICA gravedad que hay, gravedad=0) y la trayectoria
+  // recalculada diverge de la real en cuanto el pozo empieza a desviarla.
+  planetas?: RegistroPlanetas;
   aleatorioAntes?: EstadoAleatorio;
 }
 

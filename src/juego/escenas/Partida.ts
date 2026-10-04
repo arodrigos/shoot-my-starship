@@ -66,7 +66,7 @@ import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/
 import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorCapas";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
-import { calcularPrevisualizacion } from "@/sim/armas/previsualizacion";
+import { calcularPrevisualizacion, superaPresupuestoComputo } from "@/sim/armas/previsualizacion";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
 import "@/debug/tipos";
@@ -794,6 +794,7 @@ export class Partida extends Phaser.Scene {
       : undefined;
     const rastreadorNaves = navesVivas ? crearRastreadorImpactoNaves(navesVivas, tirador) : undefined;
 
+    const inicioComputo = performance.now();
     const puntos = calcularPrevisualizacion({
       mascara: estado.mascara,
       gravedad: estado.mundo.gravedad,
@@ -809,19 +810,27 @@ export class Partida extends Phaser.Scene {
       comportamiento: arma.comportamiento,
       aleatorio: estado.aleatorio,
     });
+    const duracionComputoMs = performance.now() - inicioComputo;
 
-    if (puntos.length < 2) {
+    // gravedad-visible (grav-vis-5): la promesa es que el preview no
+    // miente -- si no cabe en su presupuesto de cómputo, se oculta antes
+    // que dibujar un trazado que ya ha costado más de lo prometido.
+    if (puntos.length < 2 || superaPresupuestoComputo(duracionComputoMs)) {
       window.__debug!.previsualizacion = null;
       return;
     }
 
+    // gravedad-visible (grav-vis-6): línea PUNTEADA (no sólida) -- es lo
+    // que el texto de ayuda nuevo describe, y lo que distingue a simple
+    // vista la mira (incierta, por fuerza) de una estela de vuelo real
+    // (sólida). Los pasos de simularVuelo son de duración fija, así que
+    // saltar uno de cada dos tramos entre puntos consecutivos da un
+    // punteado de cadencia regular sin necesitar geometría de arco aparte.
     this.graficosPrevisualizacion.lineStyle(2, 0x9ad1ff, 0.6);
-    this.graficosPrevisualizacion.beginPath();
-    this.graficosPrevisualizacion.moveTo(puntos[0].x, puntos[0].y);
     for (let i = 1; i < puntos.length; i++) {
-      this.graficosPrevisualizacion.lineTo(puntos[i].x, puntos[i].y);
+      if (i % 2 === 0) continue;
+      this.graficosPrevisualizacion.lineBetween(puntos[i - 1].x, puntos[i - 1].y, puntos[i].x, puntos[i].y);
     }
-    this.graficosPrevisualizacion.strokePath();
 
     window.__debug!.previsualizacion = { puntos: puntos.map((p) => ({ x: p.x, y: p.y })), visible: true };
   }
@@ -1163,6 +1172,7 @@ export class Partida extends Phaser.Scene {
       gravedad: estadoAntes.mundo.gravedad,
       deriva: estadoAntes.mundo.deriva,
       aleatorioAntes: estadoAntes.aleatorio,
+      planetas: estadoAntes.planetas,
     };
 
     this.ultimoVueloParaRepetir = {
