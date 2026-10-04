@@ -33,32 +33,50 @@ test("el jugador apunta en los 360°: un rival justo debajo se puede alcanzar co
 
   expect(await page.evaluate(() => window.__debug.modoEspacial)).toBe(true);
 
-  // Coloca al rival (nave 1) justo debajo del jugador (nave 0): misma x,
-  // la primera y libre (sin terreno ni planeta de por medio) por debajo de
-  // la del jugador. No se asume ninguna semilla concreta: se busca con el
-  // mismo terreno/planetas reales de esta partida.
+  // Coloca primero al jugador (nave 0) en un punto con margen de sobra por
+  // debajo (el tamaño de mundo depende del contenedor real renderizado, así
+  // que no se puede asumir que la colocación aleatoria del sistema deje a
+  // la nave 0 lejos del borde inferior) y luego busca al rival (nave 1)
+  // debajo de ese punto, con una banda horizontal amplia en vez de una
+  // columna estrecha, para no depender de que una franja concreta de 40 px
+  // esté libre en una semilla o geometría concretas.
   const destino = await page.evaluate(() => {
-    const jugador = window.__debug.naves!.find((nave) => nave.id === 0)!;
     const mundo = window.__debug.mundo!;
-    const libre = (x: number, y: number): boolean => {
-      if (x <= 0 || x >= mundo.ancho - 1 || y <= jugador.y || y >= mundo.alto - 1) return false;
+    const libre = (x: number, y: number, yMin: number): boolean => {
+      if (x <= 0 || x >= mundo.ancho - 1 || y <= yMin || y >= mundo.alto - 1) return false;
       if (window.__debug.terreno!.esSolido(x, y)) return false;
       for (const planeta of window.__debug.planetas ?? []) {
         if (Math.hypot(x - planeta.cx, y - planeta.cy) < planeta.radio + 40) return false;
       }
       return true;
     };
-    // "Justo debajo" admite un pequeño margen horizontal (menos de medio
-    // radio de casco) para no depender de que la columna exacta del
-    // jugador esté libre en una semilla concreta -- el disparo sigue
-    // siendo mayoritariamente vertical (hacia abajo), nunca lateral.
-    for (let distancia = 80; distancia <= mundo.alto; distancia += 20) {
-      for (const deltaX of [0, 10, -10, 20, -20]) {
-        const x = jugador.x + deltaX;
-        const y = jugador.y + distancia;
-        if (libre(x, y)) {
-          window.__debug.forzarPosicionNave!(1, x, y);
-          return { x, y, distancia };
+
+    // Jugador cerca del cuarto superior del mundo: deja de sobra al menos
+    // la mitad de la altura del mundo libre por debajo para la búsqueda
+    // siguiente.
+    const yJugador = Math.round(mundo.alto * 0.25);
+    let puntoJugador: { x: number; y: number } | null = null;
+    for (let dx = 0; dx <= mundo.ancho / 2; dx += 20) {
+      for (const x of dx === 0 ? [mundo.ancho / 2] : [mundo.ancho / 2 + dx, mundo.ancho / 2 - dx]) {
+        if (libre(x, yJugador, 0)) {
+          puntoJugador = { x, y: yJugador };
+          break;
+        }
+      }
+      if (puntoJugador) break;
+    }
+    if (!puntoJugador) return null;
+    window.__debug.forzarPosicionNave!(0, puntoJugador.x, puntoJugador.y);
+
+    for (let distancia = 80; distancia <= mundo.alto - puntoJugador.y; distancia += 20) {
+      for (let dx = 0; dx <= mundo.ancho / 2; dx += 20) {
+        for (const deltaX of dx === 0 ? [0] : [dx, -dx]) {
+          const x = puntoJugador.x + deltaX;
+          const y = puntoJugador.y + distancia;
+          if (libre(x, y, puntoJugador.y)) {
+            window.__debug.forzarPosicionNave!(1, x, y);
+            return { x, y, distancia };
+          }
         }
       }
     }
