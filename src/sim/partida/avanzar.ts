@@ -107,6 +107,10 @@ export function avanzar(
     planetas: estado.planetas,
     naves: navesVivas,
     tiradorId: tirador,
+    // potencia-dispersion (pot-1): el disparo que de verdad cambia el
+    // estado de la partida -- el único sitio (junto con la comparación
+    // sinDeriva de más abajo) donde esta dispersión debe aplicarse.
+    incluirDispersionPotencia: true,
   });
 
   // humor-por-turno (hum-1, hum-4): una sola categoría por disparo, con la
@@ -227,6 +231,7 @@ export function avanzar(
       planetas: estado.planetas,
       naves: navesVivas,
       tiradorId: tirador,
+      incluirDispersionPotencia: true,
     });
     if (huboDerivaTraiciona(resultado, resultadoSinDeriva)) {
       eventos.push({ tipo: "deriva-traiciona", nave: tirador });

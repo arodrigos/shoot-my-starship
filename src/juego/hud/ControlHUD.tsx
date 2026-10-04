@@ -9,6 +9,7 @@ import {
   alternarSilenciado,
   armaEstaAgotada,
   cerrarAyuda,
+  cerrarAyudaDispersion,
   costeDeArma,
   fijarAnguloDesdeFraccion,
   fijarPotenciaDesdeFraccion,
@@ -438,6 +439,34 @@ export function ControlHUD() {
           +1%
         </button>
       </div>
+
+      {/* potencia-dispersion (pot-6): aparece UNA vez por partida, la
+          primera vez que la potencia cruza el umbral donde la dispersión
+          empieza a notarse (ver store.ts) -- nunca más en los turnos
+          siguientes de esta misma partida. */}
+      {estado.ayudaDispersionVisible && (
+        <div
+          role="status"
+          data-testid="ayuda-dispersion"
+          onClick={cerrarAyudaDispersion}
+          style={{
+            width: "100%",
+            flexShrink: 0,
+            background: "var(--color-aviso-fondo)",
+            border: "1px solid var(--color-aviso-borde)",
+            borderRadius: 8,
+            padding: "4px 8px",
+            color: "var(--color-aviso-texto)",
+            font: "12px system-ui, sans-serif",
+            textAlign: "center",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+            boxSizing: "border-box",
+          }}
+        >
+          A tanta potencia el disparo pierde precisión: más alcance y menos curva, pero menos puntería.
+        </div>
+      )}
 
       {/* hud-canales (corrección): los dos interruptores vivían dentro de
           fila-avisos, alineados a la derecha igual que panel-bromas (ver más

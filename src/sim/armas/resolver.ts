@@ -2,6 +2,7 @@ import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { simularVuelo } from "@/sim/fisica/vuelo";
 import { pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
+import { dispersionPorPotenciaGrados } from "@/sim/balistica/dispersionPotencia";
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import type { Arma } from "@/sim/armas/tipos";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
@@ -598,6 +599,19 @@ export interface ParametrosResolverDisparo {
   // casco vivo que corta, incluido el propio (tras su gracia).
   readonly naves?: readonly NavePosicion[];
   readonly tiradorId?: IdNave;
+  // potencia-dispersion (pot-1): false por defecto a propósito -- este
+  // mismo resolutor es también EL oráculo de toda exploración de la IA
+  // (barridoRejilla, busquedaMultipozo) y de medir:armas, que reutilizan
+  // deliberadamente el MISMO EstadoAleatorio sin hilvanar entre llamadas
+  // para comparar candidatos de forma determinista entre sí (ver el
+  // comentario de `volar` en busquedaMultipozo.ts). Si la dispersión
+  // universal se aplicara siempre, cada punto de esas rejillas de
+  // exploración recibiría un desvío fijo no cero, desplazando geometrías ya
+  // calibradas (medido: rompe la precondición de ia-autodanio-1 y aplana
+  // por completo las bandas de ia-punteria-3). Se activa explícitamente
+  // solo donde un disparo se resuelve DE VERDAD (avanzar.ts) o donde la IA
+  // muestrea el riesgo a propósito (busquedaMultipozo.ts, fase 2c).
+  readonly incluirDispersionPotencia?: boolean;
 }
 
 // Resuelve un disparo de principio a fin: vuelo (con el comportamiento del
@@ -626,6 +640,17 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     const paso = siguienteAleatorio(aleatorio);
     aleatorio = paso.estado;
     anguloEfectivoGrados += (paso.valor * 2 - 1) * arma.dispersionGrados;
+  }
+
+  // potencia-dispersion (pot-1): universal, de cualquier arma -- se suma
+  // ENCIMA de la dispersionGrados propia del arma, nunca la sustituye.
+  // Mismo patrón de giro hilvanado que fiabilidad y dispersionGrados arriba:
+  // nunca azar sin hilvanar (nucleo-4, scripts/comprobar-sin-math-random.mjs).
+  const amplitudPotenciaGrados = params.incluirDispersionPotencia ? dispersionPorPotenciaGrados(params.potencia) : 0;
+  if (amplitudPotenciaGrados > 0) {
+    const paso = siguienteAleatorio(aleatorio);
+    aleatorio = paso.estado;
+    anguloEfectivoGrados += (paso.valor * 2 - 1) * amplitudPotenciaGrados;
   }
 
   const origenY = params.origenY ?? alturaSuperficie(mascara, params.origenX) ?? params.alto - 1;

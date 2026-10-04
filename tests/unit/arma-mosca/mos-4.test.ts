@@ -79,6 +79,11 @@ test("mos-4: el rival elige la mosca, la busca y la dispara con el mismo simulad
       planetas: sistema.planetas,
       naves: [naveA, naveB],
       tiradorId: 0,
+      // potencia-dispersion: avanzar() (el disparo real, más abajo) activa
+      // esta dispersión siempre -- este resolverDisparo manual, que se
+      // declara "la que produce el disparo real", tiene que hacer lo mismo
+      // o diverge de avanzar() desde el primer paso del vuelo.
+      incluirDispersionPotencia: true,
     });
 
     const estado: EstadoPartida = {
