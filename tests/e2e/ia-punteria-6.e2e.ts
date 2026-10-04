@@ -34,8 +34,11 @@ test("ia-punteria-6: La Contable consigue al menos un impacto directo y la parti
   const LIMITE_TURNOS_PROPIOS = 10;
 
   for (let turno = 0; turno < LIMITE_TURNOS_PROPIOS && !impactoRealDeLaIA; turno++) {
-    const resultado = await page.evaluate(() => window.__debug.resultadoTurno);
-    if (resultado) break;
+    // ia-punteria-6 (corrección): window.__debug.resultadoTurno nunca es
+    // falsy -- ControlHUD lo inicializa con un texto placeholder no vacío
+    // ("A tus mandos...") desde el primer fotograma, así que un break aquí
+    // cortaba el bucle en el turno 0 antes de disparar un solo tiro. La fin
+    // de partida real ya la detecta la comprobación de integridad de abajo.
     const naves = await page.evaluate(() => window.__debug.naves);
     if (!naves || naves.some((nave) => nave.integridad <= 0)) break;
 
