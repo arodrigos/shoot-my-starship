@@ -1,6 +1,14 @@
 import { test, expect } from "@playwright/test";
+import pixelmatch from "pixelmatch";
+import { PNG } from "pngjs";
 import { arrastrarBarraHasta } from "./utilesControl";
-import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
+import {
+  ANGULO_INICIAL_GRADOS,
+  ANGULO_MAXIMO_GRADOS,
+  ANGULO_MINIMO_GRADOS,
+  POTENCIA_MAXIMA,
+  POTENCIA_MINIMA,
+} from "@/juego/control/apuntado";
 import { simularVuelo } from "@/sim/fisica/vuelo";
 import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { DebugUltimoDisparo } from "@/debug/tipos";
@@ -28,62 +36,65 @@ function fraccionDePotencia(porcentaje: number): number {
   return (porcentaje - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA);
 }
 
-// gravedad-visible-3 (camino crítico): mover la potencia cambia visiblemente
-// la curva previsualizada -- es lo que enseña para qué sirve elegir la
-// fuerza del disparo. Mismo ángulo, dos potencias (30% y 90%), y se mide la
-// separación máxima en PÍXELES DE PANTALLA (no de mundo) entre los dos
-// trazados, punto a punto por índice de paso -- los dos tiros parten del
-// mismo origen y el primer punto es casi idéntico, así que la curva tiene
-// que abrirse más adelante si la potencia influye de verdad.
-test("gravedad-visible-3: potencia 30% y 90% producen previsualizaciones que se separan más de 40px de pantalla", async ({ page }) => {
+async function capturarLienzo(page: import("@playwright/test").Page): Promise<PNG> {
+  const dataUrl = await page.evaluate(() => {
+    const lienzo = document.querySelector("#game-container canvas") as HTMLCanvasElement;
+    return lienzo.toDataURL("image/png");
+  });
+  return PNG.sync.read(Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"));
+}
+
+// gravedad-visible-3 (camino crítico, corrección): el gatekeeper midió que
+// la versión anterior de este test comparaba dos listas de PUNTOS de
+// mundo, no lo que de verdad se ve -- y que para que la separación
+// geométrica superara 40px tuvo que elegir 95° (casi vertical), un ángulo
+// distinto al que el control arranca de verdad (ANGULO_INICIAL_GRADOS, 45°).
+// A 45°, con el trazo de entonces (2px de MUNDO, sub-píxel en pantalla),
+// el framebuffer apenas cambiaba (61 de 360x371 px, 0,05%) al mover la
+// potencia de 30% a 90%. Aquí se compara el FRAMEBUFFER compuesto (lo que
+// el ojo ve) en el ángulo con el que la partida arranca, sin tocar la
+// barra de ángulo.
+test("gravedad-visible-3: mover la potencia a 45° cambia de verdad lo que se ve en el lienzo", async ({ page }) => {
   test.setTimeout(60000);
   await entrarAPartidaEspacial(page);
 
-  const mundo = (await page.evaluate(() => window.__debug.mundo))!;
-  const anchoLienzoPx = await page.evaluate(() => {
-    const lienzo = document.querySelector("#game-container canvas") as HTMLCanvasElement;
-    return lienzo.getBoundingClientRect().width;
-  });
-  const escalaEfectiva = anchoLienzoPx / mundo.ancho;
-
-  // 95°, no 55°: con la semilla por defecto, a 55° el tiro de potencia alta
-  // termina su vuelo real (y por tanto su previsualización, recortada por
-  // pvr-2 antes de revelar el impacto) en muy pocos pasos -- la ventana
-  // comparable entre los dos trazados se cierra antes de que la curva llegue
-  // a abrirse. A 95° los dos vuelos son largos de verdad y sí divergen.
-  await arrastrarBarraHasta(page, "barra-angulo", fraccionDeAngulo(95));
+  await page.waitForFunction(
+    (anguloEsperado) => Math.abs(window.__debug.control!.ajuste.anguloGrados - anguloEsperado) <= 1,
+    ANGULO_INICIAL_GRADOS,
+  );
 
   // gravedad-visible-5 oculta la mira el fotograma en que calcularla supera
   // su presupuesto de cómputo (una pausa de GC, contención de CPU en el
-  // runner) -- eso no es el disparo bajo prueba aquí, así que no se lee
-  // window.__debug.previsualizacion en el primer fotograma tras el ajuste:
-  // se espera (con timeout generoso, nunca un sleep fijo) a que el bucle de
-  // la escena, que recalcula cada fotograma mientras jugable, vuelva a
-  // publicar un trazado real.
+  // runner) -- eso no es el disparo bajo prueba aquí, así que no se lee el
+  // lienzo en el primer fotograma tras el ajuste: se espera (con timeout
+  // generoso, nunca un sleep fijo) a que el bucle de la escena, que
+  // recalcula cada fotograma mientras jugable, vuelva a publicar un
+  // trazado real.
   await arrastrarBarraHasta(page, "barra-potencia", fraccionDePotencia(30));
   await page.waitForFunction(() => Math.abs(window.__debug.control!.ajuste.potencia - 30) <= 1);
   await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 10000 });
-  const previsualizacionBaja = await page.evaluate(() => window.__debug.previsualizacion);
-  expect(previsualizacionBaja?.puntos.length ?? 0).toBeGreaterThanOrEqual(2);
+  const lienzoBajo = await capturarLienzo(page);
 
   await arrastrarBarraHasta(page, "barra-potencia", fraccionDePotencia(90));
   await page.waitForFunction(() => Math.abs(window.__debug.control!.ajuste.potencia - 90) <= 1);
   await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 10000 });
-  const previsualizacionAlta = await page.evaluate(() => window.__debug.previsualizacion);
-  expect(previsualizacionAlta?.puntos.length ?? 0).toBeGreaterThanOrEqual(2);
+  const lienzoAlto = await capturarLienzo(page);
 
-  const puntosBaja = previsualizacionBaja!.puntos;
-  const puntosAlta = previsualizacionAlta!.puntos;
-  const minimoComun = Math.min(puntosBaja.length, puntosAlta.length);
+  expect(lienzoAlto.width).toBe(lienzoBajo.width);
+  expect(lienzoAlto.height).toBe(lienzoBajo.height);
 
-  let separacionMaximaPx = 0;
-  for (let i = 0; i < minimoComun; i++) {
-    const dx = (puntosBaja[i].x - puntosAlta[i].x) * escalaEfectiva;
-    const dy = (puntosBaja[i].y - puntosAlta[i].y) * escalaEfectiva;
-    separacionMaximaPx = Math.max(separacionMaximaPx, Math.hypot(dx, dy));
-  }
+  const pixelesDistintos = pixelmatch(lienzoBajo.data, lienzoAlto.data, undefined, lienzoBajo.width, lienzoBajo.height, {
+    threshold: 0.1,
+  });
+  const totalPixeles = lienzoBajo.width * lienzoBajo.height;
+  console.log(
+    `gravedad-visible-3: ${pixelesDistintos} de ${totalPixeles} px distintos (${((pixelesDistintos / totalPixeles) * 100).toFixed(2)}%) al mover la potencia de 30% a 90% a ${ANGULO_INICIAL_GRADOS}°`,
+  );
 
-  expect(separacionMaximaPx).toBeGreaterThan(40);
+  // Ruido de antialiasing entre dos capturas idénticas medido por debajo de
+  // 20px (mismo umbral que arte-siluetas-5) -- 300 es un cambio que un
+  // jugador detecta de verdad, no una fluctuación de render.
+  expect(pixelesDistintos).toBeGreaterThan(300);
 });
 
 // gravedad-visible-4 (camino crítico): de punta a punta -- se apunta con
