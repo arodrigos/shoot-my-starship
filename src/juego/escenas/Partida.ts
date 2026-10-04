@@ -692,6 +692,21 @@ export class Partida extends Phaser.Scene {
       this.refrescarNaves();
       this.refrescarDebugNaves();
     };
+    // adrian-angulo-360: teletransporta una nave (solo tiene efecto con
+    // nave.y presente, el hito espacial) sin jugar un turno real -- mismo
+    // patrón que forzarIntegridad. Necesario para que el e2e pueda colocar
+    // al rival justo debajo del tirador de forma determinista.
+    window.__debug.forzarPosicionNave = (nave, x, y) => {
+      this.estado = {
+        ...this.estado,
+        naves: [
+          { ...this.estado.naves[0], ...(nave === 0 ? { x, y } : {}) },
+          { ...this.estado.naves[1], ...(nave === 1 ? { x, y } : {}) },
+        ],
+      };
+      this.refrescarNaves();
+      this.refrescarDebugNaves();
+    };
     // arte-siluetas-3: sin este refrescarNaves() de arranque, marcarActiva()
     // no se llamaba nunca hasta que se resolvía el primer turno (línea más
     // abajo, dentro de aplicarResultadoTurno) -- el indicador de nave propia

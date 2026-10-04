@@ -3,11 +3,13 @@ import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS } from "@/juego/control/apun
 import { arrastrarBarraHasta } from "./utilesControl";
 
 // ctl-2 (control-angulo-potencia): la queja concreta de Adrián -- girar de
-// 2° a 178° (el giro de 180°) en UN solo gesto sobre el control de ángulo,
-// sin tocar la potencia. Con el arrastre único de antes esto exigía dos
-// gestos verticales opuestos porque saturaba antes de cubrir el rango
-// entero; con el mapeo absoluto de barra-angulo, un extremo a otro basta.
-test("un solo gesto de un extremo a otro del control de ángulo va de 2° a 178° sin tocar la potencia", async ({
+// un extremo a otro del rango entero (adrian-angulo-360: el círculo
+// completo desde que se amplió el rango) en UN solo gesto sobre el control
+// de ángulo, sin tocar la potencia. Con el arrastre único de antes esto
+// exigía dos gestos verticales opuestos porque saturaba antes de cubrir el
+// rango entero; con el mapeo absoluto de barra-angulo, un extremo a otro
+// basta.
+test("un solo gesto de un extremo a otro del control de ángulo cubre el rango entero sin tocar la potencia", async ({
   page,
 }) => {
   test.setTimeout(60000);

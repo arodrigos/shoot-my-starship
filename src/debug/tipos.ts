@@ -390,6 +390,16 @@ export interface DebugGlobal {
   // cuentaAtrasMecha (que arranca al disparar), este campo solo existe
   // DESDE que el proyectil se pega, no desde el disparo (min-5).
   cuentaAtrasAdherencia?: { x: number; y: number; segundosRestantes: number } | null;
+  // adrian-angulo-360 (solo e2e): teletransporta una nave a una posición
+  // exacta sin jugar un turno real -- mismo motivo y mismo patrón que
+  // forzarIntegridad (pasa por refrescarNaves()/refrescarDebugNaves(), así
+  // que lo que se ve es lo que produciría el juego de verdad). Solo tiene
+  // efecto en el hito espacial (nave.y presente): en suelo plano la altura
+  // se deriva siempre del terreno en esa columna y un y explícito no
+  // significaría nada. Necesario para colocar al rival justo debajo del
+  // tirador de forma determinista: colocarNaves no garantiza esa geometría
+  // concreta y no hay forma de pedírsela por semilla.
+  forzarPosicionNave?: (nave: IdNave, x: number, y: number) => void;
 }
 
 declare global {
