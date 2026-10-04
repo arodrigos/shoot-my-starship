@@ -40,6 +40,15 @@ test("el jugador apunta en los 360°: un rival justo debajo se puede alcanzar co
   // debajo de ese punto, con una banda horizontal amplia en vez de una
   // columna estrecha, para no depender de que una franja concreta de 40 px
   // esté libre en una semilla o geometría concretas.
+  //
+  // adrian-angulo-360 (corrección): un único candidato de altura para el
+  // jugador (el cuarto superior) fallaba de verdad en CI -- el sistema
+  // planetario que colocarNaves acaba usando no es siempre el de la semilla
+  // base (puede regenerarse hasta MAX_REGENERACIONES_SISTEMA veces si la
+  // colocación inicial no es viable), así que la franja libre a esa altura
+  // exacta no está garantizada para ningún sistema concreto. Se prueban
+  // varias alturas candidatas, de arriba abajo, hasta que una tenga hueco
+  // para el jugador Y para el rival por debajo.
   const destino = await page.evaluate(() => {
     const mundo = window.__debug.mundo!;
     const libre = (x: number, y: number, yMin: number): boolean => {
@@ -51,34 +60,41 @@ test("el jugador apunta en los 360°: un rival justo debajo se puede alcanzar co
       return true;
     };
 
-    // Jugador cerca del cuarto superior del mundo: deja de sobra al menos
-    // la mitad de la altura del mundo libre por debajo para la búsqueda
-    // siguiente.
-    const yJugador = Math.round(mundo.alto * 0.25);
-    let puntoJugador: { x: number; y: number } | null = null;
-    for (let dx = 0; dx <= mundo.ancho / 2; dx += 20) {
-      for (const x of dx === 0 ? [mundo.ancho / 2] : [mundo.ancho / 2 + dx, mundo.ancho / 2 - dx]) {
-        if (libre(x, yJugador, 0)) {
-          puntoJugador = { x, y: yJugador };
-          break;
+    const buscarPuntoLibre = (y: number, yMin: number): { x: number; y: number } | null => {
+      for (let dx = 0; dx <= mundo.ancho / 2; dx += 20) {
+        for (const x of dx === 0 ? [mundo.ancho / 2] : [mundo.ancho / 2 + dx, mundo.ancho / 2 - dx]) {
+          if (libre(x, y, yMin)) return { x, y };
         }
       }
-      if (puntoJugador) break;
-    }
-    if (!puntoJugador) return null;
-    window.__debug.forzarPosicionNave!(0, puntoJugador.x, puntoJugador.y);
+      return null;
+    };
 
-    for (let distancia = 80; distancia <= mundo.alto - puntoJugador.y; distancia += 20) {
-      for (let dx = 0; dx <= mundo.ancho / 2; dx += 20) {
-        for (const deltaX of dx === 0 ? [0] : [dx, -dx]) {
-          const x = puntoJugador.x + deltaX;
-          const y = puntoJugador.y + distancia;
-          if (libre(x, y, puntoJugador.y)) {
-            window.__debug.forzarPosicionNave!(1, x, y);
-            return { x, y, distancia };
+    const buscarRivalDebajo = (puntoJugador: { x: number; y: number }): { x: number; y: number; distancia: number } | null => {
+      for (let distancia = 80; distancia <= mundo.alto - puntoJugador.y; distancia += 20) {
+        for (let dx = 0; dx <= mundo.ancho / 2; dx += 20) {
+          for (const deltaX of dx === 0 ? [0] : [dx, -dx]) {
+            const x = puntoJugador.x + deltaX;
+            const y = puntoJugador.y + distancia;
+            if (libre(x, y, puntoJugador.y)) return { x, y, distancia };
           }
         }
       }
+      return null;
+    };
+
+    // Fracciones de altura candidatas para el jugador, de arriba abajo:
+    // cuanto más arriba, más margen queda por debajo para encontrar al
+    // rival, así que se intentan en ese orden y se usa la primera viable.
+    const FRACCIONES_ALTURA_JUGADOR = [0.25, 0.15, 0.35, 0.45, 0.2, 0.3, 0.4, 0.5];
+    for (const fraccion of FRACCIONES_ALTURA_JUGADOR) {
+      const yJugador = Math.round(mundo.alto * fraccion);
+      const puntoJugador = buscarPuntoLibre(yJugador, 0);
+      if (!puntoJugador) continue;
+      const rival = buscarRivalDebajo(puntoJugador);
+      if (!rival) continue;
+      window.__debug.forzarPosicionNave!(0, puntoJugador.x, puntoJugador.y);
+      window.__debug.forzarPosicionNave!(1, rival.x, rival.y);
+      return rival;
     }
     return null;
   });
