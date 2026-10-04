@@ -143,6 +143,10 @@ const RIVAL_POR_DEFECTO = LA_CONTABLE;
 const ARMA_DESENLACE = "despedida";
 const TOPE_TURNOS_DESENLACE = 12;
 
+// gravedad-visible (grav-vis-3, corrección): grosor de la mira en píxeles
+// de PANTALLA, no de mundo -- ver actualizarPrevisualizacion().
+const ANCHO_MIRA_CSS_PX = 3;
+
 const FRACCION_X_NAVE_0 = 0.15;
 const FRACCION_X_NAVE_1 = 0.85;
 
@@ -820,13 +824,15 @@ export class Partida extends Phaser.Scene {
       return;
     }
 
-    // gravedad-visible (grav-vis-6): línea PUNTEADA (no sólida) -- es lo
-    // que el texto de ayuda nuevo describe, y lo que distingue a simple
-    // vista la mira (incierta, por fuerza) de una estela de vuelo real
-    // (sólida). Los pasos de simularVuelo son de duración fija, así que
-    // saltar uno de cada dos tramos entre puntos consecutivos da un
-    // punteado de cadencia regular sin necesitar geometría de arco aparte.
-    this.graficosPrevisualizacion.lineStyle(2, 0x9ad1ff, 0.6);
+    // gravedad-visible (grav-vis-3, corrección): el ancho de línea vivía en
+    // píxeles de MUNDO, que a este encuadre (p. ej. 1121x1156 mostrado en
+    // un lienzo de ~360px CSS) da un trazo sub-píxel (0,64 px CSS medido
+    // por el gatekeeper) -- invisible de por sí, y la mitad de tinta que
+    // antes al pasar a punteado. Se expresa en píxeles de PANTALLA y se
+    // convierte a mundo con displayScale.x (gameUnits/CSSpx), mismo patrón
+    // que IndicadorDeriva y ContadorAdherencia.
+    const grosorMiraMundoPx = ANCHO_MIRA_CSS_PX * this.scale.displayScale.x;
+    this.graficosPrevisualizacion.lineStyle(grosorMiraMundoPx, 0x9ad1ff, 0.9);
     for (let i = 1; i < puntos.length; i++) {
       if (i % 2 === 0) continue;
       this.graficosPrevisualizacion.lineBetween(puntos[i - 1].x, puntos[i - 1].y, puntos[i].x, puntos[i].y);
