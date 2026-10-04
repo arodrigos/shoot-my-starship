@@ -66,7 +66,7 @@ import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/
 import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorCapas";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
-import { calcularPrevisualizacion, superaPresupuestoComputo } from "@/sim/armas/previsualizacion";
+import { calcularBandaPrevisualizacion, superaPresupuestoComputo } from "@/sim/armas/previsualizacion";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
 import "@/debug/tipos";
@@ -799,7 +799,7 @@ export class Partida extends Phaser.Scene {
     const rastreadorNaves = navesVivas ? crearRastreadorImpactoNaves(navesVivas, tirador) : undefined;
 
     const inicioComputo = performance.now();
-    const puntos = calcularPrevisualizacion({
+    const banda = calcularBandaPrevisualizacion({
       mascara: estado.mascara,
       gravedad: estado.mundo.gravedad,
       deriva: estado.mundo.deriva,
@@ -814,6 +814,7 @@ export class Partida extends Phaser.Scene {
       comportamiento: arma.comportamiento,
       aleatorio: estado.aleatorio,
     });
+    const puntos = banda.centro;
     const duracionComputoMs = performance.now() - inicioComputo;
 
     // gravedad-visible (grav-vis-5): la promesa es que el preview no
@@ -821,6 +822,7 @@ export class Partida extends Phaser.Scene {
     // que dibujar un trazado que ya ha costado más de lo prometido.
     if (puntos.length < 2 || superaPresupuestoComputo(duracionComputoMs)) {
       window.__debug!.previsualizacion = null;
+      window.__debug!.bandaDispersion = null;
       return;
     }
 
@@ -838,7 +840,28 @@ export class Partida extends Phaser.Scene {
       this.graficosPrevisualizacion.lineBetween(puntos[i - 1].x, puntos[i - 1].y, puntos[i].x, puntos[i].y);
     }
 
+    // potencia-dispersion (pot-3, pot-4): los dos extremos del cono, más
+    // finos y translúcidos que el centro para que se lean como "banda de
+    // riesgo" y no como una tercera trayectoria central -- solo cuando la
+    // amplitud a esta potencia ya es perceptible (banda baja: amplitud 0,
+    // los extremos coinciden con el centro y no aportan nada que dibujar).
+    if (banda.amplitudGrados > 0) {
+      const grosorExtremoMundoPx = Math.max(1, ANCHO_MIRA_CSS_PX - 1) * this.scale.displayScale.x;
+      this.graficosPrevisualizacion.lineStyle(grosorExtremoMundoPx, 0x9ad1ff, 0.35);
+      for (const extremo of [banda.extremoMenor, banda.extremoMayor]) {
+        for (let i = 1; i < extremo.length; i++) {
+          if (i % 2 === 0) continue;
+          this.graficosPrevisualizacion.lineBetween(extremo[i - 1].x, extremo[i - 1].y, extremo[i].x, extremo[i].y);
+        }
+      }
+    }
+
     window.__debug!.previsualizacion = { puntos: puntos.map((p) => ({ x: p.x, y: p.y })), visible: true };
+    window.__debug!.bandaDispersion = {
+      extremoMenor: banda.extremoMenor.map((p) => ({ x: p.x, y: p.y })),
+      extremoMayor: banda.extremoMayor.map((p) => ({ x: p.x, y: p.y })),
+      amplitudGrados: banda.amplitudGrados,
+    };
   }
 
   // arma-granada-espoleta (gra-2, gra-3): publica cada fotograma los

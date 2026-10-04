@@ -311,6 +311,17 @@ export interface DebugGlobal {
   // vuelo, o el tiro se corta antes del primer punto útil). Así el test
   // comprueba la trayectoria y su ocultación leyendo datos, nunca píxeles.
   previsualizacion?: { puntos: readonly { x: number; y: number }[]; visible: true } | null;
+  // potencia-dispersion (pot-3, pot-4): la banda de incertidumbre que se
+  // dibuja antes de disparar -- extremoMenor/extremoMayor son las DOS
+  // trayectorias reales (ángulo ±amplitud, misma gravedad) que delimitan el
+  // cono; amplitudGrados es 0 en la banda baja de potencia, donde los dos
+  // extremos colapsan en el centro y no se dibuja nada aparte de la mira de
+  // siempre. null en las mismas condiciones que `previsualizacion`.
+  bandaDispersion?: {
+    extremoMenor: readonly { x: number; y: number }[];
+    extremoMayor: readonly { x: number; y: number }[];
+    amplitudGrados: number;
+  } | null;
   // proy-4: partículas vivas del pool de estela y su tope declarado -- así
   // el test comprueba el límite leyendo un contador, no contando objetos de
   // escena ni leyendo píxeles.

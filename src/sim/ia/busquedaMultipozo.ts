@@ -11,7 +11,7 @@ import { potenciaDesdeVelocidad } from "@/sim/balistica/potencia";
 import { GRAVEDAD_REFERENCIA_PX_S2 } from "@/sim/fisica/proyectil";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import type { Arma } from "@/sim/armas/tipos";
-import type { EstadoAleatorio } from "@/sim/aleatorio";
+import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { NavePosicion } from "@/sim/naves/impacto";
 import type { IdNave } from "@/sim/partida/tipos";
@@ -42,6 +42,22 @@ const RONDAS_REFINAMIENTO = 3;
 // zona donde ese ángulo todavía conecta, igual que PASO_ANGULO_GRUESO_GRADOS
 // para el ángulo.
 const RONDAS_REFINAMIENTO_POTENCIA = 32;
+// potencia-dispersion (pot-5): la IA tiene que conocer la dispersión --
+// ordenar por el mejor caso (una sola tirada sin ruido) es justamente lo
+// que el punto 6 de Adrián pide dejar de hacer. Usado por la fase 2c (ver
+// más abajo, DESPUÉS de que fases 1-2b ya encontraron dónde está el pico
+// de daño): promedia sobre MUESTRAS_DISPERSION_POTENCIA tiradas de ruido
+// DISTINTAS (números aleatorios comunes: las mismas N semillas para cada
+// candidato) para que la comparación entre dos potencias no sea ruido
+// contra ruido. No se usa dentro de las fases 1-2b -- triplicar ahí el
+// coste de cada muestra habría exigido recortar su densidad a un tercio
+// (RONDAS_REFINAMIENTO_POTENCIA 32->10), medido: eso por sí solo le hace
+// perder a ia-punteria-1 su objetivo de refinar fuera de la rejilla en
+// el 80% de los turnos (cae al 53%) -- el techo de 192 vuelos (ia-n3) no
+// sube, así que la fase 2c paga su propio coste acotado (como mucho
+// 2*MUESTRAS_DISPERSION_POTENCIA vuelos) aparte, sin tocar la densidad de
+// las fases ya calibradas.
+export const MUESTRAS_DISPERSION_POTENCIA = 3;
 const VENTANA_POTENCIA_GRADOS = 25;
 // Fase 1b: cuántas muestras de potencia completa [0,100] se prueban al
 // ángulo de emergencia cuando la rejilla entera no encontró ni un candidato
@@ -82,7 +98,10 @@ export const PRESUPUESTO_VUELOS_RIVAL_DEFAULT = 1200;
 // TOTAL_COMBINACIONES_REJILLA deja la rejilla entera con todo el presupuesto
 // y apaga las fases 2 y 3 por completo en cuanto el llamante pide menos que
 // la rejilla completa.
-const VUELOS_RESERVADOS_REFINAMIENTO_Y_SENSIBILIDAD = RONDAS_REFINAMIENTO * 2 + RONDAS_REFINAMIENTO_POTENCIA + 2 + 2;
+// potencia-dispersion: +2*MUESTRAS_DISPERSION_POTENCIA reservados para la
+// fase 2c (ver más abajo) -- aparte de las fases 1-2b, que no cambian.
+const VUELOS_RESERVADOS_REFINAMIENTO_Y_SENSIBILIDAD =
+  RONDAS_REFINAMIENTO * 2 + RONDAS_REFINAMIENTO_POTENCIA + 2 + 2 + 2 * MUESTRAS_DISPERSION_POTENCIA;
 // Presupuesto real que usa decidir.ts en un turno normal (ia-n3, techo de
 // 250ms de CPU medido en CI): cubre la rejilla entera para las tres potencias
 // centrales (40/55/70%) más una parte de las dos más altas, y dentro de eso
@@ -209,11 +228,28 @@ function anguloDeEmergenciaHaciaObjetivo(tirador: NavePosicion, objetivo: NavePo
 }
 
 function volar(params: ParametrosBusquedaRival, tirador: NavePosicion, objetivo: NavePosicion, anguloGrados: number, potencia: number) {
+  return volarConAleatorio(params, tirador, objetivo, anguloGrados, potencia, params.aleatorio);
+}
+
+// potencia-dispersion (pot-5): misma exploración que `volar`, pero con un
+// EstadoAleatorio explícito -- lo que permite muestrear el MISMO candidato
+// varias veces con dispersión distinta en cada muestra (ver
+// valorEsperadoBajoDispersion), en vez de la tirada única y fija que usa el
+// resto de fases de esta búsqueda.
+function volarConAleatorio(
+  params: ParametrosBusquedaRival,
+  tirador: NavePosicion,
+  objetivo: NavePosicion,
+  anguloGrados: number,
+  potencia: number,
+  aleatorio: EstadoAleatorio,
+  incluirDispersionPotencia: boolean = false,
+) {
   return resolverDisparo({
     mascara: params.mascara,
     gravedad: params.gravedad,
     deriva: params.deriva,
-    aleatorio: params.aleatorio,
+    aleatorio,
     arma: params.arma,
     origenX: tirador.x,
     origenY: tirador.y,
@@ -223,10 +259,53 @@ function volar(params: ParametrosBusquedaRival, tirador: NavePosicion, objetivo:
     objetivoY: objetivo.y,
     ancho: params.ancho,
     alto: params.alto,
+    incluirDispersionPotencia,
     planetas: params.planetas,
     naves: params.naves,
     tiradorId: params.tiradorId,
   });
+}
+
+function semillasDeMuestreo(base: EstadoAleatorio, cantidad: number): readonly EstadoAleatorio[] {
+  const semillas: EstadoAleatorio[] = [];
+  let actual = base;
+  for (let i = 0; i < cantidad; i++) {
+    const paso = siguienteAleatorio(actual);
+    semillas.push(paso.estado);
+    actual = paso.estado;
+  }
+  return semillas;
+}
+
+interface CandidatoConValorEsperado {
+  readonly anguloGrados: number;
+  readonly potencia: number;
+  readonly danio: number;
+  readonly autodanioTotal: number;
+  readonly puntuacion: number;
+  readonly pasosVuelo: number;
+}
+
+function valorEsperadoBajoDispersion(
+  params: ParametrosBusquedaRival,
+  tirador: NavePosicion,
+  objetivo: NavePosicion,
+  anguloGrados: number,
+  potencia: number,
+  semillas: readonly EstadoAleatorio[],
+): CandidatoConValorEsperado {
+  let danioAcumulado = 0;
+  let autodanioAcumulado = 0;
+  let pasosVuelo = 0;
+  for (const semilla of semillas) {
+    const r = volarConAleatorio(params, tirador, objetivo, anguloGrados, potencia, semilla, true);
+    danioAcumulado += r.danioObjetivo;
+    autodanioAcumulado += r.danioPropio + (r.impactoPropio?.danio ?? 0);
+    pasosVuelo = r.pasosVuelo;
+  }
+  const danio = danioAcumulado / semillas.length;
+  const autodanioTotal = autodanioAcumulado / semillas.length;
+  return { anguloGrados, potencia, danio, autodanioTotal, puntuacion: danio - PESO_AUTODANIO * autodanioTotal, pasosVuelo };
 }
 
 // Sin ambas naves no hay nada que buscar: el llamante (decidir.ts) siempre
@@ -430,6 +509,39 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
           candidato);
       }
     }
+  }
+
+  // Fase 2c (potencia-dispersion, pot-5): fases 1-2b optimizan por el MEJOR
+  // CASO -- una sola tirada sin dispersión -- correcto para encontrar DÓNDE
+  // está el pico de daño, pero ciego al riesgo que la propia potencia-
+  // dispersión añade (más potencia, más ángulo de salida incierto). Antes
+  // de fijar el tiro, se compara el candidato encontrado contra una
+  // alternativa de MENOS potencia (mismo ángulo, un paso de
+  // VENTANA_POTENCIA_GRADOS hacia abajo) por VALOR ESPERADO bajo dispersión
+  // -- media de MUESTRAS_DISPERSION_POTENCIA muestras cada uno, con las
+  // MISMAS semillas de ruido para los dos (números aleatorios comunes, para
+  // que la comparación no sea ruido contra ruido). Gana la de mayor
+  // puntuación esperada, nunca la de mejor caso bruto.
+  if (huboCandidato && vuelosSimulados + 2 * MUESTRAS_DISPERSION_POTENCIA <= presupuestoMax) {
+    const semillasRiesgo = semillasDeMuestreo(params.aleatorio, MUESTRAS_DISPERSION_POTENCIA);
+    const potenciaMenosArriesgada = Math.max(0, mejorPotencia - VENTANA_POTENCIA_GRADOS);
+    const candidatoActual = valorEsperadoBajoDispersion(params, tirador, objetivo, mejorAngulo, mejorPotencia, semillasRiesgo);
+    vuelosSimulados += MUESTRAS_DISPERSION_POTENCIA;
+    const candidatoMenosArriesgado = valorEsperadoBajoDispersion(
+      params,
+      tirador,
+      objetivo,
+      mejorAngulo,
+      potenciaMenosArriesgada,
+      semillasRiesgo,
+    );
+    vuelosSimulados += MUESTRAS_DISPERSION_POTENCIA;
+    const candidatoElegido = compararCandidatos(candidatoMenosArriesgado, candidatoActual) < 0 ? candidatoMenosArriesgado : candidatoActual;
+    mejorPotencia = candidatoElegido.potencia;
+    mejorDanio = candidatoElegido.danio;
+    mejorAutodanio = candidatoElegido.autodanioTotal;
+    mejorPuntuacion = candidatoElegido.puntuacion;
+    mejorPasosVuelo = candidatoElegido.pasosVuelo;
   }
 
   // Fase 3: sonda de sensibilidad -- cuántos px 2D se mueve el punto de

@@ -1,4 +1,5 @@
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
+import { dispersionPorPotenciaGrados } from "@/sim/balistica/dispersionPotencia";
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { simularVuelo } from "@/sim/fisica/vuelo";
 import { ALTURA_CANON_PX, alturaSuperficie, crearDetenerseConMecha, detenerseEnSuelo } from "@/sim/armas/resolver";
@@ -168,4 +169,34 @@ export function calcularPrevisualizacion(params: ParametrosPrevisualizacion): re
     corte--;
   }
   return recortada.slice(0, corte);
+}
+
+export interface BandaPrevisualizacion {
+  readonly centro: readonly PuntoPrevisualizacion[];
+  // Las DOS trayectorias extremas del cono de dispersión (potencia-
+  // dispersion-4, el diferencial del bloque): cada una es un prefijo real
+  // de simularVuelo con el ángulo desviado ±amplitud, integrado con la
+  // MISMA gravedad real que el proyectil -- nunca un cono recto geométrico.
+  // Vacías cuando la amplitud a esta potencia es 0 (banda baja, pot-1):
+  // ahí no hay nada que mostrar aparte del centro.
+  readonly extremoMenor: readonly PuntoPrevisualizacion[];
+  readonly extremoMayor: readonly PuntoPrevisualizacion[];
+  readonly amplitudGrados: number;
+}
+
+// potencia-dispersion-3/pot-4: la banda que de verdad enseña el riesgo --
+// tres llamadas al MISMO calcularPrevisualizacion (nunca una fórmula de cono
+// recto aparte), una al ángulo pedido y dos a ±amplitudGrados. Cuando la
+// amplitud es 0 (potencia baja), los dos extremos colapsan al centro: seguir
+// dibujándolos no miente (coinciden con el centro), pero el llamante puede
+// optar por no pintarlos encima si amplitudGrados es 0.
+export function calcularBandaPrevisualizacion(params: ParametrosPrevisualizacion): BandaPrevisualizacion {
+  const amplitudGrados = dispersionPorPotenciaGrados(params.potencia);
+  const centro = calcularPrevisualizacion(params);
+  if (amplitudGrados === 0) {
+    return { centro, extremoMenor: centro, extremoMayor: centro, amplitudGrados };
+  }
+  const extremoMenor = calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados - amplitudGrados });
+  const extremoMayor = calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados + amplitudGrados });
+  return { centro, extremoMenor, extremoMayor, amplitudGrados };
 }

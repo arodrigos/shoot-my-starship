@@ -13,6 +13,7 @@ import {
   sanearAjusteNumericoGuardado,
   type FraccionDeVentana,
 } from "@/juego/control/apuntado";
+import { UMBRAL_POTENCIA_DISPERSION_VISIBLE } from "@/sim/balistica/dispersionPotencia";
 import { alternarSonido, sonidoSilenciado } from "@/juego/audio/motor";
 
 // Puente entre React (ControlHUD, fuera del lienzo) y la escena de Phaser
@@ -35,6 +36,12 @@ export interface EstadoControl {
   // animación de vuelo -- el HUD no reimplementa esa condición por su cuenta.
   readonly puedeDisparar: boolean;
   readonly ayudaVisible: boolean;
+  // potencia-dispersion (pot-6): texto de ayuda aparte de la ayuda inicial
+  // -- avisa la PRIMERA vez que la potencia cruza el umbral donde la
+  // dispersión empieza a notarse, y ya no en los turnos siguientes de esta
+  // misma partida (ayudaDispersionYaMostrada, módulo-privado, se resetea en
+  // reiniciarControl igual que el resto del estado de partida).
+  readonly ayudaDispersionVisible: boolean;
   // render-espacio: qué frase extra añade la ayuda inicial (planetas,
   // trayectoria curva) -- lo fija la escena en create(), antes de que el
   // HUD pinte el primer fotograma.
@@ -157,6 +164,7 @@ let estado: EstadoControl = {
   ultimoDisparo: null,
   puedeDisparar: false,
   ayudaVisible: !ayudaYaVista(),
+  ayudaDispersionVisible: false,
   modoEspacial: false,
   modo: "barra-libre",
   saldo: null,
@@ -173,13 +181,26 @@ function fijar(parcial: Partial<EstadoControl>): void {
   for (const escucha of escuchas) escucha();
 }
 
+// potencia-dispersion (pot-6): una sola vez por partida -- a diferencia de
+// ayudaVisible (persistida en localStorage, "ya la vio en este navegador"),
+// esto vive solo en memoria y se resetea en reiniciarControl, porque el
+// umbral es información de ESTA partida, no una preferencia del navegador.
+let ayudaDispersionYaMostrada = false;
+
 // Todo cambio de ajuste que venga de una acción del jugador (arrastre, paso
 // fino, elegir arma, repetir disparo) pasa por aquí para persistirlo de
 // golpe -- reiniciarControl() no la usa a propósito, porque una partida
 // nueva sí debe volver a los valores por defecto (ver su comentario).
 function fijarAjuste(cambios: Partial<EstadoAjuste>): void {
   const ajuste = { ...estado.ajuste, ...cambios };
-  fijar({ ajuste });
+  const cruzaUmbralDispersion =
+    !ayudaDispersionYaMostrada &&
+    estado.ajuste.potencia < UMBRAL_POTENCIA_DISPERSION_VISIBLE &&
+    ajuste.potencia >= UMBRAL_POTENCIA_DISPERSION_VISIBLE;
+  if (cruzaUmbralDispersion) {
+    ayudaDispersionYaMostrada = true;
+  }
+  fijar({ ajuste, ...(cruzaUmbralDispersion ? { ayudaDispersionVisible: true } : {}) });
   guardarAjuste(ajuste);
 }
 
@@ -317,6 +338,10 @@ export function cerrarAyuda(): void {
   fijar({ ayudaVisible: false });
 }
 
+export function cerrarAyudaDispersion(): void {
+  fijar({ ayudaDispersionVisible: false });
+}
+
 // realce-impacto (rlc-3): único punto de escritura del ajuste -- persiste de
 // inmediato, igual que fijarAjuste con el apuntado, para que sobreviva a
 // recargar la página sin depender de ningún otro evento.
@@ -345,6 +370,7 @@ export function registrarManejadorDisparo(manejador: ManejadorDisparo): () => vo
 
 export function solicitarDisparo(): void {
   if (!estado.puedeDisparar || !manejadorDisparo) return;
+  if (estado.ayudaDispersionVisible) fijar({ ayudaDispersionVisible: false });
   manejadorDisparo({ arma: estado.ajuste.armaId, anguloGrados: estado.ajuste.anguloGrados, potencia: estado.ajuste.potencia });
 }
 
@@ -355,11 +381,13 @@ export function solicitarDisparo(): void {
 // ayuda inicial NO se reinicia: ya la vio en este navegador, no hay que
 // volver a enseñársela.
 export function reiniciarControl(): void {
+  ayudaDispersionYaMostrada = false;
   fijar({
     ajuste: { anguloGrados: ANGULO_INICIAL_GRADOS, potencia: POTENCIA_INICIAL, armaId: CATALOGO_ARMAS[0].id },
     usosPorArma: {},
     ultimoDisparo: null,
     puedeDisparar: false,
+    ayudaDispersionVisible: false,
     modoEspacial: false,
     modo: "barra-libre",
     saldo: null,

@@ -91,7 +91,15 @@ export const CHISPA: Personalidad = {
   // es la personalidad que menos corrección necesitaba sobre su puntería
   // bruta, solo había que dejar que esa puntería contara. Medido con npm
   // run medir:ia: 31.3% de victorias (150 partidas), dentro de banda.
-  error: { anguloGrados: { minimo: -0.675, maximo: 0.675 }, potencia: { minimo: -0.99, maximo: 0.99 } },
+  // potencia-dispersion (recalibrado otra vez): universal -- se suma
+  // encima del error propio de CUALQUIER personalidad, en todo disparo del
+  // jugador y de la IA -- y Chispa es la que menos margen propio tiene
+  // para absorberla (su error ya era el más pequeño del catálogo, y sus
+  // armas preferidas son las de radio de efecto más pequeño, las que menos
+  // toleran un error de ángulo). Medido: con el rango de arriba sin tocar,
+  // la victoria caía a 17.0%, por debajo de su banda 20-40%. Recortado un
+  // 25% más para devolverle el margen que la dispersión universal le quita.
+  error: { anguloGrados: { minimo: -0.5, maximo: 0.5 }, potencia: { minimo: -0.75, maximo: 0.75 } },
   trayectoriaPreferida: "tenso",
   // Las armas raras, las de terreno y el Petardo de Feria antes que nada
   // fiable.
