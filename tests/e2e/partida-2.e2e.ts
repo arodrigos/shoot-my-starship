@@ -73,9 +73,10 @@ const SALDO_INICIAL = 1000;
 // vertedero-portatil: danioMaximo 0 en el catálogo real -- la única arma de
 // pago que garantiza ingreso 0 SIEMPRE, sea acierto o fallo, así que el saldo
 // tras dispararla es aritméticamente exacto sin tener que apuntar a la nave
-// rival ni depender de la dispersión del arma.
+// rival ni depender de la dispersión del arma. Coste 15 tras el reprecio de
+// armas-reprecio-roles (antes 20; ver armas-reprecio-roles-5 en catalogo.ts).
 const ARMA_SIN_DANIO_ID = "vertedero-portatil";
-const COSTE_ARMA_SIN_DANIO = 20;
+const COSTE_ARMA_SIN_DANIO = 15;
 
 test("modo-6: recargar la página resetea el saldo al valor inicial y ninguna petición sale del propio origen en modo presupuesto", async ({
   page,
