@@ -7,6 +7,8 @@ import {
   PESO_AUTODANIO,
   TOTAL_COMBINACIONES_REJILLA,
 } from "@/sim/balistica/rejilla";
+import { potenciaDesdeVelocidad } from "@/sim/balistica/potencia";
+import { GRAVEDAD_REFERENCIA_PX_S2 } from "@/sim/fisica/proyectil";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import type { Arma } from "@/sim/armas/tipos";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
@@ -26,6 +28,31 @@ import type { Mascara } from "@/sim/terreno/mascara";
 // "Acertar" es daño > 0 medido por el resolutor real, nunca una tolerancia
 // de proximidad: esa confusión ya costó la iteración 1 de este run (imp-8).
 const RONDAS_REFINAMIENTO = 3;
+// ia-punteria-1: la rejilla gruesa solo prueba 5 valores fijos de potencia
+// (40/55/70/85/100). RONDAS_REFINAMIENTO_POTENCIA hace ternario sobre
+// potencia alrededor del candidato de la rejilla, con ángulo FIJO al ya
+// refinado por la fase 2 -- probado primero en rango completo [0,100] (sin
+// ventana) y descartado: a ángulo fijo, ángulo y potencia están acoplados
+// por la balística (un ángulo dado solo conecta con una potencia estrecha
+// alrededor de la que ya encontró la rejilla), así que un barrido ancho de
+// potencia con ese ángulo falla casi siempre y nunca desplaza al candidato
+// de la rejilla -- medido: 0% de refinamiento efectivo sobre 40 sistemas.
+// VENTANA_POTENCIA_GRADOS (la mitad del hueco entre dos potencias
+// contiguas de la rejilla, 15 puntos) mantiene el refinamiento dentro de la
+// zona donde ese ángulo todavía conecta, igual que PASO_ANGULO_GRUESO_GRADOS
+// para el ángulo.
+const RONDAS_REFINAMIENTO_POTENCIA = 32;
+const VENTANA_POTENCIA_GRADOS = 25;
+// Fase 1b: cuántas muestras de potencia completa [0,100] se prueban al
+// ángulo de emergencia cuando la rejilla entera no encontró ni un candidato
+// -- barato a propósito (10 vuelos, muy por debajo de la propia rejilla),
+// porque es el camino menos frecuente y solo tiene que encontrar UN
+// candidato real con el que arrancar el refinamiento normal, no afinarlo.
+// 10 muestras espacian cada ~11 puntos de potencia, por debajo de la
+// ventana de 20 puntos que motivó esta fase (ia-n3 medido: con 20 muestras
+// el techo de 250ms de CPU se superaba en la semilla 12 del torneo de
+// presupuesto por defecto; con 10, dentro de margen).
+const RONDAS_EMERGENCIA_POTENCIA = 10;
 const DELTA_SENSIBILIDAD_GRADOS = 0.5;
 // Sin datos de sensibilidad (presupuesto agotado antes de la sonda), se
 // declara la sensibilidad más alta posible: decidir.ts la usa para amortiguar
@@ -55,7 +82,7 @@ export const PRESUPUESTO_VUELOS_RIVAL_DEFAULT = 1200;
 // TOTAL_COMBINACIONES_REJILLA deja la rejilla entera con todo el presupuesto
 // y apaga las fases 2 y 3 por completo en cuanto el llamante pide menos que
 // la rejilla completa.
-const VUELOS_RESERVADOS_REFINAMIENTO_Y_SENSIBILIDAD = RONDAS_REFINAMIENTO * 2 + 2 + 2;
+const VUELOS_RESERVADOS_REFINAMIENTO_Y_SENSIBILIDAD = RONDAS_REFINAMIENTO * 2 + RONDAS_REFINAMIENTO_POTENCIA + 2 + 2;
 // Presupuesto real que usa decidir.ts en un turno normal (ia-n3, techo de
 // 250ms de CPU medido en CI): cubre la rejilla entera para las tres potencias
 // centrales (40/55/70%) más una parte de las dos más altas, y dentro de eso
@@ -114,11 +141,71 @@ export interface SolucionRival {
 // que disparó esto (semilla 20260926, La Contable): con ángulo recto (90°)
 // el tiro se pierde con cualquier potencia; apuntado al objetivo, no se
 // pierde con ninguna de las cinco potencias de la rejilla.
+// ia-punteria-1: inversión de la misma fórmula cerrada de tiro parabólico
+// que resolverSolucionesBalisticas usa para ángulo con potencia fija (sin
+// pozos: gravedad uniforme) -- aquí, al revés, con el ÁNGULO fijo (el que ya
+// refinó la fase 2) se despeja la potencia que haría blanco exacto en un
+// campo de gravedad uniforme. Es una SEMILLA, nunca la respuesta final: con
+// pozos de verdad la trayectoria real se curva más o menos que esta
+// aproximación, así que el refinamiento ternario de la fase 2b todavía
+// ajusta alrededor de este punto de partida -- pero partir de la potencia
+// físicamente correcta (en vez de +-7.5 a ciegas desde el valor de la
+// rejilla) es lo que hace que ese ajuste local encuentre con qué potencia
+// SÍ conecta en vez de perderse en el hueco entre dos valores que fallan.
+// undefined si no hay solución real (apuntando en sentido contrario al
+// objetivo, o con el ángulo ya tocando 0/90/180 donde tan() diverge).
+function potenciaAnaliticaParaAngulo(
+  origenX: number,
+  origenY: number,
+  objetivoX: number,
+  objetivoY: number,
+  gravedad: number,
+  anguloGrados: number,
+): number | undefined {
+  const dx = objetivoX - origenX;
+  const distancia = Math.abs(dx);
+  if (distancia < 1e-6 || gravedad <= 0) return undefined;
+  const dirX = Math.sign(dx);
+  const thetaLocalGrados = dirX >= 0 ? anguloGrados : 180 - anguloGrados;
+  const thetaLocalRad = (thetaLocalGrados * Math.PI) / 180;
+  const u = Math.tan(thetaLocalRad);
+  if (!Number.isFinite(u)) return undefined;
+  const h = objetivoY - origenY;
+  const denominador = h + distancia * u;
+  if (denominador <= 0) return undefined;
+  const g = gravedad * GRAVEDAD_REFERENCIA_PX_S2;
+  const vCuadrado = (g * distancia * distancia * (1 + u * u)) / (2 * denominador);
+  if (!(vCuadrado > 0)) return undefined;
+  const potencia = potenciaDesdeVelocidad(Math.sqrt(vCuadrado));
+  if (!Number.isFinite(potencia)) return undefined;
+  return Math.min(100, Math.max(0, potencia));
+}
+
+// ia-punteria-6 (corrección de CI, hallazgo real: La Contable, sistema por
+// defecto semilla 20260926, tirador a la derecha y ARRIBA del objetivo): el
+// ángulo en línea recta hacia un objetivo que queda por DEBAJO de un
+// lanzamiento ascendente (dyPantalla > 0 lo bastante) cae fuera de
+// [ANGULO_MIN_GRADOS, ANGULO_MAX_GRADOS] -- ese rango solo admite ángulos
+// que lanzan HACIA ARRIBA (vy inicial <= 0 siempre, ver resolverDisparo).
+// Recortar ese ángulo con Math.max/min (como hacía esta función antes) no
+// lo acerca al objetivo: cuando dx < 0 (objetivo a la izquierda), el
+// recorte cae en ANGULO_MIN_GRADOS (≈2°, casi horizontal a la DERECHA) --
+// la dirección opuesta a la real. Medido: eso deja a Fase 1b barriendo
+// potencia entera en la dirección contraria al objetivo, sin encontrar
+// nunca el candidato real (ang≈132-133°, pot≈22, danio 14, confirmado con
+// un barrido fino fuera de test). Fuera del cono alcanzable, se conserva
+// solo la dirección horizontal (el único eje que de verdad decide esto
+// lanzamiento) con una elevación fija de 45°/135° -- arbitraria pero del
+// lado correcto, que es lo único que Fase 1b necesita para que su barrido
+// de potencia tenga alguna oportunidad real de conectar.
 function anguloDeEmergenciaHaciaObjetivo(tirador: NavePosicion, objetivo: NavePosicion): number {
   const dx = objetivo.x - tirador.x;
   const dyPantalla = objetivo.y - tirador.y;
-  const anguloGrados = (Math.atan2(-dyPantalla, dx) * 180) / Math.PI;
-  return Math.max(ANGULO_MIN_GRADOS, Math.min(ANGULO_MAX_GRADOS, anguloGrados));
+  const anguloBruto = (Math.atan2(-dyPantalla, dx) * 180) / Math.PI;
+  if (anguloBruto >= ANGULO_MIN_GRADOS && anguloBruto <= ANGULO_MAX_GRADOS) {
+    return anguloBruto;
+  }
+  return dx >= 0 ? 45 : 135;
 }
 
 function volar(params: ParametrosBusquedaRival, tirador: NavePosicion, objetivo: NavePosicion, anguloGrados: number, potencia: number) {
@@ -179,9 +266,9 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
   const candidatos = barridoRejilla({ ...params, presupuestoIntentos: presupuestoRejilla });
   let vuelosSimulados = presupuestoRejilla;
 
-  const huboCandidato = candidatos.length > 0;
+  let huboCandidato = candidatos.length > 0;
   let mejorAngulo = huboCandidato ? candidatos[0].anguloGrados : anguloDeEmergenciaHaciaObjetivo(tirador, objetivo);
-  const mejorPotencia = candidatos[0]?.potencia ?? 70;
+  let mejorPotencia = candidatos[0]?.potencia ?? 70;
   let mejorDanio = candidatos[0]?.danio ?? 0;
   // ia-autodanio-1: el refinamiento ternario parte del candidato que ya
   // ganó en la rejilla (sin autodaño siempre que hubiera alternativa), así
@@ -191,6 +278,47 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
   let mejorAutodanio = candidatos[0]?.autodanioTotal ?? 0;
   let mejorPuntuacion = candidatos[0]?.puntuacion ?? 0;
   let mejorPasosVuelo = candidatos[0]?.pasosVuelo ?? 0;
+
+  // Fase 1b (rescate de emergencia, hallazgo real: La Contable, sistema por
+  // defecto semilla 20260926): la rejilla gruesa solo prueba 5 potencias
+  // fijas (40/55/70/85/100, ver rejilla.ts) y, con el presupuesto de un
+  // turno normal, ni siquiera las cubre todas -- si el único tiro real
+  // pasa por una potencia baja que esa rejilla nunca prueba (aquí, 20-30%),
+  // huboCandidato queda en false y el disparo de emergencia dispara con
+  // potencia 70 fija, que falla siempre. Antes de rendirse del todo, un
+  // barrido fino de potencia completa [0,100] al MISMO ángulo de emergencia
+  // (ya apuntado geométricamente al objetivo) comprueba si alguna potencia
+  // SÍ conecta -- no es un segundo buscador, es el mismo resolverDisparo de
+  // siempre, solo que explorando el eje que la rejilla deja ciego.
+  if (!huboCandidato && vuelosSimulados < presupuestoMax) {
+    const pasos = Math.min(RONDAS_EMERGENCIA_POTENCIA, presupuestoMax - vuelosSimulados);
+    for (let muestra = 0; muestra < pasos; muestra++) {
+      const p = pasos <= 1 ? 50 : (100 * muestra) / (pasos - 1);
+      const r = volar(params, tirador, objetivo, mejorAngulo, p);
+      vuelosSimulados++;
+      if (r.danioObjetivo > 0) {
+        const autodanioTotal = r.danioPropio + (r.impactoPropio?.danio ?? 0);
+        const puntuacion = r.danioObjetivo - PESO_AUTODANIO * autodanioTotal;
+        const candidato = { anguloGrados: mejorAngulo, potencia: p, danio: r.danioObjetivo, autodanioTotal, puntuacion, pasosVuelo: r.pasosVuelo };
+        const actual = {
+          anguloGrados: mejorAngulo,
+          potencia: mejorPotencia,
+          danio: mejorDanio,
+          autodanioTotal: mejorAutodanio,
+          puntuacion: mejorPuntuacion,
+          pasosVuelo: mejorPasosVuelo,
+        };
+        if (!huboCandidato || compararCandidatos(candidato, actual) < 0) {
+          mejorPotencia = p;
+          mejorDanio = r.danioObjetivo;
+          mejorAutodanio = autodanioTotal;
+          mejorPuntuacion = puntuacion;
+          mejorPasosVuelo = r.pasosVuelo;
+          huboCandidato = true;
+        }
+      }
+    }
+  }
 
   // Fase 2: refinamiento ternario dentro de la celda gruesa alrededor del
   // mejor candidato, a su misma potencia -- solo tiene sentido si la rejilla
@@ -252,6 +380,55 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
       }
       if (compararCandidatos(candidato1, candidato2) < 0) hi = m2;
       else lo = m1;
+    }
+  }
+
+  // Fase 2b (ia-punteria-1): barrido fino de potencia en una ventana local
+  // alrededor de la semilla analítica (o del candidato de la rejilla si no
+  // hay semilla), al ángulo ya refinado por la fase 2 -- NO ternario, a
+  // diferencia de la fase de ángulo: probado y descartado (medido: ternario
+  // encontraba mejora en 0% de 40 sistemas). El motivo es que, a ángulo
+  // fijo, "qué potencia conecta" no es una colina suave de un solo máximo
+  // -- es una serie de picos estrechos (un disparo que pasa a 2px del
+  // casco no hace nada; a 2px más cerca, hace daño completo), así que
+  // bisecar por comparación entre dos puntos descarta la mitad del rango
+  // sin ninguna garantía de que el pico esté en la mitad que queda. Un
+  // barrido fino sí tiene alguna chance de caer DENTRO de un pico con el
+  // mismo número de vuelos. Con empate exacto de puntuación frente al
+  // mejor hallado hasta ahora, gana el candidato de potencia continua (<=,
+  // no <): sin esto, la potencia se queda siempre clavada en el valor de
+  // la rejilla en cuanto un valor cercano da el mismo daño.
+  if (huboCandidato) {
+    const semillaAnalitica = potenciaAnaliticaParaAngulo(tirador.x, tirador.y, objetivo.x, objetivo.y, params.gravedad, mejorAngulo);
+    const centroVentana = semillaAnalitica ?? mejorPotencia;
+    const loP = Math.max(0, centroVentana - VENTANA_POTENCIA_GRADOS);
+    const hiP = Math.min(100, centroVentana + VENTANA_POTENCIA_GRADOS);
+    for (let muestra = 0; muestra < RONDAS_REFINAMIENTO_POTENCIA && vuelosSimulados + 1 <= presupuestoMax; muestra++) {
+      const divisor = RONDAS_REFINAMIENTO_POTENCIA - 1;
+      const p = divisor <= 0 ? (loP + hiP) / 2 : loP + ((hiP - loP) * muestra) / divisor;
+      const r = volar(params, tirador, objetivo, mejorAngulo, p);
+      vuelosSimulados++;
+      const candidato = {
+        anguloGrados: mejorAngulo,
+        potencia: p,
+        danio: r.danioObjetivo,
+        autodanioTotal: r.danioPropio + (r.impactoPropio?.danio ?? 0),
+        puntuacion: r.danioObjetivo - PESO_AUTODANIO * (r.danioPropio + (r.impactoPropio?.danio ?? 0)),
+        pasosVuelo: r.pasosVuelo,
+      };
+      if (
+        compararCandidatos(candidato, {
+          anguloGrados: mejorAngulo,
+          potencia: mejorPotencia,
+          danio: mejorDanio,
+          autodanioTotal: mejorAutodanio,
+          puntuacion: mejorPuntuacion,
+          pasosVuelo: mejorPasosVuelo,
+        }) <= 0
+      ) {
+        ({ danio: mejorDanio, potencia: mejorPotencia, autodanioTotal: mejorAutodanio, puntuacion: mejorPuntuacion, pasosVuelo: mejorPasosVuelo } =
+          candidato);
+      }
     }
   }
 

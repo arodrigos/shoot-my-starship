@@ -23,15 +23,22 @@ import { ANGULO_INICIAL_GRADOS, POTENCIA_INICIAL, GANANCIA_ANGULO_GRADOS, GANANC
 // no tiene ningún efecto real y el segundo disparo repite el mismo punto
 // (distancia medida: ~0,2px), justo el fallo que destapó este bloque.
 //
-// (26°, 56%) se buscó por barrido exhaustivo sobre la misma física real
-// (resolverDisparo, incluido el rastreador de naves) para la semilla y
-// colocación de naves actuales: el primer disparo SÍ impacta dentro del
-// mundo (contra un planeta), y el segundo, tras el cráter, continúa por la
-// MISMA trayectoria determinista y aterriza ~474px más allá -- igual de
-// holgado que el margen anterior (~44,7px) frente al umbral de 30px, solo
-// que ahora de verdad atraviesa algo.
-const ANGULO_OBJETIVO_GRADOS = 26;
-const POTENCIA_OBJETIVO = 56;
+// ia-punteria (corrección): (26°, 56%) con la semilla de producción
+// (20260926) dejaron de valer -- colocarNaves (impacto-naves) ahora exige
+// tiro viable EN LAS DOS DIRECCIONES (fix de ia-punteria-6), esa semilla ya
+// no supera ni la recolocación ni las tres regeneraciones a 2521x822 (el
+// mundo de este viewport por defecto) y cae al último recurso
+// (colocacionUltimoRecurso), que coloca las naves en posiciones fijas sin
+// ninguna garantía de tiro, con un sistema planetario distinto del que este
+// disparo asumía. Se fija "?semilla=20" (sí coloca en el primer escalón de
+// recolocación con esta mundo) y se rebuscan ángulo/potencia por el mismo
+// barrido exhaustivo sobre la física real (resolverDisparo, con el
+// rastreador de naves) para la colocación resultante: el primer disparo SÍ
+// impacta dentro del mundo (contra un planeta), y el segundo, tras el
+// cráter, continúa por la MISMA trayectoria determinista y aterriza ~497px
+// más allá -- holgado frente al umbral de 30px.
+const ANGULO_OBJETIVO_GRADOS = 126.5;
+const POTENCIA_OBJETIVO = 23;
 
 function esEventoImpacto(evento: EventoSimulacion): evento is Extract<EventoSimulacion, { tipo: "impacto" }> {
   return evento.tipo === "impacto";
@@ -44,7 +51,7 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
   // medias), así que 150s no bastó en la práctica (medido: supera los
   // 150000ms totales bajo contención alta); se sube al doble de margen.
   test.setTimeout(280000);
-  await page.goto("/");
+  await page.goto("/?semilla=20");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined);

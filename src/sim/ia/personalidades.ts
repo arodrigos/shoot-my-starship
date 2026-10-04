@@ -10,12 +10,13 @@ export const LA_CONTABLE: Personalidad = {
   id: "la-contable",
   nombre: "La Contable",
   descripcion: "Apenas falla: desviación mínima en ángulo y potencia. La más difícil de las tres.",
-  // Banda alta (ia-3): desviación mínima en los dos ejes. El rango exacto
-  // sale de medir la tasa de victorias contra fuenteAleatoria (300 partidas,
-  // varias semillas) -- entre esto y el siguiente escalón hay un salto de
-  // ~55% a ~93% de victorias, así que no hay un punto medio "razonable a
-  // ojo": hay que medirlo.
-  error: { anguloGrados: { minimo: -1.2, maximo: 1.2 }, potencia: { minimo: -2.4, maximo: 2.4 } },
+  // Banda alta (ia-punteria-3, recalibrado): el buscador con refinamiento de
+  // potencia es más preciso que el que calibró ia-3 originalmente (98.0% de
+  // victorias contra el jugador patrón, muy por encima de la banda 75-90%
+  // que pide este bloque), así que el rango de error crece x2.8 en los dos
+  // ejes -- medido con npm run medir:ia (docs/jugador-patron.md, 200
+  // partidas, semilla maestra 2024): 89.5% de victorias, dentro de banda.
+  error: { anguloGrados: { minimo: -3.36, maximo: 3.36 }, potencia: { minimo: -6.72, maximo: 6.72 } },
   trayectoriaPreferida: "tenso",
   // El arma más eficiente por punto de daño entre las fiables, evitando la
   // única arma con fiabilidad < 1 (el Petardo de Feria no es "eficiente",
@@ -46,10 +47,13 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
   id: "almirante-bisagra",
   nombre: "Almirante Bisagra",
   descripcion: "Se pasa de fuerza casi siempre. Dificultad media: castiga menos que La Contable, pero no regala nada.",
-  // Banda media (ia-3): baja en ángulo, alta y sesgada a más potencia en
-  // potencia ("se pasa de fuerza" -- el rango es siempre positivo). Medido
-  // para caer entre La Contable y Chispa con margen a los dos lados.
-  error: { anguloGrados: { minimo: -3, maximo: 3 }, potencia: { minimo: 8, maximo: 20 } },
+  // Banda media (ia-punteria-3, recalibrado): con el buscador mejorado
+  // ganaba el 90.0% de las partidas, muy por encima de la banda 45-65% que
+  // pide este bloque -- el rango de error crece x2.2 en ángulo y x1.4 en
+  // potencia (menos en potencia porque "se pasa de fuerza" sigue siendo su
+  // sesgo declarado, no una imprecisión nueva). Medido con npm run medir:ia:
+  // 57.0% de victorias, dentro de banda.
+  error: { anguloGrados: { minimo: -6.6, maximo: 6.6 }, potencia: { minimo: 11.2, maximo: 28 } },
   trayectoriaPreferida: "mortero",
   // Prefiere el mortero y las armas con retardo (el Racimo de Tuppers se
   // abre a media altura), que le dan tiempo a hablar antes del impacto.
@@ -79,11 +83,15 @@ export const CHISPA: Personalidad = {
   id: "chispa",
   nombre: "Chispa",
   descripcion: "A veces se entierra a sí misma. La más floja de las tres: ideal para la primera partida.",
-  // Banda baja (ia-3): desviación alta en los dos ejes. Un rango tan alto
-  // como el de la voz ("a veces se entierra a sí misma") la hacía perder
-  // casi siempre (~3-5%, por debajo del suelo de ia-3); esto la deja
-  // rondando el 15-25% sin dejar de ser, con diferencia, la más floja.
-  error: { anguloGrados: { minimo: -4.5, maximo: 4.5 }, potencia: { minimo: -5.5, maximo: 5.5 } },
+  // Banda baja (ia-punteria-3, recalibrado): con el buscador mejorado el
+  // rango original la dejaba en 8.5% de victorias, por debajo de la banda
+  // 20-40% que pide este bloque. Lo que de verdad la hace perder no es el
+  // error de apuntado (sus armas preferidas son las de menos daño del
+  // catálogo), así que el rango se RECORTA x0.15/x0.18 en vez de crecer --
+  // es la personalidad que menos corrección necesitaba sobre su puntería
+  // bruta, solo había que dejar que esa puntería contara. Medido con npm
+  // run medir:ia: 31.3% de victorias (150 partidas), dentro de banda.
+  error: { anguloGrados: { minimo: -0.675, maximo: 0.675 }, potencia: { minimo: -0.99, maximo: 0.99 } },
   trayectoriaPreferida: "tenso",
   // Las armas raras, las de terreno y el Petardo de Feria antes que nada
   // fiable.

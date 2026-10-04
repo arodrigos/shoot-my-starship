@@ -120,7 +120,11 @@ function intentarColocarEnSistema(
     aleatorio = pasoB.aleatorio;
     if (!pasoB.punto) continue;
 
-    const viable = existeTiroViable({
+    const navesCandidatas = [
+      { id: 0 as const, x: pasoA.punto.x, y: pasoA.punto.y },
+      { id: 1 as const, x: pasoB.punto.x, y: pasoB.punto.y },
+    ];
+    const parametrosViabilidadComunes = {
       mascara: sistema.mascara,
       ancho: mundo.ancho,
       alto: mundo.alto,
@@ -129,15 +133,26 @@ function intentarColocarEnSistema(
       deriva: mundo.deriva,
       aleatorio,
       arma: armaBase,
-      naves: [
-        { id: 0, x: pasoA.punto.x, y: pasoA.punto.y },
-        { id: 1, x: pasoB.punto.x, y: pasoB.punto.y },
-      ],
-      tiradorId: 0,
-      objetivoId: 1,
+      naves: navesCandidatas,
       presupuestoIntentos: PRESUPUESTO_INTENTOS_VIABILIDAD,
-    });
-    if (!viable) continue;
+    };
+    // ia-punteria-6 (hallazgo real, world espacial 1121x1156 derivado del
+    // viewport 360x640, semilla 20260926): esta comprobación solo exigía el
+    // tiro de la nave 0 a la nave 1, nunca el inverso -- con gravedad
+    // ambiental 0 (modo espacial, la curvatura depende solo de qué pozos
+    // cruza CADA trayectoria) un tiro que conecta en un sentido no implica
+    // que conecte en el otro. Confirmado por fuerza bruta (5 armas x 177
+    // ángulos x 101 potencias, fuera de test): nave0->nave1 conectaba con
+    // daño 14 y nave1->nave0 no tenía NINGÚN candidato en todo ese espacio,
+    // así que ninguna IA que dispare desde la nave 1 podía ganar nunca esa
+    // partida -- no es un fallo de búsqueda de busquedaMultipozo.ts, es una
+    // colocación que nunca debió aceptarse como jugable. Exigir las dos
+    // direcciones descarta esa colocación en el mismo escalón de
+    // recolocación/regeneración que ya existía, sin tocar ninguna otra regla.
+    const viableIda = existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: 0, objetivoId: 1 });
+    if (!viableIda) continue;
+    const viableVuelta = existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: 1, objetivoId: 0 });
+    if (!viableVuelta) continue;
 
     const naves: [EstadoNave, EstadoNave] = [
       { x: pasoA.punto.x, y: pasoA.punto.y, integridad: 100 },

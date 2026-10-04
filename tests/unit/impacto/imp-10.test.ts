@@ -11,8 +11,17 @@ import type { ParametrosMundo } from "@/sim/partida/tipos";
 // antes (imp-9), y cada intento de viabilidad es un vuelo real completo.
 // Este test presupuesta que ese coste extra sigue dentro de lo razonable
 // para el arranque de una partida.
+//
+// Presupuesto recalibrado en ia-punteria (297ba26): intentarColocarEnSistema
+// pasó a exigir existeTiroViable en los DOS sentidos (antes solo
+// nave0->nave1), así que cada intento de colocación cuesta el doble de
+// vuelos de viabilidad que antes de este bloque. Medido en el CI real tras
+// el cambio: p95 de 472ms (antes, con un solo sentido, por debajo de 400ms).
+// Se sube a 650ms, con margen sobre lo medido, en vez de revertir una
+// comprobación de dos sentidos que es la que hace que la IA de la nave 1
+// tenga siempre un tiro que ganar.
 const NUM_SEMILLAS = 100;
-const P95_MAXIMO_MS = 400;
+const P95_MAXIMO_MS = 650;
 const PRESUPUESTO_VUELOS_TOTAL = 6000;
 const MUNDO: ParametrosMundo = {
   ancho: MUNDO_ANCHO,
@@ -22,7 +31,7 @@ const MUNDO: ParametrosMundo = {
   etiquetaDeriva: "ninguna",
 };
 
-test("imp-10: crear una partida tiene p95 < 400ms en 100 semillas y ninguna semilla supera 6.000 vuelos simulados", () => {
+test("imp-10: crear una partida tiene p95 < 650ms en 100 semillas y ninguna semilla supera 6.000 vuelos simulados", () => {
   const duracionesMs: number[] = [];
   let vuelosMaximosEnUnaCreacion = 0;
 

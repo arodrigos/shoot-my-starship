@@ -6,7 +6,16 @@ async function entrarAPartidaEspacial(page: import("@playwright/test").Page): Pr
   // Sin "?mapa=": es la rama del hito espacial (render-espacio), la única
   // con material escombro real en la máscara (los mapas de suelo plano solo
   // conocen SOLIDO) -- ver Partida.ts y el comentario de esp-1.e2e.ts.
-  await page.goto("/");
+  //
+  // ia-punteria (corrección): la semilla de producción (20260926) ya no
+  // sirve de referencia fija a 360x640 -- colocarNaves (impacto-naves)
+  // ahora exige tiro viable EN LAS DOS DIRECCIONES (fix de ia-punteria-6) y
+  // con esa semilla la colocación original deja de ser válida, cae al
+  // escalón de regeneración y el sistema regenerado no tiene cinturón de
+  // escombro. La semilla 4 sí coloca las naves en el primer escalón
+  // (recolocación) y conserva escombro real, comprobado por fuerza bruta
+  // con colocarNaves fuera de test.
+  await page.goto("/?semilla=4");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.modoEspacial === true);
