@@ -730,8 +730,11 @@ export function ControlHUD() {
             <p>Ambas barras recuerdan el último valor que dejaste. Elige arma y pulsa Disparar.</p>
             {estado.modoEspacial && (
               <p data-testid="ayuda-espacial">
-                Los planetas curvan la trayectoria de tu disparo -- apunta pensando en su tirón, no en línea recta.
-                Un disparo puede quedarse en órbita y perderse: si pasa, el turno sigue igual.
+                Los planetas curvan la trayectoria de tu disparo -- apunta pensando en su tirón, no en línea recta. El
+                halo azul alrededor de cada planeta es su campo de gravedad real: más cerca, más tirón. La línea
+                punteada es tu mira, un adelanto corto y honesto de hacia dónde va a curvarse el disparo con el ángulo
+                y la potencia que tienes ahora -- muévela y verás cómo cambia. Un disparo puede quedarse en órbita y
+                perderse: si pasa, el turno sigue igual.
               </p>
             )}
             <p data-testid="explicacion-modo">
