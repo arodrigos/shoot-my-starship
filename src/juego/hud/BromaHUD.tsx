@@ -31,112 +31,94 @@ export function BromaHUD() {
       data-testid="panel-bromas"
       style={{
         pointerEvents: "auto",
-        display: "flex",
-        flexDirection: "column",
-        // hud-canales-1 (quinta corrección): fila-avisos pasó de fila a
-        // columna -- alignSelf (no alignItems del padre) es lo que sigue
-        // pegando este panel al borde derecho dentro de esa columna, ahora
-        // que ya no comparte ancho con roce ni con el aviso.
+        position: "relative",
+        // hud-canales-1 (quinta corrección): alignSelf (no alignItems del
+        // padre) es lo que pega este panel al borde derecho de la columna de
+        // fila-avisos.
         alignSelf: "flex-end",
         maxWidth: "74%",
         minWidth: 0,
-        // hud-canales (séptima corrección): sin minHeight:0 este item de
-        // flex no se encoge por debajo de su alto de contenido aunque el
-        // aviso ocupe sitio a la vez (lay-3) -- su propio rect (el que mide
-        // el e2e) seguía siendo el de contenido completo y se salía de los
-        // 78px de fila-avisos, solapando selector-arma-abrir de verdad. Con
-        // minHeight:0 el reparto de flex-shrink lo comprime junto al aviso
-        // hasta que la suma cabe, y el sobrante se lee con el scroll que
-        // el panel interior ya tenía.
-        minHeight: 0,
+        width: "100%",
+        // hud-canales (décima corrección): flexShrink:0 (octava corrección)
+        // dejaba a este panel fuera del reparto del flex de fila-avisos --
+        // con su alto natural propio (hasta 78px) SUMADO al del aviso
+        // (también visible en todo turno propio, hud-canales-5), el total
+        // no cabía en los 78px fijos de fila-avisos, y aunque el overflow
+        // de la fila lo recortara visualmente, su caja real
+        // (getBoundingClientRect, no lo pintado) seguía midiendo su alto
+        // natural completo y sobresalía por debajo del límite de la fila --
+        // justo la caja que lay-3 medía solapada con selector-arma-abrir.
+        // flexShrink por defecto (1) deja que el flex SÍ comprima este
+        // panel, hasta minHeight (44, el mismo mínimo legible de siempre),
+        // para que quepa junto al aviso en 78px sin excepción; el overflow
+        // de abajo sigue siendo cómo se lee una broma larga que no entra en
+        // el alto que le toque, nunca recortándola a media letra.
+        minHeight: 44,
+        maxHeight: 78,
+        overflowY: "auto",
+        boxSizing: "border-box",
+        background: "rgba(10,12,20,0.78)",
+        borderRadius: 8,
+        padding: "4px 10px",
+        paddingRight: 40,
       }}
     >
-      <div
-        style={{
-          position: "relative",
-          background: "rgba(10,12,20,0.78)",
-          borderRadius: 8,
-          padding: "4px 10px",
-          paddingRight: 40,
-          width: "100%",
-          minHeight: 44,
-          // hud-canales (corrección): el recorte por línea (WebkitLineClamp:2)
-          // cortaba la broma a media frase (hallazgo del gatekeeper: "…toda mi
-          // confianza y ni un gramo de mi…") porque el catálogo de humor tiene
-          // frases de hasta 291 caracteres, muchas más de las 2 líneas que
-          // caben a 12-13px de ancho de panel. El tope es de ALTO sobre el
-          // panel entero, con scroll propio -- el mensaje se puede leer
-          // entero desplazándose, nunca se pierde media frase sin aviso.
-          // hud-canales-1 (sexta corrección): 96px se salía del propio tope
-          // de fila-avisos (78px, lo que de verdad cabe en la consola a
-          // 360x640) -- la caja de este panel, aunque se recortara visualmente
-          // por el overflow del padre, seguía midiendo 96px de alto para
-          // getBoundingClientRect, y ese sobrante de 18px es justo lo que
-          // lay-3 medía solapado con selector-arma-abrir. 78px iguala el
-          // propio tope del padre: la frase más larga sigue entera, solo que
-          // alcanzable con scroll en vez de con margen de sobra.
-          maxHeight: 78,
-          overflowY: "auto",
-          boxSizing: "border-box",
-        }}
-      >
-        {estado.disparo && (
-          <div
-            data-testid="broma-disparo-texto"
-            role="status"
-            style={{
-              color: "#cfe8ff",
-              font: "12px system-ui, sans-serif",
-              textAlign: "center",
-              wordBreak: "break-word",
-              overflowWrap: "anywhere",
-            }}
-          >
-            {estado.disparo}
-          </div>
-        )}
-        {estado.impacto && (
-          <div
-            data-testid="broma-impacto-texto"
-            data-categoria={estado.categoriaImpacto ?? undefined}
-            role="status"
-            style={{
-              marginTop: estado.disparo ? 2 : 0,
-              color: "#ffe08a",
-              font: "13px system-ui, sans-serif",
-              textAlign: "center",
-              wordBreak: "break-word",
-              overflowWrap: "anywhere",
-            }}
-          >
-            {estado.impacto}
-          </div>
-        )}
-        {/* hud-canales-4: superpuesto a la ESQUINA de este mismo fondo (no
-            fuera de él, que era el "aspa solapada" del hallazgo anterior) --
-            el padding-right de 40px le reserva sitio sin tapar el texto, y
-            al no ser una fila aparte no suma su propio alto al panel. */}
-        <button
-          type="button"
-          data-testid="broma-descartar"
-          onClick={() => setClaveOculta(estado.clave)}
-          aria-label="Descartar broma"
+      {estado.disparo && (
+        <div
+          data-testid="broma-disparo-texto"
+          role="status"
           style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            minWidth: 44,
-            minHeight: 44,
-            background: "transparent",
-            border: "none",
             color: "#cfe8ff",
-            font: "14px system-ui, sans-serif",
-            cursor: "pointer",
+            font: "12px system-ui, sans-serif",
+            textAlign: "center",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
           }}
         >
-          ✕
-        </button>
-      </div>
+          {estado.disparo}
+        </div>
+      )}
+      {estado.impacto && (
+        <div
+          data-testid="broma-impacto-texto"
+          data-categoria={estado.categoriaImpacto ?? undefined}
+          role="status"
+          style={{
+            marginTop: estado.disparo ? 2 : 0,
+            color: "#ffe08a",
+            font: "13px system-ui, sans-serif",
+            textAlign: "center",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {estado.impacto}
+        </div>
+      )}
+      {/* hud-canales-4: superpuesto a la ESQUINA de este mismo fondo (no
+          fuera de él, que era el "aspa solapada" del hallazgo anterior) --
+          el padding-right de 40px le reserva sitio sin tapar el texto, y
+          al no ser una fila aparte no suma su propio alto al panel. */}
+      <button
+        type="button"
+        data-testid="broma-descartar"
+        onClick={() => setClaveOculta(estado.clave)}
+        aria-label="Descartar broma"
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          minWidth: 44,
+          minHeight: 44,
+          background: "transparent",
+          border: "none",
+          color: "#cfe8ff",
+          font: "14px system-ui, sans-serif",
+          cursor: "pointer",
+        }}
+      >
+        ✕
+      </button>
     </div>
   );
 }

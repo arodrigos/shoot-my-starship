@@ -44,11 +44,19 @@ export class IndicadorDeriva {
     this.x = xCss * compensacionEscala;
     this.y = yCss * compensacionEscala;
     this.grafico = escena.add.graphics().setScrollFactor(0).setDepth(100);
+    // hud-canales (octava corrección): el origen por defecto de Phaser es
+    // arriba-izquierda, así que el texto EMPEZABA en xCss (180, el centro
+    // de 360px) y se salía por el borde derecho -- el comentario de más
+    // arriba decía "centrado" pero nada llamaba a setOrigin. Con origin
+    // (0.5, 0) el texto queda centrado en self.x sea cual sea su longitud,
+    // y a 360px de ancho la etiqueta más larga del catálogo (41
+    // caracteres) cabe entera a los dos lados del centro.
     this.texto = escena.add
       .text(this.x, this.y + 18 * compensacionEscala, "", {
         fontSize: `${Math.round(TAMANO_FUENTE_CSS_PX * compensacionEscala)}px`,
         color: "#f2f2f2",
       })
+      .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(100);
   }
