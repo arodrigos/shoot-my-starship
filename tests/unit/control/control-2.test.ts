@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { anguloConPasoFino } from "@/juego/control/apuntado";
+import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, anguloConPasoFino } from "@/juego/control/apuntado";
 
 // control-2: 10 pulsaciones de +0.1° cambian el ángulo exactamente 1.0°. El
 // tamaño físico del botón (>=24x24 px CSS) es una comprobación de layout, se
@@ -23,16 +23,20 @@ test("control-2: 10 pulsaciones de -0.1° cambian el ángulo exactamente -1.0°"
   assert.equal(Math.abs(angulo - (inicial - 1.0)) < 1e-9, true, `ángulo final ${angulo}, se esperaba ${inicial - 1.0}`);
 });
 
-test("control-2: el paso fino nunca saca el ángulo de [2, 178]", () => {
-  let angulo = 177.95;
+// adrian-angulo-360: el rango dejó de ser [2, 178] (medio círculo) para
+// cubrir el círculo completo -- la aritmética de saturación es la misma,
+// solo cambian los límites, así que el test se reescribe contra las
+// constantes en vez de contra los números viejos.
+test("control-2: el paso fino nunca saca el ángulo de su rango", () => {
+  let angulo = ANGULO_MAXIMO_GRADOS - 0.05;
   for (let i = 0; i < 5; i++) {
     angulo = anguloConPasoFino(angulo, 1);
   }
-  assert.equal(angulo <= 178, true, `ángulo ${angulo} superó el máximo`);
+  assert.equal(angulo <= ANGULO_MAXIMO_GRADOS, true, `ángulo ${angulo} superó el máximo`);
 
-  let angulo2 = 2.05;
+  let angulo2 = ANGULO_MINIMO_GRADOS + 0.05;
   for (let i = 0; i < 5; i++) {
     angulo2 = anguloConPasoFino(angulo2, -1);
   }
-  assert.equal(angulo2 >= 2, true, `ángulo ${angulo2} superó el mínimo`);
+  assert.equal(angulo2 >= ANGULO_MINIMO_GRADOS, true, `ángulo ${angulo2} superó el mínimo`);
 });

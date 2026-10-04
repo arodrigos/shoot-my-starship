@@ -749,8 +749,8 @@ export function ControlHUD() {
         >
           <div style={{ maxWidth: 320 }}>
             <p data-testid="ayuda-control-angulo">
-              La barra de arriba es el ángulo: arrástrala de un extremo a otro para girar de 2° a 178° en un solo
-              gesto, o usa +0.1°/-0.1° para el ajuste fino.
+              La barra de arriba es el ángulo: arrástrala de un extremo a otro para girar en círculo completo (0° a
+              360°, también hacia abajo) en un solo gesto, o usa +0.1°/-0.1° para el ajuste fino.
             </p>
             <p data-testid="ayuda-control-potencia">
               La barra de abajo es la potencia: es un control aparte, arrastrarlo nunca cambia el ángulo. Usa

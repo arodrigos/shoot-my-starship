@@ -4,8 +4,14 @@
 // fracción de viewport (0..1), la misma convención que ya usa el resto de
 // la cáscara (ver Partida.ts) para que el gesto sea invariante al tamaño de
 // pantalla.
-export const ANGULO_MINIMO_GRADOS = 2;
-export const ANGULO_MAXIMO_GRADOS = 178;
+// adrian-angulo-360: el límite de 2°-178° (medio círculo, siempre hacia
+// arriba) impedía disparar contra un rival que quedara por debajo del
+// tirador -- una colocación real y no patológica en el hito espacial, donde
+// las naves flotan en vacío y no hay "suelo" que garantice que el rival
+// esté siempre por encima. El rango ahora cubre el círculo completo, con un
+// solo gesto, tal como pidió Adrián.
+export const ANGULO_MINIMO_GRADOS = 0;
+export const ANGULO_MAXIMO_GRADOS = 360;
 export const POTENCIA_MINIMA = 0;
 export const POTENCIA_MAXIMA = 100;
 

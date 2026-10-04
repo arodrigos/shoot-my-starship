@@ -692,6 +692,21 @@ export class Partida extends Phaser.Scene {
       this.refrescarNaves();
       this.refrescarDebugNaves();
     };
+    // adrian-angulo-360: teletransporta una nave (solo tiene efecto con
+    // nave.y presente, el hito espacial) sin jugar un turno real -- mismo
+    // patrón que forzarIntegridad. Necesario para que el e2e pueda colocar
+    // al rival justo debajo del tirador de forma determinista.
+    window.__debug.forzarPosicionNave = (nave, x, y) => {
+      this.estado = {
+        ...this.estado,
+        naves: [
+          { ...this.estado.naves[0], ...(nave === 0 ? { x, y } : {}) },
+          { ...this.estado.naves[1], ...(nave === 1 ? { x, y } : {}) },
+        ],
+      };
+      this.refrescarNaves();
+      this.refrescarDebugNaves();
+    };
     // arte-siluetas-3: sin este refrescarNaves() de arranque, marcarActiva()
     // no se llamaba nunca hasta que se resolvía el primer turno (línea más
     // abajo, dentro de aplicarResultadoTurno) -- el indicador de nave propia
@@ -1700,6 +1715,12 @@ export class Partida extends Phaser.Scene {
   // no una condición de parada inventada -- así el test puede pedir un tiro
   // que falle a propósito (danio === 0) sin adivinar ángulo/potencia a
   // ciegas ni depender de que ningún planeta se cruce por casualidad.
+  //
+  // adrian-angulo-360 (corrección): sin incluirDispersionPotencia:true este
+  // oráculo predecía sobre un tiro SIN la dispersión que avanzar.ts SIEMPRE
+  // aplica al disparo real -- un tiro al borde del radio de efecto que el
+  // oráculo daba por fallo (danio 0) podía acabar impactando de verdad, que
+  // es justo lo que delató imp-11 (85 vs 86 de integridad esperada).
   private probarDisparoMultipozo(estado: EstadoPartida, anguloGrados: number, potencia: number): { danio: number } {
     const tirador = estado.turno;
     const objetivoId = naveContraria(tirador);
@@ -1723,6 +1744,7 @@ export class Partida extends Phaser.Scene {
       planetas: estado.planetas,
       naves,
       tiradorId: tirador,
+      incluirDispersionPotencia: true,
     });
     return { danio: resultado.danioObjetivo };
   }
