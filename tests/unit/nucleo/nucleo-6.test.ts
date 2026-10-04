@@ -28,7 +28,12 @@ function fuenteHumanoSimulado(cola: readonly EntradaDeTurno[]): FuenteDeTurno {
 // cola, como hará ia-personalidades más adelante. Ángulo y potencia caen a
 // ~15px de la nave contraria dada la distancia entre 300 y 1620.
 const fuenteMaquina: FuenteDeTurno = (estado) => ({
-  entrada: { arma: "pepinazo-cortesia", anguloGrados: estado.turno === 0 ? 45 : 135, potencia: 60 },
+  entrada: {
+    arma: "pepinazo-cortesia",
+    anguloGrados: estado.turno === 0 ? 45 : 135,
+    potencia: 60,
+    objetivoId: estado.turno === 0 ? 1 : 0,
+  },
   estado,
 });
 
@@ -80,8 +85,8 @@ test("nucleo-6: FuenteDeTurno soporta humano-vs-máquina, máquina-vs-máquina y
   // caen a menos de 1px del centro exacto, lo que da mucho más margen antes
   // de que la deriva del terreno las saque del radio de daño.
   const colaHumano: EntradaDeTurno[] = [
-    { arma: "pepinazo-cortesia", anguloGrados: 76.0, potencia: 100 },
-    { arma: "pepinazo-cortesia", anguloGrados: 69.3, potencia: 80 },
+    { arma: "pepinazo-cortesia", anguloGrados: 76.0, potencia: 100, objetivoId: 1 },
+    { arma: "pepinazo-cortesia", anguloGrados: 69.3, potencia: 80, objetivoId: 1 },
   ];
   // Espejo de colaHumano (180 - ángulo) para disparar desde x=1620 hacia
   // x=300: el mismo guion no sirve para las dos naves porque no apuntan al
@@ -89,6 +94,7 @@ test("nucleo-6: FuenteDeTurno soporta humano-vs-máquina, máquina-vs-máquina y
   const colaHumanoEspejo: EntradaDeTurno[] = colaHumano.map((entrada) => ({
     ...entrada,
     anguloGrados: 180 - entrada.anguloGrados,
+    objetivoId: 0,
   }));
 
   const combinaciones: [string, [FuenteDeTurno, FuenteDeTurno]][] = [
@@ -99,7 +105,7 @@ test("nucleo-6: FuenteDeTurno soporta humano-vs-máquina, máquina-vs-máquina y
 
   const mascara = crearMascaraPlana(MUNDO.ancho, MUNDO.alto, 900);
   for (const [nombre, fuentes] of combinaciones) {
-    const inicial = crearPartidaInicial(MUNDO, mascara, 300, 1620, 4242);
+    const inicial = crearPartidaInicial(MUNDO, mascara, [300, 1620], 4242);
     const { estado, agotada } = jugarPartida(inicial, fuentes, LIMITE_TURNOS);
     assert.equal(agotada, false, `${nombre}: la partida no convergió en ${LIMITE_TURNOS} turnos`);
     assert.equal(estado.resultado.tipo, "terminada", `${nombre}: no terminó con un ganador`);
@@ -124,13 +130,18 @@ test("grav-9: una partida de 30 turnos con planetas da la misma secuencia de est
     arma: "pepinazo-cortesia",
     anguloGrados: 30 + (i % 7) * 6,
     potencia: 60 + (i % 5) * 8,
+    objetivoId: 1,
   }));
-  const GUION_B: EntradaDeTurno[] = GUION_A.map((entrada) => ({ ...entrada, anguloGrados: 180 - entrada.anguloGrados }));
+  const GUION_B: EntradaDeTurno[] = GUION_A.map((entrada) => ({
+    ...entrada,
+    anguloGrados: 180 - entrada.anguloGrados,
+    objetivoId: 0,
+  }));
 
-  const inicialA = crearPartidaInicial(MUNDO, mascara, 300, 1620, 24680, [planetaInicial]);
+  const inicialA = crearPartidaInicial(MUNDO, mascara, [300, 1620], 24680, [planetaInicial]);
   const finalIninterrumpido = jugarNTurnos(inicialA, [fuenteScriptada(GUION_A), fuenteScriptada(GUION_B)], 30, false);
 
-  const inicialB = crearPartidaInicial(MUNDO, mascara, 300, 1620, 24680, [planetaInicial]);
+  const inicialB = crearPartidaInicial(MUNDO, mascara, [300, 1620], 24680, [planetaInicial]);
   const finalConRecarga = jugarNTurnos(inicialB, [fuenteScriptada(GUION_A), fuenteScriptada(GUION_B)], 30, true);
 
   assert.equal(hashDeEstado(finalConRecarga), hashDeEstado(finalIninterrumpido));

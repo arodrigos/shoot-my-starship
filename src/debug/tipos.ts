@@ -164,7 +164,7 @@ export interface DebugGlobal {
   // control-1: de quién es el turno ahora mismo y cuántos turnos van
   // resueltos -- para esperar a "el turno ha vuelto al jugador tras el
   // disparo de la máquina" sin una espera fija (issue #151).
-  turno?: 0 | 1;
+  turno?: IdNave;
   numeroTurno?: number;
   // control-1, control-5: la solución balística exacta (deriva 0) para que
   // el disparo de quien tiene el turno ahora acierte al rival -- deja que

@@ -40,7 +40,7 @@ export interface InformePersonalidad {
 // blanco real", no la dispersión interna de decidir.ts que ya mide ia-n4
 // (esa compara contra su propia solución exacta, no contra el objetivo).
 function medirPartida(personalidad: Personalidad, semilla: number, mascara: ReturnType<typeof generarMascara>) {
-  let estado: EstadoPartida = crearPartidaInicial(MUNDO_LOTE, mascara, NAVE0_X, NAVE1_X, semilla);
+  let estado: EstadoPartida = crearPartidaInicial(MUNDO_LOTE, mascara, [NAVE0_X, NAVE1_X], semilla);
 
   let gano = false;
   let disparos = 0;

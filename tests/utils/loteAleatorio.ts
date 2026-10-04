@@ -31,8 +31,9 @@ export const LIMITE_TURNOS_LOTE = 1000;
 // potencia -- ni una IA perfecta ni un disparo puramente al azar, que con
 // el catálogo real casi nunca conecta en un mundo de 960px de ancho.
 export const fuenteAleatoria: FuenteDeTurno = (estado) => {
+  const objetivoId = estado.turno === 0 ? 1 : 0;
   const tirador = estado.naves[estado.turno];
-  const objetivo = estado.naves[estado.turno === 0 ? 1 : 0];
+  const objetivo = estado.naves[objetivoId];
   const soluciones = resolverSolucionesBalisticas(tirador.x, 0, objetivo.x, 0, estado.mundo.gravedad);
   const base = soluciones[0] ?? { anguloGrados: 45, potencia: 90 };
 
@@ -42,7 +43,7 @@ export const fuenteAleatoria: FuenteDeTurno = (estado) => {
   const potencia = Math.min(100, Math.max(80, base.potencia + (pasoPotencia.valor - 0.5) * 20));
 
   return {
-    entrada: { arma: "pepinazo-cortesia", anguloGrados, potencia },
+    entrada: { arma: "pepinazo-cortesia", anguloGrados, potencia, objetivoId },
     estado: { ...estado, aleatorio: pasoPotencia.estado },
   };
 };
@@ -63,7 +64,7 @@ export const NAVE0_X = 150;
 export const NAVE1_X = 810;
 
 function jugarUnaPartidaDelLote(semilla: number, mascara: Mascara): ResultadoPartidaLote {
-  const inicial: EstadoPartida = crearPartidaInicial(MUNDO_LOTE, mascara, NAVE0_X, NAVE1_X, semilla);
+  const inicial: EstadoPartida = crearPartidaInicial(MUNDO_LOTE, mascara, [NAVE0_X, NAVE1_X], semilla);
   const { estado, agotada } = jugarPartida(inicial, [fuenteAleatoria, fuenteAleatoria], LIMITE_TURNOS_LOTE);
   return {
     semilla,

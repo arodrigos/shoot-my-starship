@@ -12,7 +12,7 @@ const MUNDO = { ancho: 1920, alto: 1080, gravedad: 1.0, deriva: -60, etiquetaDer
 // que reanudar desde JSON produce el mismo estado que no interrumpir nunca.
 // No importa si la partida termina antes del turno 20 -- las dos ramas
 // terminan igual, porque son la misma secuencia de decisiones.
-const GUION: EntradaDeTurno[] = Array.from({ length: 20 }, (_, i) => ({
+const GUION: Omit<EntradaDeTurno, "objetivoId">[] = Array.from({ length: 20 }, (_, i) => ({
   arma: "pepinazo-cortesia",
   anguloGrados: 30 + (i % 7) * 9,
   potencia: 40 + (i % 5) * 12,
@@ -21,9 +21,9 @@ const GUION: EntradaDeTurno[] = Array.from({ length: 20 }, (_, i) => ({
 function fuenteScriptada(indiceInicial: number): { fuente: FuenteDeTurno; indice: { actual: number } } {
   const indice = { actual: indiceInicial };
   const fuente: FuenteDeTurno = (estado) => {
-    const entrada = GUION[indice.actual % GUION.length];
+    const base = GUION[indice.actual % GUION.length];
     indice.actual++;
-    return { entrada, estado };
+    return { entrada: { ...base, objetivoId: estado.turno === 0 ? 1 : 0 }, estado };
   };
   return { fuente, indice };
 }
@@ -47,12 +47,12 @@ test("nucleo-2: serializar a mitad de partida y reanudar en un objeto nuevo da e
   const mascara = crearMascaraPlana(MUNDO.ancho, MUNDO.alto, 900);
   const { fuente: fuenteA0 } = fuenteScriptada(0);
   const { fuente: fuenteA1 } = fuenteScriptada(0);
-  const inicialA = crearPartidaInicial(MUNDO, mascara, 200, 1720, 13579);
+  const inicialA = crearPartidaInicial(MUNDO, mascara, [200, 1720], 13579);
   const finalIninterrumpido = jugarHastaNTurnos(inicialA, [fuenteA0, fuenteA1], 20);
 
   const { fuente: fuenteB0, indice: indiceB0 } = fuenteScriptada(0);
   const { fuente: fuenteB1, indice: indiceB1 } = fuenteScriptada(0);
-  const inicialB = crearPartidaInicial(MUNDO, mascara, 200, 1720, 13579);
+  const inicialB = crearPartidaInicial(MUNDO, mascara, [200, 1720], 13579);
   const trasDiezTurnos = jugarHastaNTurnos(inicialB, [fuenteB0, fuenteB1], 10);
 
   // serializarEstado/deserializarEstado simulan guardar y cargar en un

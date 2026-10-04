@@ -91,4 +91,6 @@ export type EventoSimulacion =
   // de personalidad) y nunca cambia la integridad de nadie.
   | { readonly tipo: "roce"; readonly nave: IdNave; readonly x: number; readonly y: number }
   | { readonly tipo: "turno-fin"; readonly siguienteTurno: IdNave }
-  | { readonly tipo: "partida-fin"; readonly ganador: IdNave };
+  // nucleo-n-naves: ganador nullable -- empate real cuando un disparo de
+  // área deja sin vida a las dos últimas naves en pie a la vez.
+  | { readonly tipo: "partida-fin"; readonly ganador: IdNave | null };

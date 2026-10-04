@@ -371,7 +371,15 @@ export function registrarManejadorDisparo(manejador: ManejadorDisparo): () => vo
 export function solicitarDisparo(): void {
   if (!estado.puedeDisparar || !manejadorDisparo) return;
   if (estado.ayudaDispersionVisible) fijar({ ayudaDispersionVisible: false });
-  manejadorDisparo({ arma: estado.ajuste.armaId, anguloGrados: estado.ajuste.anguloGrados, potencia: estado.ajuste.potencia });
+  // nucleo-n-naves: el jugador humano (id 0) sigue siendo solo-contra-la-IA
+  // (id 1) hasta multi-setup-partida, que es quien construye la selección
+  // de objetivo con varios rivales en pantalla.
+  manejadorDisparo({
+    arma: estado.ajuste.armaId,
+    anguloGrados: estado.ajuste.anguloGrados,
+    potencia: estado.ajuste.potencia,
+    objetivoId: 1,
+  });
 }
 
 // partida-completa: "otra partida" reutiliza el mismo store (es un

@@ -57,19 +57,49 @@ test("eventosHumor: huboDerivaTraiciona -- un fallo de fiabilidad no cuenta como
 test("eventosHumor: idLiderDerrumbado -- el suelo bajo el líder se hunde más del margen", () => {
   const antes = crearMascaraPlana(20, 100, 30); // superficie en y=30 en toda la anchura
   const despues = crearMascaraPlana(20, 100, 60); // el suelo ha cedido 30px bajo todo el mapa
-  assert.equal(idLiderDerrumbado(80, 40, 5, 15, antes, despues), 0);
+  assert.equal(
+    idLiderDerrumbado(
+      [
+        { id: 0, integridad: 80, x: 5 },
+        { id: 1, integridad: 40, x: 15 },
+      ],
+      antes,
+      despues,
+    ),
+    0,
+  );
 });
 
 test("eventosHumor: idLiderDerrumbado -- empate de integridad no tiene líder", () => {
   const antes = crearMascaraPlana(20, 100, 30);
   const despues = crearMascaraPlana(20, 100, 60);
-  assert.equal(idLiderDerrumbado(50, 50, 5, 15, antes, despues), null);
+  assert.equal(
+    idLiderDerrumbado(
+      [
+        { id: 0, integridad: 50, x: 5 },
+        { id: 1, integridad: 50, x: 15 },
+      ],
+      antes,
+      despues,
+    ),
+    null,
+  );
 });
 
 test("eventosHumor: idLiderDerrumbado -- un cambio menor que el margen no cuenta como derrumbe", () => {
   const antes = crearMascaraPlana(20, 100, 60);
   const despues = crearMascaraPlana(20, 100, 62); // sube 2px, por debajo de MARGEN_DERRUMBE_PX
-  assert.equal(idLiderDerrumbado(80, 40, 5, 15, antes, despues), null);
+  assert.equal(
+    idLiderDerrumbado(
+      [
+        { id: 0, integridad: 80, x: 5 },
+        { id: 1, integridad: 40, x: 15 },
+      ],
+      antes,
+      despues,
+    ),
+    null,
+  );
 });
 
 test("eventosHumor: estaEnterrada -- el terreno sube más del margen en la misma columna", () => {

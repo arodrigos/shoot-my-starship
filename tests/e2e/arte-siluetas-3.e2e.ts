@@ -18,7 +18,7 @@ test("arte-siluetas-3: el indicador de nave propia sigue al turno real", async (
     await page.getByTestId("ayuda-cerrar").click();
   }
 
-  function soloUnaActiva(naves: readonly { readonly id: 0 | 1; readonly activa: boolean }[], idEsperado: 0 | 1): void {
+  function soloUnaActiva(naves: readonly { readonly id: number; readonly activa: boolean }[], idEsperado: number): void {
     const activas = naves.filter((nave) => nave.activa).map((nave) => nave.id);
     expect(activas, `se esperaba solo la nave ${idEsperado} activa, estaban activas ${JSON.stringify(activas)}`).toEqual([
       idEsperado,

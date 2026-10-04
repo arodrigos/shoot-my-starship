@@ -48,7 +48,7 @@ function fuenteJugadorConPresupuesto(): FuenteDeTurno {
       ultimoIntento: null,
     });
 
-    const saldo = estado.saldo ?? 0;
+    const saldo = estado.saldos?.[0] ?? 0;
     const asequibles = CATALOGO_ARMAS.filter((arma) => puedeCostearArma(arma, saldo));
     // Siempre hay al menos una (las tres gratis, coste 0, nunca dejan de
     // caber en cualquier saldo >= 0) -- el invariante que modo-7 exige.
@@ -59,7 +59,12 @@ function fuenteJugadorConPresupuesto(): FuenteDeTurno {
     });
 
     return {
-      entrada: { arma: elegida.id, anguloGrados: decision.entrada.anguloGrados, potencia: decision.entrada.potencia },
+      entrada: {
+        arma: elegida.id,
+        anguloGrados: decision.entrada.anguloGrados,
+        potencia: decision.entrada.potencia,
+        objetivoId: 1,
+      },
       estado: { ...estado, aleatorio: decision.aleatorio },
     };
   };
@@ -91,17 +96,18 @@ test("modo-7: en 200 partidas simuladas en modo presupuesto, el saldo final no s
         { x: Math.round(ANCHO * 0.2), integridad: 100 },
         { x: Math.round(ANCHO * 0.8), integridad: 100 },
       ],
+      ordenTurno: [0, 1],
       turno: 0,
       numeroTurno: 0,
       aleatorio: crearEstadoAleatorio(semilla + 1),
       resultado: { tipo: "en-curso" },
       modo: "presupuesto",
-      saldo: SALDO_INICIAL,
+      saldos: [SALDO_INICIAL, undefined],
     };
 
     const resultado = jugarPartida(estadoInicial, [fuenteJugadorConPresupuesto(), crearFuenteIA(LA_CONTABLE)], LIMITE_TURNOS);
     jugadas += 1;
-    const saldoFinal = resultado.estado.saldo ?? 0;
+    const saldoFinal = resultado.estado.saldos?.[0] ?? 0;
     if (saldoFinal <= 0) agotadas += 1;
     if (saldoFinal > SALDO_INICIAL * 3) triplicadas += 1;
   }

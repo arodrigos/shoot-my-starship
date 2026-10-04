@@ -95,12 +95,13 @@ test("grav-4: la masa se queda congelada durante todo el vuelo de un disparo de 
 test("grav-4: al cerrar el turno, la masa del planeta baja con el cráter que dejó el disparo", () => {
   const { mascara, planeta } = construirMundoConGroundYPlaneta();
   const mundo = { ancho: ANCHO, alto: ALTO, gravedad: 1, deriva: 0, etiquetaDeriva: "grav-4" };
-  const estadoInicial: EstadoPartida = crearPartidaInicial(mundo, mascara, 100, 1800, 1, [planeta]);
+  const estadoInicial: EstadoPartida = crearPartidaInicial(mundo, mascara, [100, 1800], 1, [planeta]);
 
   const { estado: estadoTrasDisparo } = avanzar(estadoInicial, {
     arma: "pepinazo-cortesia",
     anguloGrados: 55,
     potencia: 95,
+    objetivoId: 1,
   });
 
   assert.ok(estadoTrasDisparo.planetas);
