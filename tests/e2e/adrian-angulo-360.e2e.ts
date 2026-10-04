@@ -53,7 +53,13 @@ test("el jugador apunta en los 360°: un rival justo debajo se puede alcanzar co
     const mundo = window.__debug.mundo!;
     const libre = (x: number, y: number, yMin: number): boolean => {
       if (x <= 0 || x >= mundo.ancho - 1 || y <= yMin || y >= mundo.alto - 1) return false;
-      if (window.__debug.terreno!.esSolido(x, y)) return false;
+      // esSolido indexa el array de la máscara con (x, y) tal cual: con un
+      // mundo de ancho impar, mundo.ancho/2 (y sus múltiplos de dx) cae en
+      // .5, y un índice fraccionario en un TypedArray lee undefined, que
+      // "!== AIRE" cuenta como sólido -- TODO candidato quedaba descartado
+      // sin mirar el terreno real. Las demás llamadas a esSolido del propio
+      // código ya redondean antes (empuje.ts, resolver.ts); aquí también.
+      if (window.__debug.terreno!.esSolido(Math.round(x), Math.round(y))) return false;
       for (const planeta of window.__debug.planetas ?? []) {
         if (Math.hypot(x - planeta.cx, y - planeta.cy) < planeta.radio + 40) return false;
       }
