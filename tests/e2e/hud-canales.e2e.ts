@@ -42,6 +42,39 @@ function sinDesbordeDeViewport(caja: { y: number; height: number }, altoViewport
   return caja.y >= 0 && caja.y + caja.height <= altoViewport + 1;
 }
 
+// hud-canales-1 (undécima corrección): la etiqueta de deriva es texto de
+// canvas (Phaser), no DOM -- boundingBox() no la ve. Se mide con los bordes
+// reales que IndicadorDeriva calcula tras el wordWrap (ver
+// window.__debug.deriva), convertidos a CSS px, contra el ancho real del
+// lienzo medido con getBoundingClientRect: el mismo par de números que el
+// gatekeeper leía a ojo sobre la captura, pero exacto y automático.
+test("hud-canales-1: la etiqueta de deriva cabe dentro del lienzo a 360x640, en los tres mapas del catálogo", async ({
+  page,
+}) => {
+  test.setTimeout(30000);
+  for (const idMapa of ["desguace-del-ecuador", "calma-de-los-restos", "corriente-de-estribor"]) {
+    await page.setViewportSize(VIEWPORT_MOVIL);
+    await page.goto(`/?mapa=${idMapa}`);
+    await page.getByTestId("boton-jugar").click();
+    await page.waitForSelector("#game-container canvas");
+    await page.waitForFunction(() => window.__debug.deriva !== undefined);
+
+    const medidas = await page.evaluate(() => {
+      const lienzo = document.querySelector("#game-container canvas")!.getBoundingClientRect();
+      return { anchoLienzoCss: lienzo.width, deriva: window.__debug.deriva! };
+    });
+
+    expect(
+      medidas.deriva.etiquetaBordeIzquierdoCssPx,
+      `mapa ${idMapa}, etiqueta se sale por la izquierda: ${JSON.stringify(medidas)}`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      medidas.deriva.etiquetaBordeDerechoCssPx,
+      `mapa ${idMapa}, etiqueta se sale por la derecha: ${JSON.stringify(medidas)}`,
+    ).toBeLessThanOrEqual(medidas.anchoLienzoCss);
+  }
+});
+
 test("hud-canales-1: en el estado de apuntado inicial ningún control sale del viewport", async ({ page }) => {
   test.setTimeout(30000);
   await irAPartida(page);
@@ -80,6 +113,22 @@ test("hud-canales-1: el canal de estado es permanente y la broma se desvanece so
   await dispararTurnoReal(page);
   await expect(page.getByTestId("canal-estado")).toBeVisible();
   await expect(page.getByTestId("panel-bromas")).toBeVisible();
+
+  // hud-canales-1 (undécima corrección): el caso que ningún oráculo
+  // anterior cubría -- disparo + impacto publicados a la vez, que es lo
+  // normal en todo turno resuelto (hum-1 garantiza que siempre hay impacto,
+  // y un disparo ya está en pantalla). lay-3/hud-canales-4 miran solape y
+  // objetivo táctil, nunca clientHeight contra scrollHeight con las DOS
+  // bromas a la vez, que es justo donde se cortaba la última línea a media
+  // letra.
+  const medidasPanelBromas = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="panel-bromas"]')!;
+    return { clientHeight: el.clientHeight, scrollHeight: el.scrollHeight };
+  });
+  expect(
+    medidasPanelBromas.clientHeight,
+    `panel-bromas corta contenido: ${JSON.stringify(medidasPanelBromas)}`,
+  ).toBeGreaterThanOrEqual(medidasPanelBromas.scrollHeight);
 
   await page.screenshot({ path: "capturas/hud-canales-1-360x640.png" });
 

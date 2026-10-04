@@ -73,6 +73,19 @@ export function BromaHUD() {
             textAlign: "center",
             wordBreak: "break-word",
             overflowWrap: "anywhere",
+            // hud-canales (undécima corrección): disparo + impacto a la vez
+            // (el caso normal, hum-1 garantiza que pasa en todo turno) pedían
+            // hasta 83px de alto cuando el panel solo tiene 44 disponibles
+            // si fila-avisos también muestra el aviso -- más alto que eso
+            // rompía encuadre-movil-2 en la octava corrección. Recortar a
+            // una línea con puntos suspensivos explícitos (en vez de dejar
+            // que el overflow seccione el glifo a medias) es lo que hace que
+            // el contenido quepa siempre en el mínimo del panel, sin
+            // depender de cuánto sitio le quede libre en la fila.
+            display: "-webkit-box",
+            WebkitLineClamp: 1,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
           }}
         >
           {estado.disparo}
@@ -90,6 +103,10 @@ export function BromaHUD() {
             textAlign: "center",
             wordBreak: "break-word",
             overflowWrap: "anywhere",
+            display: "-webkit-box",
+            WebkitLineClamp: 1,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
           }}
         >
           {estado.impacto}
