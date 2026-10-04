@@ -95,6 +95,10 @@ export interface DebugDeriva {
   etiqueta: string;
   sentido: -1 | 0 | 1;
   longitudFlechaPx: number;
+  // hud-canales-1 (undécima corrección): bordes reales de la etiqueta en
+  // CSS px, para comprobar que cabe en el lienzo sin leer píxeles a ojo.
+  etiquetaBordeIzquierdoCssPx: number;
+  etiquetaBordeDerechoCssPx: number;
 }
 
 export interface DebugNave {

@@ -7,12 +7,25 @@ const DERIVA_REFERENCIA_PX_S2 = 30;
 const LONGITUD_MAXIMA_PX = 70;
 const LONGITUD_MINIMA_VISIBLE_PX = 6;
 const TAMANO_FUENTE_CSS_PX = 16;
+// hud-canales (undécima corrección): la etiqueta más larga del catálogo
+// (41 caracteres, "Sin corriente: el cementerio está en calma") medía 357px
+// CSS a TAMANO_FUENTE_CSS_PX -- más ancha que los 360px del viewport de
+// referencia, así que se cortaba por los dos lados del centro aunque
+// setOrigin(0.5,0) la centrara bien. 320px deja 20px de margen a cada lado
+// en 360px de ancho; con wordWrap, Phaser parte en la línea más que haga
+// falta en vez de desbordar.
+const ANCHURA_MAXIMA_ETIQUETA_CSS_PX = 320;
 
 export interface EstadoDerivaDibujado {
   readonly valorMundo: number;
   readonly etiqueta: string;
   readonly sentido: -1 | 0 | 1;
   readonly longitudFlechaPx: number;
+  // hud-canales-1 (undécima corrección): bordes reales de la etiqueta en
+  // CSS px, para que el e2e compruebe que cabe en el lienzo sin tener que
+  // leer píxeles de una captura a ojo.
+  readonly etiquetaBordeIzquierdoCssPx: number;
+  readonly etiquetaBordeDerechoCssPx: number;
 }
 
 // Flecha + etiqueta en la esquina superior: el único sitio del HUD que
@@ -24,6 +37,8 @@ export class IndicadorDeriva {
   private readonly texto: Phaser.GameObjects.Text;
   private readonly x: number;
   private readonly y: number;
+  private readonly xCss: number;
+  private readonly compensacionEscala: number;
 
   // hud-canales-1 (quinta corrección): x/y ya no son unidades de juego
   // fijas -- son el destino en CSS px DENTRO del lienzo (misma unidad que
@@ -41,6 +56,8 @@ export class IndicadorDeriva {
     // así que 16px "de juego" se pintaban a ~3px CSS reales (1,31:1 medido
     // por el gatekeeper). Mismo patrón que ContadorAdherencia.ts.
     const compensacionEscala = escena.scale.displayScale.x;
+    this.compensacionEscala = compensacionEscala;
+    this.xCss = xCss;
     this.x = xCss * compensacionEscala;
     this.y = yCss * compensacionEscala;
     this.grafico = escena.add.graphics().setScrollFactor(0).setDepth(100);
@@ -55,6 +72,8 @@ export class IndicadorDeriva {
       .text(this.x, this.y + 18 * compensacionEscala, "", {
         fontSize: `${Math.round(TAMANO_FUENTE_CSS_PX * compensacionEscala)}px`,
         color: "#f2f2f2",
+        align: "center",
+        wordWrap: { width: ANCHURA_MAXIMA_ETIQUETA_CSS_PX * compensacionEscala, useAdvancedWrap: true },
       })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
@@ -82,6 +101,15 @@ export class IndicadorDeriva {
 
     this.texto.setText(etiqueta);
 
-    return { valorMundo, etiqueta, sentido, longitudFlechaPx };
+    // this.texto.width ya refleja el ancho real tras el wordWrap (la línea
+    // más larga de las que Phaser partió), en las mismas unidades internas
+    // que this.x -- se deshace la compensación de escala para devolver
+    // bordes en CSS px, la unidad en la que mide el e2e sobre el viewport
+    // real.
+    const anchoEtiquetaCssPx = this.texto.width / this.compensacionEscala;
+    const etiquetaBordeIzquierdoCssPx = this.xCss - anchoEtiquetaCssPx / 2;
+    const etiquetaBordeDerechoCssPx = this.xCss + anchoEtiquetaCssPx / 2;
+
+    return { valorMundo, etiqueta, sentido, longitudFlechaPx, etiquetaBordeIzquierdoCssPx, etiquetaBordeDerechoCssPx };
   }
 }
