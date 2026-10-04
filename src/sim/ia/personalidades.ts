@@ -10,13 +10,15 @@ export const LA_CONTABLE: Personalidad = {
   id: "la-contable",
   nombre: "La Contable",
   descripcion: "Apenas falla: desviación mínima en ángulo y potencia. La más difícil de las tres.",
-  // Banda alta (ia-punteria-3, recalibrado): el buscador con refinamiento de
-  // potencia es más preciso que el que calibró ia-3 originalmente (98.0% de
-  // victorias contra el jugador patrón, muy por encima de la banda 75-90%
-  // que pide este bloque), así que el rango de error crece x2.8 en los dos
-  // ejes -- medido con npm run medir:ia (docs/jugador-patron.md, 200
-  // partidas, semilla maestra 2024): 89.5% de victorias, dentro de banda.
-  error: { anguloGrados: { minimo: -3.36, maximo: 3.36 }, potencia: { minimo: -6.72, maximo: 6.72 } },
+  // Banda alta (ia-punteria-3, recalibrado otra vez en armas-reprecio-roles):
+  // el reprecio subió el daño medio del catálogo (varias armas pasan de
+  // 20-30 a 30-45 de daño máximo), lo que por sí solo disparó la victoria a
+  // 93.0% -- más turnos letales dejan menos margen para que el jugador
+  // patrón remonte. El rango de error vuelve a crecer (x1.34 en los dos
+  // ejes sobre el valor de ia-punteria) hasta devolverla a banda. Medido
+  // con npm run medir:ia (docs/jugador-patron.md, 200 partidas, semilla
+  // maestra 2024): 84.5% de victorias, dentro de la banda 75-90%.
+  error: { anguloGrados: { minimo: -4.5, maximo: 4.5 }, potencia: { minimo: -9, maximo: 9 } },
   trayectoriaPreferida: "tenso",
   // El arma más eficiente por punto de daño entre las fiables, evitando la
   // única arma con fiabilidad < 1 (el Petardo de Feria no es "eficiente",
@@ -47,13 +49,13 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
   id: "almirante-bisagra",
   nombre: "Almirante Bisagra",
   descripcion: "Se pasa de fuerza casi siempre. Dificultad media: castiga menos que La Contable, pero no regala nada.",
-  // Banda media (ia-punteria-3, recalibrado): con el buscador mejorado
-  // ganaba el 90.0% de las partidas, muy por encima de la banda 45-65% que
-  // pide este bloque -- el rango de error crece x2.2 en ángulo y x1.4 en
-  // potencia (menos en potencia porque "se pasa de fuerza" sigue siendo su
-  // sesgo declarado, no una imprecisión nueva). Medido con npm run medir:ia:
-  // 57.0% de victorias, dentro de banda.
-  error: { anguloGrados: { minimo: -6.6, maximo: 6.6 }, potencia: { minimo: 11.2, maximo: 28 } },
+  // Banda media (ia-punteria-3, recalibrado otra vez en armas-reprecio-roles):
+  // con el daño medio del catálogo subido por el reprecio, el rango que
+  // calibró ia-punteria se disparaba a 93.0% de victorias, muy por encima
+  // de la banda 45-65% -- el rango crece otra vez (x3.3 en ángulo, x1.8 en
+  // potencia sobre ia-punteria) para devolverla a banda. Medido con
+  // npm run medir:ia: 50.5% de victorias, dentro de la banda 45-65%.
+  error: { anguloGrados: { minimo: -22, maximo: 22 }, potencia: { minimo: 35, maximo: 65 } },
   trayectoriaPreferida: "mortero",
   // Prefiere el mortero y las armas con retardo (el Racimo de Tuppers se
   // abre a media altura), que le dan tiempo a hablar antes del impacto.
@@ -83,23 +85,14 @@ export const CHISPA: Personalidad = {
   id: "chispa",
   nombre: "Chispa",
   descripcion: "A veces se entierra a sí misma. La más floja de las tres: ideal para la primera partida.",
-  // Banda baja (ia-punteria-3, recalibrado): con el buscador mejorado el
-  // rango original la dejaba en 8.5% de victorias, por debajo de la banda
-  // 20-40% que pide este bloque. Lo que de verdad la hace perder no es el
-  // error de apuntado (sus armas preferidas son las de menos daño del
-  // catálogo), así que el rango se RECORTA x0.15/x0.18 en vez de crecer --
-  // es la personalidad que menos corrección necesitaba sobre su puntería
-  // bruta, solo había que dejar que esa puntería contara. Medido con npm
-  // run medir:ia: 31.3% de victorias (150 partidas), dentro de banda.
-  // potencia-dispersion (recalibrado otra vez): universal -- se suma
-  // encima del error propio de CUALQUIER personalidad, en todo disparo del
-  // jugador y de la IA -- y Chispa es la que menos margen propio tiene
-  // para absorberla (su error ya era el más pequeño del catálogo, y sus
-  // armas preferidas son las de radio de efecto más pequeño, las que menos
-  // toleran un error de ángulo). Medido: con el rango de arriba sin tocar,
-  // la victoria caía a 17.0%, por debajo de su banda 20-40%. Recortado un
-  // 25% más para devolverle el margen que la dispersión universal le quita.
-  error: { anguloGrados: { minimo: -0.5, maximo: 0.5 }, potencia: { minimo: -0.75, maximo: 0.75 } },
+  // Banda baja (ia-punteria-3, recalibrado otra vez en armas-reprecio-roles):
+  // el reprecio le subió el daño a varias de sus armas preferidas (p.ej.
+  // zanjadora-manolita pasa de utilitaria pura a algo de alcance real,
+  // petardo-de-feria sube de 8 a 13 de daño), y la victoria subía a 61.0%,
+  // muy por encima de la banda 20-40%. El rango crece otra vez (x1.8 en los
+  // dos ejes sobre ia-punteria) para devolverla a banda. Medido con
+  // npm run medir:ia: 25.0% de victorias, dentro de la banda 20-40%.
+  error: { anguloGrados: { minimo: -2.0, maximo: 2.0 }, potencia: { minimo: -2.8, maximo: 2.8 } },
   trayectoriaPreferida: "tenso",
   // Las armas raras, las de terreno y el Petardo de Feria antes que nada
   // fiable.

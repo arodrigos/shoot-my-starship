@@ -121,4 +121,11 @@ export interface Arma {
   // ausente en el resto del catálogo, donde toda arma preferida sí hace
   // daño.
   readonly utilitaria?: boolean;
+  // armas-reprecio-roles: una línea que resume el papel táctico del arma
+  // (p.ej. "barata y difícil", "cara y fácil"). Opcional en el tipo (como
+  // usosMaximos y el resto de ejes aditivos) para no romper los fixtures de
+  // Arma de otros bloques que no la declaran -- armas-reprecio-roles-4
+  // comprueba su presencia en las 16 armas reales del catálogo, no en
+  // fixtures de test.
+  readonly rol?: string;
 }
