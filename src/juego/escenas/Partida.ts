@@ -1715,6 +1715,12 @@ export class Partida extends Phaser.Scene {
   // no una condición de parada inventada -- así el test puede pedir un tiro
   // que falle a propósito (danio === 0) sin adivinar ángulo/potencia a
   // ciegas ni depender de que ningún planeta se cruce por casualidad.
+  //
+  // adrian-angulo-360 (corrección): sin incluirDispersionPotencia:true este
+  // oráculo predecía sobre un tiro SIN la dispersión que avanzar.ts SIEMPRE
+  // aplica al disparo real -- un tiro al borde del radio de efecto que el
+  // oráculo daba por fallo (danio 0) podía acabar impactando de verdad, que
+  // es justo lo que delató imp-11 (85 vs 86 de integridad esperada).
   private probarDisparoMultipozo(estado: EstadoPartida, anguloGrados: number, potencia: number): { danio: number } {
     const tirador = estado.turno;
     const objetivoId = naveContraria(tirador);
@@ -1738,6 +1744,7 @@ export class Partida extends Phaser.Scene {
       planetas: estado.planetas,
       naves,
       tiradorId: tirador,
+      incluirDispersionPotencia: true,
     });
     return { danio: resultado.danioObjetivo };
   }

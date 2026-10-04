@@ -82,12 +82,18 @@ test("el jugador apunta en los 360°: un rival justo debajo se puede alcanzar co
       return null;
     };
 
-    // Fracciones de altura candidatas para el jugador, de arriba abajo:
-    // cuanto más arriba, más margen queda por debajo para encontrar al
-    // rival, así que se intentan en ese orden y se usa la primera viable.
-    const FRACCIONES_ALTURA_JUGADOR = [0.25, 0.15, 0.35, 0.45, 0.2, 0.3, 0.4, 0.5];
-    for (const fraccion of FRACCIONES_ALTURA_JUGADOR) {
-      const yJugador = Math.round(mundo.alto * fraccion);
+    // adrian-angulo-360 (segunda corrección): ni siquiera un puñado de
+    // fracciones de altura candidatas está garantizado -- el tamaño real
+    // del mundo depende del contenedor DOM tal como lo mide
+    // configurarTamanoMundo (encuadre-movil), que no es 1920x1080 ni ningún
+    // valor fijo asumible desde el test. En vez de adivinar alturas,
+    // se recorre TODA la altura del mundo con un paso denso (barato: cada
+    // intento es, como mucho, un centenar de comprobaciones de libre()) y
+    // se usa la primera que tenga hueco para el jugador Y para el rival por
+    // debajo -- de arriba abajo, porque cuanto más arriba el jugador, más
+    // margen queda por debajo para el rival.
+    const PASO_Y_BUSQUEDA = 15;
+    for (let yJugador = 40; yJugador < mundo.alto - 1; yJugador += PASO_Y_BUSQUEDA) {
       const puntoJugador = buscarPuntoLibre(yJugador, 0);
       if (!puntoJugador) continue;
       const rival = buscarRivalDebajo(puntoJugador);
