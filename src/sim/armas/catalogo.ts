@@ -205,7 +205,15 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // mismo suelo de tamaño mínimo de puntosSilueta() y su silueta empataría
     // con la de otra arma pequeña del catálogo (proy-1, hash sin colisiones).
     huella: { tipo: "circular", radio: 25, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 18, danioMaximo: 46 },
+    // radioEfectoPx 80 (no menos): RADIO_CASCO_NAVE_PX es 22, y danioPorDistancia
+    // da 0 si la distancia al impacto >= radioEfectoPx -- un valor por debajo
+    // de 23 deja un impacto justo en el borde del casco (arm-8) sin hacer daño
+    // nunca. Con un valor pequeño (p. ej. 30) cae en la banda [20,40) de radio,
+    // que ya tiene sus 4 armas (armas-reprecio-roles-4); 80 cae en la única
+    // banda libre y la facilidad medida sigue siendo la más baja del catálogo
+    // porque, al ser recta e inmune a la gravedad, falla por geometría (sin
+    // línea de visión directa) mucho más de lo que un radio mayor compensa.
+    efecto: { tipo: "danio", radioEfectoPx: 80, danioMaximo: 46 },
     fiabilidad: 1,
     // Desviación declarada (ver desviaciones en el entregable): la curva de
     // daño/facilidad por sí sola daría un precio medio, porque su facilidad

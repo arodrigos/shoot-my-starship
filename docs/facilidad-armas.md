@@ -28,7 +28,7 @@ aparte que mantener sincronizada con el resolutor.
 | Despedida | 55 | 115 | 0.77s | 3.7% | 120 |
 | Andanada de Flechas | 16 | 34 | 1.12s | 7.6% | 105 |
 | Barrena Planetaria | 44 | 38 | 0.82s | 2.6% | 90 |
-| Rayo Láser | 46 | 18 | n/a | 0.0% | 115 |
+| Rayo Láser | 46 | 80 | 0.46s | 1.6% | 115 |
 | Mosca Cojonera | 28 | 50 | 0.91s | 3.2% | 75 |
 | Granada de Espoleta | 34 | 62 | 0.84s | 2.9% | 80 |
 | Gancho Pegajoso | 40 | 38 | 0.82s | 2.6% | 85 |

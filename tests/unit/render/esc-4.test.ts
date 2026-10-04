@@ -13,7 +13,10 @@ import { jugarLote, hashDeLote } from "../../utils/loteAleatorio";
 // bloque SÍ mueve el balance a propósito (dispersión universal en
 // avanzar()), así que el hash nuevo es el que fija ese bloque, no una
 // regresión de este.
-const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "4337c01beebd691f472d99e604d9bb3c35a1b99607721f2932d795cb1ae1da2a";
+// Hash actualizado en armas-reprecio-roles: ese bloque SÍ mueve el balance a
+// propósito (daño y radio del catálogo), así que el hash nuevo es el que
+// fija ese bloque, no una regresión de este.
+const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "416fef064786d38b5cb4d990a57239816ce1fde414757ed4a2db41fa5e5deb2d";
 
 test("esc-4: 200 partidas dan exactamente el mismo resultado que antes de escala-legible (el balance no se movió)", () => {
   const lote = jugarLote(20260929, 200);

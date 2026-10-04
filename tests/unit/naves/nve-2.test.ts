@@ -11,7 +11,10 @@ import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 // bloque SÍ cambia la resolución de un disparo a propósito (dispersión
 // universal en avanzar()), así que el balance se movió de verdad y el
 // nuevo hash es el que fija ese bloque (ver esc-4.test.ts y vex-5.test.ts).
-const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "4337c01beebd691f472d99e604d9bb3c35a1b99607721f2932d795cb1ae1da2a";
+// Hash actualizado en armas-reprecio-roles: ese bloque SÍ mueve el balance a
+// propósito (daño y radio del catálogo), así que el hash nuevo es el que
+// fija ese bloque, no una regresión de este.
+const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "416fef064786d38b5cb4d990a57239816ce1fde414757ed4a2db41fa5e5deb2d";
 
 test("nve-2: 200 partidas dan exactamente el mismo resultado que antes de naves-siluetas (el balance no se movió)", () => {
   const lote = jugarLote(20260929, 200);

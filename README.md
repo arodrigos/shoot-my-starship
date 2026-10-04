@@ -28,10 +28,10 @@ sentir hacia dónde tira cada pozo.
 
 ### Las tres armas gratis
 
-Tres de las once armas del catálogo (`src/sim/armas/catalogo.ts`) cuestan 0
-créditos siempre, también en modo con presupuesto: **Pepinazo de Cortesía**,
-**Zanjadora Manolita** y **Petardo de Feria**. El resto tiene un coste fijo
-por disparo, independiente de si acierta o falla.
+Tres armas del catálogo (`src/sim/armas/catalogo.ts`) cuestan 0 créditos
+siempre, también en modo con presupuesto: **Zanjadora Manolita**,
+**Petardo de Feria** y **La Pelota de Chatarra**. El resto tiene un coste
+fijo por disparo, independiente de si acierta o falla.
 
 ### Qué le pasa a un planeta al que le arrancas un trozo
 
