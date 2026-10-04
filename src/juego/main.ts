@@ -36,6 +36,14 @@ function crearConfiguracion(contenedor: string): Phaser.Types.Core.GameConfig {
     type: Phaser.WEBGL,
     parent: contenedor,
     backgroundColor: "#12141a",
+    // arte-siluetas-5 (novena corrección): sin esto, canvas.toDataURL() lee
+    // el buffer de dibujo de WebGL ya borrado tras presentarse -- medido con
+    // el simulador real (diag arte-siluetas-5 contra "calma-de-los-restos"):
+    // el único fotograma en el que el proyectil cayó dentro del lienzo y
+    // lejos del HUD dio pixelmatch=0 frente al fondo, es decir, invisible
+    // para toDataURL() aunque la posición lógica fuera correcta. El coste es
+    // un pequeño margen de memoria de framebuffer, no de CPU por fotograma.
+    preserveDrawingBuffer: true,
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
