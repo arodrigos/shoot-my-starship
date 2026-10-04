@@ -181,11 +181,31 @@ function potenciaAnaliticaParaAngulo(
   return Math.min(100, Math.max(0, potencia));
 }
 
+// ia-punteria-6 (corrección de CI, hallazgo real: La Contable, sistema por
+// defecto semilla 20260926, tirador a la derecha y ARRIBA del objetivo): el
+// ángulo en línea recta hacia un objetivo que queda por DEBAJO de un
+// lanzamiento ascendente (dyPantalla > 0 lo bastante) cae fuera de
+// [ANGULO_MIN_GRADOS, ANGULO_MAX_GRADOS] -- ese rango solo admite ángulos
+// que lanzan HACIA ARRIBA (vy inicial <= 0 siempre, ver resolverDisparo).
+// Recortar ese ángulo con Math.max/min (como hacía esta función antes) no
+// lo acerca al objetivo: cuando dx < 0 (objetivo a la izquierda), el
+// recorte cae en ANGULO_MIN_GRADOS (≈2°, casi horizontal a la DERECHA) --
+// la dirección opuesta a la real. Medido: eso deja a Fase 1b barriendo
+// potencia entera en la dirección contraria al objetivo, sin encontrar
+// nunca el candidato real (ang≈132-133°, pot≈22, danio 14, confirmado con
+// un barrido fino fuera de test). Fuera del cono alcanzable, se conserva
+// solo la dirección horizontal (el único eje que de verdad decide esto
+// lanzamiento) con una elevación fija de 45°/135° -- arbitraria pero del
+// lado correcto, que es lo único que Fase 1b necesita para que su barrido
+// de potencia tenga alguna oportunidad real de conectar.
 function anguloDeEmergenciaHaciaObjetivo(tirador: NavePosicion, objetivo: NavePosicion): number {
   const dx = objetivo.x - tirador.x;
   const dyPantalla = objetivo.y - tirador.y;
-  const anguloGrados = (Math.atan2(-dyPantalla, dx) * 180) / Math.PI;
-  return Math.max(ANGULO_MIN_GRADOS, Math.min(ANGULO_MAX_GRADOS, anguloGrados));
+  const anguloBruto = (Math.atan2(-dyPantalla, dx) * 180) / Math.PI;
+  if (anguloBruto >= ANGULO_MIN_GRADOS && anguloBruto <= ANGULO_MAX_GRADOS) {
+    return anguloBruto;
+  }
+  return dx >= 0 ? 45 : 135;
 }
 
 function volar(params: ParametrosBusquedaRival, tirador: NavePosicion, objetivo: NavePosicion, anguloGrados: number, potencia: number) {
