@@ -43,6 +43,16 @@ const RONDAS_REFINAMIENTO = 3;
 // para el ángulo.
 const RONDAS_REFINAMIENTO_POTENCIA = 32;
 const VENTANA_POTENCIA_GRADOS = 25;
+// Fase 1b: cuántas muestras de potencia completa [0,100] se prueban al
+// ángulo de emergencia cuando la rejilla entera no encontró ni un candidato
+// -- barato a propósito (10 vuelos, muy por debajo de la propia rejilla),
+// porque es el camino menos frecuente y solo tiene que encontrar UN
+// candidato real con el que arrancar el refinamiento normal, no afinarlo.
+// 10 muestras espacian cada ~11 puntos de potencia, por debajo de la
+// ventana de 20 puntos que motivó esta fase (ia-n3 medido: con 20 muestras
+// el techo de 250ms de CPU se superaba en la semilla 12 del torneo de
+// presupuesto por defecto; con 10, dentro de margen).
+const RONDAS_EMERGENCIA_POTENCIA = 10;
 const DELTA_SENSIBILIDAD_GRADOS = 0.5;
 // Sin datos de sensibilidad (presupuesto agotado antes de la sonda), se
 // declara la sensibilidad más alta posible: decidir.ts la usa para amortiguar
@@ -236,7 +246,7 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
   const candidatos = barridoRejilla({ ...params, presupuestoIntentos: presupuestoRejilla });
   let vuelosSimulados = presupuestoRejilla;
 
-  const huboCandidato = candidatos.length > 0;
+  let huboCandidato = candidatos.length > 0;
   let mejorAngulo = huboCandidato ? candidatos[0].anguloGrados : anguloDeEmergenciaHaciaObjetivo(tirador, objetivo);
   let mejorPotencia = candidatos[0]?.potencia ?? 70;
   let mejorDanio = candidatos[0]?.danio ?? 0;
@@ -248,6 +258,47 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
   let mejorAutodanio = candidatos[0]?.autodanioTotal ?? 0;
   let mejorPuntuacion = candidatos[0]?.puntuacion ?? 0;
   let mejorPasosVuelo = candidatos[0]?.pasosVuelo ?? 0;
+
+  // Fase 1b (rescate de emergencia, hallazgo real: La Contable, sistema por
+  // defecto semilla 20260926): la rejilla gruesa solo prueba 5 potencias
+  // fijas (40/55/70/85/100, ver rejilla.ts) y, con el presupuesto de un
+  // turno normal, ni siquiera las cubre todas -- si el único tiro real
+  // pasa por una potencia baja que esa rejilla nunca prueba (aquí, 20-30%),
+  // huboCandidato queda en false y el disparo de emergencia dispara con
+  // potencia 70 fija, que falla siempre. Antes de rendirse del todo, un
+  // barrido fino de potencia completa [0,100] al MISMO ángulo de emergencia
+  // (ya apuntado geométricamente al objetivo) comprueba si alguna potencia
+  // SÍ conecta -- no es un segundo buscador, es el mismo resolverDisparo de
+  // siempre, solo que explorando el eje que la rejilla deja ciego.
+  if (!huboCandidato && vuelosSimulados < presupuestoMax) {
+    const pasos = Math.min(RONDAS_EMERGENCIA_POTENCIA, presupuestoMax - vuelosSimulados);
+    for (let muestra = 0; muestra < pasos; muestra++) {
+      const p = pasos <= 1 ? 50 : (100 * muestra) / (pasos - 1);
+      const r = volar(params, tirador, objetivo, mejorAngulo, p);
+      vuelosSimulados++;
+      if (r.danioObjetivo > 0) {
+        const autodanioTotal = r.danioPropio + (r.impactoPropio?.danio ?? 0);
+        const puntuacion = r.danioObjetivo - PESO_AUTODANIO * autodanioTotal;
+        const candidato = { anguloGrados: mejorAngulo, potencia: p, danio: r.danioObjetivo, autodanioTotal, puntuacion, pasosVuelo: r.pasosVuelo };
+        const actual = {
+          anguloGrados: mejorAngulo,
+          potencia: mejorPotencia,
+          danio: mejorDanio,
+          autodanioTotal: mejorAutodanio,
+          puntuacion: mejorPuntuacion,
+          pasosVuelo: mejorPasosVuelo,
+        };
+        if (!huboCandidato || compararCandidatos(candidato, actual) < 0) {
+          mejorPotencia = p;
+          mejorDanio = r.danioObjetivo;
+          mejorAutodanio = autodanioTotal;
+          mejorPuntuacion = puntuacion;
+          mejorPasosVuelo = r.pasosVuelo;
+          huboCandidato = true;
+        }
+      }
+    }
+  }
 
   // Fase 2: refinamiento ternario dentro de la celda gruesa alrededor del
   // mejor candidato, a su misma potencia -- solo tiene sentido si la rejilla
