@@ -1631,8 +1631,31 @@ export class Partida extends Phaser.Scene {
     const objetivoSuperficie = naveObjetivo.y ?? alturaSuperficie(estado.mascara, objetivoX) ?? estado.mundo.alto - 1;
     const origenCanonY = origenSuperficie - ALTURA_CANON_PX;
 
-    const soluciones = resolverSolucionesBalisticas(origenX, origenCanonY, objetivoX, objetivoSuperficie, estado.mundo.gravedad);
-    return soluciones[0] ?? null;
+    // potencia-dispersion (fix de retorno): resolverSolucionesBalisticas()
+    // fijaba SIEMPRE la potencia máxima (su valor por defecto), y avanzar()
+    // ahora aplica la dispersión universal a CUALQUIER disparo real -- a
+    // potencia máxima es justo donde esa dispersión es mayor (1°, cuadrática
+    // con la potencia). Esta solución es solo para tests e2e que no prueban
+    // puntería ni dispersión (min-2, min-3, gra-3, nve-3, control-1...): se
+    // busca la MENOR potencia que siga teniendo solución, de menor a mayor,
+    // para que la dispersión real del disparo quede despreciable y el tiro
+    // siga siendo, en la práctica, el impacto garantizado que esos tests dan
+    // por hecho. Cae a la potencia máxima si ninguna menor alcanza, igual
+    // que antes de este fix.
+    for (const fraccionPotencia of [30, 40, 50, 60, 70, 80, 90, 100]) {
+      const soluciones = resolverSolucionesBalisticas(
+        origenX,
+        origenCanonY,
+        objetivoX,
+        objetivoSuperficie,
+        estado.mundo.gravedad,
+        velocidadDesdePotencia(fraccionPotencia),
+      );
+      if (soluciones.length > 0) {
+        return soluciones[0];
+      }
+    }
+    return null;
   }
 
   // imp-11: naves() de referencia para barridoRejilla/resolverDisparo, con
