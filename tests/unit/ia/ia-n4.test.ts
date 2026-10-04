@@ -176,7 +176,19 @@ function medirDispersionMedia(personalidad: Personalidad, lote: ReturnType<typeo
   return distancias.reduce((total, d) => total + d, 0) / distancias.length;
 }
 
-test(`ia-n4b: las tres personalidades siguen ordenadas por dispersión media en ${NUM_SISTEMAS} disparos, en modo multipozo`, () => {
+// ia-punteria-3: las bandas de dificultad que pide este bloque son de TASA
+// DE VICTORIA contra el jugador patrón (ver tests/unit/ia/ia-punteria.test.ts),
+// no de dispersión de puntería -- y Chispa pierde sobre todo por su catálogo
+// de armas preferidas (42% de sus turnos con zanjadora-manolita, daño máximo
+// 4), no por errar el tiro. Para que su banda de victoria (20-40%) no se
+// vuelva a tapar con fallos de puntería encima del hándicap de armas, su
+// rango de error se recorta mucho en personalidades.ts -- y eso, medido
+// aquí, la deja con MENOS dispersión que Almirante Bisagra (cuyo error de
+// potencia es grande y siempre positivo: "se pasa de fuerza" sigue siendo su
+// sesgo real). El orden que queda demostrado no es ya "más floja = más
+// dispersa", es el que resulta de los rangos de personalidades.ts
+// recalibrados por ia-punteria: Chispa < La Contable < Almirante Bisagra.
+test(`ia-n4b: la dispersión media en ${NUM_SISTEMAS} disparos, en modo multipozo, refleja los rangos de error recalibrados`, () => {
   const lote = generarLoteDeSistemas(NUM_SISTEMAS);
 
   const dispersionContable = medirDispersionMedia(LA_CONTABLE, lote);
@@ -186,6 +198,6 @@ test(`ia-n4b: las tres personalidades siguen ordenadas por dispersión media en 
   console.log(
     `ia-n4b: dispersión media -- La Contable ${dispersionContable.toFixed(1)}px, Almirante Bisagra ${dispersionBisagra.toFixed(1)}px, Chispa ${dispersionChispa.toFixed(1)}px`,
   );
-  assert.ok(dispersionContable < dispersionBisagra, `La Contable (${dispersionContable}) debería ser más precisa que Almirante Bisagra (${dispersionBisagra})`);
-  assert.ok(dispersionBisagra < dispersionChispa, `Almirante Bisagra (${dispersionBisagra}) debería ser más precisa que Chispa (${dispersionChispa})`);
+  assert.ok(dispersionChispa < dispersionContable, `Chispa (${dispersionChispa}) debería tener menos dispersión que La Contable (${dispersionContable}) con los rangos recalibrados`);
+  assert.ok(dispersionContable < dispersionBisagra, `La Contable (${dispersionContable}) debería tener menos dispersión que Almirante Bisagra (${dispersionBisagra})`);
 });
