@@ -31,7 +31,7 @@ const MASCARA_PLANA = crearMascaraPlana(MUNDO_MULTIPOZO.ancho, MUNDO_MULTIPOZO.a
 const NAVE_A_PLANA = { id: 0 as const, x: 300, y: 900 };
 const NAVE_B_PLANA = { id: 1 as const, x: 1400, y: 900 };
 
-// Escenario "sensible" (solución rozando un planeta): la semilla 69 del
+// Escenario "sensible" (solución rozando un planeta): la semilla 73 del
 // mismo lote de 200 sistemas que usan ia-n1/ia-n4/ia-n9/ia-n10.
 // ia-punteria: antes del refinamiento de potencia (busquedaMultipozo.ts) la
 // semilla 72 era la elegida por tener sensibilidad mediana entre las 200 --
@@ -42,7 +42,11 @@ const NAVE_B_PLANA = { id: 1 as const, x: 1400, y: 900 };
 // banda). Reelegida por el mismo criterio con el buscador nuevo: razón
 // sensible/plano con escalado dentro de ±30% y fuera de esa banda sin
 // escalado, verificado por barrido sobre el lote.
-const SEMILLA_SISTEMA_SENSIBLE = 69;
+// ia-punteria-6: colocarNaves pasó a exigir tiro viable en las dos
+// direcciones, lo que cambia qué sistema produce cada semilla del lote --
+// 69 dejó de servir (razón con escalado 6.75, muy fuera de banda) y 73 pasó
+// el mismo barrido (razón con escalado 1.11, sin escalado 2.53).
+const SEMILLA_SISTEMA_SENSIBLE = 73;
 
 interface Escenario {
   readonly mascara: Mascara;
