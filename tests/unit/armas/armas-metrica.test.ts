@@ -73,17 +73,37 @@ test("armas-metrica-3: docs/facilidad-armas.md incluye las 16 armas, las cinco c
   for (const columna of ["Daño máx.", "Radio de efecto", "Tiempo de vuelo medio", "Facilidad medida", "Coste"]) {
     assert.ok(informe.includes(columna), `falta la columna "${columna}" en el informe`);
   }
+  // armas-reprecio-roles-3 (cambio justificado, ver cambios_tests_justificados
+  // del entregable de ese bloque): este test original exigía que el informe
+  // SEÑALARA al menos un par de dominancia -- correcto cuando documentaba el
+  // catálogo plano de antes del reprecio, pero exactamente lo contrario de
+  // lo que ese bloque construye. Ahora solo comprueba que la sección existe
+  // y que, si no hay pares, el informe lo dice explícitamente (nunca una
+  // sección vacía sin explicación).
   assert.ok(informe.includes("## Dominancia"));
-  assert.ok(informe.includes("domina a"), "el informe no señala ningún par de dominancia");
+  assert.ok(
+    informe.includes("domina a") || informe.includes("Ninguna encontrada en esta medición."),
+    "la sección de dominancia debe señalar los pares encontrados o decir explícitamente que no hay ninguno",
+  );
 });
 
-test("armas-metrica-3: paresDeDominancia encuentra al menos el caso de pepinazo-cortesia", () => {
+test("armas-metrica-3: paresDeDominancia detecta dominancia real cuando existe (mecanismo, no catálogo)", () => {
+  // armas-reprecio-roles-3 (cambio justificado): ya no se exige que el
+  // catálogo REAL tenga un par de dominancia -- ese bloque lo elimina a
+  // propósito. Se prueba el mecanismo con dos métricas sintéticas donde la
+  // dominancia es inequívoca, para seguir cubriendo la función.
+  const sinteticas = [
+    { id: "a", nombre: "A", danioMaximo: 10, radioEfectoPx: 50, tiempoVueloMedioS: 1, facilidad: 0.1, coste: 10, utilitaria: false },
+    { id: "b", nombre: "B", danioMaximo: 5, radioEfectoPx: 50, tiempoVueloMedioS: 1, facilidad: 0.05, coste: 20, utilitaria: false },
+  ];
+  const pares = paresDeDominancia(sinteticas);
+  assert.ok(pares.length > 0, "el mecanismo de dominancia no detectó un caso inequívoco");
+  assert.ok(pares.some((p) => p.dominante === "a" && p.dominada === "b"));
+});
+
+test("armas-reprecio-roles-3: el catálogo real no tiene ningún par de dominancia entre armas comparables (no utilitarias)", () => {
   const pares = paresDeDominancia(metricasCatalogo);
-  assert.ok(pares.length > 0, "no se encontró ningún par de dominancia");
-  assert.ok(
-    pares.some((p) => p.dominante === "pepinazo-cortesia" || p.dominada === "pepinazo-cortesia"),
-    "pepinazo-cortesia debería aparecer en al menos un par de dominancia",
-  );
+  assert.deepEqual(pares, [], `se encontraron pares de dominancia: ${JSON.stringify(pares)}`);
 });
 
 // armas-metrica-4: el arnés (tests/utils/medirArmas.ts, scripts/medir-armas.ts)

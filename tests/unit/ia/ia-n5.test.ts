@@ -31,22 +31,17 @@ const MASCARA_PLANA = crearMascaraPlana(MUNDO_MULTIPOZO.ancho, MUNDO_MULTIPOZO.a
 const NAVE_A_PLANA = { id: 0 as const, x: 300, y: 900 };
 const NAVE_B_PLANA = { id: 1 as const, x: 1400, y: 900 };
 
-// Escenario "sensible" (solución rozando un planeta): la semilla 73 del
-// mismo lote de 200 sistemas que usan ia-n1/ia-n4/ia-n9/ia-n10.
-// ia-punteria: antes del refinamiento de potencia (busquedaMultipozo.ts) la
-// semilla 72 era la elegida por tener sensibilidad mediana entre las 200 --
-// el refinamiento de potencia (rango completo [0,100], no una ventana local)
-// cambia qué ángulo/potencia encuentra la búsqueda para CADA sistema, así
-// que la sensibilidad medida en cada uno cambia también y 72 dejó de
-// demostrar el mecanismo (su sensibilidad "con escalado" quedó fuera de la
-// banda). Reelegida por el mismo criterio con el buscador nuevo: razón
-// sensible/plano con escalado dentro de ±30% y fuera de esa banda sin
-// escalado, verificado por barrido sobre el lote.
-// ia-punteria-6: colocarNaves pasó a exigir tiro viable en las dos
-// direcciones, lo que cambia qué sistema produce cada semilla del lote --
-// 69 dejó de servir (razón con escalado 6.75, muy fuera de banda) y 73 pasó
-// el mismo barrido (razón con escalado 1.11, sin escalado 2.53).
-const SEMILLA_SISTEMA_SENSIBLE = 73;
+// Escenario "sensible" (solución rozando un planeta): semilla del mismo
+// lote de 200 sistemas que usan ia-n1/ia-n4/ia-n9/ia-n10, elegida por tener
+// la razón sensible/plano con escalado dentro de ±30% y fuera de esa banda
+// sin escalado, verificado por barrido sobre el lote. Reelegida en
+// armas-reprecio-roles: el rango de error de LA_CONTABLE crece otra vez
+// (recalibración del catálogo, ver personalidades.ts) y cambia tanto el
+// denominador (dispersión plana) como la dispersión de cada sistema del
+// lote, así que 73 (razón con escalado 1.11 antes de este bloque) dejó de
+// demostrar el mecanismo -- 164 pasó el mismo barrido (razón con escalado
+// 0.78, sin escalado 0.65).
+const SEMILLA_SISTEMA_SENSIBLE = 164;
 
 interface Escenario {
   readonly mascara: Mascara;

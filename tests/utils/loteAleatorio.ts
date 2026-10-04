@@ -16,10 +16,13 @@ export const MUNDO_LOTE: ParametrosMundo = { ancho: 960, alto: 540, gravedad: 1.
 // Con disparos apuntados (en vez del ángulo puramente al azar de antes de
 // este bloque) las partidas convergen mucho antes en la inmensa mayoría de
 // semillas, pero el terreno real ocasionalmente entierra a una nave en mal
-// sitio -- 400 no bastaba para una semilla de las 1000 probadas; 800 es el
-// margen que las cubre todas sin dejar de ser una red de seguridad y no el
-// desenlace normal.
-export const LIMITE_TURNOS_LOTE = 800;
+// sitio -- 400 no bastaba para una semilla de las 1000 probadas; 800 era el
+// margen que las cubría todas sin dejar de ser una red de seguridad y no el
+// desenlace normal. armas-reprecio-roles bajó el radio de efecto de
+// pepinazo-cortesia (70->55px, la única arma que usa este lote) y una
+// semilla del millar (285572017) pasó a converger en el turno 802: 1000 es
+// el margen que vuelve a cubrirla sin tocar el disparo apuntado de verdad.
+export const LIMITE_TURNOS_LOTE = 1000;
 
 // Fuente que consume el generador que vive en el propio estado de la
 // partida (nunca Math.random): usarla en el lote es lo que hace que

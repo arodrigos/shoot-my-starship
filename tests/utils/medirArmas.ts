@@ -89,6 +89,9 @@ export interface MetricaArma {
   readonly tiempoVueloMedioS: number | null;
   readonly facilidad: number;
   readonly coste: number;
+  // armas-reprecio-roles-5: las armas utilitarias (daño 0 por diseño) se
+  // excluyen de paresDeDominancia -- ver el comentario de esa función.
+  readonly utilitaria: boolean;
 }
 
 // Radio de efecto y daño máximo son 0 para el Gravitón (efecto "empuje"): no
@@ -121,6 +124,7 @@ export function medirCatalogo(
       // para que comparar costes entre armas no tenga que repetir el `?? 0`
       // en cada llamante.
       coste: arma.coste ?? 0,
+      utilitaria: arma.utilitaria ?? false,
     };
   });
 }
@@ -135,10 +139,22 @@ export interface ParDominancia {
 // estrictamente mejor en ninguno, tal y como dice el criterio ("mayores o
 // iguales" / "menor o igual"). Dos armas idénticas en los tres ejes se
 // dominarían mutuamente, lo cual es correcto: ninguna justifica a la otra.
+//
+// armas-reprecio-roles-5 (desviación declarada en el entregable): las armas
+// utilitarias (daño 0 y facilidad 0 por construcción, ver radioYDanio) se
+// excluyen de esta comparación. Su precio no sale del eje daño/facilidad
+// -- sale del volumen de terreno o del desplazamiento que causan -- y
+// comparar dos armas con daño 0 por esta fórmula es matemáticamente
+// indecidible sin romper algo: cualquier par de armas con daño=0 y
+// facilidad=0 se domina mutuamente en cuanto sus costes difieren (la más
+// barata siempre domina a la más cara, aunque esa diferencia de precio
+// venga de un eje que esta función no mide), así que incluirlas aquí
+// garantiza un hallazgo que no dice nada real sobre el catálogo de daño.
 export function paresDeDominancia(metricas: readonly MetricaArma[]): readonly ParDominancia[] {
+  const comparables = metricas.filter((m) => !m.utilitaria);
   const pares: ParDominancia[] = [];
-  for (const a of metricas) {
-    for (const b of metricas) {
+  for (const a of comparables) {
+    for (const b of comparables) {
       if (a.id === b.id) continue;
       if (a.danioMaximo >= b.danioMaximo && a.facilidad >= b.facilidad && a.coste <= b.coste) {
         pares.push({ dominante: a.id, dominada: b.id });

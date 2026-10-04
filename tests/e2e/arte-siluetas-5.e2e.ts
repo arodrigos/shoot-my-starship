@@ -17,7 +17,11 @@ import { arrastrarBarraHasta } from "./utilesControl";
 // seguridad si el límite de turnos se agota sin ganador, nunca como camino
 // normal.
 const MAPA_SEMBRADO = "calma-de-los-restos";
-const MAXIMO_TURNOS_JUGADOS = 12;
+// armas-reprecio-roles bajó radioEfectoPx de pepinazo-cortesia (el arma de
+// serie que usa este test) de 70 a 55px: en este mapa de deriva 0 la
+// solución exacta sigue siendo válida, pero con menos margen hacen falta
+// más turnos para que el casco rival llegue a 0 (antes 12 bastaban).
+const MAXIMO_TURNOS_JUGADOS = 20;
 
 // Elementos de HUD opacos que pueden tapar el proyectil DENTRO del lienzo
 // (el único que importa aquí: la consola vive fuera de la zona de juego) --
@@ -132,7 +136,7 @@ async function intentarCapturarVueloVisible(page: Page, ruta: string, basal: PNG
 }
 
 test("recorrido completo a 360x640 con capturas en apuntado, vuelo e impacto", async ({ page }) => {
-  test.setTimeout(180000);
+  test.setTimeout(280000);
   await page.setViewportSize({ width: 360, height: 640 });
 
   await page.goto(`/?mapa=${MAPA_SEMBRADO}`);
