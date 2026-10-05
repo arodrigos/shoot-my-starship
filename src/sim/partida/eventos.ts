@@ -90,6 +90,11 @@ export type EventoSimulacion =
   // (no está en TIPOS_EVENTO_HUMOR: no dispara sacudida de cámara ni frase
   // de personalidad) y nunca cambia la integridad de nadie.
   | { readonly tipo: "roce"; readonly nave: IdNave; readonly x: number; readonly y: number }
+  // nucleo-n-naves-2: una tercera nave que el área del disparo alcanza sin
+  // ser el objetivo declarado. Evento propio y no un "impacto" más porque la
+  // presentación pinta una explosión por cada "impacto" y aquí el punto ya
+  // está dibujado; esto solo anuncia quién ha perdido integridad.
+  | { readonly tipo: "danio-colateral"; readonly nave: IdNave; readonly danio: number }
   | { readonly tipo: "turno-fin"; readonly siguienteTurno: IdNave }
   // nucleo-n-naves: ganador nullable -- empate real cuando un disparo de
   // área deja sin vida a las dos últimas naves en pie a la vez.
