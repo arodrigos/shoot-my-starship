@@ -80,10 +80,15 @@ export function potenciaTrasArrastre(
 // Redondear a una décima en cada paso (en vez de solo sumar) es lo que evita
 // que el error de coma flotante de sumar 0.1 diez veces seguidas deje el
 // ángulo en 45.99999999999999 en vez de 46 exactos (control-2).
+// apuntado-y-relevo: al llegar a 0°/360° el paso fino da la vuelta (359,9° +
+// 0,1° = 0,0°) en vez de quedarse pegado: el apuntado directo puede dejar el
+// ángulo a un lado u otro de la costura y afinar tiene que poder cruzarla.
 export function anguloConPasoFino(anguloActualGrados: number, sentido: 1 | -1): number {
   const bruto = anguloActualGrados + sentido * PASO_FINO_ANGULO_GRADOS;
   const redondeado = Math.round(bruto * 10) / 10;
-  return clampAngulo(redondeado);
+  const vuelta = ((redondeado % ANGULO_MAXIMO_GRADOS) + ANGULO_MAXIMO_GRADOS) % ANGULO_MAXIMO_GRADOS;
+  // Sumar 360 a un decimal vuelve a ensuciar el último bit.
+  return clampAngulo(Math.round(vuelta * 10) / 10);
 }
 
 export function potenciaConPasoFino(potenciaActual: number, sentido: 1 | -1): number {

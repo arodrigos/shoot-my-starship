@@ -25,18 +25,17 @@ test("precision-angulo: arrastre en el lienzo y ≤ 5 toques finos dejan el áng
     const error = Math.min(Math.abs(trasArrastre - objetivo), 360 - Math.abs(trasArrastre - objetivo));
     expect(error, `tras arrastrar a ${objetivo}° quedó en ${trasArrastre}°`).toBeLessThanOrEqual(0.5);
 
-    // Hasta 5 toques de ±0,1° hacia el objetivo (sin cruzar el 0/360).
+    // Hasta 5 toques de ±0,1° por el camino corto; el paso fino cruza la
+    // costura 0°/360°.
     for (let toque = 0; toque < 5; toque++) {
       const actual = await page.evaluate(() => window.__debug.control!.ajuste.anguloGrados);
-      if (Math.abs(actual - objetivo) < 0.05) break;
-      await page.getByTestId(actual < objetivo ? "paso-angulo-mas" : "paso-angulo-menos").click();
+      const diferencia = ((objetivo - actual + 540) % 360) - 180;
+      if (Math.abs(diferencia) < 0.05) break;
+      await page.getByTestId(diferencia > 0 ? "paso-angulo-mas" : "paso-angulo-menos").click();
     }
     const final = await page.evaluate(() => window.__debug.control!.ajuste.anguloGrados);
-    // Los toques finos saturan en 0 y 360 (control-2) en vez de dar la
-    // vuelta: llegar a 0° desde 359,5° acaba en 360,0°, la misma dirección.
-    const equivalente = objetivo === 0 && final === 360 ? 360 : objetivo;
-    expect(final).toBeCloseTo(equivalente, 5);
-    await expect(page.getByTestId("valor-angulo")).toHaveText(`${equivalente.toFixed(1).replace(".", ",")}°`);
+    expect(final).toBeCloseTo(objetivo, 5);
+    await expect(page.getByTestId("valor-angulo")).toHaveText(`${objetivo.toFixed(1).replace(".", ",")}°`);
   }
 });
 

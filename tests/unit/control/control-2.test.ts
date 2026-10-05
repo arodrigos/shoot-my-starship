@@ -40,3 +40,10 @@ test("control-2: el paso fino nunca saca el ángulo de su rango", () => {
   }
   assert.equal(angulo2 >= ANGULO_MINIMO_GRADOS, true, `ángulo ${angulo2} superó el mínimo`);
 });
+
+// apuntado-y-relevo: el paso fino cruza la costura 0°/360° en los dos sentidos.
+test("control-2: el paso fino da la vuelta en la costura de 0°/360°", () => {
+  assert.equal(anguloConPasoFino(359.9, 1), 0);
+  assert.equal(anguloConPasoFino(0, -1), 359.9);
+  assert.equal(anguloConPasoFino(0.2, -1), 0.1);
+});
