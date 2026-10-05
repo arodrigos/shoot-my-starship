@@ -489,6 +489,7 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
     }
   }
 
+  const barridoFinoDePotencia: CandidatoDisparo[] = [];
   // Fase 2b (ia-punteria-1): barrido fino de potencia en una ventana local
   // alrededor de la semilla analítica (o del candidato de la rejilla si no
   // hay semilla), al ángulo ya refinado por la fase 2 -- NO ternario, a
@@ -522,6 +523,7 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
         puntuacion: r.danioObjetivo - PESO_AUTODANIO * (r.danioPropio + (r.impactoPropio?.danio ?? 0)),
         pasosVuelo: r.pasosVuelo,
       };
+      barridoFinoDePotencia.push(candidato);
       if (
         compararCandidatos(candidato, {
           anguloGrados: mejorAngulo,
@@ -553,15 +555,16 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
     const semillasRiesgo = semillasDeMuestreo(params.aleatorio, MUESTRAS_DISPERSION_POTENCIA);
     const potenciaMenosArriesgada = Math.max(0, mejorPotencia - VENTANA_POTENCIA_GRADOS);
     // Los alternativos: el mismo ángulo con menos potencia (el castigo de la
-    // dispersión crece con ella) y el mejor candidato de la rejilla a otra
-    // potencia distinta de las dos anteriores, que es otro tiro de verdad y
-    // no un vecino del ganador.
-    const alternativoDeRejilla = candidatos.find(
-      (c) => Math.abs(c.potencia - mejorPotencia) >= 1 && Math.abs(c.potencia - potenciaMenosArriesgada) >= 1,
-    );
+    // dispersión crece con ella) y el mejor candidato del barrido fino de
+    // potencia (2b) que difiera de ambos, que es otro tiro del propio
+    // refinamiento -- off-grid, así que no devuelve la potencia a la rejilla
+    // gruesa (ia-punteria-1).
+    const alternativoDelBarrido = [...barridoFinoDePotencia]
+      .filter((c) => c.danio > 0 && Math.abs(c.potencia - mejorPotencia) >= 5 && Math.abs(c.potencia - potenciaMenosArriesgada) >= 5)
+      .sort(compararCandidatos)[0];
     const puntosAlternativos = [
       { anguloGrados: mejorAngulo, potencia: potenciaMenosArriesgada },
-      ...(alternativoDeRejilla ? [{ anguloGrados: alternativoDeRejilla.anguloGrados, potencia: alternativoDeRejilla.potencia }] : []),
+      ...(alternativoDelBarrido ? [{ anguloGrados: alternativoDelBarrido.anguloGrados, potencia: alternativoDelBarrido.potencia }] : []),
     ];
     const candidatoActual = valorEsperadoBajoDispersion(params, tirador, objetivo, mejorAngulo, mejorPotencia, semillasRiesgo);
     vuelosSimulados += MUESTRAS_DISPERSION_POTENCIA;
