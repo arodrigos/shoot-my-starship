@@ -136,6 +136,18 @@ export interface ParametrosBusquedaRival {
   readonly presupuestoVuelosMax?: number;
 }
 
+// nucleo-n-naves-5: valor neto (daño menos PESO_AUTODANIO por autodaño) del
+// mejor tiro que la rejilla gruesa encuentra contra UN rival, con un
+// presupuesto de vuelos acotado. Sirve para elegir a quién apuntar entre
+// varios rivales sin correr la búsqueda completa por cada uno: cada rival
+// paga solo su trozo de rejilla y el ganador hace después la búsqueda de
+// siempre con lo que quede del techo de vuelos del turno. -Infinity si ni
+// una casilla acierta, para que nunca gane a un rival alcanzable.
+export function valorarRival(params: ParametrosBusquedaRival, presupuestoVuelos: number): number {
+  const candidatos = barridoRejilla({ ...params, presupuestoIntentos: Math.min(TOTAL_COMBINACIONES_REJILLA, presupuestoVuelos) });
+  return candidatos[0]?.puntuacion ?? Number.NEGATIVE_INFINITY;
+}
+
 export interface SolucionRival {
   readonly anguloGrados: number;
   readonly potencia: number;

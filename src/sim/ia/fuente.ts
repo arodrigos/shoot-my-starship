@@ -1,29 +1,64 @@
-import { decidirTurnoIA, type UltimoIntentoIA } from "@/sim/ia/decidir";
+import { buscarArma } from "@/sim/armas/catalogo";
+import { PRESUPUESTO_VUELOS_RIVAL_TURNO, valorarRival } from "@/sim/ia/busquedaMultipozo";
+import { ARMA_BASE_ID, decidirTurnoIA, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import type { Personalidad } from "@/sim/ia/tipos";
 import type { NavePosicion } from "@/sim/naves/impacto";
 import { idsNavesVivas, type EstadoPartida, type FuenteDeTurno, type IdNave } from "@/sim/partida/tipos";
 
-// nucleo-n-naves-5: con más de un rival vivo, la IA tiene que elegir a quién
-// apunta -- ya no hay "la otra nave". Calcular el daño esperado de verdad
-// contra cada rival exigiría correr la búsqueda completa de
-// busquedaMultipozo una vez por candidato, multiplicando por 2 o 3 el
-// presupuesto de PRESUPUESTO_VUELOS_RIVAL_TURNO que ia-punteria-2 ya fija en
-// 192 por turno (ver desviaciones). Se usa como proxy la distancia
-// horizontal: un rival más cerca es, en este simulador, un tiro con menos
-// recorrido sobre el que acumular deriva y error de ángulo, luego más fácil
-// de acertar y con mayor daño esperado a igualdad de arma.
-function elegirObjetivo(tirador: IdNave, naveTiradora: { readonly x: number }, estado: EstadoPartida): IdNave {
+// nucleo-n-naves-5: con más de un rival vivo la IA elige a quién apunta por
+// valor neto esperado (daño menos autodaño ponderado), no por cercanía: un
+// rival cercano pero tapado por un planeta vale menos que uno lejano con
+// línea de tiro. Cada rival paga una porción de PRESUPUESTO_ELECCION_OBJETIVO
+// vuelos de rejilla gruesa y el ganador hace la búsqueda completa con lo que
+// quede del techo de 192 por turno, así que el turno nunca pasa de ese techo.
+// Con un solo rival no hay nada que elegir y no se gasta ni un vuelo: es lo
+// que mantiene idénticas, bit a bit, las partidas 1vIA. El empate (también
+// "ningún rival alcanzable") se rompe por cercanía horizontal.
+export const PRESUPUESTO_ELECCION_OBJETIVO = 90;
+
+interface EleccionObjetivo {
+  readonly objetivoId: IdNave;
+  readonly vuelosGastados: number;
+}
+
+function elegirObjetivo(tirador: IdNave, estado: EstadoPartida): EleccionObjetivo {
+  const naveTiradora = estado.naves[tirador];
   const rivales = idsNavesVivas(estado).filter((id) => id !== tirador);
-  let elegido = rivales[0];
-  let distanciaMinima = Math.abs(estado.naves[elegido].x - naveTiradora.x);
-  for (const id of rivales.slice(1)) {
-    const distancia = Math.abs(estado.naves[id].x - naveTiradora.x);
-    if (distancia < distanciaMinima) {
-      distanciaMinima = distancia;
-      elegido = id;
-    }
+  const distancia = (id: IdNave): number => Math.abs(estado.naves[id].x - naveTiradora.x);
+  const masCercano = (ids: readonly IdNave[]): IdNave => ids.reduce((mejor, id) => (distancia(id) < distancia(mejor) ? id : mejor));
+
+  const modoEspacial = naveTiradora.y !== undefined && rivales.every((id) => estado.naves[id].y !== undefined);
+  if (rivales.length === 1 || !modoEspacial) {
+    return { objetivoId: masCercano(rivales), vuelosGastados: 0 };
   }
-  return elegido;
+
+  const navesVivas: readonly NavePosicion[] = estado.naves
+    .map((nave, id) => ({ id: id as IdNave, nave }))
+    .filter(({ nave }) => nave.integridad > 0)
+    .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }));
+  const porRival = Math.floor(PRESUPUESTO_ELECCION_OBJETIVO / rivales.length);
+  const valores = rivales.map((id) => ({
+    id,
+    valor: valorarRival(
+      {
+        mascara: estado.mascara,
+        ancho: estado.mundo.ancho,
+        alto: estado.mundo.alto,
+        planetas: estado.planetas,
+        gravedad: estado.mundo.gravedad,
+        deriva: estado.mundo.deriva,
+        aleatorio: estado.aleatorio,
+        arma: buscarArma(ARMA_BASE_ID),
+        naves: navesVivas,
+        tiradorId: tirador,
+        objetivoId: id,
+      },
+      porRival,
+    ),
+  }));
+  const mejorValor = Math.max(...valores.map(({ valor }) => valor));
+  const empatados = valores.filter(({ valor }) => valor === mejorValor).map(({ id }) => id);
+  return { objetivoId: masCercano(empatados), vuelosGastados: porRival * rivales.length };
 }
 
 // Envuelve decidirTurnoIA como FuenteDeTurno para que una personalidad
@@ -54,7 +89,7 @@ export function crearFuenteIA(
   return (estado: EstadoPartida) => {
     const tirador = estado.turno;
     const naveTiradora = estado.naves[tirador];
-    const objetivoId = elegirObjetivo(tirador, naveTiradora, estado);
+    const { objetivoId, vuelosGastados } = elegirObjetivo(tirador, estado);
     const naveObjetivo = estado.naves[objetivoId];
 
     // ia-multipozo: mismo criterio que Partida.ts para decidir si hay casco
@@ -89,6 +124,9 @@ export function crearFuenteIA(
       tiradorId: modoEspacial ? tirador : undefined,
       objetivoId,
       usosPorArma,
+      // Solo cuando hubo elección entre rivales: con uno solo se deja el
+      // valor por defecto para no tocar el camino 1vIA.
+      ...(vuelosGastados > 0 ? { presupuestoVuelosMax: PRESUPUESTO_VUELOS_RIVAL_TURNO - vuelosGastados } : {}),
     });
 
     return {

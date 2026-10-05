@@ -111,9 +111,10 @@ export interface EntradaDeTurno {
   // nucleo-n-naves: con dos naves el objetivo era siempre "la otra" --
   // calculada con la función que este bloque retira. Con hasta 4, quien
   // decide el turno (jugador o IA) tiene que decir a quién apunta
-  // (nucleo-n-naves-5); avanzar() calcula el daño
-  // contra esta nave y nunca adivina. Tiene que ser una nave viva distinta
-  // del tirador: avanzar() lanza si no lo es.
+  // (nucleo-n-naves-5). Es la intención del turno (broma, realce, proxy de
+  // la IA): el daño lo decide el punto de impacto real, contra todas las
+  // naves vivas. Tiene que ser una nave viva distinta del tirador:
+  // avanzar() lanza si no lo es.
   readonly objetivoId: IdNave;
 }
 

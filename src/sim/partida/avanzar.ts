@@ -1,5 +1,5 @@
 import { buscarArma } from "@/sim/armas/catalogo";
-import { alturaSuperficie, resolverDisparo } from "@/sim/armas/resolver";
+import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/armas/resolver";
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
 import { costeArma, ingresoPorDanio } from "@/sim/partida/economia";
 import { categorizarResultado, type CategoriaBroma } from "@/sim/partida/categoriaBroma";
@@ -286,54 +286,46 @@ export function avanzar(
     eventos.push({ tipo: "derrumbe-bajo-el-lider", nave: liderDerrumbado });
   }
 
+  // nucleo-n-naves-2: el daño sale del punto de impacto REAL, no de a quién
+  // apuntaba el turno. objetivoId es la intención de quien dispara (y el
+  // proxy de la IA); si decidiera él solo quién recibe daño, acertar a una
+  // tercera nave no contaría y su casco, que sí corta el vuelo, haría de
+  // escudo invulnerable. El objetivo declarado conserva su cálculo de
+  // siempre (resultado.danioObjetivo) para que 1vIA siga idéntico bit a bit.
+  const danioColateral = danioATercerasNaves(estado, tirador, objetivoId, arma, resultado);
+  danioColateral.forEach((danio, id) => {
+    eventos.push({ tipo: "danio-colateral", nave: id, danio });
+  });
+
   const naves: EstadoNave[] = estado.naves.map((nave, id) => {
     if (id === tirador) return tiradorTrasDisparo;
     if (id === objetivoId) return objetivoTrasImpacto;
-    return nave;
+    const danio = danioColateral.get(id);
+    return danio === undefined ? nave : conIntegridad(nave, nave.integridad - danio);
   });
 
-  // nucleo-n-naves: "último en pie" generalizado. Solo tirador y objetivo
-  // cambian de integridad en este turno, así que un tercero nunca puede
-  // pasar de vivo a eliminado aquí -- basta mirar cuántos de ellos dos
-  // sobreviven, igual que hacía el núcleo de 2 naves con los dos únicos
-  // participantes posibles.
-  const tiradorVive = tiradorTrasDisparo.integridad > 0;
-  const objetivoVive = objetivoTrasImpacto.integridad > 0;
-  const huboGanador = !tiradorVive || !objetivoVive;
-  if (huboGanador) {
-    const otrosVivos = naves.some((nave, id) => id !== tirador && id !== objetivoId && nave.integridad > 0);
-    // Si ambas caen en el mismo disparo (Despedida contra un objetivo ya muy
-    // dañado) y no queda nadie más en pie, gana quien queda con más
-    // integridad; en empate exacto gana el objetivo, porque quien dispara
-    // asumió el riesgo del autodaño. Si las dos caen pero queda alguien más
-    // vivo, es un empate real entre tirador y objetivo (ninguno gana), y la
-    // partida sigue si ese alguien más sigue en juego.
-    const ganador: IdNave | null =
-      tiradorVive || objetivoVive
-        ? tiradorVive
-          ? tirador
-          : objetivoId
-        : otrosVivos
-          ? null
-          : tiradorTrasDisparo.integridad > objetivoTrasImpacto.integridad
-            ? tirador
-            : objetivoId;
-    if (!otrosVivos) {
-      eventos.push({ tipo: "partida-fin", ganador });
-      return {
-        estado: {
-          ...estado,
-          mascara: resultado.mascara,
-          naves,
-          aleatorio: resultado.aleatorio,
-          resultado: { tipo: "terminada", ganador },
-          planetas: planetasTrasDisparo,
-          saldos: saldosTrasDisparo,
-        },
-        eventos,
-        categoriaBroma,
-      };
-    }
+  // nucleo-n-naves: "último en pie" sobre TODAS las naves, no solo tirador y
+  // objetivo: con daño de área cualquiera puede caer en este turno. Si no
+  // queda nadie en pie (Despedida contra rivales ya muy dañados) gana el
+  // objetivo, porque quien dispara asumió el riesgo del autodaño: es el mismo
+  // desempate de siempre, que mantiene idénticas las partidas de dos naves.
+  const vivos = naves.flatMap((nave, id) => (nave.integridad > 0 ? [id as IdNave] : []));
+  if (vivos.length <= 1) {
+    const ganador: IdNave | null = vivos.length === 1 ? vivos[0] : objetivoId;
+    eventos.push({ tipo: "partida-fin", ganador });
+    return {
+      estado: {
+        ...estado,
+        mascara: resultado.mascara,
+        naves,
+        aleatorio: resultado.aleatorio,
+        resultado: { tipo: "terminada", ganador },
+        planetas: planetasTrasDisparo,
+        saldos: saldosTrasDisparo,
+      },
+      eventos,
+      categoriaBroma,
+    };
   }
 
   const proximoTurno = siguienteTurno({ ...estado, naves }, tirador);
@@ -352,4 +344,30 @@ export function avanzar(
     eventos,
     categoriaBroma,
   };
+}
+
+// Terceras naves vivas (ni tirador ni objetivo declarado) con el daño que les
+// toca por su distancia a cada punto de detonación. Mapa vacío si el disparo
+// falló, se perdió o su efecto no es de daño.
+function danioATercerasNaves(
+  estado: EstadoPartida,
+  tirador: IdNave,
+  objetivoId: IdNave,
+  arma: ReturnType<typeof buscarArma>,
+  resultado: ReturnType<typeof resolverDisparo>,
+): Map<IdNave, number> {
+  const danios = new Map<IdNave, number>();
+  const efecto = arma.efecto;
+  if (resultado.fallo || resultado.proyectilPerdido) return danios;
+  if (efecto.tipo !== "danio" && efecto.tipo !== "danio-y-autodanio") return danios;
+  estado.naves.forEach((nave, id) => {
+    if (id === tirador || id === objetivoId || nave.integridad <= 0) return;
+    const y = nave.y ?? alturaSuperficie(estado.mascara, nave.x) ?? estado.mundo.alto - 1;
+    const danio = resultado.puntosDeImpacto.reduce(
+      (total, punto) => total + danioPorDistancia(efecto.radioEfectoPx, efecto.danioMaximo, Math.hypot(punto.x - nave.x, punto.y - y)),
+      0,
+    );
+    if (danio > 0) danios.set(id, danio);
+  });
+  return danios;
 }

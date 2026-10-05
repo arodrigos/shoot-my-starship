@@ -31,7 +31,7 @@ const MAX_REINTENTOS_AUTOIMPACTO = 3;
 // usa para existeTiroViable -- así "bloqueada" en modo multipozo se apoya en
 // el MISMO criterio de viabilidad que decidió si esta colocación era jugable,
 // nunca en uno propio que pueda discrepar (el fallo que ia-n10 cierra).
-const ARMA_BASE_ID = "pepinazo-cortesia";
+export const ARMA_BASE_ID = "pepinazo-cortesia";
 const PRESUPUESTO_VIABILIDAD_REFERENCIA = 40;
 
 // Por debajo de esto se considera "ha dado", y no dispara la corrección de

@@ -561,7 +561,7 @@ function aplicarHuellaDeArma(mascara: Mascara, arma: Arma, punto: PuntoDeImpacto
   // "ninguna": el Gravitón no toca la máscara.
 }
 
-function danioPorDistancia(radioEfectoPx: number, danioMaximo: number, distancia: number): number {
+export function danioPorDistancia(radioEfectoPx: number, danioMaximo: number, distancia: number): number {
   if (radioEfectoPx <= 0 || distancia >= radioEfectoPx) {
     return 0;
   }
