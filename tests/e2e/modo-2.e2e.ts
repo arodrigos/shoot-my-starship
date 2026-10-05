@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { elegirArmasYConfirmar } from "./utilesControl";
 
 // Tras el reprecio de armas-reprecio-roles, pepinazo-cortesia ya no es
 // gratis (coste 55): las tres armas gratis reales son zanjadora-manolita,
@@ -18,6 +19,8 @@ test("modo-2: con saldo 0, las armas gratis siguen disparables y las de pago que
   await page.goto("/?mapa=calma-de-los-restos&modo=presupuesto&saldo=0");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
+  // Con saldo 0 la selección no ofrece nada pagable: se confirma vacía.
+  await elegirArmasYConfirmar(page, []);
   await page.waitForFunction(() => window.__debug.control !== undefined && window.__debug.saldo === 0);
 
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {
@@ -26,11 +29,8 @@ test("modo-2: con saldo 0, las armas gratis siguen disparables y las de pago que
 
   await page.getByTestId("selector-arma-abrir").click();
 
-  const botonPago = page.getByTestId(`arma-${ARMA_DE_PAGO_ID}`);
-  await expect(botonPago).toBeVisible();
-  await expect(botonPago).toBeDisabled();
-  await expect(page.getByTestId(`precio-${ARMA_DE_PAGO_ID}`)).toBeVisible();
-
+  // Las de pago no se ofrecen: con el loadout vacío solo existen las gratis.
+  await expect(page.getByTestId(`arma-${ARMA_DE_PAGO_ID}`)).toHaveCount(0);
   const botonGratis = page.getByTestId(`arma-${ARMA_GRATIS_ID}`);
   await expect(botonGratis).toBeEnabled();
   await botonGratis.click();
@@ -45,8 +45,6 @@ test("modo-2: con saldo 0, las armas gratis siguen disparables y las de pago que
     { timeout: 60000 },
   );
 
-  // Disparar gratis no cuesta nada, pero si acierta sigue ingresando por
-  // daño (el gratis es de coste, no de recompensa) -- lo único garantizado
-  // es que nunca queda negativo.
-  expect(await page.evaluate(() => window.__debug.saldo)).toBeGreaterThanOrEqual(0);
+  // Sin ingreso por daño y sin coste por disparo: el saldo sigue en 0.
+  expect(await page.evaluate(() => window.__debug.saldo)).toBe(0);
 });

@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
+import { elegirArmasYConfirmar } from "./utilesControl";
 
 function danioAlObjetivo(eventos: readonly EventoSimulacion[] | undefined): number {
   return (eventos ?? [])
@@ -37,25 +38,24 @@ async function dispararConGesto(page: import("@playwright/test").Page): Promise<
   await page.getByTestId("disparar").click();
 }
 
-// modo-1: de punta a punta -- en presupuesto, disparar un arma de pago baja
-// el saldo exactamente su precio, y si causa daño lo sube exactamente ese
-// daño (leído del evento real, no calculado a mano, porque la fiabilidad/
-// dispersión del arma pueden hacer que el daño real difiera del teórico). Dos
-// disparos seguidos, arithmetic exacto en cada uno.
-test("modo-1: dos disparos seguidos dejan el saldo exactamente en el valor aritmético esperado", async ({ page }) => {
+// modo-1 (reescrito por economia-loadout): el saldo se paga al ELEGIR el arma
+// y disparar ya no lo mueve: ni cuesta ni, si causa daño, ingresa. Un
+// disparo con daño real deja el saldo exactamente donde lo dejó la selección.
+test("modo-1: el saldo baja al elegir y un disparo con daño real no lo mueve", async ({ page }) => {
   test.setTimeout(120000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?mapa=calma-de-los-restos&modo=presupuesto");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
+  await elegirArmasYConfirmar(page, [ARMA_ID, "despedida"]);
   await page.waitForFunction(() => window.__debug.control !== undefined && window.__debug.naves !== undefined && window.__debug.saldo !== undefined);
 
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {
     await page.getByTestId("ayuda-cerrar").click();
   }
 
-  const saldoInicial = (await page.evaluate(() => window.__debug.saldo))!;
-  expect(saldoInicial).toBeGreaterThan(0);
+  const saldoTrasSeleccion = (await page.evaluate(() => window.__debug.saldo))!;
+  expect(saldoTrasSeleccion).toBe(1000 - COSTE_ARMA - 120);
 
   await page.getByTestId("selector-arma-abrir").click();
   await page.getByTestId(`arma-${ARMA_ID}`).click();
@@ -66,25 +66,6 @@ test("modo-1: dos disparos seguidos dejan el saldo exactamente en el valor aritm
     saldoTrasDisparo1: window.__debug.saldo,
     eventos1: window.__debug.ultimosEventos,
   }));
-  const danio1 = danioAlObjetivo(eventos1);
-  expect(saldoTrasDisparo1).toBe(saldoInicial - COSTE_ARMA + danio1);
-
-  // Esperar a que la máquina responda antes del segundo disparo del jugador.
-  await page.waitForFunction(
-    () => window.__debug.turno === 0 && (window.__debug.numeroTurno ?? 0) >= 2 && window.__debug.animacionEnCurso === false,
-    undefined,
-    { timeout: 60000 },
-  );
-
-  await page.getByTestId("selector-arma-abrir").click();
-  await page.getByTestId(`arma-${ARMA_ID}`).click();
-  await dispararConGesto(page);
-
-  await page.waitForFunction(() => window.__debug.numeroTurno === 3);
-  const { saldoTrasDisparo2, eventos2 } = await page.evaluate(() => ({
-    saldoTrasDisparo2: window.__debug.saldo,
-    eventos2: window.__debug.ultimosEventos,
-  }));
-  const danio2 = danioAlObjetivo(eventos2);
-  expect(saldoTrasDisparo2).toBe(saldoTrasDisparo1! - COSTE_ARMA + danio2);
+  expect(danioAlObjetivo(eventos1), "el disparo tiene que causar daño real para probar que no ingresa").toBeGreaterThan(0);
+  expect(saldoTrasDisparo1).toBe(saldoTrasSeleccion);
 });

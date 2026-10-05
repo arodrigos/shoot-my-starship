@@ -20,7 +20,7 @@ function danioDe(arma: Arma): number {
 // Un color por arma, repartido por el círculo cromático: el icono es solo una
 // seña rápida para reconocer la fila sin leerla, no sustituye al nombre.
 function colorDeIcono(indice: number): string {
-  return `hsl(${Math.round((indice * 360) / CATALOGO_ARMAS.length)} 75% 42%)`;
+  return `hsl(${Math.round((indice * 360) / CATALOGO_ARMAS.length)} 75% 32%)`;
 }
 
 const FONDO = "#12141a";
@@ -90,7 +90,10 @@ export function SeleccionHUD() {
       style={contenedor}
     >
       <header style={{ padding: "10px 12px 6px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-        <h2 style={{ margin: 0, fontSize: 17, overflowWrap: "anywhere" }}>Arsenal de {estado.jugador}</h2>
+        {/* La partida de siempre llama «Tú» al único humano: «Arsenal de Tú» suena a error. */}
+        <h2 style={{ margin: 0, fontSize: 17, overflowWrap: "anywhere" }}>
+          {estado.jugador === "Tú" ? "Tu arsenal" : `Arsenal de ${estado.jugador}`}
+        </h2>
         <p style={{ margin: "2px 0 0", fontSize: 13, color: TEXTO_SUAVE }}>
           <strong data-testid="seleccion-saldo" style={{ color: TEXTO }}>
             {seleccion.saldo} cr
