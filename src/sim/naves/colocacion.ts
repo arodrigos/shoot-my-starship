@@ -49,10 +49,14 @@ const OFFSET_SEMILLA_REGENERACION = 7919;
 // una preferencia fuerte, no una garantía -- 1/8 del lado menor del mundo --
 // y basta con que cada nave tenga algún rival alcanzable.
 const FRACCION_SEPARACION_PREFERIDA_N_NAVES = 1 / 8;
-// Franja superior que el último escalón de 3-4 naves deja libre: ahí viven
+// Franja superior que TODOS los escalones de 3-4 naves dejan libre: ahí viven
 // los botones del HUD (Histórico, Sacudida, Sonido) y una nave bajo ellos no
-// se ve ni se puede distinguir.
-const FRACCION_MARGEN_HUD_SUPERIOR = 0.15;
+// se ve ni se puede distinguir. Sale de la geometría real a 360x640 (escala de
+// mundo ~3,1 px por px CSS): los botones bajan hasta ~53 px CSS = 165 de mundo,
+// más el radio del casco (22) y un respiro. Una fracción del alto no servía: la
+// de 0,15 (173) dejaba el casco tocando el botón y solo se aplicaba en un
+// escalón, así que recolocación y regeneración podían poner una nave en y≈18.
+export const MARGEN_HUD_SUPERIOR_N_NAVES_PX = 190;
 
 export type EscalonColocacion = "recolocacion" | "regeneracion" | "sin-viabilidad" | "corredor";
 
@@ -132,6 +136,7 @@ function intentarColocarEnSistema(
   let aleatorio = aleatorioInicial;
   const armaBase = buscarArma(ARMA_BASE_ID);
   const separacion = separacionEntreNaves(mundo, cantidad);
+  const margenSuperior = margenSuperiorNaves(cantidad);
 
   const maxIntentos = cantidad === 2 ? MAX_INTENTOS_COLOCACION : MAX_INTENTOS_COLOCACION_N_NAVES;
   for (let intento = 1; intento <= maxIntentos; intento++) {
@@ -140,7 +145,7 @@ function intentarColocarEnSistema(
     // partida de 2 ya sembrada cambia de colocación.
     const puntos: Punto[] = [];
     for (let indice = 0; indice < cantidad; indice++) {
-      const paso = elegirPunto(sistema.mascara, mundo.ancho, mundo.alto, aleatorio, puntos, separacion);
+      const paso = elegirPunto(sistema.mascara, mundo.ancho, mundo.alto, aleatorio, puntos, separacion, margenSuperior);
       aleatorio = paso.aleatorio;
       if (!paso.punto) break;
       puntos.push(paso.punto);
@@ -194,6 +199,12 @@ function intentarColocarEnSistema(
   return { naves: null, aleatorio, intentos: maxIntentos };
 }
 
+// Con dos naves la colocación no cambia (las partidas sembradas ya jugadas
+// conservan su sitio); la franja del HUD solo se exige con 3 o 4.
+function margenSuperiorNaves(cantidad: number): number {
+  return cantidad === 2 ? MARGEN_MUNDO_NAVE_PX : MARGEN_HUD_SUPERIOR_N_NAVES_PX;
+}
+
 function separacionEntreNaves(mundo: ParametrosMundo, cantidad: number): number {
   return cantidad === 2 ? SEPARACION_MINIMA_NAVES_PX : Math.min(mundo.ancho, mundo.alto) * FRACCION_SEPARACION_PREFERIDA_N_NAVES;
 }
@@ -205,7 +216,7 @@ function separacionEntreNaves(mundo: ParametrosMundo, cantidad: number): number 
 // preferida, se relaja a la mitad (preferencia, no garantía).
 function colocarSinViabilidad(sistema: SistemaGenerado, mundo: ParametrosMundo, aleatorioInicial: EstadoAleatorio, cantidad: number) {
   let aleatorio = aleatorioInicial;
-  const margenSuperior = mundo.alto * FRACCION_MARGEN_HUD_SUPERIOR;
+  const margenSuperior = margenSuperiorNaves(cantidad);
   for (const separacion of [separacionEntreNaves(mundo, cantidad), separacionEntreNaves(mundo, cantidad) / 2]) {
     for (let intento = 0; intento < MAX_INTENTOS_COLOCACION; intento++) {
       const puntos: Punto[] = [];

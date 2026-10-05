@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { colocarNaves, SEPARACION_MINIMA_NAVES_PX } from "@/sim/naves/colocacion";
+import { colocarNaves, MARGEN_HUD_SUPERIOR_N_NAVES_PX, SEPARACION_MINIMA_NAVES_PX } from "@/sim/naves/colocacion";
 import type { ParametrosMundo } from "@/sim/partida/tipos";
 import { MAX_NOMBRE_JUGADOR, sanearNombre } from "@/juego/jugadores";
 
@@ -35,9 +35,7 @@ describe("multi-setup-partida: colocarNaves de 2 a 4 naves", () => {
         const resultado = colocarNaves(semilla, MUNDO, crearEstadoAleatorio(semilla), cantidad);
         assert.notEqual(resultado.escalon, "corredor", `semilla ${semilla}: cae al último recurso, con las naves en fila arriba`);
         for (const [i, a] of resultado.naves.entries()) {
-          if (resultado.escalon === "sin-viabilidad") {
-            assert.ok((a.y ?? 0) >= MUNDO.alto * 0.15, `semilla ${semilla}: nave ${i} bajo los botones del HUD (y ${a.y})`);
-          }
+          assert.ok((a.y ?? 0) >= MARGEN_HUD_SUPERIOR_N_NAVES_PX, `semilla ${semilla} (${resultado.escalon}): nave ${i} bajo los botones del HUD (y ${a.y})`);
           for (const b of resultado.naves.slice(i + 1)) {
             assert.ok(Math.hypot(a.x - b.x, (a.y ?? 0) - (b.y ?? 0)) >= separacionMinima, `semilla ${semilla}`);
           }
@@ -45,6 +43,28 @@ describe("multi-setup-partida: colocarNaves de 2 a 4 naves", () => {
       }
     });
   }
+
+  for (const cantidad of [3, 4]) {
+    it(`con ${cantidad} naves ningún casco toca la zona de los botones en ninguna de 60 semillas, sea cual sea el escalón`, () => {
+      const escalones = new Set<string>();
+      for (let semilla = 1; semilla <= 60; semilla++) {
+        const resultado = colocarNaves(semilla, MUNDO, crearEstadoAleatorio(semilla), cantidad);
+        escalones.add(resultado.escalon);
+        for (const [i, nave] of resultado.naves.entries()) {
+          // 22 es el radio de casco: la nave entera, no solo su centro, fuera de la franja.
+          assert.ok((nave.y ?? 0) - 22 >= 165, `semilla ${semilla} (${resultado.escalon}): casco ${i} toca los botones (y ${nave.y})`);
+        }
+      }
+      assert.ok(escalones.size >= 1);
+    });
+  }
+
+  it("las semillas 222732 y 151461 del Gatekeeper ya no dejan una nave bajo los botones", () => {
+    for (const [semilla, cantidad] of [[222732, 3], [151461, 4], [278165, 3], [278165, 4], [40595, 4]] as const) {
+      const { naves, escalon } = colocarNaves(semilla, MUNDO, crearEstadoAleatorio(semilla), cantidad);
+      for (const nave of naves) assert.ok((nave.y ?? 0) - 22 >= 165, `semilla ${semilla}/${cantidad} (${escalon}): y ${nave.y}`);
+    }
+  });
 
   it("con 2 naves la separación sigue siendo la dura de siempre", () => {
     for (let semilla = 1; semilla <= 8; semilla++) {
