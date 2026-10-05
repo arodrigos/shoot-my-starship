@@ -21,7 +21,13 @@ const MAPA_SEMBRADO = "calma-de-los-restos";
 const MAXIMO_TURNOS_JUGADOS = 12;
 
 test("partida de punta a punta a 360x640 con el encuadre nuevo, jugada hasta que hay un ganador real", async ({ page }) => {
-  test.setTimeout(150000);
+  // La partida juega hasta 12 turnos reales y cada turno incluye la búsqueda
+  // de la IA (hasta 192 vuelos simulados); en un shard de CI con 2 vCPU el
+  // test tarda ~2,5 min, justo en el borde de los 150 s anteriores y el
+  // merge de multi-setup-partida lo agotó dos veces seguidas sin que el diff
+  // tocase la partida de 2 naves. La aserción de convergencia en
+  // MAXIMO_TURNOS_JUGADOS no cambia: solo el margen de reloj.
+  test.setTimeout(300000);
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto(`/?mapa=${MAPA_SEMBRADO}`);
   await page.getByTestId("boton-jugar").click();
