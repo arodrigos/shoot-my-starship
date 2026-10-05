@@ -15,11 +15,20 @@ async function esperarPartida(page: Page): Promise<void> {
   }
 }
 
-for (const humanos of [3, 4]) {
-  test(`multi-setup-partida-3: ${humanos} naves en la partida espacial por defecto quedan dentro del lienzo y fuera de los botones a 360x640`, async ({ page }) => {
+// Sin semilla es la por defecto; 222732 (3 naves) y 151461 (4) son las que el
+// Gatekeeper midió con una nave bajo "Histórico" y "Sonido".
+const CASOS: readonly { humanos: number; semilla: number | null }[] = [
+  { humanos: 3, semilla: null },
+  { humanos: 4, semilla: null },
+  { humanos: 3, semilla: 222732 },
+  { humanos: 4, semilla: 151461 },
+];
+
+for (const { humanos, semilla } of CASOS) {
+  test(`multi-setup-partida-3: ${humanos} naves (semilla ${semilla ?? "por defecto"}) en la partida espacial quedan dentro del lienzo y fuera de los botones a 360x640`, async ({ page }) => {
     test.setTimeout(240000);
     await page.setViewportSize({ width: 360, height: 640 });
-    await page.goto("/");
+    await page.goto(semilla === null ? "/" : `/?semilla=${semilla}`);
     await page.getByTestId(`humanos-${humanos}`).click();
     // Sin relleno de IA: el número de naves es el de humanos.
     await page.getByTestId("ias-0").click();
@@ -67,6 +76,6 @@ for (const humanos of [3, 4]) {
       }
     }
 
-    await page.screenshot({ path: `test-results/multi-setup-colocacion/multi-setup-colocacion-${humanos}-naves-360x640.png` });
+    await page.screenshot({ path: `test-results/multi-setup-colocacion/multi-setup-colocacion-${humanos}-naves-${semilla ?? "defecto"}-360x640.png` });
   });
 }
