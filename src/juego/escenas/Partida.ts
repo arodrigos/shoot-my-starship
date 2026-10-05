@@ -1989,6 +1989,17 @@ export class Partida extends Phaser.Scene {
     for (let i = 0; i < TOPE_TURNOS_DESENLACE; i++) {
       if (this.estado.resultado.tipo === "terminada") break;
 
+      // Gancho de pruebas: en modo presupuesto Despedida solo está si el
+      // jugador la eligió, y se consume al disparar; sin reponerla el bucle
+      // no podría acotar la partida con la selección que haya hecho el test.
+      const { loadouts } = this.estado;
+      if (loadouts?.[this.estado.turno] && !loadouts[this.estado.turno]!.includes(ARMA_DESENLACE)) {
+        this.estado = {
+          ...this.estado,
+          loadouts: loadouts.map((loadout, nave) => (nave === this.estado.turno ? [...loadout!, ARMA_DESENLACE] : loadout)),
+        };
+      }
+
       const solucion = this.calcularSolucionBalistica(this.estado) ?? { anguloGrados: 45, potencia: 70 };
       const { estado, eventos, categoriaBroma } = avanzar(this.estado, {
         arma: ARMA_DESENLACE,
