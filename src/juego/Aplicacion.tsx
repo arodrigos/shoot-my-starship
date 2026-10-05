@@ -101,7 +101,10 @@ export function Aplicacion() {
         modo: actual.modo,
         jugadores: actual.jugadores,
         todosVemosTodo: actual.todosVemosTodo,
-        saldosNoGastados: actual.modo === "presupuesto" ? (obtenerSaldosFinales() ?? undefined) : undefined,
+        // Se fía del saldo que publicó la escena al terminar (undefined en barra
+        // libre) y no de `actual.modo`: ?modo=presupuesto manda sobre el modo
+        // elegido en la portada, así que ambos pueden discrepar.
+        saldosNoGastados: obtenerSaldosFinales() ?? undefined,
       }));
     });
   }, []);
