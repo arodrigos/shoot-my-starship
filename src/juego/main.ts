@@ -25,6 +25,9 @@ export interface DatosEscenaPartida {
   // multi-setup-partida: quién juega (de 2 a 4 asientos, humanos primero).
   // Ausente es la partida de siempre: un humano contra `personalidadId`.
   readonly jugadores?: readonly JugadorConfig[];
+  // relevo-turno: desactiva de forma explícita la pantalla de relevo entre
+  // humanos (partidas rápidas donde la información es pública).
+  readonly todosVemosTodo?: boolean;
 }
 
 // FIT + CENTER_BOTH (render-4, sustituye el RESIZE de andamiaje-1): el
