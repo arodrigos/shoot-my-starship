@@ -24,6 +24,8 @@ interface Partida {
   readonly modo: ModoJuego;
   // multi-setup-partida: quién juega, igual para todas las partidas de la sesión.
   readonly jugadores?: readonly JugadorConfig[];
+  // relevo-turno: sin relevo entre humanos, para partidas rápidas.
+  readonly todosVemosTodo?: boolean;
 }
 
 // Rango del generador con semilla del propio juego (crearGeneradorAleatorio
@@ -95,6 +97,7 @@ export function Aplicacion() {
         personalidadId: actual.personalidadId,
         modo: actual.modo,
         jugadores: actual.jugadores,
+        todosVemosTodo: actual.todosVemosTodo,
       }));
     });
   }, []);
@@ -102,8 +105,8 @@ export function Aplicacion() {
   if (fase === "inicio") {
     return (
       <PantallaInicio
-        onJugar={(rivalId, modo, jugadores) => {
-          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores }));
+        onJugar={(rivalId, modo, jugadores, todosVemosTodo) => {
+          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo }));
           setFase("jugando");
         }}
       />
@@ -119,6 +122,7 @@ export function Aplicacion() {
         personalidadId: partida.personalidadId,
         modo: partida.modo,
         jugadores: partida.jugadores,
+        todosVemosTodo: partida.todosVemosTodo,
       }}
     />
   );

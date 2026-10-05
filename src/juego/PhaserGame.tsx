@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type Phaser from "phaser";
 import { SinWebGL } from "@/juego/SinWebGL";
 import { hayWebGL } from "@/juego/soporteWebGL";
@@ -8,6 +8,8 @@ import { ControlHUD } from "@/juego/hud/ControlHUD";
 import { ReaccionHUD } from "@/juego/hud/ReaccionHUD";
 import { ParteDeGuerraHUD } from "@/juego/hud/ParteDeGuerraHUD";
 import { CuentaAtrasHUD } from "@/juego/hud/CuentaAtrasHUD";
+import { RelevoHUD } from "@/juego/hud/RelevoHUD";
+import { obtenerRelevo, suscribirRelevo } from "@/juego/control/relevoStore";
 import type { DatosEscenaPartida, IdEscena } from "@/juego/main";
 import { FRACCION_ALTO_ZONA_JUEGO } from "@/juego/layoutContenedor";
 
@@ -33,6 +35,7 @@ interface Props {
 export function PhaserGame({ escena, datosEscena }: Props) {
   const [estado] = useState<Estado>(() => (hayWebGL() ? "disponible" : "sin-webgl"));
   const juego = useRef<Phaser.Game | null>(null);
+  const relevoActivo = useSyncExternalStore(suscribirRelevo, () => obtenerRelevo().activo, () => false);
 
   useLayoutEffect(() => {
     if (estado !== "disponible") {
@@ -80,12 +83,16 @@ export function PhaserGame({ escena, datosEscena }: Props) {
           data-testid="consola"
           style={{ position: "relative", width: "100%", flex: "1 1 auto", minHeight: 0 }}
         >
-          <ControlHUD />
-          <ReaccionHUD />
+          {/* relevo-turno: durante el relevo el control se desmonta (no solo
+              se tapa) para que su saldo y arma seleccionada del jugador
+              anterior no estén en el DOM del siguiente. */}
+          {!relevoActivo && <ControlHUD />}
+          {!relevoActivo && <ReaccionHUD />}
         </div>
       )}
       {esPartida && <ParteDeGuerraHUD />}
       {esPartida && <CuentaAtrasHUD />}
+      {esPartida && <RelevoHUD />}
     </div>
   );
 }

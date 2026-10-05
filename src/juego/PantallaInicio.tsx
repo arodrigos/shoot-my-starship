@@ -13,7 +13,7 @@ const RIVAL_POR_DEFECTO_ID = "la-contable";
 const MODO_POR_DEFECTO: ModoJuego = "barra-libre";
 
 interface Props {
-  readonly onJugar: (rivalId: string, modo: ModoJuego, jugadores?: readonly JugadorConfig[]) => void;
+  readonly onJugar: (rivalId: string, modo: ModoJuego, jugadores?: readonly JugadorConfig[], todosVemosTodo?: boolean) => void;
 }
 
 // partida-4: primera visita y estados vacíos. Vive fuera del lienzo (no
@@ -34,6 +34,8 @@ export function PantallaInicio({ onJugar }: Props) {
   // de asientos (hasta 4 naves en total, mínimo 2) rellenado con rivales de IA.
   const [humanos, setHumanos] = useState(1);
   const [rivalesIA, setRivalesIA] = useState(1);
+  // relevo-turno: solo se ofrece con 2 o más humanos; con uno no hay relevo.
+  const [todosVemosTodo, setTodosVemosTodo] = useState(false);
   const [nombres, setNombres] = useState<readonly string[]>(["", "", "", ""]);
   // El presupuesto por jugador llega con el loadout por ronda: hasta
   // entonces solo tiene sentido con un humano contra un rival.
@@ -72,7 +74,7 @@ export function PantallaInicio({ onJugar }: Props) {
         return { nombre: personalidad.nombre, tipo: "ia" as const, personalidadId: personalidad.id };
       }),
     ];
-    onJugar(rivalId, modoEfectivo, jugadores);
+    onJugar(rivalId, modoEfectivo, jugadores, humanos > 1 && todosVemosTodo);
   }
 
   return (
@@ -193,6 +195,26 @@ export function PantallaInicio({ onJugar }: Props) {
             />
           </label>
         ))}
+        {humanos > 1 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, textAlign: "left" }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", minHeight: 44 }}>
+              <input
+                type="checkbox"
+                data-testid="todos-vemos-todo"
+                checked={todosVemosTodo}
+                onChange={(evento) => setTodosVemosTodo(evento.target.checked)}
+                style={{ width: 24, height: 24, flex: "0 0 24px" }}
+              />
+              <span>Todos vemos todo (sin pantalla de relevo)</span>
+            </label>
+            {todosVemosTodo && (
+              <p role="status" data-testid="aviso-todos-vemos-todo" style={{ margin: 0, color: "#ffe08a", font: "12px system-ui, sans-serif" }}>
+                Sin relevo, el turno pasa directo y lo que elige cada jugador (arma y ajuste) lo ve quien reciba el
+                dispositivo: la información es pública.
+              </p>
+            )}
+          </div>
+        )}
         <p data-testid="resumen-asientos" style={{ margin: 0, font: "12px system-ui, sans-serif" }}>
           {humanos + rivalesIA} naves: {humanos} {humanos === 1 ? "humano" : "humanos"} y {rivalesIA}{" "}
           {rivalesIA === 1 ? "rival de IA" : "rivales de IA"}. Cada asiento tiene su color y su forma de nave.

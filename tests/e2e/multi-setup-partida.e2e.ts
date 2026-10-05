@@ -22,9 +22,22 @@ async function esperarPartida(page: Page): Promise<void> {
   }
 }
 
+// relevo-turno: entre dos humanos distintos el juego espera un toque de quien
+// recibe el dispositivo; esto lo da, si hay relevo, y devuelve el control.
+async function pasarRelevo(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => window.__debug.control!.puedeDisparar === true || document.querySelector('[data-testid="relevo-confirmar"]') !== null,
+    undefined,
+    { timeout: 30000 },
+  );
+  const confirmar = page.getByTestId("relevo-confirmar");
+  if (await confirmar.isVisible()) await confirmar.click();
+}
+
 // Un turno humano real: apunta con la solución exacta contra el objetivo que
 // la escena elige y dispara. Devuelve el id de quien tenía el turno.
 async function dispararTurnoHumano(page: Page): Promise<number> {
+  await pasarRelevo(page);
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 30000 });
   const { turno, numeroTurno } = await page.evaluate(() => ({ turno: window.__debug.turno!, numeroTurno: window.__debug.numeroTurno! }));
   const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
@@ -95,6 +108,7 @@ test("multi-setup-partida-1/3/5/6/7: configurar 4 humanos a 360x640 y jugar hast
   // estado marca como activa exactamente la nave que el núcleo dice.
   const turnosJugados: number[] = [];
   for (let asiento = 0; asiento < 4; asiento++) {
+    await pasarRelevo(page);
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 30000 });
     const turnoNucleo = await page.evaluate(() => window.__debug.turno!);
     expect(turnoNucleo).toBe(asiento);
@@ -135,7 +149,7 @@ test("multi-setup-partida-1/3/5/6/7: configurar 4 humanos a 360x640 y jugar hast
     for (const id of estado.eliminadas) eliminadasVistas.add(id);
     if (nuevas.length > 0 && estado.parte === null) {
       // multi-setup-partida-4: el anuncio sale con el nombre de quien cayó.
-      for (const id of nuevas) await expect(page.getByTestId("resultado-turno")).toContainText(`${controladores[id].nombre} queda eliminada`);
+      for (const id of nuevas) await expect(page.getByTestId("resultado-turno").or(page.getByTestId("relevo-resumen"))).toContainText(`${controladores[id].nombre} queda eliminada`);
     }
     if (estado.parte !== null) break;
     expect(eliminadasVistas.has(estado.turno), `la nave eliminada ${estado.turno} recibió turno`).toBe(false);
@@ -181,7 +195,10 @@ test("multi-setup-partida-6: 2 humanos y 2 rivales de IA se juegan hasta el fina
 
   for (let i = 0; i < MAXIMO_TURNOS; i++) {
     const cerrada = await page.waitForFunction(
-      () => window.__debug.parteDeGuerra !== null || window.__debug.control!.puedeDisparar === true,
+      () =>
+        window.__debug.parteDeGuerra !== null ||
+        window.__debug.control!.puedeDisparar === true ||
+        document.querySelector('[data-testid="relevo-confirmar"]') !== null,
       undefined,
       { timeout: 60000 },
     );

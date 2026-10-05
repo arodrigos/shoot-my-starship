@@ -45,6 +45,7 @@ import {
   publicarTurno,
   registrarManejadorDisparo,
   reiniciarControl,
+  seleccionarArma,
 } from "@/juego/control/store";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
@@ -62,7 +63,8 @@ import {
 import { publicarGanador, publicarParticipantes, reiniciarParticipantes } from "@/juego/control/participantesStore";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
-import { publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
+import { obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
+import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
 import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
@@ -235,6 +237,14 @@ export class Partida extends Phaser.Scene {
   // multi-setup-partida: quién controla cada nave (humano o IA con su
   // personalidad), paralelo a this.estado.naves.
   private controladores: readonly Controlador[] = [];
+  // relevo-turno: true mientras la pantalla de relevo tapa el juego; el
+  // siguiente jugador no puede apuntar ni disparar hasta que confirme.
+  private relevoPendiente = false;
+  // Último humano que tuvo el dispositivo: el relevo se decide contra él y
+  // no contra el tirador inmediato, para que una IA entre medias no deje
+  // pasar la información de un humano al siguiente sin relevo.
+  private ultimoHumano: IdNave | null = null;
+  private cancelarManejadorRelevo: (() => void) | null = null;
   // sonido-procedimental (snd-2): último índice de indiceTic() publicado por
   // cada cuenta atrás -- null mientras no hay ninguna activa. Comparar el
   // índice nuevo contra este valor (en vez de disparar el tic cada fotograma)
@@ -391,6 +401,9 @@ export class Partida extends Phaser.Scene {
     reiniciarBromas();
     reiniciarIntegridad();
     reiniciarParticipantes();
+    reiniciarRelevo();
+    this.relevoPendiente = false;
+    this.ultimoHumano = null;
     window.__debug.eliminadas = [];
     window.__debug.ganador = undefined;
     this.memoriaIA = new Map();
@@ -652,6 +665,7 @@ export class Partida extends Phaser.Scene {
       this.dispararEntrada({ ...entrada, objetivoId: this.objetivoDe(this.estado.turno) }, true),
     );
     this.cancelarManejadorRepeticion = registrarManejadorRepeticion(() => this.reproducirRepeticion());
+    this.cancelarManejadorRelevo = registrarManejadorRelevo(() => this.confirmarRelevoActual());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.limpiarEntrada());
 
     // humor-5: Phaser ya pausa/reanuda su bucle solo al cambiar de pestaña
@@ -1072,7 +1086,8 @@ export class Partida extends Phaser.Scene {
       // un vuelo ya resuelto pero con el turno retrasado se leería como
       // "sigue siendo tu turno, sin animación", y el botón de disparar se
       // reactivaría antes de que el turno real haya pasado.
-      !this.avanceTurnoPendiente
+      !this.avanceTurnoPendiente &&
+      !this.relevoPendiente
     );
   }
 
@@ -1082,6 +1097,8 @@ export class Partida extends Phaser.Scene {
     this.cancelarManejadorDisparo = null;
     this.cancelarManejadorRepeticion?.();
     this.cancelarManejadorRepeticion = null;
+    this.cancelarManejadorRelevo?.();
+    this.cancelarManejadorRelevo = null;
     this.game.events.off(Phaser.Core.Events.PAUSE, pausarAudio);
     this.game.events.off(Phaser.Core.Events.RESUME, reanudarAudio);
   }
@@ -1316,8 +1333,11 @@ export class Partida extends Phaser.Scene {
       this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma, {
         retrasarSiHaySacudida: true,
         alAvanzarTurno: () => {
+          if (this.esHumano(tirador)) this.ultimoHumano = tirador;
           if (this.estado.resultado.tipo !== "terminada" && !this.esHumano(this.estado.turno)) {
             this.dispararTurnoIA();
+          } else if (this.estado.resultado.tipo !== "terminada") {
+            this.abrirRelevoSiHaceFalta(estadoAntes, estadoDespues, entrada.arma);
           }
         },
       });
@@ -1343,6 +1363,46 @@ export class Partida extends Phaser.Scene {
     this.estado = estado;
     memoria.usosPorArma = { ...memoria.usosPorArma, [entrada.arma]: (memoria.usosPorArma[entrada.arma] ?? 0) + 1 };
     this.dispararEntrada(entrada, false);
+  }
+
+  // relevo-turno: solo entre dos humanos distintos y solo si la partida no
+  // pidió "todos vemos todo". Con un único humano ultimoHumano siempre
+  // coincide con el turno y nunca se abre.
+  private abrirRelevoSiHaceFalta(estadoAntes: EstadoPartida, estadoDespues: EstadoPartida, armaId: string): void {
+    const siguiente = estadoDespues.turno;
+    if (this.datosEscena.todosVemosTodo || !this.datosEscena.jugadores) return;
+    if (this.ultimoHumano === null || this.ultimoHumano === siguiente || !this.esHumano(siguiente)) return;
+    const tirador = estadoAntes.turno;
+    const danio = estadoAntes.naves.reduce(
+      (suma, nave, id) => (id === tirador ? suma : suma + Math.max(0, nave.integridad - estadoDespues.naves[id].integridad)),
+      0,
+    );
+    const impacto = obtenerBromas().impacto;
+    this.relevoPendiente = true;
+    publicarJugable(false);
+    publicarRelevo(
+      nombreDeNave(this.controladores, siguiente),
+      {
+        tirador: nombreDeNave(this.controladores, tirador),
+        arma: buscarArma(armaId).nombre,
+        danio,
+        fallo: danio === 0,
+        eliminadas: estadoAntes.naves.flatMap((nave, id) =>
+          nave.integridad > 0 && estadoDespues.naves[id].integridad <= 0 ? [nombreDeNave(this.controladores, id)] : [],
+        ),
+      },
+      impacto,
+    );
+  }
+
+  private confirmarRelevoActual(): void {
+    if (!this.relevoPendiente) return;
+    this.relevoPendiente = false;
+    cerrarRelevo();
+    // El arma que dejó elegida el jugador anterior no debe llegar
+    // preseleccionada al siguiente.
+    seleccionarArma(CATALOGO_ARMAS[0].id);
+    publicarJugable(this.puedeJugarAhora());
   }
 
   private esHumano(id: IdNave): boolean {
