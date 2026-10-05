@@ -188,8 +188,13 @@ function medirDispersionMedia(personalidad: Personalidad, lote: ReturnType<typeo
 // sesgo real). El orden que queda demostrado no es ya "más floja = más
 // dispersa", es el que resulta de los rangos de personalidades.ts
 // recalibrados por ia-punteria: Chispa < La Contable < Almirante Bisagra.
-test(`ia-n4b: la dispersión media en ${NUM_SISTEMAS} disparos, en modo multipozo, refleja los rangos de error recalibrados`, () => {
-  const lote = generarLoteDeSistemas(NUM_SISTEMAS);
+// Siempre 200 disparos, sin la reducción de muestra(): con 40 la media la
+// mueven unos pocos tiros que un pozo lanza lejos (Chispa 106 px frente a La
+// Contable 46 px) y el orden se invierte respecto al de la muestra completa.
+const NUM_SISTEMAS_DISPERSION = 200;
+
+test(`ia-n4b: la dispersión media en ${NUM_SISTEMAS_DISPERSION} disparos, en modo multipozo, refleja los rangos de error recalibrados`, () => {
+  const lote = generarLoteDeSistemas(NUM_SISTEMAS_DISPERSION);
 
   const dispersionContable = medirDispersionMedia(LA_CONTABLE, lote);
   const dispersionBisagra = medirDispersionMedia(ALMIRANTE_BISAGRA, lote);

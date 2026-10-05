@@ -87,3 +87,28 @@ test("potencia-dispersion-3/4: capturas a potencia 30% y 95% -- el ancho de la b
     `el ancho de la banda a 95%% (${anchoFinal(bandaAlta)}px) debe ser mayor que a 30%% (${anchoFinal(bandaBaja)}px)`,
   );
 });
+
+// potencia-dispersion-3: con ángulos por debajo del horizonte (adrian-angulo-
+// 360) el suelo está cerca y cada extremo, recortado por su cuenta, se
+// quedaba en un solo punto: la banda desaparecía aunque el centro se viera.
+for (const anguloGrados of [240, 270, 300]) {
+  test(`potencia-dispersion-3: la banda existe también por debajo del horizonte (${anguloGrados}°)`, () => {
+    const mascara = crearMascaraPlana(ANCHO, ALTO, 1300);
+    const banda = calcularBandaPrevisualizacion({
+      mascara,
+      gravedad: GRAVEDAD,
+      deriva: DERIVA,
+      ancho: ANCHO,
+      alto: ALTO,
+      origenX: 1200,
+      origenY: 500,
+      anguloGrados,
+      potencia: 95,
+      comportamiento: { tipo: "impacto-simple" },
+    });
+    assert.ok(banda.centro.length >= 2, "el centro se ve");
+    assert.equal(banda.extremoMenor.length, banda.centro.length);
+    assert.equal(banda.extremoMayor.length, banda.centro.length);
+    assert.ok(banda.extremoMenor.length >= 2 && banda.extremoMayor.length >= 2, "cada extremo tiene al menos un segmento que dibujar");
+  });
+}

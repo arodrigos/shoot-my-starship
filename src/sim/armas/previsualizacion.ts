@@ -72,6 +72,13 @@ export interface ParametrosPrevisualizacion {
   // muestra sin perturbación (ballística pura), que sigue siendo honesto
   // para el tramo cortísimo que se enseña (pvr-2).
   readonly aleatorio?: EstadoAleatorio;
+  // potencia-dispersion-3: los extremos del cono se recortan al mismo número
+  // de puntos que ya muestra el centro, en vez de aplicar por su cuenta el 25 %
+  // del vuelo y el ocultamiento del contacto (pvr-2). Con ángulos por debajo
+  // del horizonte el suelo está a pocos pasos: cada extremo, recortado solo,
+  // se quedaba en un punto y la banda desaparecía aunque el centro sí se viera.
+  // No revela nada nuevo: nunca es más largo que lo que el centro ya enseña.
+  readonly longitudFija?: number;
 }
 
 export interface PuntoPrevisualizacion {
@@ -144,6 +151,7 @@ export function calcularPrevisualizacion(params: ParametrosPrevisualizacion): re
   });
 
   const trayectoria = resultado.trayectoria ?? [inicial];
+  if (params.longitudFija !== undefined) return trayectoria.slice(0, params.longitudFija);
 
   // gravedad-visible (grav-vis-2): el vuelo real no terminó dentro del
   // umbral corto -- es "largo" (>= FACTOR_UMBRAL_VUELO_CORTO * pasosDeclarados
@@ -196,7 +204,8 @@ export function calcularBandaPrevisualizacion(params: ParametrosPrevisualizacion
   if (amplitudGrados === 0) {
     return { centro, extremoMenor: centro, extremoMayor: centro, amplitudGrados };
   }
-  const extremoMenor = calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados - amplitudGrados });
-  const extremoMayor = calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados + amplitudGrados });
+  const longitudFija = centro.length;
+  const extremoMenor = calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados - amplitudGrados, longitudFija });
+  const extremoMayor = calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados + amplitudGrados, longitudFija });
   return { centro, extremoMenor, extremoMayor, amplitudGrados };
 }
