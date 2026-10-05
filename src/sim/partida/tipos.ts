@@ -95,6 +95,9 @@ export interface EstadoPartida {
   // conocer presupuesto para no cambiar ninguna partida ya aprobada).
   readonly modo?: ModoJuego;
   readonly saldos?: readonly (number | undefined)[];
+  // economia-loadout: armas elegidas por nave y aún sin disparar, paralelo a
+  // `naves`; undefined = nave sin presupuesto (la IA). Vacío = solo las gratis.
+  readonly loadouts?: readonly (readonly string[] | undefined)[];
 }
 
 // El arma es un identificador de texto y nada más: el catálogo declarativo

@@ -1,5 +1,5 @@
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
-import { costeArma, puedeCostearArma as puedeCostearArmaSim } from "@/sim/partida/economia";
+import { costeArma } from "@/sim/partida/economia";
 import type { EntradaDeTurno, IdNave, ModoJuego } from "@/sim/partida/tipos";
 import {
   ANGULO_INICIAL_GRADOS,
@@ -48,10 +48,14 @@ export interface EstadoControl {
   readonly modoEspacial: boolean;
   // modos-y-presupuesto: modo de la partida en curso y saldo del jugador --
   // fijados por Partida.ts al crear la partida (fijarModo) y refrescados tras
-  // cada turno (publicarSaldo). saldo es null en barra libre (modo-4: ningún
+  // cada turno (publicarEconomia). saldo es null en barra libre (modo-4: ningún
   // saldo, ni siquiera uno enorme).
   readonly modo: ModoJuego;
   readonly saldo: number | null;
+  // economia-loadout: ids que el jugador de turno puede disparar (su loadout,
+  // o las 3 gratis si lo agotó); null en barra libre, donde sirve todo el
+  // catálogo.
+  readonly armasDisponibles: readonly string[] | null;
   // realce-impacto (rlc-3): si la sacudida de cámara y el destello de daño
   // están activados -- persistido como ayudaVisible (localStorage, no se
   // resetea en reiniciarControl porque es preferencia del navegador, no de
@@ -168,6 +172,7 @@ let estado: EstadoControl = {
   modoEspacial: false,
   modo: "barra-libre",
   saldo: null,
+  armasDisponibles: null,
   sacudidaActiva: leerSacudidaActivaGuardada(),
   silenciado: sonidoSilenciado(),
   turno: 0,
@@ -266,14 +271,11 @@ export function ajustarPotenciaFino(sentido: 1 | -1): void {
   fijarAjuste({ potencia: potenciaConPasoFino(estado.ajuste.potencia, sentido) });
 }
 
-// modo-2: nunca deja seleccionar un arma que el saldo actual no cubre --
-// mismo mecanismo de rechazo silencioso que armaEstaAgotada (el botón ya
-// viene deshabilitado en el HUD; esto es la red de seguridad del store).
-export function puedeCostearArma(armaId: string): boolean {
-  if (estado.modo !== "presupuesto") return true;
-  const arma = CATALOGO_ARMAS.find((candidata) => candidata.id === armaId);
-  if (!arma) return true;
-  return puedeCostearArmaSim(arma, estado.saldo ?? 0);
+// economia-loadout: solo se puede seleccionar lo que el loadout permite --
+// mismo rechazo silencioso que armaEstaAgotada (el HUD ni siquiera lista el
+// resto; esto es la red de seguridad del store).
+export function armaDisponible(armaId: string): boolean {
+  return estado.armasDisponibles === null || estado.armasDisponibles.includes(armaId);
 }
 
 export function costeDeArma(armaId: string): number {
@@ -283,7 +285,7 @@ export function costeDeArma(armaId: string): number {
 
 export function seleccionarArma(armaId: string): void {
   if (armaEstaAgotada(armaId)) return;
-  if (!puedeCostearArma(armaId)) return;
+  if (!armaDisponible(armaId)) return;
   fijarAjuste({ armaId });
 }
 
@@ -293,8 +295,12 @@ export function fijarModo(modo: ModoJuego, saldoInicial: number | null): void {
   fijar({ modo, saldo: saldoInicial });
 }
 
-export function publicarSaldo(saldo: number | null): void {
-  if (estado.saldo !== saldo) fijar({ saldo });
+// Si el arma que quedó seleccionada ya no está disponible (se acaba de
+// consumir), salta a la primera que sí lo está.
+export function publicarEconomia(saldo: number | null, armasDisponibles: readonly string[] | null): void {
+  const armaId =
+    armasDisponibles !== null && !armasDisponibles.includes(estado.ajuste.armaId) ? armasDisponibles[0] : estado.ajuste.armaId;
+  fijar({ saldo, armasDisponibles, ajuste: { ...estado.ajuste, armaId } });
 }
 
 export function repetirUltimoDisparo(): void {
@@ -399,6 +405,7 @@ export function reiniciarControl(): void {
     modoEspacial: false,
     modo: "barra-libre",
     saldo: null,
+    armasDisponibles: null,
     turno: 0,
     nombreRival: "Rival",
   });

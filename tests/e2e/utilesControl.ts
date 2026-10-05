@@ -21,3 +21,15 @@ export async function arrastrarBarraHasta(page: Page, testId: string, fraccion: 
   await page.mouse.move(finX, clienteY, { steps: 4 });
   await page.mouse.up();
 }
+
+// economia-loadout: en modo con presupuesto cada humano elige armas antes de
+// jugar. Esto hace esa pantalla por la UI real (con la identificación previa
+// si hay varios humanos) y la confirma; sin armas pulsa dos veces, que es lo
+// que pide el aviso de «solo las 3 gratis».
+export async function elegirArmasYConfirmar(page: Page, armas: readonly string[], conIdentificacion = false): Promise<void> {
+  await page.getByTestId("pantalla-seleccion").waitFor({ state: "visible", timeout: 30000 });
+  if (conIdentificacion) await page.getByTestId("seleccion-identificar").click();
+  for (const arma of armas) await page.getByTestId(`seleccion-arma-${arma}`).click();
+  await page.getByTestId("seleccion-confirmar").click();
+  if (armas.length === 0) await page.getByTestId("seleccion-confirmar").click();
+}
