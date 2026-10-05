@@ -43,6 +43,7 @@ export function RelevoHUD() {
           {resumen.fallo
             ? `${resumen.tirador} ha fallado${resumen.arma ? ` con ${resumen.arma}` : ""}.`
             : `${resumen.tirador} ha disparado ${resumen.arma ?? "su arma"} y ha hecho ${resumen.danio} de daño.`}
+          {resumen.eliminadas.map((nombre) => ` ${nombre} queda eliminada.`).join("")}
         </p>
       )}
       {relevo.broma && (

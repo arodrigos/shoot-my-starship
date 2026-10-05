@@ -149,7 +149,7 @@ test("multi-setup-partida-1/3/5/6/7: configurar 4 humanos a 360x640 y jugar hast
     for (const id of estado.eliminadas) eliminadasVistas.add(id);
     if (nuevas.length > 0 && estado.parte === null) {
       // multi-setup-partida-4: el anuncio sale con el nombre de quien cayó.
-      for (const id of nuevas) await expect(page.getByTestId("resultado-turno")).toContainText(`${controladores[id].nombre} queda eliminada`);
+      for (const id of nuevas) await expect(page.getByTestId("resultado-turno").or(page.getByTestId("relevo-resumen"))).toContainText(`${controladores[id].nombre} queda eliminada`);
     }
     if (estado.parte !== null) break;
     expect(eliminadasVistas.has(estado.turno), `la nave eliminada ${estado.turno} recibió turno`).toBe(false);

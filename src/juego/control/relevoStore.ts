@@ -8,6 +8,8 @@ export interface ResumenRelevo {
   readonly arma: string | null;
   readonly danio: number;
   readonly fallo: boolean;
+  // Quién cayó en este turno: el resumen normal queda oculto tras el relevo.
+  readonly eliminadas: readonly string[];
 }
 
 export interface EstadoRelevo {

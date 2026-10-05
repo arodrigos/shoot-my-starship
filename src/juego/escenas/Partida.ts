@@ -1382,7 +1382,15 @@ export class Partida extends Phaser.Scene {
     publicarJugable(false);
     publicarRelevo(
       nombreDeNave(this.controladores, siguiente),
-      { tirador: nombreDeNave(this.controladores, tirador), arma: buscarArma(armaId).nombre, danio, fallo: danio === 0 },
+      {
+        tirador: nombreDeNave(this.controladores, tirador),
+        arma: buscarArma(armaId).nombre,
+        danio,
+        fallo: danio === 0,
+        eliminadas: estadoAntes.naves.flatMap((nave, id) =>
+          nave.integridad > 0 && estadoDespues.naves[id].integridad <= 0 ? [nombreDeNave(this.controladores, id)] : [],
+        ),
+      },
       impacto,
     );
   }
