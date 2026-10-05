@@ -3,6 +3,7 @@ import {
   ANGULO_MIN_GRADOS,
   barridoRejilla,
   compararCandidatos,
+  type CandidatoDisparo,
   PASO_ANGULO_GRUESO_GRADOS,
   PESO_AUTODANIO,
   TOTAL_COMBINACIONES_REJILLA,
@@ -41,7 +42,7 @@ const RONDAS_REFINAMIENTO = 3;
 // contiguas de la rejilla, 15 puntos) mantiene el refinamiento dentro de la
 // zona donde ese ángulo todavía conecta, igual que PASO_ANGULO_GRUESO_GRADOS
 // para el ángulo.
-const RONDAS_REFINAMIENTO_POTENCIA = 32;
+const RONDAS_REFINAMIENTO_POTENCIA = 29;
 // potencia-dispersion (pot-5): la IA tiene que conocer la dispersión --
 // ordenar por el mejor caso (una sola tirada sin ruido) es justamente lo
 // que el punto 6 de Adrián pide dejar de hacer. Usado por la fase 2c (ver
@@ -58,6 +59,10 @@ const RONDAS_REFINAMIENTO_POTENCIA = 32;
 // 2*MUESTRAS_DISPERSION_POTENCIA vuelos) aparte, sin tocar la densidad de
 // las fases ya calibradas.
 export const MUESTRAS_DISPERSION_POTENCIA = 3;
+// potencia-dispersion-5: cuántos candidatos se reordenan por valor esperado
+// (el ganador de las fases 1-2b y los mejores alternativos). Cada uno cuesta
+// MUESTRAS_DISPERSION_POTENCIA vuelos, reservados aparte del resto.
+export const CANDIDATOS_REORDENADOS_POR_VALOR_ESPERADO = 3;
 const VENTANA_POTENCIA_GRADOS = 25;
 // Fase 1b: cuántas muestras de potencia completa [0,100] se prueban al
 // ángulo de emergencia cuando la rejilla entera no encontró ni un candidato
@@ -101,7 +106,7 @@ export const PRESUPUESTO_VUELOS_RIVAL_DEFAULT = 1200;
 // potencia-dispersion: +2*MUESTRAS_DISPERSION_POTENCIA reservados para la
 // fase 2c (ver más abajo) -- aparte de las fases 1-2b, que no cambian.
 const VUELOS_RESERVADOS_REFINAMIENTO_Y_SENSIBILIDAD =
-  RONDAS_REFINAMIENTO * 2 + RONDAS_REFINAMIENTO_POTENCIA + 2 + 2 + 2 * MUESTRAS_DISPERSION_POTENCIA;
+  RONDAS_REFINAMIENTO * 2 + RONDAS_REFINAMIENTO_POTENCIA + 2 + 2 + CANDIDATOS_REORDENADOS_POR_VALOR_ESPERADO * MUESTRAS_DISPERSION_POTENCIA;
 // Presupuesto real que usa decidir.ts en un turno normal (ia-n3, techo de
 // 250ms de CPU medido en CI): cubre la rejilla entera para las tres potencias
 // centrales (40/55/70%) más una parte de las dos más altas, y dentro de eso
@@ -145,6 +150,9 @@ export interface SolucionRival {
   // real (ia-n3): el llamante recibe igualmente un mejor esfuerzo, nunca una
   // excepción ni una espera abierta.
   readonly agotado: boolean;
+  // true si el reordenamiento por valor esperado bajo dispersión cambió el
+  // tiro que habían elegido las fases de mejor caso (potencia-dispersion-5).
+  readonly reordenadoPorValorEsperado: boolean;
 }
 
 // Disparo de emergencia (hallazgo de CI en este mismo bloque, e2e
@@ -308,6 +316,24 @@ function valorEsperadoBajoDispersion(
   return { anguloGrados, potencia, danio, autodanioTotal, puntuacion: danio - PESO_AUTODANIO * autodanioTotal, pasosVuelo };
 }
 
+// potencia-dispersion-5: elige entre el candidato actual y varios alternativos
+// por su puntuación ESPERADA (ya promediada sobre las muestras de dispersión).
+// Dos guardas. (1) Un alternativo con daño esperado 0 (potencia tan reducida
+// que ya no alcanza el objetivo) nunca gana: compararCandidatos prioriza la
+// ausencia de autodaño por delante de la puntuación, así que sin esta guarda
+// se canjearía un tiro que SÍ hace daño por uno que no hace ninguno solo por
+// ser "seguro" (medido: ia-n10 discrepaba con existeTiroViable en las
+// semillas 16 y 28). (2) El actual solo se sustituye si un alternativo lo
+// supera estrictamente: el empate conserva el hallazgo determinista de las
+// fases 1-2b en vez de sobrescribirlo con la media de solo 3 muestras.
+export function elegirPorValorEsperado<T extends CandidatoDisparo>(actual: T, alternativos: readonly T[]): T {
+  let mejor = actual;
+  for (const alternativo of alternativos) {
+    if (alternativo.danio > 0 && compararCandidatos(alternativo, mejor) < 0) mejor = alternativo;
+  }
+  return mejor;
+}
+
 // Sin ambas naves no hay nada que buscar: el llamante (decidir.ts) siempre
 // las trae porque ya las necesitó para llegar hasta aquí, pero se cubre el
 // caso igual que barridoRejilla/existeTiroViable en vez de asumir.
@@ -320,6 +346,7 @@ function solucionSinNaves(): SolucionRival {
     sensibilidadPxPorPorcentajePotencia: SENSIBILIDAD_SIN_DATOS_PX_PORCENTAJE,
     vuelosSimulados: 0,
     agotado: false,
+    reordenadoPorValorEsperado: false,
   };
 }
 
@@ -515,45 +542,43 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
   // CASO -- una sola tirada sin dispersión -- correcto para encontrar DÓNDE
   // está el pico de daño, pero ciego al riesgo que la propia potencia-
   // dispersión añade (más potencia, más ángulo de salida incierto). Antes
-  // de fijar el tiro, se compara el candidato encontrado contra una
-  // alternativa de MENOS potencia (mismo ángulo, un paso de
-  // VENTANA_POTENCIA_GRADOS hacia abajo) por VALOR ESPERADO bajo dispersión
-  // -- media de MUESTRAS_DISPERSION_POTENCIA muestras cada uno, con las
-  // MISMAS semillas de ruido para los dos (números aleatorios comunes, para
-  // que la comparación no sea ruido contra ruido). Gana la de mayor
-  // puntuación esperada, nunca la de mejor caso bruto.
-  if (huboCandidato && vuelosSimulados + 2 * MUESTRAS_DISPERSION_POTENCIA <= presupuestoMax) {
+  // de fijar el tiro se reordenan por VALOR ESPERADO bajo dispersión los
+  // CANDIDATOS_REORDENADOS_POR_VALOR_ESPERADO mejores (el ganador y dos
+  // alternativos) -- media de MUESTRAS_DISPERSION_POTENCIA muestras cada
+  // uno, con las MISMAS semillas de ruido para todos (números aleatorios
+  // comunes, para que la comparación no sea ruido contra ruido). Gana la
+  // mayor puntuación esperada, nunca la de mejor caso bruto.
+  let reordenadoPorValorEsperado = false;
+  if (huboCandidato && vuelosSimulados + CANDIDATOS_REORDENADOS_POR_VALOR_ESPERADO * MUESTRAS_DISPERSION_POTENCIA <= presupuestoMax) {
     const semillasRiesgo = semillasDeMuestreo(params.aleatorio, MUESTRAS_DISPERSION_POTENCIA);
     const potenciaMenosArriesgada = Math.max(0, mejorPotencia - VENTANA_POTENCIA_GRADOS);
+    // Los alternativos: el mismo ángulo con menos potencia (el castigo de la
+    // dispersión crece con ella) y el mejor candidato de la rejilla a otra
+    // potencia distinta de las dos anteriores, que es otro tiro de verdad y
+    // no un vecino del ganador.
+    const alternativoDeRejilla = candidatos.find(
+      (c) => Math.abs(c.potencia - mejorPotencia) >= 1 && Math.abs(c.potencia - potenciaMenosArriesgada) >= 1,
+    );
+    const puntosAlternativos = [
+      { anguloGrados: mejorAngulo, potencia: potenciaMenosArriesgada },
+      ...(alternativoDeRejilla ? [{ anguloGrados: alternativoDeRejilla.anguloGrados, potencia: alternativoDeRejilla.potencia }] : []),
+    ];
     const candidatoActual = valorEsperadoBajoDispersion(params, tirador, objetivo, mejorAngulo, mejorPotencia, semillasRiesgo);
     vuelosSimulados += MUESTRAS_DISPERSION_POTENCIA;
-    const candidatoMenosArriesgado = valorEsperadoBajoDispersion(
-      params,
-      tirador,
-      objetivo,
-      mejorAngulo,
-      potenciaMenosArriesgada,
-      semillasRiesgo,
-    );
-    vuelosSimulados += MUESTRAS_DISPERSION_POTENCIA;
-    // Dos guardas, no una. (1) Un candidato "más seguro" con daño esperado 0
-    // (potencia tan reducida que ya no alcanza el objetivo) nunca puede
-    // ganar: compararCandidatos prioriza la ausencia de autodaño por delante
-    // de la puntuación, así que sin esta guarda la fase 2c podía canjear un
-    // tiro que SÍ hace daño por uno que no hace ninguno, solo por ser
-    // "seguro" (medido: ia-n10 discrepaba con existeTiroViable en las
-    // semillas 16 y 28 por esto). (2) Si NO se canjea, se conservan
-    // mejorDanio/mejorAutodanio/mejorPuntuacion de las fases 1-2b (la tirada
-    // real sin ruido que de verdad se encontró) -- sobrescribirlos con la
-    // MEDIA de solo 3 muestras de candidatoActual convertía un hallazgo
-    // determinista en 0 por pura varianza de muestreo, con el mismo efecto
-    // que la guarda (1) pero sin cambiar de tiro.
-    if (candidatoMenosArriesgado.danio > 0 && compararCandidatos(candidatoMenosArriesgado, candidatoActual) < 0) {
-      mejorPotencia = candidatoMenosArriesgado.potencia;
-      mejorDanio = candidatoMenosArriesgado.danio;
-      mejorAutodanio = candidatoMenosArriesgado.autodanioTotal;
-      mejorPuntuacion = candidatoMenosArriesgado.puntuacion;
-      mejorPasosVuelo = candidatoMenosArriesgado.pasosVuelo;
+    const alternativos = puntosAlternativos.map((punto) => {
+      const valor = valorEsperadoBajoDispersion(params, tirador, objetivo, punto.anguloGrados, punto.potencia, semillasRiesgo);
+      vuelosSimulados += MUESTRAS_DISPERSION_POTENCIA;
+      return valor;
+    });
+    const elegido = elegirPorValorEsperado(candidatoActual, alternativos);
+    if (elegido !== candidatoActual) {
+      reordenadoPorValorEsperado = true;
+      mejorAngulo = elegido.anguloGrados;
+      mejorPotencia = elegido.potencia;
+      mejorDanio = elegido.danio;
+      mejorAutodanio = elegido.autodanioTotal;
+      mejorPuntuacion = elegido.puntuacion;
+      mejorPasosVuelo = elegido.pasosVuelo;
     }
   }
 
@@ -603,5 +628,6 @@ export function buscarSolucionRival(params: ParametrosBusquedaRival): SolucionRi
     sensibilidadPxPorPorcentajePotencia,
     vuelosSimulados,
     agotado: vuelosSimulados >= presupuestoMax && mejorDanio <= 0,
+    reordenadoPorValorEsperado,
   };
 }
