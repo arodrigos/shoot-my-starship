@@ -38,6 +38,19 @@ export function limpiarParteDeGuerra(): void {
   fijar({ parte: null });
 }
 
+// economia-loadout-1: el saldo que cada asiento no gastó al terminar la
+// partida. Vive aparte de `estado` porque limpiarParteDeGuerra() se llama al
+// arrancar la escena siguiente, y es justo entonces cuando hay que leerlo.
+let saldosFinales: readonly (number | undefined)[] | null = null;
+
+export function publicarSaldosFinales(saldos: readonly (number | undefined)[] | undefined): void {
+  saldosFinales = saldos ?? null;
+}
+
+export function obtenerSaldosFinales(): readonly (number | undefined)[] | null {
+  return saldosFinales;
+}
+
 // Señal de "otra partida" (partida-1): el botón vive en React
 // (ParteDeGuerraHUD), pero quien sabe cómo arrancar una escena nueva con un
 // mundo distinto es el componente que monta JuegoLienzo -- mismo patrón de

@@ -17,6 +17,8 @@ export interface EstadoSeleccion {
   // Primer «Empezar» sin armas: avisa de que solo habrá las 3 gratis y pide
   // confirmar una segunda vez.
   readonly avisoVacio: boolean;
+  // Créditos de la partida anterior incluidos en el saldo de esta (0 si no hay).
+  readonly arrastrado: number;
 }
 
 const ESTADO_INICIAL: EstadoSeleccion = {
@@ -26,6 +28,7 @@ const ESTADO_INICIAL: EstadoSeleccion = {
   seleccion: seleccionInicial(0),
   error: null,
   avisoVacio: false,
+  arrastrado: 0,
 };
 
 let estado: EstadoSeleccion = ESTADO_INICIAL;
@@ -46,8 +49,8 @@ export function suscribirSeleccion(escucha: () => void): () => void {
   return () => escuchas.delete(escucha);
 }
 
-export function abrirSeleccion(jugador: string, saldo: number, pedirIdentificacion: boolean): void {
-  fijar({ ...ESTADO_INICIAL, activa: true, jugador, identificado: !pedirIdentificacion, seleccion: seleccionInicial(saldo) });
+export function abrirSeleccion(jugador: string, saldo: number, pedirIdentificacion: boolean, arrastrado = 0): void {
+  fijar({ ...ESTADO_INICIAL, activa: true, jugador, identificado: !pedirIdentificacion, seleccion: seleccionInicial(saldo), arrastrado });
 }
 
 export function identificarJugadorSeleccion(): void {

@@ -11,7 +11,7 @@ import {
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { FACILIDAD_MEDIDA_PCT } from "@/sim/armas/facilidadMedida";
 import type { Arma } from "@/sim/armas/tipos";
-import { costeArma } from "@/sim/partida/economia";
+import { PRESUPUESTO_BASE, costeArma } from "@/sim/partida/economia";
 
 function danioDe(arma: Arma): number {
   return arma.efecto.tipo === "empuje" ? 0 : arma.efecto.danioMaximo;
@@ -98,7 +98,11 @@ export function SeleccionHUD() {
           <strong data-testid="seleccion-saldo" style={{ color: TEXTO }}>
             {seleccion.saldo} cr
           </strong>{" "}
-          disponibles · cada arma elegida es un disparo · precio según daño y facilidad de acierto
+          disponibles
+          {estado.arrastrado > 0 && (
+            <span data-testid="seleccion-arrastrado"> ({PRESUPUESTO_BASE} + {estado.arrastrado} arrastrados)</span>
+          )}{" "}
+          · cada arma elegida es un disparo · precio según daño y facilidad de acierto
         </p>
       </header>
 

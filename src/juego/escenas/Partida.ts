@@ -9,7 +9,7 @@ import { colocarNaves } from "@/sim/naves/colocacion";
 import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
-import { PRESUPUESTO_BASE, idsDisponibles, type SeleccionArmas } from "@/sim/partida/economia";
+import { PRESUPUESTO_BASE, idsDisponibles, saldoDeRonda, type SeleccionArmas } from "@/sim/partida/economia";
 import { idsNavesVivas, type EntradaDeTurno, type EstadoPartida, type IdNave, type ModoJuego, type ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } from "@/sim/armas/resolver";
@@ -48,7 +48,7 @@ import {
   seleccionarArma,
 } from "@/juego/control/store";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
-import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
+import { limpiarParteDeGuerra, publicarParteDeGuerra, publicarSaldosFinales } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { crearSelectorBromas, type SelectorBromas } from "@/contenido/selectorBromas";
 import { vozDeNave } from "@/contenido/bancoBromas";
@@ -1437,7 +1437,13 @@ export class Partida extends Phaser.Scene {
   // presupuesto y dispara como en barra libre.
   private economiaInicial(saldoInicial: number): Pick<EstadoPartida, "saldos" | "loadouts"> {
     return {
-      saldos: this.controladores.map((controlador) => (controlador.tipo === "humano" ? saldoInicial : undefined)),
+      // Un asiento con saldo arrastrado de la partida anterior manda sobre
+      // el inicial (también sobre ?saldo=, que solo fija la primera partida).
+      saldos: this.controladores.map((controlador, id) => {
+        if (controlador.tipo !== "humano") return undefined;
+        const arrastrado = this.datosEscena.saldosNoGastados?.[id];
+        return arrastrado === undefined ? saldoInicial : saldoDeRonda(arrastrado);
+      }),
       loadouts: this.controladores.map((controlador) => (controlador.tipo === "humano" ? [] : undefined)),
     };
   }
@@ -1469,7 +1475,13 @@ export class Partida extends Phaser.Scene {
         return;
       }
       const id = humanos[indice];
-      abrirSeleccion(nombreDeNave(this.controladores, id), this.estado.saldos?.[id] ?? PRESUPUESTO_BASE, conRelevo);
+      const arrastrado = this.datosEscena.saldosNoGastados?.[id];
+      abrirSeleccion(
+        nombreDeNave(this.controladores, id),
+        this.estado.saldos?.[id] ?? PRESUPUESTO_BASE,
+        conRelevo,
+        arrastrado === undefined ? 0 : saldoDeRonda(arrastrado) - PRESUPUESTO_BASE,
+      );
       this.cancelarManejadorSeleccion?.();
       this.cancelarManejadorSeleccion = registrarManejadorSeleccion((seleccion: SeleccionArmas) => {
         this.estado = {
@@ -1628,6 +1640,7 @@ export class Partida extends Phaser.Scene {
         const estadisticasGanador = this.estadisticas[idGanador ?? tirador];
         const parte = generarParteDeGuerra(estadisticasGanador);
         publicarParteDeGuerra(parte, estadisticasGanador);
+        publicarSaldosFinales(estadoDespues.saldos);
         window.__debug!.parteDeGuerra = { ...parte, estadisticas: estadisticasGanador };
         // partida-5: intento de guardado best-effort -- si localStorage no
         // está disponible, guardarUltimaPartida se degrada en silencio (ver
@@ -1975,6 +1988,17 @@ export class Partida extends Phaser.Scene {
   private forzarFinDePartida(): void {
     for (let i = 0; i < TOPE_TURNOS_DESENLACE; i++) {
       if (this.estado.resultado.tipo === "terminada") break;
+
+      // Gancho de pruebas: en modo presupuesto Despedida solo está si el
+      // jugador la eligió, y se consume al disparar; sin reponerla el bucle
+      // no podría acotar la partida con la selección que haya hecho el test.
+      const { loadouts } = this.estado;
+      if (loadouts?.[this.estado.turno] && !loadouts[this.estado.turno]!.includes(ARMA_DESENLACE)) {
+        this.estado = {
+          ...this.estado,
+          loadouts: loadouts.map((loadout, nave) => (nave === this.estado.turno ? [...loadout!, ARMA_DESENLACE] : loadout)),
+        };
+      }
 
       const solucion = this.calcularSolucionBalistica(this.estado) ?? { anguloGrados: 45, potencia: 70 };
       const { estado, eventos, categoriaBroma } = avanzar(this.estado, {
