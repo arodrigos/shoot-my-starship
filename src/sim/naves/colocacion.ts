@@ -93,7 +93,7 @@ function elegirPunto(
 }
 
 interface ResultadoIntento {
-  readonly naves: readonly [EstadoNave, EstadoNave] | null;
+  readonly naves: readonly EstadoNave[] | null;
   readonly aleatorio: EstadoAleatorio;
   readonly intentos: number;
 }
@@ -107,23 +107,25 @@ function intentarColocarEnSistema(
   sistema: SistemaGenerado,
   mundo: ParametrosMundo,
   aleatorioInicial: EstadoAleatorio,
+  cantidad: number,
 ): ResultadoIntento {
   let aleatorio = aleatorioInicial;
   const armaBase = buscarArma(ARMA_BASE_ID);
 
   for (let intento = 1; intento <= MAX_INTENTOS_COLOCACION; intento++) {
-    const pasoA = elegirPunto(sistema.mascara, mundo.ancho, mundo.alto, aleatorio, []);
-    aleatorio = pasoA.aleatorio;
-    if (!pasoA.punto) continue;
+    // multi-setup-partida: con dos naves el consumo de azar es el de siempre
+    // (un punto libre, luego otro que evita al primero), así que ninguna
+    // partida de 2 ya sembrada cambia de colocación.
+    const puntos: Punto[] = [];
+    for (let indice = 0; indice < cantidad; indice++) {
+      const paso = elegirPunto(sistema.mascara, mundo.ancho, mundo.alto, aleatorio, puntos);
+      aleatorio = paso.aleatorio;
+      if (!paso.punto) break;
+      puntos.push(paso.punto);
+    }
+    if (puntos.length < cantidad) continue;
 
-    const pasoB = elegirPunto(sistema.mascara, mundo.ancho, mundo.alto, aleatorio, [pasoA.punto]);
-    aleatorio = pasoB.aleatorio;
-    if (!pasoB.punto) continue;
-
-    const navesCandidatas = [
-      { id: 0 as const, x: pasoA.punto.x, y: pasoA.punto.y },
-      { id: 1 as const, x: pasoB.punto.x, y: pasoB.punto.y },
-    ];
+    const navesCandidatas = puntos.map((punto, id) => ({ id, x: punto.x, y: punto.y }));
     const parametrosViabilidadComunes = {
       mascara: sistema.mascara,
       ancho: mundo.ancho,
@@ -149,15 +151,19 @@ function intentarColocarEnSistema(
     // colocación que nunca debió aceptarse como jugable. Exigir las dos
     // direcciones descarta esa colocación en el mismo escalón de
     // recolocación/regeneración que ya existía, sin tocar ninguna otra regla.
-    const viableIda = existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: 0, objetivoId: 1 });
-    if (!viableIda) continue;
-    const viableVuelta = existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: 1, objetivoId: 0 });
-    if (!viableVuelta) continue;
+    // Con más de dos naves exigir tiro viable entre TODOS los pares haría
+    // inviable casi cualquier sistema; basta con que cada nave pueda
+    // alcanzar a su vecina siguiente del anillo y viceversa, de modo que
+    // ninguna queda sin un solo rival al que poder dañar.
+    const pares = cantidad === 2 ? [[0, 1]] : puntos.map((_punto, id) => [id, (id + 1) % cantidad]);
+    const todosViables = pares.every(
+      ([ida, vuelta]) =>
+        existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: ida, objetivoId: vuelta }) &&
+        existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: vuelta, objetivoId: ida }),
+    );
+    if (!todosViables) continue;
 
-    const naves: [EstadoNave, EstadoNave] = [
-      { x: pasoA.punto.x, y: pasoA.punto.y, integridad: 100 },
-      { x: pasoB.punto.x, y: pasoB.punto.y, integridad: 100 },
-    ];
+    const naves: EstadoNave[] = puntos.map((punto) => ({ x: punto.x, y: punto.y, integridad: 100 }));
     return { naves, aleatorio, intentos: intento };
   }
 
@@ -171,24 +177,26 @@ function intentarColocarEnSistema(
 // semillas, que en la práctica también resulta viable. Exportada para que
 // imp-9.test.ts pueda forzar este escalón a mano en vez de depender de
 // construir un sistema patológico que agote los dos anteriores.
-export function colocacionUltimoRecurso(mundo: ParametrosMundo): readonly [EstadoNave, EstadoNave] {
+export function colocacionUltimoRecurso(mundo: ParametrosMundo, cantidad = 2): readonly EstadoNave[] {
   const y = MARGEN_CORREDOR_SUPERIOR / 2;
-  return [
-    { x: MARGEN_MUNDO_NAVE_PX, y, integridad: 100 },
-    { x: mundo.ancho - MARGEN_MUNDO_NAVE_PX, y, integridad: 100 },
-  ];
+  const recorrido = mundo.ancho - 2 * MARGEN_MUNDO_NAVE_PX;
+  return Array.from({ length: cantidad }, (_nave, id) => ({
+    x: MARGEN_MUNDO_NAVE_PX + (recorrido * id) / (cantidad - 1),
+    y,
+    integridad: 100,
+  }));
 }
 
 export interface ResultadoColocacion {
   readonly sistema: SistemaGenerado;
-  readonly naves: readonly [EstadoNave, EstadoNave];
+  readonly naves: readonly EstadoNave[];
   readonly aleatorio: EstadoAleatorio;
   readonly intentos: number;
   readonly escalon: EscalonColocacion;
 }
 
 // "Aleatorio jugable" (colocacion-naves, revisado por impacto-naves): coloca
-// las dos naves flotando entre los planetas con las tres holguras de arriba
+// de dos a cuatro naves flotando entre los planetas con las tres holguras de arriba
 // Y con un tiro del arma base que cause daño real demostrado entre ellas
 // (imp-8) -- nunca la antigua tolerancia de proximidad. Con el casco real la
 // viabilidad rechaza más disposiciones, así que esto YA NO es "o esto o
@@ -196,11 +204,16 @@ export interface ResultadoColocacion {
 // con semilla derivada, y como red de seguridad final coloca ambas naves en
 // el corredor que generarSistema garantiza libre (imp-9) -- colocarNaves
 // SIEMPRE termina.
-export function colocarNaves(semillaSistema: number, mundo: ParametrosMundo, aleatorioInicial: EstadoAleatorio): ResultadoColocacion {
+export function colocarNaves(
+  semillaSistema: number,
+  mundo: ParametrosMundo,
+  aleatorioInicial: EstadoAleatorio,
+  cantidad = 2,
+): ResultadoColocacion {
   let sistema = generarSistema(semillaSistema, mundo.ancho, mundo.alto);
   let aleatorio = aleatorioInicial;
 
-  let resultado = intentarColocarEnSistema(sistema, mundo, aleatorio);
+  let resultado = intentarColocarEnSistema(sistema, mundo, aleatorio, cantidad);
   aleatorio = resultado.aleatorio;
   if (resultado.naves) {
     return { sistema, naves: resultado.naves, aleatorio, intentos: resultado.intentos, escalon: "recolocacion" };
@@ -209,12 +222,12 @@ export function colocarNaves(semillaSistema: number, mundo: ParametrosMundo, ale
   for (let regeneracion = 1; regeneracion <= MAX_REGENERACIONES_SISTEMA; regeneracion++) {
     const semillaDerivada = semillaSistema + regeneracion * OFFSET_SEMILLA_REGENERACION;
     sistema = generarSistema(semillaDerivada, mundo.ancho, mundo.alto);
-    resultado = intentarColocarEnSistema(sistema, mundo, aleatorio);
+    resultado = intentarColocarEnSistema(sistema, mundo, aleatorio, cantidad);
     aleatorio = resultado.aleatorio;
     if (resultado.naves) {
       return { sistema, naves: resultado.naves, aleatorio, intentos: resultado.intentos, escalon: "regeneracion" };
     }
   }
 
-  return { sistema, naves: colocacionUltimoRecurso(mundo), aleatorio, intentos: 0, escalon: "corredor" };
+  return { sistema, naves: colocacionUltimoRecurso(mundo, cantidad), aleatorio, intentos: 0, escalon: "corredor" };
 }

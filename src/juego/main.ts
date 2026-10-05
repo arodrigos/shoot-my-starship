@@ -4,6 +4,7 @@ import { calcularTamanoContenedorJuego } from "@/juego/layoutContenedor";
 import { Sandbox } from "@/juego/scenes/Sandbox";
 import { Siluetas } from "@/juego/scenes/Siluetas";
 import { Partida } from "@/juego/escenas/Partida";
+import type { JugadorConfig } from "@/juego/jugadores";
 import type { ModoJuego } from "@/sim/partida/tipos";
 
 export type IdEscena = "partida" | "sandbox" | "siluetas";
@@ -21,6 +22,9 @@ export interface DatosEscenaPartida {
   // modos-y-presupuesto: ausente es "barra-libre" (el comportamiento de
   // siempre, ver Partida.ts create()).
   readonly modo?: ModoJuego;
+  // multi-setup-partida: quién juega (de 2 a 4 asientos, humanos primero).
+  // Ausente es la partida de siempre: un humano contra `personalidadId`.
+  readonly jugadores?: readonly JugadorConfig[];
 }
 
 // FIT + CENTER_BOTH (render-4, sustituye el RESIZE de andamiaje-1): el

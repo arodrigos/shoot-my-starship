@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
 import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 
 // Pantalla final (humor-7): se superpone al tablero ya congelado (la
@@ -9,6 +10,8 @@ import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } fr
 // que sería indistinguible de un remate fijo.
 export function ParteDeGuerraHUD() {
   const { parte } = useSyncExternalStore(suscribirParteDeGuerra, obtenerParteDeGuerra, obtenerParteDeGuerra);
+
+  const { participantes, ganador } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
 
   if (!parte) return null;
 
@@ -30,6 +33,11 @@ export function ParteDeGuerraHUD() {
       }}
     >
       <div style={{ maxWidth: 360 }}>
+        {participantes && (
+          <h2 data-testid="ganador-nombre" style={{ margin: "0 0 8px", overflowWrap: "anywhere" }}>
+            {ganador === null ? "Empate: nadie queda en pie" : `Gana ${ganador}`}
+          </h2>
+        )}
         <h2 data-testid="parte-de-guerra-medalla" style={{ color: "#ffe08a", margin: "0 0 8px" }}>
           {parte.medalla}
         </h2>

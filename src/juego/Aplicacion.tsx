@@ -6,6 +6,7 @@ import { PantallaInicio } from "@/juego/PantallaInicio";
 import { elegirMapaDistinto, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
 import type { ModoJuego } from "@/sim/partida/tipos";
+import type { JugadorConfig } from "@/juego/jugadores";
 
 type Fase = "inicio" | "jugando";
 
@@ -21,6 +22,8 @@ interface Partida {
   // partidas sucesivas de la misma sesión ("otra partida" no cambia de modo
   // a mitad de sesión, igual que ya hace con mapaId/semillaSistema).
   readonly modo: ModoJuego;
+  // multi-setup-partida: quién juega, igual para todas las partidas de la sesión.
+  readonly jugadores?: readonly JugadorConfig[];
 }
 
 // Rango del generador con semilla del propio juego (crearGeneradorAleatorio
@@ -91,6 +94,7 @@ export function Aplicacion() {
           : { semillaSistema: Math.floor(Math.random() * TECHO_SEMILLA_SISTEMA) }),
         personalidadId: actual.personalidadId,
         modo: actual.modo,
+        jugadores: actual.jugadores,
       }));
     });
   }, []);
@@ -98,8 +102,8 @@ export function Aplicacion() {
   if (fase === "inicio") {
     return (
       <PantallaInicio
-        onJugar={(rivalId, modo) => {
-          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo }));
+        onJugar={(rivalId, modo, jugadores) => {
+          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores }));
           setFase("jugando");
         }}
       />
@@ -114,6 +118,7 @@ export function Aplicacion() {
         semillaSistema: partida.semillaSistema,
         personalidadId: partida.personalidadId,
         modo: partida.modo,
+        jugadores: partida.jugadores,
       }}
     />
   );

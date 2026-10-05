@@ -108,7 +108,7 @@ export interface DebugDeriva {
 }
 
 export interface DebugNave {
-  readonly id: 0 | 1;
+  readonly id: number;
   readonly x: number;
   readonly y: number;
   readonly integridad: number;
@@ -165,6 +165,12 @@ export interface DebugGlobal {
   // resueltos -- para esperar a "el turno ha vuelto al jugador tras el
   // disparo de la máquina" sin una espera fija (issue #151).
   turno?: IdNave;
+  // multi-setup-partida: quién controla cada nave, en el orden de asientos.
+  // Ids de las naves eliminadas, en el orden en que cayeron.
+  eliminadas?: readonly number[];
+  // Ganador de la partida (null = empate); ausente mientras sigue en curso.
+  ganador?: number | null;
+  controladores?: readonly { readonly tipo: "humano" | "ia"; readonly nombre: string }[];
   numeroTurno?: number;
   // control-1, control-5: la solución balística exacta (deriva 0) para que
   // el disparo de quien tiene el turno ahora acierte al rival -- deja que
