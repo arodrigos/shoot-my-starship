@@ -261,7 +261,9 @@ export class Partida extends Phaser.Scene {
   // pega" apuntando un ángulo/potencia real.
   private fusibleAdherenciaForzadoPasos: number | null = null;
   private datosEscena: DatosEscenaPartida = {};
-  private naves!: [Nave, Nave];
+  // multi-setup-partida: de tupla de 2 a lista paralela a this.estado.naves
+  // (de 2 a 4) -- el tamaño ya no es parte del tipo, igual que EstadoPartida.
+  private naves!: Nave[];
   private indicadorDeriva!: IndicadorDeriva;
   private animador!: AnimadorProyectil;
   // realce-impacto (rlc-1): avance de turno retrasado mientras dura la
@@ -314,7 +316,9 @@ export class Partida extends Phaser.Scene {
   // Estadísticas reales por nave (humor-7): se acumulan turno a turno, nunca
   // se recalculan a posteriori, para que el parte de guerra final describa
   // exactamente lo que pasó y no una aproximación.
-  private estadisticas!: [EstadisticasPartida, EstadisticasPartida];
+  // multi-setup-partida: misma generalización que this.naves -- paralela a
+  // this.estado.naves, de 2 a 4 posiciones.
+  private estadisticas!: EstadisticasPartida[];
   private emisorExplosion!: Phaser.GameObjects.Particles.ParticleEmitter;
   // imp-12: un impacto sin daño necesita distinguirse a simple vista de uno
   // que sí daña -- mismo evento "impacto", pero un fogonazo aparte (menos
