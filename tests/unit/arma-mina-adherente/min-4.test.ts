@@ -126,10 +126,15 @@ test("min-4: avanzar() resuelve la mina de un turno a otro sin dejar ningún est
   const mascara = crearMascaraPlana(ANCHO, ALTO, ALTURA_SUELO);
   const naveX0 = 300;
   const naveX1 = 900;
-  const estadoInicial = crearPartidaInicial(mundo, mascara, naveX0, naveX1, 7);
+  const estadoInicial = crearPartidaInicial(mundo, mascara, [naveX0, naveX1], 7);
 
   const [solucion0] = resolverSolucionesBalisticas(naveX0, ALTURA_SUELO, naveX1, ALTURA_SUELO, GRAVEDAD);
-  const primerTurno = avanzar(estadoInicial, { arma: MINA.id, anguloGrados: solucion0.anguloGrados, potencia: solucion0.potencia });
+  const primerTurno = avanzar(estadoInicial, {
+    arma: MINA.id,
+    anguloGrados: solucion0.anguloGrados,
+    potencia: solucion0.potencia,
+    objetivoId: 1,
+  });
 
   // El único estado que EstadoPartida permite persistir entre turnos son
   // naves/mascara/turno/numeroTurno/aleatorio/resultado(/planetas/modo/saldo)
@@ -147,6 +152,7 @@ test("min-4: avanzar() resuelve la mina de un turno a otro sin dejar ningún est
       arma: MINA.id,
       anguloGrados: solucion1.anguloGrados,
       potencia: solucion1.potencia,
+      objetivoId: 0,
     });
     assert.equal(segundoTurno.estado.numeroTurno, primerTurno.estado.numeroTurno + 1);
   });

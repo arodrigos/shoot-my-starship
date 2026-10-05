@@ -1,30 +1,34 @@
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { avanzar } from "@/sim/partida/avanzar";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
-import type { EstadoNave, EstadoPartida, FuenteDeTurno, ParametrosMundo } from "@/sim/partida/tipos";
+import type { EstadoNave, EstadoPartida, FuenteDeTurno, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { Mascara } from "@/sim/terreno/mascara";
 
 // `planetas` es opcional y el último parámetro a propósito (nucleo-gravedad):
 // todo llamante anterior a este bloque sigue compilando y produciendo
 // exactamente la misma partida de siempre sin tocarse.
+// nucleo-n-naves: `xNaves` sustituye a xNave0/xNave1 -- de 2 a 4 posiciones
+// iniciales, una por nave, en el mismo orden en que se les asigna su id y
+// su turno. Con dos elementos produce exactamente la partida de siempre.
 export function crearPartidaInicial(
   mundo: ParametrosMundo,
   mascara: Mascara,
-  xNave0: number,
-  xNave1: number,
+  xNaves: readonly number[],
   semillaAleatorio: number,
   planetas?: RegistroPlanetas,
 ): EstadoPartida {
-  const naves: [EstadoNave, EstadoNave] = [
-    { x: xNave0, integridad: 100 },
-    { x: xNave1, integridad: 100 },
-  ];
+  if (xNaves.length < 2 || xNaves.length > 4) {
+    throw new Error(`crearPartidaInicial: se esperaban de 2 a 4 naves, llegaron ${xNaves.length}`);
+  }
+  const naves: EstadoNave[] = xNaves.map((x) => ({ x, integridad: 100 }));
+  const ordenTurno: IdNave[] = naves.map((_nave, id) => id);
   return {
     version: 1,
     mundo,
     mascara,
     naves,
+    ordenTurno,
     turno: 0,
     numeroTurno: 0,
     aleatorio: crearEstadoAleatorio(semillaAleatorio),
@@ -37,9 +41,10 @@ export function crearPartidaInicial(
 // del propio estado) con avanzar (que resuelve el disparo ya decidido). Es
 // el punto donde jugador local, IA y fuentes scriptadas dejan de
 // distinguirse: todas son la misma función de estado -> entrada.
+// nucleo-n-naves: `fuentes` pasa de tupla de 2 a lista paralela a `naves`.
 export function jugarTurno(
   estado: EstadoPartida,
-  fuentes: readonly [FuenteDeTurno, FuenteDeTurno],
+  fuentes: readonly FuenteDeTurno[],
 ): { estado: EstadoPartida; eventos: EventoSimulacion[] } {
   const fuente = fuentes[estado.turno];
   const { entrada, estado: estadoTrasDecidir } = fuente(estado);
@@ -60,7 +65,7 @@ export interface ResultadoPartidaCompleta {
 // lo que necesitan los tests de simulación masiva (nucleo-5, armas-*, ia-*).
 export function jugarPartida(
   estadoInicial: EstadoPartida,
-  fuentes: readonly [FuenteDeTurno, FuenteDeTurno],
+  fuentes: readonly FuenteDeTurno[],
   limiteTurnos: number,
 ): ResultadoPartidaCompleta {
   let estado = estadoInicial;
@@ -96,13 +101,18 @@ export function comprobarInvariante(estado: EstadoPartida): string[] {
   }
 
   if (estado.resultado.tipo === "terminada") {
-    const ganador = estado.naves[estado.resultado.ganador];
-    const perdedor = estado.naves[estado.resultado.ganador === 0 ? 1 : 0];
-    if (ganador.integridad <= 0) {
-      problemas.push("la nave ganadora tiene integridad <= 0");
-    }
-    if (perdedor.integridad > 0) {
-      problemas.push("la partida terminó sin que la nave perdedora llegara a 0 de integridad");
+    const { ganador } = estado.resultado;
+    // nucleo-n-naves: "último en pie" generalizado -- con ganador (no
+    // empate), exactamente esa nave queda viva y todas las demás a 0; con
+    // empate (ganador null), ninguna queda viva.
+    for (const [indice, nave] of estado.naves.entries()) {
+      const deberiaEstarViva = indice === ganador;
+      if (deberiaEstarViva && nave.integridad <= 0) {
+        problemas.push("la nave ganadora tiene integridad <= 0");
+      }
+      if (!deberiaEstarViva && nave.integridad > 0) {
+        problemas.push(`la partida terminó con la nave ${indice} viva sin ser la ganadora`);
+      }
     }
   }
 

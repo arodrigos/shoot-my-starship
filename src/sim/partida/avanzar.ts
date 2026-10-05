@@ -11,7 +11,7 @@ import {
   huboDerivaTraiciona,
   idLiderDerrumbado,
 } from "@/sim/partida/eventosHumor";
-import { naveContraria, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
+import { siguienteTurno, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
 
 function conIntegridad(nave: EstadoNave, integridad: number): EstadoNave {
   return { ...nave, integridad: Math.min(100, Math.max(0, integridad)) };
@@ -39,21 +39,26 @@ export function avanzar(
   }
 
   const tirador: IdNave = estado.turno;
-  const objetivoId: IdNave = naveContraria(tirador);
+  const objetivoId: IdNave = entrada.objetivoId;
+  if (objetivoId === tirador || estado.naves[objetivoId] === undefined || estado.naves[objetivoId].integridad <= 0) {
+    throw new Error(`avanzar: objetivoId inválido (${objetivoId}) para el tirador ${tirador}`);
+  }
   const arma = buscarArma(entrada.arma);
 
-  // modos-y-presupuesto: el guardián vive aquí (y no solo en el HUD) por la
-  // misma razón que el guardián de "partida ya terminada" de arriba -- el
-  // control deshabilita el botón antes de que esto se alcance en el juego
-  // real, pero avanzar() es la fuente de verdad y no confía en que la cáscara
-  // nunca deje pasar un disparo que no se puede pagar. Solo la nave 0 (el
-  // jugador, ver desviaciones): la IA no conoce presupuesto.
-  const disparaJugadorConPresupuesto = estado.modo === "presupuesto" && tirador === 0;
-  if (disparaJugadorConPresupuesto) {
+  // modos-y-presupuesto / nucleo-n-naves-3: el guardián vive aquí (y no solo
+  // en el HUD) por la misma razón que el guardián de "partida ya terminada"
+  // de arriba -- el control deshabilita el botón antes de que esto se
+  // alcance en el juego real, pero avanzar() es la fuente de verdad y no
+  // confía en que la cáscara nunca deje pasar un disparo que no se puede
+  // pagar. Solo quien tiene saldo declarado en `saldos` participa del
+  // guardián: en 1vIA, la IA sigue sin tener entrada en `saldos` y por tanto
+  // sigue disparando como en barra libre siempre (ver desviaciones).
+  const saldoTirador = estado.saldos?.[tirador];
+  const disparaConPresupuesto = estado.modo === "presupuesto" && saldoTirador !== undefined;
+  if (disparaConPresupuesto) {
     const coste = costeArma(arma);
-    const saldoActual = estado.saldo ?? 0;
-    if (coste > saldoActual) {
-      throw new Error(`avanzar: saldo insuficiente para disparar "${arma.nombre}" (cuesta ${coste}, saldo ${saldoActual})`);
+    if (coste > saldoTirador) {
+      throw new Error(`avanzar: saldo insuficiente para disparar "${arma.nombre}" (cuesta ${coste}, saldo ${saldoTirador})`);
     }
   }
 
@@ -136,9 +141,11 @@ export function avanzar(
   // dispersión) en la misma operación -- nunca dos pasos con un estado
   // intermedio, que es lo que dejaría hueco a un redondeo distinto del que
   // espera el test.
-  const saldoTrasDisparo = disparaJugadorConPresupuesto
-    ? (estado.saldo ?? 0) - costeArma(arma) + ingresoPorDanio(resultado.danioObjetivo)
-    : estado.saldo;
+  const saldosTrasDisparo = disparaConPresupuesto
+    ? estado.saldos?.map((saldo, id) =>
+        id === tirador ? (saldo ?? 0) - costeArma(arma) + ingresoPorDanio(resultado.danioObjetivo) : saldo,
+      )
+    : estado.saldos;
 
   // humor-sistemico: el arma ha fallado su tirada de fiabilidad. Va antes de
   // los eventos "impacto" (que igualmente se emiten, con daño 0, para que la
@@ -205,10 +212,7 @@ export function avanzar(
   // antes -- ningún evento de humor mueve naves, solo el Gravitón lo hace, y
   // ese no toca la máscara, así que no hay interferencia entre los dos.
   const liderDerrumbado = idLiderDerrumbado(
-    estado.naves[0].integridad,
-    estado.naves[1].integridad,
-    estado.naves[0].x,
-    estado.naves[1].x,
+    estado.naves.map((nave, id) => ({ id, integridad: nave.integridad, x: nave.x })),
     estado.mascara,
     resultado.mascara,
   );
@@ -282,42 +286,68 @@ export function avanzar(
     eventos.push({ tipo: "derrumbe-bajo-el-lider", nave: liderDerrumbado });
   }
 
-  const naves: [EstadoNave, EstadoNave] =
-    objetivoId === 0 ? [objetivoTrasImpacto, tiradorTrasDisparo] : [tiradorTrasDisparo, objetivoTrasImpacto];
+  const naves: EstadoNave[] = estado.naves.map((nave, id) => {
+    if (id === tirador) return tiradorTrasDisparo;
+    if (id === objetivoId) return objetivoTrasImpacto;
+    return nave;
+  });
 
-  const huboGanador = objetivoTrasImpacto.integridad <= 0 || tiradorTrasDisparo.integridad <= 0;
+  // nucleo-n-naves: "último en pie" generalizado. Solo tirador y objetivo
+  // cambian de integridad en este turno, así que un tercero nunca puede
+  // pasar de vivo a eliminado aquí -- basta mirar cuántos de ellos dos
+  // sobreviven, igual que hacía el núcleo de 2 naves con los dos únicos
+  // participantes posibles.
+  const tiradorVive = tiradorTrasDisparo.integridad > 0;
+  const objetivoVive = objetivoTrasImpacto.integridad > 0;
+  const huboGanador = !tiradorVive || !objetivoVive;
   if (huboGanador) {
-    // Si ambas caen en el mismo disparo (Despedida contra un objetivo ya
-    // muy dañado), gana quien queda con más integridad; en empate exacto
-    // gana el objetivo, porque quien dispara asumió el riesgo del autodaño.
-    const ganador: IdNave = tiradorTrasDisparo.integridad > objetivoTrasImpacto.integridad ? tirador : objetivoId;
-    eventos.push({ tipo: "partida-fin", ganador });
-    return {
-      estado: {
-        ...estado,
-        mascara: resultado.mascara,
-        naves,
-        aleatorio: resultado.aleatorio,
-        resultado: { tipo: "terminada", ganador },
-        planetas: planetasTrasDisparo,
-        saldo: saldoTrasDisparo,
-      },
-      eventos,
-      categoriaBroma,
-    };
+    const otrosVivos = naves.some((nave, id) => id !== tirador && id !== objetivoId && nave.integridad > 0);
+    // Si ambas caen en el mismo disparo (Despedida contra un objetivo ya muy
+    // dañado) y no queda nadie más en pie, gana quien queda con más
+    // integridad; en empate exacto gana el objetivo, porque quien dispara
+    // asumió el riesgo del autodaño. Si las dos caen pero queda alguien más
+    // vivo, es un empate real entre tirador y objetivo (ninguno gana), y la
+    // partida sigue si ese alguien más sigue en juego.
+    const ganador: IdNave | null =
+      tiradorVive || objetivoVive
+        ? tiradorVive
+          ? tirador
+          : objetivoId
+        : otrosVivos
+          ? null
+          : tiradorTrasDisparo.integridad > objetivoTrasImpacto.integridad
+            ? tirador
+            : objetivoId;
+    if (!otrosVivos) {
+      eventos.push({ tipo: "partida-fin", ganador });
+      return {
+        estado: {
+          ...estado,
+          mascara: resultado.mascara,
+          naves,
+          aleatorio: resultado.aleatorio,
+          resultado: { tipo: "terminada", ganador },
+          planetas: planetasTrasDisparo,
+          saldos: saldosTrasDisparo,
+        },
+        eventos,
+        categoriaBroma,
+      };
+    }
   }
 
-  eventos.push({ tipo: "turno-fin", siguienteTurno: objetivoId });
+  const proximoTurno = siguienteTurno({ ...estado, naves }, tirador);
+  eventos.push({ tipo: "turno-fin", siguienteTurno: proximoTurno });
   return {
     estado: {
       ...estado,
       mascara: resultado.mascara,
       naves,
       aleatorio: resultado.aleatorio,
-      turno: objetivoId,
+      turno: proximoTurno,
       numeroTurno: estado.numeroTurno + 1,
       planetas: planetasTrasDisparo,
-      saldo: saldoTrasDisparo,
+      saldos: saldosTrasDisparo,
     },
     eventos,
     categoriaBroma,

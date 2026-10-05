@@ -76,6 +76,7 @@ test("ia-n2: la trayectoria y el resultado que usó la búsqueda coinciden, sin 
         { x: naveA.x, y: naveA.y, integridad: 100 },
         { x: naveB.x, y: naveB.y, integridad: 100 },
       ],
+      ordenTurno: [0, 1],
       turno: 0,
       numeroTurno: 0,
       aleatorio,
@@ -86,6 +87,7 @@ test("ia-n2: la trayectoria y el resultado que usó la búsqueda coinciden, sin 
       arma: armaBase.id,
       anguloGrados: resultado.anguloGrados,
       potencia: resultado.potencia,
+      objetivoId: 1,
     });
 
     const eventosDeImpactoAlObjetivo = eventos.filter(

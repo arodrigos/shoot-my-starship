@@ -11,7 +11,12 @@ const MUNDO = { ancho: 1920, alto: 1080, gravedad: 1.0, deriva: 0, etiquetaDeriv
 // no necesita ningún solucionador balístico (eso es ia-personalidades) para
 // que la partida progrese y termine.
 const fuenteCentroFijo: FuenteDeTurno = (estado) => ({
-  entrada: { arma: "pepinazo-cortesia", anguloGrados: estado.turno === 0 ? 45 : 135, potencia: 60 },
+  entrada: {
+    arma: "pepinazo-cortesia",
+    anguloGrados: estado.turno === 0 ? 45 : 135,
+    potencia: 60,
+    objetivoId: estado.turno === 0 ? 1 : 0,
+  },
   estado,
 });
 
@@ -23,7 +28,7 @@ test("nucleo-3: una partida completa corre de principio a fin en Node puro, sin 
   assert.equal(typeof document, "undefined");
 
   const mascara = crearMascaraPlana(MUNDO.ancho, MUNDO.alto, 900);
-  const inicial = crearPartidaInicial(MUNDO, mascara, 300, 1620, 99);
+  const inicial = crearPartidaInicial(MUNDO, mascara, [300, 1620], 99);
   const resultado = jugarPartida(inicial, [fuenteCentroFijo, fuenteCentroFijo], 200);
 
   assert.equal(resultado.agotada, false);

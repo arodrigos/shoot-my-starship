@@ -625,7 +625,7 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
     });
 
     return {
-      entrada: { arma: armaProvisional, anguloGrados, potencia },
+      entrada: { arma: armaProvisional, anguloGrados, potencia, objetivoId: objetivoId ?? 1 },
       aleatorio: aleatorioTrasReintentos,
       bloqueada,
       solucionExacta,
@@ -672,7 +672,7 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
   const potencia = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));
 
   return {
-    entrada: { arma: armaId, anguloGrados, potencia },
+    entrada: { arma: armaId, anguloGrados, potencia, objetivoId: objetivoId ?? 1 },
     aleatorio: aleatorioFinal,
     bloqueada,
     solucionExacta,

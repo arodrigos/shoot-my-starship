@@ -7,7 +7,11 @@ import { crearFuenteIA } from "@/sim/ia/fuente";
 import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
-import { naveContraria, type EstadoPartida, type FuenteDeTurno, type ParametrosMundo } from "@/sim/partida/tipos";
+import type { EstadoPartida, FuenteDeTurno, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
+
+function rivalDe(id: IdNave): IdNave {
+  return id === 0 ? 1 : 0;
+}
 import { MUNDO_ANCHO, MUNDO_ALTO } from "../../utils/sistemaGenerado";
 import { muestra } from "../../utils/muestra";
 
@@ -62,6 +66,7 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
     mundo: MUNDO_ESPACIAL,
     mascara: colocacion.sistema.mascara,
     naves: colocacion.naves,
+    ordenTurno: [0, 1],
     turno: 0,
     numeroTurno: 0,
     aleatorio: colocacion.aleatorio,
@@ -89,7 +94,7 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
     );
 
     const tirador = estado.turno;
-    const objetivoId = naveContraria(tirador);
+    const objetivoId = rivalDe(tirador);
     const objetivoAntes = estado.naves[objetivoId];
     const objetivoYAntes = objetivoAntes.y as number;
 

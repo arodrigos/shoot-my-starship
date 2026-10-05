@@ -7,7 +7,13 @@ import { crearFuenteIA } from "@/sim/ia/fuente";
 import { siguienteUltimoIntentoIA, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
-import { naveContraria, type EstadoPartida, type FuenteDeTurno, type ParametrosMundo } from "@/sim/partida/tipos";
+import type { EstadoPartida, FuenteDeTurno, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
+
+// Reproduce el 2-naves fijo de este test (nunca el núcleo, que ya es de N
+// naves desde nucleo-n-naves).
+function rivalDe(id: IdNave): IdNave {
+  return id === 0 ? 1 : 0;
+}
 import { reiniciarContadorVuelosSimulados, vuelosSimuladosTotales } from "@/sim/fisica/vuelo";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { buscarSolucionRival, PRESUPUESTO_VUELOS_RIVAL_TURNO } from "@/sim/ia/busquedaMultipozo";
@@ -56,6 +62,7 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
     mundo: MUNDO_ESPACIAL,
     mascara: colocacion.sistema.mascara,
     naves: colocacion.naves,
+    ordenTurno: [0, 1],
     turno: 0,
     numeroTurno: 0,
     aleatorio: colocacion.aleatorio,
@@ -76,7 +83,7 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
     );
 
     const tirador = estado.turno;
-    const objetivoId = naveContraria(tirador);
+    const objetivoId = rivalDe(tirador);
     const objetivoAntes = estado.naves[objetivoId];
     const objetivoYAntes = objetivoAntes.y as number;
 

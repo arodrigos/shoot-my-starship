@@ -41,30 +41,37 @@ export function huboDerivaTraiciona(resultadoReal: ResultadoDisparo, resultadoSi
   return resultadoSinDeriva.danioObjetivo > 0 && resultadoReal.danioObjetivo === 0;
 }
 
-// derrumbe-bajo-el-lider: la nave con más integridad de las dos (null si hay
-// empate, porque "el líder" deja de tener un significado único) pierde
-// apoyo bajo sus pies como efecto colateral del disparo -- nunca si además
-// se ha quedado sin suelo del todo, que es un evento distinto y más grave
-// (caida-al-vacio).
+// derrumbe-bajo-el-lider: la nave con más integridad de todas (null si hay
+// empate en la cabeza, porque "el líder" deja de tener un significado único)
+// pierde apoyo bajo sus pies como efecto colateral del disparo -- nunca si
+// además se ha quedado sin suelo del todo, que es un evento distinto y más
+// grave (caida-al-vacio).
+// nucleo-n-naves: generalizado de un par fijo (nave0/nave1) a una lista de
+// hasta 4 -- misma regla, ahora sobre todas las naves en vez de solo dos.
 export function idLiderDerrumbado(
-  integridadNave0: number,
-  integridadNave1: number,
-  xLider0: number,
-  xLider1: number,
+  naves: readonly { readonly id: number; readonly integridad: number; readonly x: number }[],
   mascaraAntes: Mascara,
   mascaraDespues: Mascara,
-): 0 | 1 | null {
-  let lider: 0 | 1 | null = null;
-  if (integridadNave0 > integridadNave1) lider = 0;
-  else if (integridadNave1 > integridadNave0) lider = 1;
-  if (lider === null) return null;
+): number | null {
+  let lider: { readonly id: number; readonly x: number } | null = null;
+  let maxIntegridad = -Infinity;
+  let empate = false;
+  for (const nave of naves) {
+    if (nave.integridad > maxIntegridad) {
+      maxIntegridad = nave.integridad;
+      lider = nave;
+      empate = false;
+    } else if (nave.integridad === maxIntegridad) {
+      empate = true;
+    }
+  }
+  if (lider === null || empate) return null;
 
-  const xLider = lider === 0 ? xLider0 : xLider1;
-  const antes = alturaSuperficie(mascaraAntes, xLider);
-  const despues = alturaSuperficie(mascaraDespues, xLider);
+  const antes = alturaSuperficie(mascaraAntes, lider.x);
+  const despues = alturaSuperficie(mascaraDespues, lider.x);
   if (antes === null || despues === null) return null;
 
-  return despues - antes > MARGEN_DERRUMBE_PX ? lider : null;
+  return despues - antes > MARGEN_DERRUMBE_PX ? lider.id : null;
 }
 
 // enterrado: la superficie bajo la nave ha subido (la y de apoyo ha bajado

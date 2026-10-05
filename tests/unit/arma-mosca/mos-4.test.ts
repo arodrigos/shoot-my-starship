@@ -94,6 +94,7 @@ test("mos-4: el rival elige la mosca, la busca y la dispara con el mismo simulad
         { x: naveA.x, y: naveA.y, integridad: 100 },
         { x: naveB.x, y: naveB.y, integridad: 100 },
       ],
+      ordenTurno: [0, 1],
       turno: 0,
       numeroTurno: 0,
       aleatorio,
@@ -104,6 +105,7 @@ test("mos-4: el rival elige la mosca, la busca y la dispara con el mismo simulad
       arma: resultado.entrada.arma,
       anguloGrados: resultado.entrada.anguloGrados,
       potencia: resultado.entrada.potencia,
+      objetivoId: 1,
     });
 
     const eventosDeImpactoAlObjetivo = eventos.filter(

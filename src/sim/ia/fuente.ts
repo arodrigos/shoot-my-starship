@@ -1,7 +1,30 @@
 import { decidirTurnoIA, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import type { Personalidad } from "@/sim/ia/tipos";
 import type { NavePosicion } from "@/sim/naves/impacto";
-import { naveContraria, type EstadoPartida, type FuenteDeTurno, type IdNave } from "@/sim/partida/tipos";
+import { idsNavesVivas, type EstadoPartida, type FuenteDeTurno, type IdNave } from "@/sim/partida/tipos";
+
+// nucleo-n-naves-5: con más de un rival vivo, la IA tiene que elegir a quién
+// apunta -- ya no hay "la otra nave". Calcular el daño esperado de verdad
+// contra cada rival exigiría correr la búsqueda completa de
+// busquedaMultipozo una vez por candidato, multiplicando por 2 o 3 el
+// presupuesto de PRESUPUESTO_VUELOS_RIVAL_TURNO que ia-punteria-2 ya fija en
+// 192 por turno (ver desviaciones). Se usa como proxy la distancia
+// horizontal: un rival más cerca es, en este simulador, un tiro con menos
+// recorrido sobre el que acumular deriva y error de ángulo, luego más fácil
+// de acertar y con mayor daño esperado a igualdad de arma.
+function elegirObjetivo(tirador: IdNave, naveTiradora: { readonly x: number }, estado: EstadoPartida): IdNave {
+  const rivales = idsNavesVivas(estado).filter((id) => id !== tirador);
+  let elegido = rivales[0];
+  let distanciaMinima = Math.abs(estado.naves[elegido].x - naveTiradora.x);
+  for (const id of rivales.slice(1)) {
+    const distancia = Math.abs(estado.naves[id].x - naveTiradora.x);
+    if (distancia < distanciaMinima) {
+      distanciaMinima = distancia;
+      elegido = id;
+    }
+  }
+  return elegido;
+}
 
 // Envuelve decidirTurnoIA como FuenteDeTurno para que una personalidad
 // pueda jugar una partida completa con jugarPartida/jugarTurno (ia-3, ia-6):
@@ -30,8 +53,8 @@ export function crearFuenteIA(
 ): FuenteDeTurno {
   return (estado: EstadoPartida) => {
     const tirador = estado.turno;
-    const objetivoId = naveContraria(tirador);
     const naveTiradora = estado.naves[tirador];
+    const objetivoId = elegirObjetivo(tirador, naveTiradora, estado);
     const naveObjetivo = estado.naves[objetivoId];
 
     // ia-multipozo: mismo criterio que Partida.ts para decidir si hay casco
@@ -64,12 +87,12 @@ export function crearFuenteIA(
       planetas: estado.planetas,
       naves,
       tiradorId: modoEspacial ? tirador : undefined,
-      objetivoId: modoEspacial ? objetivoId : undefined,
+      objetivoId,
       usosPorArma,
     });
 
     return {
-      entrada: resultado.entrada,
+      entrada: { ...resultado.entrada, objetivoId },
       estado: { ...estado, aleatorio: resultado.aleatorio },
     };
   };
