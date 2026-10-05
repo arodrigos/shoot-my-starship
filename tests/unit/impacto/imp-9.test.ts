@@ -23,7 +23,7 @@ const MUNDO: ParametrosMundo = {
 // Este test comprueba, sobre las mismas 500 semillas que nav-3, que
 // colocarNaves SIEMPRE termina en alguno de los tres, sin excepción.
 test("imp-9: colocarNaves siempre termina, en alguno de los tres escalones, en 500 semillas", () => {
-  const conteo: Record<EscalonColocacion, number> = { recolocacion: 0, regeneracion: 0, corredor: 0 };
+  const conteo: Record<EscalonColocacion, number> = { recolocacion: 0, regeneracion: 0, "sin-viabilidad": 0, corredor: 0 };
 
   for (let semilla = 0; semilla < NUM_SEMILLAS; semilla++) {
     const resultado = colocarNaves(semilla, MUNDO, crearEstadoAleatorio(semilla));

@@ -23,6 +23,12 @@ const ARMA_BASE_ID = "pepinazo-cortesia";
 // el primer escalón.
 const MAX_INTENTOS_COLOCACION = 12;
 const MAX_REGENERACIONES_SISTEMA = 3;
+// Con 3 o 4 naves cada intento comprueba hasta N·(N-1) alcances y corre en el
+// móvil al pulsar Jugar: se acota el esfuerzo (medido: 1,2 s por colocación de
+// 3 naves con los topes de 2 naves) porque el escalón siguiente, sin exigir
+// alcance, ya da una partida jugable.
+const MAX_INTENTOS_COLOCACION_N_NAVES = 4;
+const MAX_REGENERACIONES_SISTEMA_N_NAVES = 1;
 const MAX_INTENTOS_PUNTO = 500;
 // impacto-naves (imp-10): colocarNaves llama a existeTiroViable hasta
 // MAX_INTENTOS_COLOCACION veces por sistema -- sin presupuesto, cada llamada
@@ -36,7 +42,19 @@ const PRESUPUESTO_INTENTOS_VIABILIDAD = 40;
 // 500 de imp-9 colisionen entre sí al derivarse.
 const OFFSET_SEMILLA_REGENERACION = 7919;
 
-export type EscalonColocacion = "recolocacion" | "regeneracion" | "corredor";
+// multi-setup-partida: con 3 o 4 naves, una separación dura de 350 px entre
+// TODAS (más tiro viable en ambos sentidos con la vecina) no la cumplía ni
+// una de cada veinte semillas y la colocación caía siempre al corredor, con
+// las naves en fila bajo los botones. Decisión de Adrián: la separación es
+// una preferencia fuerte, no una garantía -- 1/8 del lado menor del mundo --
+// y basta con que cada nave tenga algún rival alcanzable.
+const FRACCION_SEPARACION_PREFERIDA_N_NAVES = 1 / 8;
+// Franja superior que el último escalón de 3-4 naves deja libre: ahí viven
+// los botones del HUD (Histórico, Sacudida, Sonido) y una nave bajo ellos no
+// se ve ni se puede distinguir.
+const FRACCION_MARGEN_HUD_SUPERIOR = 0.15;
+
+export type EscalonColocacion = "recolocacion" | "regeneracion" | "sin-viabilidad" | "corredor";
 
 function libreDeSolido(mascara: SistemaGenerado["mascara"], x: number, y: number, holgura: number): boolean {
   const cx = Math.round(x);
@@ -71,6 +89,8 @@ function elegirPunto(
   alto: number,
   aleatorioInicial: EstadoAleatorio,
   evitar: readonly Punto[],
+  separacionMinima: number = SEPARACION_MINIMA_NAVES_PX,
+  margenSuperior: number = MARGEN_MUNDO_NAVE_PX,
 ): PasoElegirPunto {
   let aleatorio = aleatorioInicial;
 
@@ -81,10 +101,10 @@ function elegirPunto(
     aleatorio = pasoY.estado;
 
     const x = MARGEN_MUNDO_NAVE_PX + pasoX.valor * (ancho - 2 * MARGEN_MUNDO_NAVE_PX);
-    const y = MARGEN_MUNDO_NAVE_PX + pasoY.valor * (alto - 2 * MARGEN_MUNDO_NAVE_PX);
+    const y = margenSuperior + pasoY.valor * (alto - margenSuperior - MARGEN_MUNDO_NAVE_PX);
 
     if (!libreDeSolido(mascara, x, y, HOLGURA_SOLIDO_NAVE_PX)) continue;
-    if (evitar.some((otro) => Math.hypot(otro.x - x, otro.y - y) < SEPARACION_MINIMA_NAVES_PX)) continue;
+    if (evitar.some((otro) => Math.hypot(otro.x - x, otro.y - y) < separacionMinima)) continue;
 
     return { punto: { x, y }, aleatorio };
   }
@@ -111,14 +131,16 @@ function intentarColocarEnSistema(
 ): ResultadoIntento {
   let aleatorio = aleatorioInicial;
   const armaBase = buscarArma(ARMA_BASE_ID);
+  const separacion = separacionEntreNaves(mundo, cantidad);
 
-  for (let intento = 1; intento <= MAX_INTENTOS_COLOCACION; intento++) {
+  const maxIntentos = cantidad === 2 ? MAX_INTENTOS_COLOCACION : MAX_INTENTOS_COLOCACION_N_NAVES;
+  for (let intento = 1; intento <= maxIntentos; intento++) {
     // multi-setup-partida: con dos naves el consumo de azar es el de siempre
     // (un punto libre, luego otro que evita al primero), así que ninguna
     // partida de 2 ya sembrada cambia de colocación.
     const puntos: Punto[] = [];
     for (let indice = 0; indice < cantidad; indice++) {
-      const paso = elegirPunto(sistema.mascara, mundo.ancho, mundo.alto, aleatorio, puntos);
+      const paso = elegirPunto(sistema.mascara, mundo.ancho, mundo.alto, aleatorio, puntos, separacion);
       aleatorio = paso.aleatorio;
       if (!paso.punto) break;
       puntos.push(paso.punto);
@@ -151,23 +173,55 @@ function intentarColocarEnSistema(
     // colocación que nunca debió aceptarse como jugable. Exigir las dos
     // direcciones descarta esa colocación en el mismo escalón de
     // recolocación/regeneración que ya existía, sin tocar ninguna otra regla.
-    // Con más de dos naves exigir tiro viable entre TODOS los pares haría
-    // inviable casi cualquier sistema; basta con que cada nave pueda
-    // alcanzar a su vecina siguiente del anillo y viceversa, de modo que
-    // ninguna queda sin un solo rival al que poder dañar.
-    const pares = cantidad === 2 ? [[0, 1]] : puntos.map((_punto, id) => [id, (id + 1) % cantidad]);
-    const todosViables = pares.every(
-      ([ida, vuelta]) =>
-        existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: ida, objetivoId: vuelta }) &&
-        existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: vuelta, objetivoId: ida }),
-    );
+    // Con más de dos naves exigir tiro viable entre TODOS los pares, o entre
+    // vecinas del anillo en ambos sentidos, dejaba sin colocar el 100 % de las
+    // semillas medidas (3 y 4 naves, mundo 1121x1156): basta con que cada nave
+    // tenga al menos UN rival al que poder dañar, que es lo que hace jugable
+    // la partida.
+    const todosViables =
+      cantidad === 2
+        ? existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: 0, objetivoId: 1 }) &&
+          existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: 1, objetivoId: 0 })
+        : puntos.every((_punto, id) =>
+            puntos.some((_otro, otroId) => otroId !== id && existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: id, objetivoId: otroId })),
+          );
     if (!todosViables) continue;
 
     const naves: EstadoNave[] = puntos.map((punto) => ({ x: punto.x, y: punto.y, integridad: 100 }));
     return { naves, aleatorio, intentos: intento };
   }
 
-  return { naves: null, aleatorio, intentos: MAX_INTENTOS_COLOCACION };
+  return { naves: null, aleatorio, intentos: maxIntentos };
+}
+
+function separacionEntreNaves(mundo: ParametrosMundo, cantidad: number): number {
+  return cantidad === 2 ? SEPARACION_MINIMA_NAVES_PX : Math.min(mundo.ancho, mundo.alto) * FRACCION_SEPARACION_PREFERIDA_N_NAVES;
+}
+
+// Penúltimo escalón, solo con 3 o 4 naves: puntos libres de sólido, separados
+// y fuera de la franja de botones, sin exigir tiro viable. Una nave sin
+// rival alcanzable es una mala partida; tres en fila bajo los botones es una
+// partida que no se puede jugar. Si ni así caben con la separación
+// preferida, se relaja a la mitad (preferencia, no garantía).
+function colocarSinViabilidad(sistema: SistemaGenerado, mundo: ParametrosMundo, aleatorioInicial: EstadoAleatorio, cantidad: number) {
+  let aleatorio = aleatorioInicial;
+  const margenSuperior = mundo.alto * FRACCION_MARGEN_HUD_SUPERIOR;
+  for (const separacion of [separacionEntreNaves(mundo, cantidad), separacionEntreNaves(mundo, cantidad) / 2]) {
+    for (let intento = 0; intento < MAX_INTENTOS_COLOCACION; intento++) {
+      const puntos: Punto[] = [];
+      for (let indice = 0; indice < cantidad; indice++) {
+        const paso = elegirPunto(sistema.mascara, mundo.ancho, mundo.alto, aleatorio, puntos, separacion, margenSuperior);
+        aleatorio = paso.aleatorio;
+        if (!paso.punto) break;
+        puntos.push(paso.punto);
+      }
+      if (puntos.length === cantidad) {
+        const naves: EstadoNave[] = puntos.map((punto) => ({ x: punto.x, y: punto.y, integridad: 100 }));
+        return { naves, aleatorio };
+      }
+    }
+  }
+  return { naves: null, aleatorio };
 }
 
 // Último recurso (imp-9): el corredor superior que generarSistema garantiza
@@ -219,7 +273,8 @@ export function colocarNaves(
     return { sistema, naves: resultado.naves, aleatorio, intentos: resultado.intentos, escalon: "recolocacion" };
   }
 
-  for (let regeneracion = 1; regeneracion <= MAX_REGENERACIONES_SISTEMA; regeneracion++) {
+  const maxRegeneraciones = cantidad === 2 ? MAX_REGENERACIONES_SISTEMA : MAX_REGENERACIONES_SISTEMA_N_NAVES;
+  for (let regeneracion = 1; regeneracion <= maxRegeneraciones; regeneracion++) {
     const semillaDerivada = semillaSistema + regeneracion * OFFSET_SEMILLA_REGENERACION;
     sistema = generarSistema(semillaDerivada, mundo.ancho, mundo.alto);
     resultado = intentarColocarEnSistema(sistema, mundo, aleatorio, cantidad);
@@ -227,6 +282,14 @@ export function colocarNaves(
     if (resultado.naves) {
       return { sistema, naves: resultado.naves, aleatorio, intentos: resultado.intentos, escalon: "regeneracion" };
     }
+  }
+
+  if (cantidad > 2) {
+    const libre = colocarSinViabilidad(sistema, mundo, aleatorio, cantidad);
+    if (libre.naves) {
+      return { sistema, naves: libre.naves, aleatorio: libre.aleatorio, intentos: 0, escalon: "sin-viabilidad" };
+    }
+    aleatorio = libre.aleatorio;
   }
 
   return { sistema, naves: colocacionUltimoRecurso(mundo, cantidad), aleatorio, intentos: 0, escalon: "corredor" };
