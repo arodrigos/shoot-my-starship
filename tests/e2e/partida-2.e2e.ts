@@ -10,13 +10,13 @@ import { elegirArmasYConfirmar } from "./utilesControl";
 // inicio, elegir rival, disparo real, fin de partida forzado (misma
 // desviación que partida-1) y otra partida -- para que la comprobación
 // cubra el juego completo, no solo la pantalla de inicio.
-test("una partida completa no hace ninguna petición fuera del propio origen", async ({ page }) => {
+test("una partida completa no hace ninguna petición fuera del propio origen", async ({ page, baseURL }) => {
   // proyectiles-visibles (desviación, ver entregable): mismo margen que
   // partida-1 -- un vuelo real ahora tarda ~65s en esta VPS sin GPU.
   test.setTimeout(180000);
   const ajenas: string[] = [];
 
-  const ORIGEN_PROPIO = "http://127.0.0.1:3000";
+  const ORIGEN_PROPIO = new URL(baseURL!).origin;
   page.on("request", (peticion) => {
     const url = new URL(peticion.url());
     if (url.protocol === "data:" || url.protocol === "blob:") return;
@@ -81,11 +81,12 @@ const COSTE_ARMA_SIN_DANIO = 15;
 
 test("modo-6: recargar la página resetea el saldo al valor inicial y ninguna petición sale del propio origen en modo presupuesto", async ({
   page,
+  baseURL,
 }) => {
   test.setTimeout(120000);
   const ajenas: string[] = [];
 
-  const ORIGEN_PROPIO = "http://127.0.0.1:3000";
+  const ORIGEN_PROPIO = new URL(baseURL!).origin;
   page.on("request", (peticion) => {
     const url = new URL(peticion.url());
     if (url.protocol === "data:" || url.protocol === "blob:") return;

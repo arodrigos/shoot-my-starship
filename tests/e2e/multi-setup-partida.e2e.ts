@@ -56,10 +56,10 @@ async function dispararTurnoHumano(page: Page): Promise<number> {
   return turno;
 }
 
-test("multi-setup-partida-1/3/5/6/7: configurar 4 humanos a 360x640 y jugar hasta el ganador, sin red y con nombres literales", async ({ page }) => {
+test("multi-setup-partida-1/3/5/6/7: configurar 4 humanos a 360x640 y jugar hasta el ganador, sin red y con nombres literales", async ({ page, baseURL }) => {
   test.setTimeout(420000);
   const peticionesAjenas: string[] = [];
-  const origen = new URL(page.url() === "about:blank" ? "http://127.0.0.1:3000" : page.url()).origin;
+  const origen = new URL(baseURL!).origin;
   page.on("request", (peticion) => {
     const url = peticion.url();
     if (url.startsWith("data:") || url.startsWith("blob:")) return;
