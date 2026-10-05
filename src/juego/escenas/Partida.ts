@@ -174,6 +174,9 @@ const TOPE_TURNOS_DESENLACE = 12;
 // gravedad-visible (grav-vis-3, corrección): grosor de la mira en píxeles
 // de PANTALLA, no de mundo -- ver actualizarPrevisualizacion().
 const ANCHO_MIRA_CSS_PX = 3;
+const ANCHO_EXTREMO_BANDA_CSS_PX = 1.5;
+const COLOR_BANDA_DISPERSION = 0xffb347;
+const COLOR_EXTREMO_BANDA = 0xffd9a0;
 
 // Reparto equiespaciado en X en el modo de suelo plano: con 2 naves da
 // exactamente 0.15 y 0.85 de siempre.
@@ -886,17 +889,21 @@ export class Partida extends Phaser.Scene {
       this.graficosPrevisualizacion.lineBetween(puntos[i - 1].x, puntos[i - 1].y, puntos[i].x, puntos[i].y);
     }
 
-    // potencia-dispersion (pot-3, pot-4): los dos extremos del cono, más
-    // finos y translúcidos que el centro para que se lean como "banda de
-    // riesgo" y no como una tercera trayectoria central -- solo cuando la
-    // amplitud a esta potencia ya es perceptible (banda baja: amplitud 0,
-    // los extremos coinciden con el centro y no aportan nada que dibujar).
-    if (banda.amplitudGrados > 0) {
-      const grosorExtremoMundoPx = Math.max(1, ANCHO_MIRA_CSS_PX - 1) * this.scale.displayScale.x;
-      this.graficosPrevisualizacion.lineStyle(grosorExtremoMundoPx, 0x9ad1ff, 0.35);
+    // potencia-dispersion (pot-3, pot-4): la banda de riesgo. El cono real a
+    // 95 % mide ~3 px CSS de ancho en su extremo: con los extremos a 2 px y
+    // alfa 0,35 bajo la línea central de 3 px solo se leía como una línea
+    // punteada más gorda (medido por el gatekeeper a 360x640). Se rellena el
+    // área entre los extremos y se pintan estos con color claro y alfa alto,
+    // para que contrasten con el centro en vez de fundirse con él. Se dibuja
+    // siempre que haya amplitud, también por debajo del horizonte.
+    if (banda.amplitudGrados > 0 && banda.extremoMenor.length >= 2 && banda.extremoMayor.length >= 2) {
+      const poligono = [...banda.extremoMenor, ...[...banda.extremoMayor].reverse()].map((p) => new Phaser.Math.Vector2(p.x, p.y));
+      this.graficosPrevisualizacion.fillStyle(COLOR_BANDA_DISPERSION, 0.3);
+      this.graficosPrevisualizacion.fillPoints(poligono, true);
+      const grosorExtremoMundoPx = ANCHO_EXTREMO_BANDA_CSS_PX * this.scale.displayScale.x;
+      this.graficosPrevisualizacion.lineStyle(grosorExtremoMundoPx, COLOR_EXTREMO_BANDA, 0.85);
       for (const extremo of [banda.extremoMenor, banda.extremoMayor]) {
         for (let i = 1; i < extremo.length; i++) {
-          if (i % 2 === 0) continue;
           this.graficosPrevisualizacion.lineBetween(extremo[i - 1].x, extremo[i - 1].y, extremo[i].x, extremo[i].y);
         }
       }
