@@ -32,8 +32,11 @@ test("precision-angulo: arrastre en el lienzo y ≤ 5 toques finos dejan el áng
       await page.getByTestId(actual < objetivo ? "paso-angulo-mas" : "paso-angulo-menos").click();
     }
     const final = await page.evaluate(() => window.__debug.control!.ajuste.anguloGrados);
-    expect(final).toBeCloseTo(objetivo, 5);
-    await expect(page.getByTestId("valor-angulo")).toHaveText(`${objetivo.toFixed(1).replace(".", ",")}°`);
+    // Los toques finos saturan en 0 y 360 (control-2) en vez de dar la
+    // vuelta: llegar a 0° desde 359,5° acaba en 360,0°, la misma dirección.
+    const equivalente = objetivo === 0 && final === 360 ? 360 : objetivo;
+    expect(final).toBeCloseTo(equivalente, 5);
+    await expect(page.getByTestId("valor-angulo")).toHaveText(`${equivalente.toFixed(1).replace(".", ",")}°`);
   }
 });
 
