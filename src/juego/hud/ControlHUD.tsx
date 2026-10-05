@@ -395,7 +395,7 @@ export function ControlHUD() {
             data-testid="valor-angulo"
             style={{ marginLeft: "auto", marginRight: 8, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif", pointerEvents: "none" }}
           >
-            {estado.ajuste.anguloGrados.toFixed(1)}°
+            {estado.ajuste.anguloGrados.toFixed(1).replace(".", ",")}°
           </div>
         </div>
         <button type="button" data-testid="paso-angulo-mas" onPointerDown={alBajarBotonPaso} onClick={crearClicConToleranciaDeArrastre(() => ajustarAnguloFino(1))} style={botonEstilo}>
