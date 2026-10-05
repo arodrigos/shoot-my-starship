@@ -37,7 +37,7 @@ export interface RangoAngulos {
   readonly minimo: number;
   readonly maximo: number;
 }
-const RANGO_ANGULOS_IA: RangoAngulos = { minimo: ANGULO_MIN_GRADOS, maximo: ANGULO_MAX_GRADOS };
+export const RANGO_ANGULOS_IA: RangoAngulos = { minimo: ANGULO_MIN_GRADOS, maximo: ANGULO_MAX_GRADOS };
 export const RANGO_ANGULOS_JUGADOR: RangoAngulos = {
   minimo: ANGULO_MINIMO_GRADOS,
   maximo: ANGULO_MAXIMO_GRADOS - PASO_ANGULO_GRUESO_GRADOS,

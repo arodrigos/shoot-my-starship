@@ -40,3 +40,16 @@ test("apu-5: un rival solo alcanzable hacia abajo es viable con el rango del jug
 test("apu-5: el mismo rival se rechazaba con el semicírculo superior", () => {
   assert.equal(existeTiroViable(parametros), false);
 });
+
+// El humano se mide en 0-360° y la IA en el semicírculo de siempre: una
+// colocación solo viable hacia abajo es válida para un humano, pero no para
+// un asiento de IA, que nunca sabría dispararle.
+test("apu-5: colocarNaves mide a cada asiento con su rango", async () => {
+  const { colocarNaves } = await import("@/sim/naves/colocacion");
+  const { MUNDO_ANCHO, MUNDO_ALTO } = await import("../../utils/sistemaGenerado");
+  const mundo = { ancho: MUNDO_ANCHO, alto: MUNDO_ALTO, gravedad: 0, deriva: 0, etiquetaDeriva: "" };
+  const soloIA = colocarNaves(7, mundo, crearEstadoAleatorio(7), 2);
+  const mixto = colocarNaves(7, mundo, crearEstadoAleatorio(7), 2, [false, true]);
+  assert.equal(soloIA.naves.length, 2);
+  assert.equal(mixto.naves.length, 2);
+});

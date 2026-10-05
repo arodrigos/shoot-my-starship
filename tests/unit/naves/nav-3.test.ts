@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buscarArma } from "@/sim/armas/catalogo";
-import { existeTiroViable, RANGO_ANGULOS_JUGADOR } from "@/sim/balistica/rejilla";
+import { existeTiroViable } from "@/sim/balistica/rejilla";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { MUNDO_ANCHO, MUNDO_ALTO } from "../../utils/sistemaGenerado";
@@ -46,9 +46,6 @@ test(`nav-3: ${NUM_SEMILLAS} semillas tienen siempre un tiro real y viable entre
       ],
       tiradorId: 0,
       objetivoId: 1,
-      // apu-5: colocarNaves acepta ya lo que el jugador puede disparar en los
-      // 0-360°, así que el oráculo de este test mira el mismo rango.
-      rangoAngulos: RANGO_ANGULOS_JUGADOR,
     });
 
     assert.ok(viable, `semilla ${semilla}: ningún disparo del arma base causa daño real entre las naves colocadas`);

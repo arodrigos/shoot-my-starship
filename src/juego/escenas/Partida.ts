@@ -529,7 +529,7 @@ export class Partida extends Phaser.Scene {
       // ninguna disposición sobre el original resulta viable con casco real
       // -- el `sistema` que se renderiza tiene que ser el mismo que el que
       // colocarNaves acabó usando de verdad, nunca uno generado aparte.
-      const colocacion = colocarNaves(semillaSistema, mundoEspacial, crearEstadoAleatorio(semillaSistema), cantidadNaves);
+      const colocacion = colocarNaves(semillaSistema, mundoEspacial, crearEstadoAleatorio(semillaSistema), cantidadNaves, this.controladores.map((controlador) => controlador.tipo === "ia"));
       const sistema = colocacion.sistema;
       this.estado = {
         version: 1,
