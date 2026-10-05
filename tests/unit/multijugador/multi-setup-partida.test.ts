@@ -28,15 +28,29 @@ describe("multi-setup-partida: colocarNaves de 2 a 4 naves", () => {
     });
   }
 
-  it("fuera del último recurso, ningún par de naves queda más cerca que la separación mínima", () => {
-    for (let semilla = 1; semilla <= 8; semilla++) {
-      const resultado = colocarNaves(semilla, MUNDO, crearEstadoAleatorio(semilla), 4);
-      if (resultado.escalon === "corredor") continue;
-      for (const [i, a] of resultado.naves.entries()) {
-        for (const b of resultado.naves.slice(i + 1)) {
-          assert.ok(Math.hypot(a.x - b.x, (a.y ?? 0) - (b.y ?? 0)) >= SEPARACION_MINIMA_NAVES_PX, `semilla ${semilla}`);
+  for (const cantidad of [3, 4]) {
+    it(`con ${cantidad} naves ninguna de 20 semillas cae al corredor y todas quedan separadas y fuera de la franja de botones`, () => {
+      const separacionMinima = Math.min(MUNDO.ancho, MUNDO.alto) / 16;
+      for (let semilla = 1; semilla <= 20; semilla++) {
+        const resultado = colocarNaves(semilla, MUNDO, crearEstadoAleatorio(semilla), cantidad);
+        assert.notEqual(resultado.escalon, "corredor", `semilla ${semilla}: cae al último recurso, con las naves en fila arriba`);
+        for (const [i, a] of resultado.naves.entries()) {
+          if (resultado.escalon === "sin-viabilidad") {
+            assert.ok((a.y ?? 0) >= MUNDO.alto * 0.15, `semilla ${semilla}: nave ${i} bajo los botones del HUD (y ${a.y})`);
+          }
+          for (const b of resultado.naves.slice(i + 1)) {
+            assert.ok(Math.hypot(a.x - b.x, (a.y ?? 0) - (b.y ?? 0)) >= separacionMinima, `semilla ${semilla}`);
+          }
         }
       }
+    });
+  }
+
+  it("con 2 naves la separación sigue siendo la dura de siempre", () => {
+    for (let semilla = 1; semilla <= 8; semilla++) {
+      const { naves } = colocarNaves(semilla, MUNDO, crearEstadoAleatorio(semilla), 2);
+      const [a, b] = naves;
+      assert.ok(Math.hypot(a.x - b.x, (a.y ?? 0) - (b.y ?? 0)) >= SEPARACION_MINIMA_NAVES_PX, `semilla ${semilla}`);
     }
   });
 });
