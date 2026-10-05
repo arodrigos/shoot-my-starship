@@ -6,8 +6,7 @@ on:
   pull_request:
     branches: [main, dev]
   # Disparo manual: el push de un squash-merge a dev no generó check-runs una
-  # vez (commit dfc0803, ver desarrollo-26), sin causa visible en los logs de
-  # la API. Con esto se puede reconfirmar CI sobre un commit concreto sin
+  # vez (commit dfc0803), sin causa visible en los logs de la API. Con esto se puede reconfirmar CI sobre un commit concreto sin
   # tener que repetir el merge.
   workflow_dispatch:
 
@@ -71,6 +70,8 @@ jobs:
       # cie-3: ningún activo binario ni URL externa de activos en src/ o
       # public/ -- ver ACTIVOS.md.
       - run: npm run verificar:activos
+      # hig-1: el repo es público y lo ya borrado sigue en el historial.
+      - run: node scripts/comprobar-publico.mjs
 
   # #242: el e2e (10-27 min) corría dos veces por bloque, en el PR y otra
   # vez en el push del merge a dev. En el push se salta solo si el árbol del
@@ -121,10 +122,10 @@ jobs:
           echo "ejecutar=$ejecutar: $motivo" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "ejecutar=$ejecutar" >> "$GITHUB_OUTPUT"
 
-  # e2e repartido en 4 shards (desglose del run 3ed0, 2026-10-02): 102 tests
+  # e2e repartido en 4 shards (desglose del 2026-10-02): 102 tests
   # en 2 workers tardaban 13-22 min y crecían con cada bloque, casi la mitad
   # de lo que tarda un bloque. Más workers en el mismo runner no: los tests
-  # de canvas compiten por CPU (timeouts del run 756c). El repo es público,
+  # de canvas compiten por CPU (timeouts de tests de canvas). El repo es público,
   # así que los minutos extra de Actions no cuestan nada.
   e2e-shard:
     runs-on: ubuntu-latest
@@ -165,10 +166,7 @@ jobs:
       # frontera de proceso/paso de CI entre build y start lo evita.
       - run: npm run build
       # Contra un servidor de producción local (npm run start), no contra
-      # una URL de preview de Vercel: el proyecto de Vercel se crea en la
-      # etapa de traspaso, después de que Gatekeeper apruebe -- ver
-      # playwright.config.ts y las desviaciones del entregable de este
-      # bloque.
+      # una URL de preview de Vercel: ver playwright.config.ts.
       - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4 --reporter=list,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: resultado-e2e.json
@@ -186,7 +184,7 @@ jobs:
           retention-days: 14
 
   # Un único check-run «e2e», como antes de repartirlo: decidir-e2e (#86)
-  # busca ese nombre en la cabeza del PR y el runner del pipeline lo juzga
+  # busca ese nombre en la cabeza del PR y la revisión externa lo juzga
   # igual. Además comprueba que los shards juntos han ejecutado la suite
   # entera: un shard que no recibe tests pasa en verde sin probar nada.
   e2e:
