@@ -1,0 +1,13 @@
+import { chromium } from "playwright";
+const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+await p.goto(process.env.URL_OBJETIVO);
+const botones = await p.getByRole("button").evaluateAll(n => n.map(x => (x.getAttribute("aria-label")||x.textContent||"").trim().slice(0,60)));
+console.log(JSON.stringify(botones));
+await p.getByRole("button", { name: /^Jugar/ }).click();
+await p.waitForSelector("canvas", { timeout: 60000 });
+await p.waitForTimeout(4000);
+const b2 = await p.getByRole("button").evaluateAll(n => n.map(x => (x.getAttribute("aria-label")||x.textContent||"").trim().slice(0,50)));
+console.log(JSON.stringify(b2));
+console.log((await p.locator("body").innerText()).slice(0,1500));
+await p.screenshot({ path: "/home/claude-user/work/20261002-100329-3ed0/gk/sonda-juego.png" });
+await b.close();

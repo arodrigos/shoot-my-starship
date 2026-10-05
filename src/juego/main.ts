@@ -28,6 +28,9 @@ export interface DatosEscenaPartida {
   // relevo-turno: desactiva de forma explícita la pantalla de relevo entre
   // humanos (partidas rápidas donde la información es pública).
   readonly todosVemosTodo?: boolean;
+  // economia-loadout-1: lo que cada asiento no gastó en la partida anterior
+  // (indexado por nave, undefined para la IA); ausente en la primera partida.
+  readonly saldosNoGastados?: readonly (number | undefined)[];
 }
 
 // FIT + CENTER_BOTH (render-4, sustituye el RESIZE de andamiaje-1): el

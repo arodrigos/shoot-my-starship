@@ -174,3 +174,45 @@ test("economia-loadout-5: en hot-seat cada humano elige en su relevo y el arsena
   await expect(page.getByTestId("arma-pepinazo-cortesia")).toHaveCount(0);
   await expect(page.getByTestId("arma-tostadora-orbital")).toHaveCount(0);
 });
+
+// economia-loadout-1 (devuelto por el gatekeeper): «el no gastado se acumula
+// hasta un tope de un presupuesto base» tiene que ocurrir en el producto, no
+// solo en saldoDeRonda. Una partida es una ronda: «Otra partida» arranca con
+// 1000 + lo que sobró, y el tope lo recorta a 2000.
+test("economia-loadout-1: lo no gastado se arrastra a «Otra partida» y el tope lo recorta a dos presupuestos", async ({ page }) => {
+  test.setTimeout(180000);
+  await empezarPresupuesto(page);
+
+  // Primera ronda: se gastan 195 cr (Tostadora + Despedida) y sobran 805.
+  await page.getByTestId("pantalla-seleccion").waitFor();
+  await expect(page.getByTestId("seleccion-saldo")).toHaveText("1000 cr");
+  await expect(page.getByTestId("seleccion-arrastrado")).toHaveCount(0);
+  await page.getByTestId("seleccion-arma-tostadora-orbital").click();
+  await page.getByTestId("seleccion-arma-despedida").click();
+  await expect(page.getByTestId("seleccion-saldo")).toHaveText("805 cr");
+  await page.getByTestId("seleccion-confirmar").click();
+  await cerrarAyuda(page);
+  await esperarJugable(page);
+
+  await page.evaluate(() => window.__debug.forzarFinDePartida!());
+  await expect(page.getByTestId("parte-de-guerra")).toBeVisible({ timeout: 60000 });
+  await page.getByTestId("otra-partida").click();
+
+  // Segunda ronda: 1000 + 805 arrastrados, y la pantalla lo enseña.
+  await page.getByTestId("pantalla-seleccion").waitFor({ state: "visible", timeout: 30000 });
+  await expect(page.getByTestId("seleccion-saldo")).toHaveText("1805 cr");
+  await expect(page.getByTestId("seleccion-arrastrado")).toContainText("1000 + 805 arrastrados");
+
+  // Sin gastar nada sobran 1805, pero el tope deja la tercera en 2000.
+  await page.getByTestId("seleccion-confirmar").click();
+  await page.getByTestId("seleccion-confirmar").click();
+  await cerrarAyuda(page);
+  await esperarJugable(page);
+  await page.evaluate(() => window.__debug.forzarFinDePartida!());
+  await expect(page.getByTestId("parte-de-guerra")).toBeVisible({ timeout: 60000 });
+  await page.getByTestId("otra-partida").click();
+
+  await page.getByTestId("pantalla-seleccion").waitFor({ state: "visible", timeout: 30000 });
+  await expect(page.getByTestId("seleccion-saldo")).toHaveText("2000 cr");
+  await expect(page.getByTestId("seleccion-arrastrado")).toContainText("1000 + 1000 arrastrados");
+});
