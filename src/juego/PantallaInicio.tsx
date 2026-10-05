@@ -6,12 +6,14 @@ import { almacenamientoDisponible, guardarRivalElegido, leerProgreso } from "@/j
 import { desbloquearAudio } from "@/juego/audio/motor";
 import { SALDO_INICIAL } from "@/sim/partida/economia";
 import type { ModoJuego } from "@/sim/partida/tipos";
+import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
+import { MAX_NAVES, MAX_NOMBRE_JUGADOR, MIN_NAVES, sanearNombre, type JugadorConfig } from "@/juego/jugadores";
 
 const RIVAL_POR_DEFECTO_ID = "la-contable";
 const MODO_POR_DEFECTO: ModoJuego = "barra-libre";
 
 interface Props {
-  readonly onJugar: (rivalId: string, modo: ModoJuego) => void;
+  readonly onJugar: (rivalId: string, modo: ModoJuego, jugadores?: readonly JugadorConfig[]) => void;
 }
 
 // partida-4: primera visita y estados vacíos. Vive fuera del lienzo (no
@@ -28,6 +30,24 @@ export function PantallaInicio({ onJugar }: Props) {
   const [sinAlmacenamiento] = useState(() => !almacenamientoDisponible());
   const [rivalId, setRivalId] = useState(progreso.rivalId ?? RIVAL_POR_DEFECTO_ID);
   const [modo, setModo] = useState<ModoJuego>(MODO_POR_DEFECTO);
+  // multi-setup-partida: de 1 a 4 humanos en el mismo dispositivo y el resto
+  // de asientos (hasta 4 naves en total, mínimo 2) rellenado con rivales de IA.
+  const [humanos, setHumanos] = useState(1);
+  const [rivalesIA, setRivalesIA] = useState(1);
+  const [nombres, setNombres] = useState<readonly string[]>(["", "", "", ""]);
+  // El presupuesto por jugador llega con el loadout por ronda: hasta
+  // entonces solo tiene sentido con un humano contra un rival.
+  const esMultijugador = humanos > 1 || rivalesIA > 1;
+  const modoEfectivo: ModoJuego = esMultijugador ? "barra-libre" : modo;
+
+  function elegirHumanos(cantidad: number): void {
+    setHumanos(cantidad);
+    setRivalesIA((actual) => Math.min(Math.max(actual, MIN_NAVES - cantidad), MAX_NAVES - cantidad));
+  }
+
+  function cambiarNombre(indice: number, texto: string): void {
+    setNombres((actuales) => actuales.map((nombre, i) => (i === indice ? texto : nombre)));
+  }
 
   function alJugar(): void {
     // Gesto real del usuario (el propio clic): el sitio legítimo para
@@ -35,7 +55,24 @@ export function PantallaInicio({ onJugar }: Props) {
     // que sigue sirviendo de red de seguridad para gestos posteriores.
     desbloquearAudio();
     guardarRivalElegido(rivalId);
-    onJugar(rivalId, modo);
+    // La partida de siempre (un humano sin nombre contra el rival elegido)
+    // no pasa jugadores: conserva sus etiquetas "Tu nave" / nombre del rival.
+    if (!esMultijugador && nombres[0].trim() === "") {
+      onJugar(rivalId, modoEfectivo);
+      return;
+    }
+    const indiceRival = Math.max(0, PERSONALIDADES.findIndex((personalidad) => personalidad.id === rivalId));
+    const jugadores: JugadorConfig[] = [
+      ...Array.from({ length: humanos }, (_vacio, i) => ({
+        nombre: sanearNombre(nombres[i], `Jugador ${i + 1}`),
+        tipo: "humano" as const,
+      })),
+      ...Array.from({ length: rivalesIA }, (_vacio, i) => {
+        const personalidad = PERSONALIDADES[(indiceRival + i) % PERSONALIDADES.length];
+        return { nombre: personalidad.nombre, tipo: "ia" as const, personalidadId: personalidad.id };
+      }),
+    ];
+    onJugar(rivalId, modoEfectivo, jugadores);
   }
 
   return (
@@ -75,6 +112,93 @@ export function PantallaInicio({ onJugar }: Props) {
         </p>
       )}
 
+      <section
+        data-testid="seccion-jugadores"
+        style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 360 }}
+      >
+        <h2 style={{ margin: 0, fontSize: 15 }}>Jugadores</h2>
+        <p data-testid="ayuda-multijugador" style={{ margin: 0, font: "12px system-ui, sans-serif" }}>
+          Partida por turnos en el mismo dispositivo: de 1 a 4 personas se pasan el móvil, y los asientos que
+          falten hasta dos naves (como mínimo) o cuatro (como máximo) los ocupan rivales de IA. Gana la última
+          nave en pie.
+        </p>
+        <div role="group" aria-label="Jugadores humanos" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ flex: "0 0 74px", textAlign: "left" }}>Humanos</span>
+          {[1, 2, 3, 4].map((cantidad) => (
+            <button
+              key={cantidad}
+              type="button"
+              data-testid={`humanos-${cantidad}`}
+              aria-pressed={humanos === cantidad}
+              onClick={() => elegirHumanos(cantidad)}
+              style={{ ...botonCantidadEstilo, border: humanos === cantidad ? "2px solid #ffcc66" : botonEstilo.border }}
+            >
+              {cantidad}
+            </button>
+          ))}
+        </div>
+        <div role="group" aria-label="Rivales de IA" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ flex: "0 0 74px", textAlign: "left" }}>Rivales IA</span>
+          {[0, 1, 2, 3].map((cantidad) => {
+            const disponible = cantidad >= MIN_NAVES - humanos && cantidad <= MAX_NAVES - humanos;
+            return (
+              <button
+                key={cantidad}
+                type="button"
+                data-testid={`ias-${cantidad}`}
+                aria-pressed={rivalesIA === cantidad}
+                disabled={!disponible}
+                onClick={() => setRivalesIA(cantidad)}
+                style={{
+                  ...botonCantidadEstilo,
+                  opacity: disponible ? 1 : 0.35,
+                  border: rivalesIA === cantidad ? "2px solid #ffcc66" : botonEstilo.border,
+                }}
+              >
+                {cantidad}
+              </button>
+            );
+          })}
+        </div>
+        {Array.from({ length: humanos }, (_vacio, i) => (
+          <label key={i} style={{ display: "flex", gap: 8, alignItems: "center", textAlign: "left" }}>
+            <span
+              aria-hidden="true"
+              style={{
+                flex: "0 0 24px",
+                height: 24,
+                borderRadius: 12,
+                background: `#${COLORES_NAVE[i].toString(16).padStart(6, "0")}`,
+              }}
+            />
+            <input
+              type="text"
+              data-testid={`nombre-jugador-${i}`}
+              aria-label={`Nombre del jugador ${i + 1}`}
+              placeholder={`Jugador ${i + 1}`}
+              maxLength={MAX_NOMBRE_JUGADOR}
+              value={nombres[i]}
+              onChange={(evento) => cambiarNombre(i, evento.target.value)}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                minHeight: 36,
+                padding: "4px 8px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.25)",
+                background: "rgba(30,34,46,0.9)",
+                color: "#e8eaf0",
+                font: "14px system-ui, sans-serif",
+              }}
+            />
+          </label>
+        ))}
+        <p data-testid="resumen-asientos" style={{ margin: 0, font: "12px system-ui, sans-serif" }}>
+          {humanos + rivalesIA} naves: {humanos} {humanos === 1 ? "humano" : "humanos"} y {rivalesIA}{" "}
+          {rivalesIA === 1 ? "rival de IA" : "rivales de IA"}. Cada asiento tiene su color y su forma de nave.
+        </p>
+      </section>
+
       <section style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 360 }}>
         <h2 style={{ margin: 0, fontSize: 15 }}>Elige rival</h2>
         {PERSONALIDADES.map((personalidad) => (
@@ -103,12 +227,12 @@ export function PantallaInicio({ onJugar }: Props) {
         <button
           type="button"
           data-testid="modo-barra-libre"
-          aria-pressed={modo === "barra-libre"}
+          aria-pressed={modoEfectivo === "barra-libre"}
           onClick={() => setModo("barra-libre")}
           style={{
             ...botonEstilo,
             textAlign: "left",
-            border: modo === "barra-libre" ? "2px solid #ffcc66" : "1px solid rgba(255,255,255,0.25)",
+            border: modoEfectivo === "barra-libre" ? "2px solid #ffcc66" : "1px solid rgba(255,255,255,0.25)",
           }}
         >
           <strong>Barra libre</strong>
@@ -118,12 +242,12 @@ export function PantallaInicio({ onJugar }: Props) {
         <button
           type="button"
           data-testid="modo-presupuesto"
-          aria-pressed={modo === "presupuesto"}
+          aria-pressed={modoEfectivo === "presupuesto"}
           onClick={() => setModo("presupuesto")}
           style={{
             ...botonEstilo,
             textAlign: "left",
-            border: modo === "presupuesto" ? "2px solid #ffcc66" : "1px solid rgba(255,255,255,0.25)",
+            border: modoEfectivo === "presupuesto" ? "2px solid #ffcc66" : "1px solid rgba(255,255,255,0.25)",
           }}
         >
           <strong>Con presupuesto</strong>
@@ -162,6 +286,18 @@ export function PantallaInicio({ onJugar }: Props) {
     </div>
   );
 }
+
+const botonCantidadEstilo: React.CSSProperties = {
+  flex: 1,
+  minHeight: 44,
+  padding: "8px 0",
+  borderRadius: 8,
+  border: "1px solid rgba(255,255,255,0.25)",
+  background: "rgba(30,34,46,0.9)",
+  color: "#e8eaf0",
+  font: "15px system-ui, sans-serif",
+  cursor: "pointer",
+};
 
 const botonEstilo: React.CSSProperties = {
   minHeight: 24,

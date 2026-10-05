@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
+import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
 
 // imp-11: hasta este bloque no existía NINGÚN indicador de integridad en el
 // HUD -- lo único que la reflejaba era el alfa del casco de la nave dentro
@@ -41,6 +42,9 @@ const BARRA_ESTILO: React.CSSProperties = {
 export function IntegridadHUD() {
   const estado = useSyncExternalStore(suscribirIntegridad, obtenerIntegridad, obtenerIntegridad);
   const control = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
+  // multi-setup-partida: con jugadores configurados, el nombre de cada
+  // asiento sustituye a las etiquetas de la partida de siempre.
+  const { participantes } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
 
   return (
     <div
@@ -55,7 +59,8 @@ export function IntegridadHUD() {
       {estado.naves.map((nave) => {
         const valor = Math.max(0, Math.min(100, Math.round(nave.integridad)));
         const esTurno = control.turno === nave.id;
-        const etiqueta = etiquetaDeNave(nave.id, control.nombreRival);
+        const etiqueta = participantes?.[nave.id]?.nombre ?? etiquetaDeNave(nave.id, control.nombreRival);
+        const eliminada = participantes !== null && nave.integridad <= 0;
         return (
           <div
             key={nave.id}
@@ -66,11 +71,16 @@ export function IntegridadHUD() {
               border: esTurno ? "1px solid var(--color-roce-borde)" : "1px solid transparent",
             }}
             data-testid={`integridad-nave-${nave.id}`}
+            title={eliminada ? `${etiqueta}: eliminada` : esTurno ? `${etiqueta}: turno` : etiqueta}
             aria-current={esTurno ? "true" : undefined}
           >
             <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {/* Con varios jugadores el estado va DELANTE del nombre: con cuatro
+                  barras en 360 px el nombre largo se corta con puntos suspensivos y
+                  un sufijo "turno" se perdería justo cuando más hace falta. */}
+              {participantes ? (eliminada ? "✖ " : esTurno ? "▶ " : "") : ""}
               {etiqueta}
-              {esTurno ? " · turno" : ""}
+              {participantes ? "" : esTurno ? " · turno" : ""}
             </div>
             <div
               role="progressbar"

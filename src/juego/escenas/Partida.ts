@@ -10,7 +10,7 @@ import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
 import { SALDO_INICIAL } from "@/sim/partida/economia";
-import type { EntradaDeTurno, EstadoPartida, IdNave, ModoJuego, ParametrosMundo } from "@/sim/partida/tipos";
+import { idsNavesVivas, type EntradaDeTurno, type EstadoPartida, type IdNave, type ModoJuego, type ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } from "@/sim/armas/resolver";
 import { buscarArma, CATALOGO_ARMAS } from "@/sim/armas/catalogo";
@@ -32,7 +32,7 @@ import { AnimadorProyectil } from "@/juego/vuelo/AnimadorProyectil";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { LA_CONTABLE, ALMIRANTE_BISAGRA, buscarPersonalidad } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
-import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO, type UltimoIntentoIA } from "@/sim/ia/decidir";
+import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
 import {
   fijarModo,
@@ -51,6 +51,15 @@ import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/par
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { crearSelectorBromas, type SelectorBromas } from "@/contenido/selectorBromas";
 import { vozDeNave } from "@/contenido/bancoBromas";
+import {
+  memoriaIAInicial,
+  nombreDeNave,
+  sanearNombre,
+  type Controlador,
+  type JugadorConfig,
+  type MemoriaIA,
+} from "@/juego/jugadores";
+import { publicarGanador, publicarParticipantes, reiniciarParticipantes } from "@/juego/control/participantesStore";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
 import { publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
@@ -128,12 +137,25 @@ const INTENSIDAD_SACUDIDA = 0.012;
 // y la máquina la nave 1 -- válido mientras solo haya un humano por partida
 // (brief); el multijugador remoto, si llega, es decisión de otro bloque.
 const ID_JUGADOR: IdNave = 0;
-// nucleo-n-naves: la función que calculaba "la otra nave" desaparece del
-// núcleo (de 2 a 4 naves ya no tiene una única rival). Esta escena sigue
-// siendo estrictamente de 2 naves hasta multi-setup-partida, así que
-// conserva el mismo cálculo aquí, como un detalle local de la cáscara.
-function rivalDe(id: IdNave): IdNave {
-  return id === 0 ? 1 : 0;
+// multi-setup-partida: el objetivo de un humano. Con 2 naves es "la otra",
+// como siempre; con más hay que elegir y el diseño no define un control de
+// "tocar para apuntar", así que se usa el rival vivo más cercano (distancia
+// euclídea), el mismo criterio de proximidad que ya aplica la IA
+// (fuente.ts#elegirObjetivo) -- ver desviaciones del bloque.
+function objetivoMasCercano(estado: EstadoPartida, tirador: IdNave): IdNave {
+  const origen = estado.naves[tirador];
+  let elegido: IdNave = tirador;
+  let distanciaMinima = Number.POSITIVE_INFINITY;
+  for (const id of idsNavesVivas(estado)) {
+    if (id === tirador) continue;
+    const nave = estado.naves[id];
+    const distancia = Math.hypot(nave.x - origen.x, (nave.y ?? 0) - (origen.y ?? 0));
+    if (distancia < distanciaMinima) {
+      distanciaMinima = distancia;
+      elegido = id;
+    }
+  }
+  return elegido;
 }
 // Rival por defecto si la escena arranca sin datos de inicio (navegación
 // directa a "/?mapa=..." de los tests e2e de bloques anteriores, que no
@@ -153,8 +175,10 @@ const TOPE_TURNOS_DESENLACE = 12;
 // de PANTALLA, no de mundo -- ver actualizarPrevisualizacion().
 const ANCHO_MIRA_CSS_PX = 3;
 
-const FRACCION_X_NAVE_0 = 0.15;
-const FRACCION_X_NAVE_1 = 0.85;
+// Reparto equiespaciado en X en el modo de suelo plano: con 2 naves da
+// exactamente 0.15 y 0.85 de siempre.
+const FRACCION_X_PRIMERA_NAVE = 0.15;
+const FRACCION_X_ULTIMA_NAVE = 0.85;
 
 const CANTIDAD_PARTICULAS_EXPLOSION = 24;
 // imp-12: bastantes menos partículas y sin color de fuego -- un vistazo
@@ -200,29 +224,14 @@ export class Partida extends Phaser.Scene {
   private estado!: EstadoPartida;
   private terreno!: ReturnType<typeof crearTerrenoPhaser>["terreno"];
   private rival: Personalidad = RIVAL_POR_DEFECTO;
-  // ia-5: distancia real del último disparo de la máquina contra el
-  // jugador, para que decidirTurnoIA corrija el siguiente intento -- se iba
-  // a null a propósito en crearFuenteIA (ver fuente.ts) porque esa función
-  // no ve el resultado de su propio disparo; aquí sí se ve, un turno
-  // después, así que este campo es el puente entre los dos.
-  private ultimoIntentoIA: UltimoIntentoIA | null = null;
-  // ia-autodanio-3: cuántas veces lleva disparada cada arma la máquina en
-  // esta partida -- store.ts ya lleva esta cuenta para el jugador humano
-  // (control-6), pero la IA dispara por su propio camino (dispararTurnoIA,
-  // más abajo) y sin esto podía reelegir Despedida sin límite, autodañándose
-  // en casi cada turno (usosMaximos no se comprueba dentro del núcleo).
-  private usosPorArmaIA: Record<string, number> = {};
-  // partida-3/hallazgo: a la distancia real entre naves, el único arco
-  // viable suele ser casi vertical, donde el 0.35x de un solo fallo (ia-5)
-  // no basta para que la máquina converja -- se cuentan los fallos seguidos
-  // contra ESTE objetivo para que decidirTurnoIA componga la corrección
-  // (0.35^n) en vez de repetir la misma que ya ha demostrado que no alcanza.
-  // NUNCA se resetea a 0 con un acierto puntual (partida-3, segundo
-  // hallazgo): un disparo que cae cerca por pura suerte del ruido, antes de
-  // que la corrección haya convergido de verdad, no demuestra que ya no
-  // haga falta corregir -- resetear ahí descartaba toda la racha aprendida y
-  // la máquina volvía a fallar gordo el turno siguiente, en un vaivén que no
-  // converge nunca. Solo crece; ya no hace daño quedarse "de más" precisa.
+  // multi-setup-partida: de un único rival a una memoria por cada nave de IA
+  // (ia-5, ia-autodanio-3, partida-3, ia-n7, ia-n8): con 2-3 IAs en la misma
+  // partida, compartir los contadores haría que los fallos de una corrijan
+  // (o castiguen) la puntería de otra.
+  private memoriaIA = new Map<IdNave, MemoriaIA>();
+  // multi-setup-partida: quién controla cada nave (humano o IA con su
+  // personalidad), paralelo a this.estado.naves.
+  private controladores: readonly Controlador[] = [];
   // sonido-procedimental (snd-2): último índice de indiceTic() publicado por
   // cada cuenta atrás -- null mientras no hay ninguna activa. Comparar el
   // índice nuevo contra este valor (en vez de disparar el tic cada fotograma)
@@ -231,21 +240,6 @@ export class Partida extends Phaser.Scene {
   // una a su propio ritmo si llegara a haber dos cuentas atrás a la vez.
   private ultimoIndiceTicMecha: number | null = null;
   private ultimoIndiceTicMina: number | null = null;
-  private fallosConsecutivosIA = 0;
-  // ia-n8: turnos SEGUIDOS que la máquina ha disparado sin causar daño real
-  // al jugador -- decidirTurnoIA lo usa para forzar un arma con daño > 0 al
-  // tercero (Chispa alargaba partidas con el Vertedero Portátil, daño 0).
-  // Se mide sobre el daño REAL de avanzar(), nunca sobre lo que predijo la
-  // búsqueda: la búsqueda decide antes de que el error de personalidad se
-  // inyecte, así que su daño previsto puede no ser el que de verdad ocurre.
-  private turnosSeguidosSinDanioIA = 0;
-  // ia-n7: turnos SEGUIDOS que la máquina ha causado menos de
-  // UMBRAL_DANIO_SUFICIENTE_POR_TURNO de daño real (incluido cero) --
-  // decidirTurnoIA lo usa para desistir de cavar con ARMA_DE_DESBLOQUEO
-  // cuando ese roce conecta pero es demasiado lento (partida-3: Chispa
-  // contra La Contable encajando ~1pt por turno durante más de 40 turnos).
-  // NUNCA se resetea, igual que fallosConsecutivos.
-  private turnosSeguidosDanioInsuficienteIA = 0;
   // arma-granada-espoleta (gra-2, solo e2e): ningún mundo jugable tiene
   // gravedad baja de sobra para que un vuelo real de la granada supere los
   // 300 pasos sin chocar antes (gra-1/gra-4 ya prueban la exactitud de esos
@@ -393,17 +387,36 @@ export class Partida extends Phaser.Scene {
     reiniciarResultadoTurno();
     reiniciarBromas();
     reiniciarIntegridad();
-    this.ultimoIntentoIA = null;
-    this.usosPorArmaIA = {};
-    this.fallosConsecutivosIA = 0;
-    this.turnosSeguidosSinDanioIA = 0;
-    this.turnosSeguidosDanioInsuficienteIA = 0;
+    reiniciarParticipantes();
+    window.__debug.eliminadas = [];
+    window.__debug.ganador = undefined;
+    this.memoriaIA = new Map();
 
     const parametrosUrl = new URLSearchParams(window.location.search);
     const idMapa = parametrosUrl.get("mapa") ?? this.datosEscena.mapaId;
-    this.rival = this.datosEscena.personalidadId ? buscarPersonalidad(this.datosEscena.personalidadId) : RIVAL_POR_DEFECTO;
+    const personalidadBase = this.datosEscena.personalidadId ? buscarPersonalidad(this.datosEscena.personalidadId) : RIVAL_POR_DEFECTO;
+    // multi-setup-partida: sin `jugadores` (atajo ?mapa=, tests de bloques
+    // anteriores) la partida es la de siempre: un humano contra la IA elegida.
+    const jugadores: readonly JugadorConfig[] = this.datosEscena.jugadores ?? [
+      { nombre: "Tú", tipo: "humano" },
+      { nombre: personalidadBase.nombre, tipo: "ia", personalidadId: personalidadBase.id },
+    ];
+    this.controladores = jugadores.map((jugador, indice) => ({
+      tipo: jugador.tipo,
+      nombre: sanearNombre(jugador.nombre, `Nave ${indice + 1}`),
+      personalidad:
+        jugador.tipo === "ia" ? (jugador.personalidadId ? buscarPersonalidad(jugador.personalidadId) : personalidadBase) : null,
+    }));
+    this.rival = this.controladores.find((controlador) => controlador.personalidad !== null)?.personalidad ?? personalidadBase;
     // hud-canales-1: una sola vez por partida, para el canal de estado.
     publicarNombreRival(this.rival.nombre);
+    publicarParticipantes(
+      this.datosEscena.jugadores
+        ? this.controladores.map((controlador) => ({ nombre: controlador.nombre, esHumano: controlador.tipo === "humano" }))
+        : null,
+    );
+    const cantidadNaves = this.controladores.length;
+    window.__debug.controladores = this.controladores.map((controlador) => ({ tipo: controlador.tipo, nombre: controlador.nombre }));
 
     // modos-y-presupuesto: ?modo= sigue la misma convención que ?mapa=/
     // ?semilla= -- atajo determinista para los tests e2e, con la última
@@ -432,8 +445,12 @@ export class Partida extends Phaser.Scene {
       };
 
       const mascara = generarMascara(mapa.semillaTerreno, MUNDO_ANCHO, MUNDO_ALTO);
-      const xNave0 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_0);
-      const xNave1 = Math.round(MUNDO_ANCHO * FRACCION_X_NAVE_1);
+      const xNaves = this.controladores.map((_controlador, indice) =>
+        Math.round(
+          MUNDO_ANCHO *
+            (FRACCION_X_PRIMERA_NAVE + ((FRACCION_X_ULTIMA_NAVE - FRACCION_X_PRIMERA_NAVE) * indice) / (cantidadNaves - 1)),
+        ),
+      );
       // DESVIACIÓN (encuadre-movil): mapa.mundo.ancho/alto quedan congelados
       // en el valor que tenía MUNDO_ANCHO/MUNDO_ALTO cuando mapas.ts se
       // evaluó por primera vez (antes de que configurarTamanoMundo ajuste
@@ -442,9 +459,9 @@ export class Partida extends Phaser.Scene {
       // renderiza.
       const mundoAjustado = { ...mapa.mundo, ancho: MUNDO_ANCHO, alto: MUNDO_ALTO };
       this.estado = {
-        ...crearPartidaInicial(mundoAjustado, mascara, [xNave0, xNave1], mapa.semillaPartida),
+        ...crearPartidaInicial(mundoAjustado, mascara, xNaves, mapa.semillaPartida),
         modo,
-        ...(saldoInicial !== undefined ? { saldos: [saldoInicial, undefined] } : {}),
+        ...(saldoInicial !== undefined ? { saldos: this.saldosIniciales(saldoInicial) } : {}),
       };
 
       const { terreno } = crearTerrenoPhaser(this, mascara, "terreno-partida", mapa.paleta);
@@ -482,7 +499,7 @@ export class Partida extends Phaser.Scene {
       // ninguna disposición sobre el original resulta viable con casco real
       // -- el `sistema` que se renderiza tiene que ser el mismo que el que
       // colocarNaves acabó usando de verdad, nunca uno generado aparte.
-      const colocacion = colocarNaves(semillaSistema, mundoEspacial, crearEstadoAleatorio(semillaSistema));
+      const colocacion = colocarNaves(semillaSistema, mundoEspacial, crearEstadoAleatorio(semillaSistema), cantidadNaves);
       const sistema = colocacion.sistema;
       this.estado = {
         version: 1,
@@ -496,7 +513,7 @@ export class Partida extends Phaser.Scene {
         resultado: { tipo: "en-curso" },
         planetas: sistema.planetas,
         modo,
-        ...(saldoInicial !== undefined ? { saldos: [saldoInicial, undefined] } : {}),
+        ...(saldoInicial !== undefined ? { saldos: this.saldosIniciales(saldoInicial) } : {}),
       };
 
       // cie-2: el mismo sistema.planetas que usa la gravedad y el render,
@@ -532,10 +549,14 @@ export class Partida extends Phaser.Scene {
     // una nave flotando de la que derivar su altura -- y con nave.y ausente
     // (suelo plano de siempre) se sigue derivando en vivo con
     // alturaSuperficie, exactamente como antes de este bloque.
-    const [nave0, nave1] = this.estado.naves;
-    const y0 = alturaRenderNave(nave0.y, alturaSuperficie(this.estado.mascara, nave0.x) ?? MUNDO_ALTO - 1);
-    const y1 = alturaRenderNave(nave1.y, alturaSuperficie(this.estado.mascara, nave1.x) ?? MUNDO_ALTO - 1);
-    this.naves = [new Nave(this, 0, nave0.x, y0, true, 45), new Nave(this, 1, nave1.x, y1, false, 135)];
+    // multi-setup-partida: las naves pares miran a +x y las impares a -x,
+    // como las dos de siempre; con 3-4 el ángulo inicial es solo cosmético
+    // (el control lo sustituye en cuanto le toca a un humano).
+    this.naves = this.estado.naves.map((nave, id) => {
+      const y = alturaRenderNave(nave.y, alturaSuperficie(this.estado.mascara, nave.x) ?? MUNDO_ALTO - 1);
+      const haciaMasX = id % 2 === 0;
+      return new Nave(this, id, nave.x, y, haciaMasX, haciaMasX ? 45 : 135);
+    });
 
     // hud-canales-1 (quinta corrección): (180,70) en CSS px, centrado y por
     // debajo de la banda de botones fixed (historico-bromas-toggle,
@@ -552,7 +573,7 @@ export class Partida extends Phaser.Scene {
     // existe durante el vuelo, cuando la previsualización ya está oculta),
     // por encima del terreno y las naves.
     this.graficosPrevisualizacion = this.add.graphics().setDepth(30);
-    this.estadisticas = [estadisticasIniciales(), estadisticasIniciales()];
+    this.estadisticas = this.estado.naves.map(() => estadisticasIniciales());
 
     const lienzoParticula = this.make.graphics({ x: 0, y: 0 });
     lienzoParticula.fillStyle(0xffcc66, 1);
@@ -621,7 +642,12 @@ export class Partida extends Phaser.Scene {
     this.emisorEstela.setDepth(40);
 
     window.addEventListener("pointerdown", this.manejarPointerDown);
-    this.cancelarManejadorDisparo = registrarManejadorDisparo((entrada) => this.dispararEntrada(entrada, true));
+    this.cancelarManejadorDisparo = registrarManejadorDisparo((entrada) =>
+      // El store del control no sabe a quién apunta cada humano (trae un
+      // objetivo fijo, válido solo con dos naves): el objetivo lo decide
+      // la escena, que es quien ve a todas las naves vivas.
+      this.dispararEntrada({ ...entrada, objetivoId: this.objetivoDe(this.estado.turno) }, true),
+    );
     this.cancelarManejadorRepeticion = registrarManejadorRepeticion(() => this.reproducirRepeticion());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.limpiarEntrada());
 
@@ -695,10 +721,7 @@ export class Partida extends Phaser.Scene {
       const acotada = Math.max(0, Math.min(100, integridad));
       this.estado = {
         ...this.estado,
-        naves: [
-          { ...this.estado.naves[0], integridad: nave === 0 ? acotada : this.estado.naves[0].integridad },
-          { ...this.estado.naves[1], integridad: nave === 1 ? acotada : this.estado.naves[1].integridad },
-        ],
+        naves: this.estado.naves.map((actual, id) => (id === nave ? { ...actual, integridad: acotada } : actual)),
       };
       this.refrescarNaves();
       this.refrescarDebugNaves();
@@ -710,10 +733,7 @@ export class Partida extends Phaser.Scene {
     window.__debug.forzarPosicionNave = (nave, x, y) => {
       this.estado = {
         ...this.estado,
-        naves: [
-          { ...this.estado.naves[0], ...(nave === 0 ? { x, y } : {}) },
-          { ...this.estado.naves[1], ...(nave === 1 ? { x, y } : {}) },
-        ],
+        naves: this.estado.naves.map((actual, id) => (id === nave ? { ...actual, x, y } : actual)),
       };
       this.refrescarNaves();
       this.refrescarDebugNaves();
@@ -784,7 +804,7 @@ export class Partida extends Phaser.Scene {
     // puedeJugarAhora() (turno del jugador, sin animación en curso, partida
     // sin terminar); realzarNucleo es idempotente, así que llamarlo cada
     // fotograma no tiene coste cuando el estado no cambia.
-    const objetivoApuntado: IdNave = rivalDe(this.estado.turno);
+    const objetivoApuntado: IdNave = this.objetivoDe(this.estado.turno);
     this.naves.forEach((nave, id) => nave.realzarNucleo(jugable && (id as IdNave) === objetivoApuntado));
     window.__debug!.nucleoRealzado = jugable ? objetivoApuntado : null;
 
@@ -807,7 +827,7 @@ export class Partida extends Phaser.Scene {
     const estado = this.estado;
     const tirador = estado.turno;
     const naveTiradora = estado.naves[tirador];
-    const naveObjetivo = estado.naves[rivalDe(tirador)];
+    const naveObjetivo = estado.naves[this.objetivoDe(tirador)];
     const origenX = naveTiradora.x;
     const origenY = naveTiradora.y ?? alturaSuperficie(estado.mascara, origenX) ?? estado.mundo.alto - 1;
     const { anguloGrados, potencia, armaId } = obtenerEstadoControl().ajuste;
@@ -1004,10 +1024,7 @@ export class Partida extends Phaser.Scene {
           ...this.estado,
           resultado: { tipo: "en-curso" },
           turno: ID_JUGADOR,
-          naves: [
-            { ...this.estado.naves[0], integridad: 100 },
-            { ...this.estado.naves[1], integridad: 100 },
-          ],
+          naves: this.estado.naves.map((actual) => ({ ...actual, integridad: 100 })),
         };
         this.refrescarDebugNaves();
       } else if (this.puedeJugarAhora()) {
@@ -1018,7 +1035,7 @@ export class Partida extends Phaser.Scene {
             arma: CATALOGO_ARMAS[0].id,
             anguloGrados: ajuste.anguloGrados,
             potencia: ajuste.potencia,
-            objetivoId: rivalDe(this.estado.turno),
+            objetivoId: this.objetivoDe(this.estado.turno),
           },
           true,
         );
@@ -1040,7 +1057,7 @@ export class Partida extends Phaser.Scene {
   private puedeJugarAhora(): boolean {
     return (
       this.estado.resultado.tipo !== "terminada" &&
-      this.estado.turno === ID_JUGADOR &&
+      this.esHumano(this.estado.turno) &&
       !this.animador.enVuelo() &&
       !this.animadorRepeticion.enVuelo() &&
       // realce-impacto (rlc-1): this.estado todavía es el de ANTES del
@@ -1123,7 +1140,11 @@ export class Partida extends Phaser.Scene {
     // siguiente turno de la máquina, cuando el objetivo sigue siendo el
     // jugador (el único emparejamiento posible en esta partida real).
     if (!esJugador) {
-      const objetivoId = rivalDe(tirador);
+      // multi-setup-partida: el objetivo REAL de la IA (el que eligió
+      // elegirObjetivo en fuente.ts), no el rival más cercano en 2D de los
+      // humanos -- los dos criterios pueden discrepar con 3+ naves.
+      const objetivoId = entrada.objetivoId;
+      const memoria = this.memoriaDe(tirador);
       const naveObjetivoAntes = estadoAntes.naves[objetivoId];
       const objetivoX = naveObjetivoAntes.x;
       const objetivoY = naveObjetivoAntes.y ?? alturaSuperficie(estadoAntes.mascara, objetivoX) ?? estadoAntes.mundo.alto - 1;
@@ -1133,7 +1154,7 @@ export class Partida extends Phaser.Scene {
       // altura) la distancia en X por sí sola subestima un disparo que pasó
       // muy por encima o por debajo.
       const distancia = Math.hypot(puntoDeCaida.x - objetivoX, puntoDeCaida.y - objetivoY);
-      if (distancia > UMBRAL_FALLO_PX) this.fallosConsecutivosIA += 1;
+      if (distancia > UMBRAL_FALLO_PX) memoria.fallosConsecutivos += 1;
 
       // ia-n8: cuenta SOLO el daño real que este disparo causó al jugador
       // (nunca autodaño ni el daño propio de Despedida) -- decidirTurnoIA
@@ -1146,19 +1167,19 @@ export class Partida extends Phaser.Scene {
             evento.tipo === "impacto" && evento.objetivo === objetivoId,
         )
         .reduce((total, evento) => total + evento.danio, 0);
-      this.turnosSeguidosSinDanioIA = danioCausado > 0 ? 0 : this.turnosSeguidosSinDanioIA + 1;
+      memoria.turnosSeguidosSinDanio = danioCausado > 0 ? 0 : memoria.turnosSeguidosSinDanio + 1;
 
       // ia-n7: nunca baja, igual que fallosConsecutivos -- ver el comentario
       // del campo en la clase.
       if (danioCausado < UMBRAL_DANIO_SUFICIENTE_POR_TURNO) {
-        this.turnosSeguidosDanioInsuficienteIA += 1;
+        memoria.turnosSeguidosDanioInsuficiente += 1;
       }
 
-      this.ultimoIntentoIA = {
+      memoria.ultimoIntento = {
         distanciaAlObjetivoPx: distancia,
-        fallosConsecutivos: this.fallosConsecutivosIA,
-        turnosSeguidosSinDanio: this.turnosSeguidosSinDanioIA,
-        turnosSeguidosDanioInsuficiente: this.turnosSeguidosDanioInsuficienteIA,
+        fallosConsecutivos: memoria.fallosConsecutivos,
+        turnosSeguidosSinDanio: memoria.turnosSeguidosSinDanio,
+        turnosSeguidosDanioInsuficiente: memoria.turnosSeguidosDanioInsuficiente,
       };
     }
 
@@ -1182,7 +1203,7 @@ export class Partida extends Phaser.Scene {
     // solo naves vivas. Sin este rastreador, la vista no sabía que un casco
     // podía terminar el vuelo antes que el suelo o el presupuesto (ver
     // AnimadorProyectil.ts).
-    const naveObjetivoAntes = estadoAntes.naves[rivalDe(tirador)];
+    const naveObjetivoAntes = estadoAntes.naves[this.objetivoDe(tirador)];
     const modoEspacial = naveTiradora.y !== undefined && naveObjetivoAntes.y !== undefined;
     const navesVivas = modoEspacial
       ? estadoAntes.naves
@@ -1288,7 +1309,7 @@ export class Partida extends Phaser.Scene {
       this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma, {
         retrasarSiHaySacudida: true,
         alAvanzarTurno: () => {
-          if (this.estado.resultado.tipo !== "terminada" && this.estado.turno !== ID_JUGADOR) {
+          if (this.estado.resultado.tipo !== "terminada" && !this.esHumano(this.estado.turno)) {
             this.dispararTurnoIA();
           }
         },
@@ -1308,10 +1329,36 @@ export class Partida extends Phaser.Scene {
   // circuito completo (elegir, apuntar, disparar, responder) sin que el
   // bloque siguiente (partida-completa) tenga que reconstruir este enganche.
   private dispararTurnoIA(): void {
-    const { entrada, estado } = crearFuenteIA(this.rival, this.ultimoIntentoIA, this.usosPorArmaIA)(this.estado);
+    const tirador = this.estado.turno;
+    const memoria = this.memoriaDe(tirador);
+    const personalidad = this.controladores[tirador]?.personalidad ?? this.rival;
+    const { entrada, estado } = crearFuenteIA(personalidad, memoria.ultimoIntento, memoria.usosPorArma)(this.estado);
     this.estado = estado;
-    this.usosPorArmaIA = { ...this.usosPorArmaIA, [entrada.arma]: (this.usosPorArmaIA[entrada.arma] ?? 0) + 1 };
+    memoria.usosPorArma = { ...memoria.usosPorArma, [entrada.arma]: (memoria.usosPorArma[entrada.arma] ?? 0) + 1 };
     this.dispararEntrada(entrada, false);
+  }
+
+  private esHumano(id: IdNave): boolean {
+    return this.controladores[id]?.tipo === "humano";
+  }
+
+  private objetivoDe(tirador: IdNave): IdNave {
+    return objetivoMasCercano(this.estado, tirador);
+  }
+
+  private memoriaDe(id: IdNave): MemoriaIA {
+    let memoria = this.memoriaIA.get(id);
+    if (!memoria) {
+      memoria = memoriaIAInicial();
+      this.memoriaIA.set(id, memoria);
+    }
+    return memoria;
+  }
+
+  // Solo el humano 0 lleva presupuesto hasta que economia-loadout dé saldo a
+  // cada jugador: el resto de asientos queda sin saldo, como la IA de siempre.
+  private saldosIniciales(saldoInicial: number): readonly (number | undefined)[] {
+    return this.controladores.map((_controlador, id) => (id === 0 ? saldoInicial : undefined));
   }
 
   // Extraído de aplicarResultadoTurno para que window.__debug.dispararEventoRoce
@@ -1375,7 +1422,11 @@ export class Partida extends Phaser.Scene {
         reproducirEfecto("roce");
         comprobarCantidadDentroDelTecho("roce-chispazo", CANTIDAD_PARTICULAS_ROCE);
         this.emisorRoce.explode(CANTIDAD_PARTICULAS_ROCE, evento.x, evento.y);
-        const naveNombre = evento.nave === ID_JUGADOR ? "tu nave" : "la nave rival";
+        const naveNombre = this.datosEscena.jugadores
+          ? `la nave de ${nombreDeNave(this.controladores, evento.nave)}`
+          : evento.nave === ID_JUGADOR
+            ? "tu nave"
+            : "la nave rival";
         publicarRoce(`Roce: el disparo ha pasado rozando ${naveNombre} sin tocar su casco. Sin daño.`);
       }
     }
@@ -1416,7 +1467,16 @@ export class Partida extends Phaser.Scene {
     if (categoriaBroma) {
       this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos, armaId ? buscarArma(armaId) : undefined);
     }
-    publicarResultadoTurno(resumenTurno(eventos));
+    // multi-setup-partida: con varios jugadores, una eliminación se anuncia
+    // con el nombre de quien cae, en el mismo canal del resumen del turno.
+    // Sin `jugadores` (partida de siempre) el texto no cambia.
+    const eliminadas = this.datosEscena.jugadores
+      ? estadoAntes.naves.flatMap((nave, id) => (nave.integridad > 0 && estadoDespues.naves[id].integridad <= 0 ? [id] : []))
+      : [];
+    publicarResultadoTurno(
+      [resumenTurno(eventos), ...eliminadas.map((id) => `${nombreDeNave(this.controladores, id)} queda eliminada.`)].join(" "),
+    );
+    window.__debug!.eliminadas = [...(window.__debug!.eliminadas ?? []), ...eliminadas];
 
     // rlc-1: "la sacudida... termina siempre antes de que el turno pase al
     // siguiente jugador" -- numeroTurno (dentro de estadoDespues) no avanza
@@ -1437,7 +1497,13 @@ export class Partida extends Phaser.Scene {
         // naves vivas simultáneamente antes del disparo que decide la
         // partida -- esta escena sigue siendo estrictamente de 2 (ver
         // rivalDe), así que avanzar() nunca le produce ese caso.
-        const estadisticasGanador = this.estadisticas[estadoDespues.resultado.ganador ?? ID_JUGADOR];
+        // multi-setup-partida: con 3-4 naves el empate es posible y el
+        // ganador ya puede ser cualquiera; para el parte de guerra se usa la
+        // estadística de quien dispara en el último turno si no hay ganador.
+        const idGanador = estadoDespues.resultado.ganador;
+        publicarGanador(idGanador === null ? null : nombreDeNave(this.controladores, idGanador));
+        window.__debug!.ganador = idGanador;
+        const estadisticasGanador = this.estadisticas[idGanador ?? tirador];
         const parte = generarParteDeGuerra(estadisticasGanador);
         publicarParteDeGuerra(parte, estadisticasGanador);
         window.__debug!.parteDeGuerra = { ...parte, estadisticas: estadisticasGanador };
@@ -1513,7 +1579,8 @@ export class Partida extends Phaser.Scene {
     eventos: readonly EventoSimulacion[],
     arma?: Arma,
   ): void {
-    const voz = vozDeNave(tirador, this.rival.id);
+    const personalidadTirador = this.controladores[tirador]?.personalidad;
+    const voz = personalidadTirador ? vozDeNave(1, personalidadTirador.id) : vozDeNave(0, this.rival.id);
     let textoDisparo: string | null = null;
     if (debeMostrarBromaDeDisparo(FRECUENCIA_BROMAS_POR_DEFECTO, numeroTurnoAntes)) {
       textoDisparo = this.selectorBromas.elegirDisparo(voz);
@@ -1657,7 +1724,7 @@ export class Partida extends Phaser.Scene {
   // aproximación disponible sin física real de más.
   private calcularSolucionBalistica(estado: EstadoPartida): { anguloGrados: number; potencia: number } | null {
     const tirador = estado.turno;
-    const objetivoId = rivalDe(tirador);
+    const objetivoId = this.objetivoDe(tirador);
     const naveTiradora = estado.naves[tirador];
     const naveObjetivo = estado.naves[objetivoId];
     const origenX = naveTiradora.x;
@@ -1713,7 +1780,7 @@ export class Partida extends Phaser.Scene {
   // garantizado y verificado contra el resolutor real.
   private calcularSolucionMultipozo(estado: EstadoPartida): { anguloGrados: number; potencia: number; danio: number } | null {
     const tirador = estado.turno;
-    const objetivoId = rivalDe(tirador);
+    const objetivoId = this.objetivoDe(tirador);
     const candidatos = barridoRejilla({
       mascara: estado.mascara,
       ancho: estado.mundo.ancho,
@@ -1743,7 +1810,7 @@ export class Partida extends Phaser.Scene {
   // es justo lo que delató imp-11 (85 vs 86 de integridad esperada).
   private probarDisparoMultipozo(estado: EstadoPartida, anguloGrados: number, potencia: number): { danio: number } {
     const tirador = estado.turno;
-    const objetivoId = rivalDe(tirador);
+    const objetivoId = this.objetivoDe(tirador);
     const naves = this.navesParaOraculo(estado);
     const tiradorPos = naves.find((nave) => nave.id === tirador)!;
     const objetivoPos = naves.find((nave) => nave.id === objetivoId)!;
@@ -1784,7 +1851,7 @@ export class Partida extends Phaser.Scene {
         arma: ARMA_DESENLACE,
         anguloGrados: solucion.anguloGrados,
         potencia: solucion.potencia,
-        objetivoId: rivalDe(this.estado.turno),
+        objetivoId: this.objetivoDe(this.estado.turno),
       });
       this.aplicarResultadoTurno(estado, eventos, categoriaBroma, ARMA_DESENLACE);
     }

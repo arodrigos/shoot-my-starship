@@ -7,6 +7,7 @@ import { DURACION_DESTELLO_DANIO_MS } from "@/juego/efectos/realceImpacto";
 import { puntosSenaNave } from "@/juego/naves/senaNave";
 import type { VarianteNave } from "@/sim/naves/geometriaCasco";
 import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
+import type { IdNave } from "@/sim/partida/tipos";
 
 const COLOR_CASCO_SOMBRA = 0x1c1e24;
 const COLOR_PATAS = 0x3a3d46;
@@ -69,7 +70,7 @@ export class Nave {
 
   constructor(
     private readonly escena: Phaser.Scene,
-    private readonly idNave: 0 | 1,
+    private readonly idNave: IdNave,
     x: number,
     groundY: number,
     private readonly mirarHaciaMasX: boolean,
@@ -80,9 +81,8 @@ export class Nave {
 
     this.colorCasco = COLORES_NAVE[idNave];
     this.direccion = mirarHaciaMasX ? 1 : -1;
-    // nucleo-n-naves (pendiente): con solo dos naves en juego hoy, la
-    // variante coincide con idNave -- las variantes 2 y 3 ya existen en
-    // senaNave.ts, listas para cuando el núcleo deje de ser 0 | 1.
+    // La variante (forma) coincide con el asiento: de 0 a 3, las cuatro que
+    // ya existen en senaNave.ts. El núcleo acota a 4 naves.
     this.variante = idNave as VarianteNave;
 
     // Patas: dos apoyos asimétricos, como si la nave hubiese aterrizado mal
@@ -334,7 +334,7 @@ export class Nave {
     return this.variante;
   }
 
-  obtenerId(): 0 | 1 {
+  obtenerId(): IdNave {
     return this.idNave;
   }
 }
