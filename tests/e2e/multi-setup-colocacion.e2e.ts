@@ -21,6 +21,8 @@ for (const humanos of [3, 4]) {
     await page.setViewportSize({ width: 360, height: 640 });
     await page.goto("/");
     await page.getByTestId(`humanos-${humanos}`).click();
+    // Sin relleno de IA: el número de naves es el de humanos.
+    await page.getByTestId("ias-0").click();
     await page.getByTestId("boton-jugar").click();
     await esperarPartida(page);
 
