@@ -31,16 +31,23 @@ export const ANGULO_MAX_GRADOS = 180 - ANGULO_MIN_GRADOS;
 // conserva el semicírculo superior porque la facilidad medida (y con ella los
 // precios) se calibró con él. La viabilidad de la colocación, en cambio,
 // tiene que preguntar por todo lo que el jugador puede disparar: se pasa
-// RANGO_ANGULOS_JUGADOR. El último paso grueso antes de 360° evita repetir
-// el 0° como 360°.
+// RANGO_ANGULOS_JUGADOR. El último paso antes de 360° evita repetir el 0°
+// como 360°.
 export interface RangoAngulos {
   readonly minimo: number;
   readonly maximo: number;
+  // Ausente = PASO_ANGULO_GRUESO_GRADOS.
+  readonly paso?: number;
 }
 export const RANGO_ANGULOS_IA: RangoAngulos = { minimo: ANGULO_MIN_GRADOS, maximo: ANGULO_MAX_GRADOS };
+// Paso de 9° para que la vuelta entera cueste los mismos 40 vuelos que el
+// semicírculo de la IA: con 4° la colocación de un humano tardaba más del
+// doble y los e2e con reloj ajustado se pasaban de tiempo en el CI.
+const PASO_ANGULO_VIABILIDAD_JUGADOR = 9;
 export const RANGO_ANGULOS_JUGADOR: RangoAngulos = {
   minimo: ANGULO_MINIMO_GRADOS,
-  maximo: ANGULO_MAXIMO_GRADOS - PASO_ANGULO_GRUESO_GRADOS,
+  maximo: ANGULO_MAXIMO_GRADOS - PASO_ANGULO_VIABILIDAD_JUGADOR,
+  paso: PASO_ANGULO_VIABILIDAD_JUGADOR,
 };
 const POTENCIAS_PROBADAS_PORCENTAJE = [40, 55, 70, 85, 100];
 // Exportado (ia-multipozo): cuántos vuelos consume barrer la rejilla entera
@@ -109,7 +116,7 @@ export function compararCandidatos(a: CandidatoDisparo, b: CandidatoDisparo): nu
 
 function* combinacionesDeLaRejilla(rango: RangoAngulos): Generator<{ anguloGrados: number; potencia: number }> {
   for (const potencia of POTENCIAS_PROBADAS_PORCENTAJE) {
-    for (let anguloGrados = rango.minimo; anguloGrados <= rango.maximo; anguloGrados += PASO_ANGULO_GRUESO_GRADOS) {
+    for (let anguloGrados = rango.minimo; anguloGrados <= rango.maximo; anguloGrados += rango.paso ?? PASO_ANGULO_GRUESO_GRADOS) {
       yield { anguloGrados, potencia };
     }
   }

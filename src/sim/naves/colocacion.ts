@@ -38,11 +38,10 @@ const MAX_INTENTOS_PUNTO = 500;
 // primeras decenas de combinaciones.
 //
 // apuntado-y-relevo (apu-5): el humano dispara en 0-360°, así que su
-// viabilidad barre una vuelta entera (90 combinaciones a la primera
-// potencia). La IA conserva los 40 de siempre: su búsqueda solo lanza hacia
-// arriba, y cambiarle el presupuesto movería las colocaciones sembradas.
-const PRESUPUESTO_INTENTOS_VIABILIDAD_JUGADOR = 90;
-const PRESUPUESTO_INTENTOS_VIABILIDAD_IA = 40;
+// viabilidad barre una vuelta entera (40 combinaciones a la primera
+// potencia, con paso de 9°). La IA
+// conserva su semicírculo: solo lanza hacia arriba.
+const PRESUPUESTO_INTENTOS_VIABILIDAD = 40;
 // Offset primo para la "semilla derivada" de cada regeneración -- cualquier
 // desplazamiento fijo sirve, un primo grande evita que dos semillas de las
 // 500 de imp-9 colisionen entre sí al derivarse.
@@ -178,8 +177,8 @@ function intentarColocarEnSistema(
         tiradorId,
         objetivoId,
         ...(asientosIA[tiradorId]
-          ? { presupuestoIntentos: PRESUPUESTO_INTENTOS_VIABILIDAD_IA, rangoAngulos: RANGO_ANGULOS_IA }
-          : { presupuestoIntentos: PRESUPUESTO_INTENTOS_VIABILIDAD_JUGADOR, rangoAngulos: RANGO_ANGULOS_JUGADOR }),
+          ? { presupuestoIntentos: PRESUPUESTO_INTENTOS_VIABILIDAD, rangoAngulos: RANGO_ANGULOS_IA }
+          : { presupuestoIntentos: PRESUPUESTO_INTENTOS_VIABILIDAD, rangoAngulos: RANGO_ANGULOS_JUGADOR }),
       });
     // ia-punteria-6 (hallazgo real, world espacial 1121x1156 derivado del
     // viewport 360x640, semilla 20260926): esta comprobación solo exigía el
