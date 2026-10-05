@@ -6,6 +6,8 @@ import {
   POTENCIA_INICIAL,
   anguloConPasoFino,
   anguloDesdeFraccionControl,
+  clampAngulo,
+  clampPotencia,
   anguloTrasArrastre,
   potenciaConPasoFino,
   potenciaDesdeFraccionControl,
@@ -76,6 +78,12 @@ export interface EstadoControl {
   // dos y reserva sitio visual para hasta cuatro sin fingir que ya existen.
   readonly turno: IdNave;
   readonly nombreRival: string;
+  // apuntado-y-relevo (apu-6): ayuda de una línea sobre el apuntado directo.
+  // Solo se ve en el primer turno de cada asiento y se puede cerrar.
+  readonly ayudaApuntadoVisible: boolean;
+  // apuntado-y-relevo (apu-4): true desde que se monta la partida hasta que
+  // la escena termina de colocar las naves (con 3-4 naves son 4-9 s).
+  readonly preparando: boolean;
 }
 
 const CLAVE_AYUDA_VISTA = "control-apuntado:ayuda-vista";
@@ -177,7 +185,18 @@ let estado: EstadoControl = {
   silenciado: sonidoSilenciado(),
   turno: 0,
   nombreRival: "Rival",
+  ayudaApuntadoVisible: false,
+  preparando: true,
 };
+
+// apuntado-y-relevo (apu-3): ángulo y potencia por asiento, para que el
+// relevo no entregue al jugador siguiente el apuntado del anterior. Vive
+// fuera de EstadoControl: ningún suscriptor lo lee, solo publicarTurno.
+const APUNTADO_INICIAL = { anguloGrados: ANGULO_INICIAL_GRADOS, potencia: POTENCIA_INICIAL };
+const apuntadoPorAsiento = new Map<IdNave, { anguloGrados: number; potencia: number }>();
+// Asientos que ya han jugado un turno con la ayuda a la vista, o que la
+// cerraron: no se les vuelve a enseñar en esta partida.
+const asientosConAyudaApuntadoVista = new Set<IdNave>();
 
 const escuchas = new Set<() => void>();
 
@@ -205,6 +224,7 @@ function fijarAjuste(cambios: Partial<EstadoAjuste>): void {
   if (cruzaUmbralDispersion) {
     ayudaDispersionYaMostrada = true;
   }
+  apuntadoPorAsiento.set(estado.turno, { anguloGrados: ajuste.anguloGrados, potencia: ajuste.potencia });
   fijar({ ajuste, ...(cruzaUmbralDispersion ? { ayudaDispersionVisible: true } : {}) });
   guardarAjuste(ajuste);
 }
@@ -316,7 +336,34 @@ export function publicarJugable(valor: boolean): void {
 // window.__debug.turno -- el canal de estado cambia de nave resaltada en
 // cuanto la escena decide que el turno pasó, sin duplicar esa decisión aquí.
 export function publicarTurno(turno: IdNave): void {
-  if (estado.turno !== turno) fijar({ turno });
+  if (estado.turno === turno) return;
+  // El asiento que acaba de jugar ya vio la ayuda de apuntado (si la había).
+  asientosConAyudaApuntadoVista.add(estado.turno);
+  const propio = apuntadoPorAsiento.get(turno) ?? APUNTADO_INICIAL;
+  fijar({
+    turno,
+    ajuste: { ...estado.ajuste, anguloGrados: propio.anguloGrados, potencia: propio.potencia },
+    ayudaApuntadoVisible: !asientosConAyudaApuntadoVista.has(turno),
+  });
+}
+
+// El apuntado directo fija ángulo y potencia de un solo gesto: dos llamadas
+// seguidas a fijarAnguloGrados/fijarPotencia publicarían un estado
+// intermedio con la mitad del gesto.
+export function fijarApuntadoDirecto(anguloGrados: number | null, potencia: number): void {
+  fijarAjuste({ ...(anguloGrados === null ? {} : { anguloGrados: clampAngulo(anguloGrados) }), potencia: clampPotencia(potencia) });
+  if (estado.ayudaApuntadoVisible) cerrarAyudaApuntado();
+}
+
+export function cerrarAyudaApuntado(): void {
+  asientosConAyudaApuntadoVista.add(estado.turno);
+  fijar({ ayudaApuntadoVisible: false });
+}
+
+// La escena la llama al terminar de montar la partida; PhaserGame la
+// vuelve a marcar como pendiente en cada montaje (también en «otra partida»).
+export function publicarPreparando(valor: boolean): void {
+  if (estado.preparando !== valor) fijar({ preparando: valor });
 }
 
 // hud-canales-1: una sola vez por partida, al crear la escena (la
@@ -396,6 +443,8 @@ export function solicitarDisparo(): void {
 // volver a enseñársela.
 export function reiniciarControl(): void {
   ayudaDispersionYaMostrada = false;
+  apuntadoPorAsiento.clear();
+  asientosConAyudaApuntadoVista.clear();
   fijar({
     ajuste: { anguloGrados: ANGULO_INICIAL_GRADOS, potencia: POTENCIA_INICIAL, armaId: CATALOGO_ARMAS[0].id },
     usosPorArma: {},
@@ -408,5 +457,8 @@ export function reiniciarControl(): void {
     armasDisponibles: null,
     turno: 0,
     nombreRival: "Rival",
+    ayudaApuntadoVisible: true,
+    // preparando no se toca: lo gobierna el montaje de la partida, y la
+    // escena llama a reiniciarControl dentro de la propia preparación.
   });
 }

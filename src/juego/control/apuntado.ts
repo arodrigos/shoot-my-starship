@@ -111,6 +111,45 @@ export function potenciaDesdeFraccionControl(fraccionHorizontal: number): number
   return clampPotencia(POTENCIA_MINIMA + t * (POTENCIA_MAXIMA - POTENCIA_MINIMA));
 }
 
+// apuntado-y-relevo: apuntado directo sobre el lienzo, al estilo de arrastrar
+// la goma de un tirachinas: el ángulo es la dirección nave→dedo y la
+// potencia, la distancia entre ambos. Es lo que da precisión en el móvil: a
+// 120 px de la nave un píxel de dedo son ~0,5°, frente a los ~1,2° por
+// píxel de la barra horizontal. Trabaja en píxeles CSS de pantalla (y hacia
+// abajo), no en unidades de mundo, para que el gesto se sienta igual con
+// cualquier escala de mundo.
+//
+// Dentro de este radio la dirección nave→dedo es ruido (el dedo tapa la nave):
+// se ignora el gesto en vez de girar el ángulo a saltos.
+export const ZONA_MUERTA_APUNTADO_PX = 8;
+// Fracción del lado menor del viewport a la que la potencia llega a 100.
+export const FRACCION_LADO_MENOR_POTENCIA_MAXIMA = 0.4;
+
+export interface PuntoPantalla {
+  readonly x: number;
+  readonly y: number;
+}
+
+// null dentro de la zona muerta: quien llama conserva el ángulo anterior.
+export function anguloDesdeDedo(nave: PuntoPantalla, dedo: PuntoPantalla): number | null {
+  const dx = dedo.x - nave.x;
+  // La y de pantalla crece hacia abajo; el ángulo del juego crece hacia
+  // arriba (90° = arriba), de ahí la inversión.
+  const dy = nave.y - dedo.y;
+  if (Math.hypot(dx, dy) <= ZONA_MUERTA_APUNTADO_PX) return null;
+  const grados = (Math.atan2(dy, dx) * 180) / Math.PI;
+  const normalizado = grados < 0 ? grados + 360 : grados;
+  // atan2 de un valor negativo diminuto puede sumar 360 y dejar exactamente
+  // 360: es el mismo ángulo que 0, y el rango publicado es [0, 360).
+  return normalizado >= 360 ? 0 : normalizado;
+}
+
+export function potenciaDesdeDistancia(distanciaPx: number, ladoMenorViewportPx: number): number {
+  if (!(ladoMenorViewportPx > 0) || !Number.isFinite(distanciaPx)) return POTENCIA_MINIMA;
+  const fraccion = distanciaPx / (FRACCION_LADO_MENOR_POTENCIA_MAXIMA * ladoMenorViewportPx);
+  return clampPotencia(POTENCIA_MINIMA + fraccion * (POTENCIA_MAXIMA - POTENCIA_MINIMA));
+}
+
 // ctl-6: saneado del ajuste persistido en localStorage -- un valor corrupto
 // (NaN, fuera de rango, tipo equivocado) nunca debe romper el arranque; se
 // satura a rango si es un número válido, o cae al valor por defecto si no

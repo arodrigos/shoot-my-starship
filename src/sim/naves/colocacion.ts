@@ -1,6 +1,6 @@
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
-import { existeTiroViable } from "@/sim/balistica/rejilla";
+import { existeTiroViable, RANGO_ANGULOS_JUGADOR } from "@/sim/balistica/rejilla";
 import { esSolido } from "@/sim/terreno/mascara";
 import { generarSistema, MARGEN_CORREDOR_SUPERIOR, type SistemaGenerado } from "@/sim/sistema/generador";
 import type { EstadoNave, ParametrosMundo } from "@/sim/partida/tipos";
@@ -36,7 +36,12 @@ const MAX_INTENTOS_PUNTO = 500;
 // en la mayoría de los pares de puntos SÍ es que no hay tiro. Un presupuesto
 // bajo basta: cuando SÍ hay tiro, la mayoría se encuentra dentro de las
 // primeras decenas de combinaciones.
-const PRESUPUESTO_INTENTOS_VIABILIDAD = 40;
+//
+// apuntado-y-relevo (apu-5): 90 = un barrido completo de los 0-360° a la
+// primera potencia. Con 40 solo se llegaba hasta ~156°, que era todo el
+// semicírculo superior de antes pero dejaba sin mirar cualquier rival que solo
+// se alcance hacia abajo.
+const PRESUPUESTO_INTENTOS_VIABILIDAD = 90;
 // Offset primo para la "semilla derivada" de cada regeneración -- cualquier
 // desplazamiento fijo sirve, un primo grande evita que dos semillas de las
 // 500 de imp-9 colisionen entre sí al derivarse.
@@ -164,6 +169,7 @@ function intentarColocarEnSistema(
       arma: armaBase,
       naves: navesCandidatas,
       presupuestoIntentos: PRESUPUESTO_INTENTOS_VIABILIDAD,
+      rangoAngulos: RANGO_ANGULOS_JUGADOR,
     };
     // ia-punteria-6 (hallazgo real, world espacial 1121x1156 derivado del
     // viewport 360x640, semilla 20260926): esta comprobación solo exigía el
