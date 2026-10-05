@@ -9,7 +9,7 @@ import { colocarNaves } from "@/sim/naves/colocacion";
 import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
-import { SALDO_INICIAL } from "@/sim/partida/economia";
+import { PRESUPUESTO_BASE, idsDisponibles, type SeleccionArmas } from "@/sim/partida/economia";
 import { idsNavesVivas, type EntradaDeTurno, type EstadoPartida, type IdNave, type ModoJuego, type ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } from "@/sim/armas/resolver";
@@ -41,7 +41,7 @@ import {
   publicarDisparoJugadorResuelto,
   publicarJugable,
   publicarNombreRival,
-  publicarSaldo,
+  publicarEconomia,
   publicarTurno,
   registrarManejadorDisparo,
   reiniciarControl,
@@ -65,6 +65,7 @@ import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
 import { obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
+import { abrirSeleccion, cerrarSeleccion, registrarManejadorSeleccion, reiniciarSeleccion } from "@/juego/control/seleccionStore";
 import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
@@ -240,6 +241,8 @@ export class Partida extends Phaser.Scene {
   // relevo-turno: true mientras la pantalla de relevo tapa el juego; el
   // siguiente jugador no puede apuntar ni disparar hasta que confirme.
   private relevoPendiente = false;
+  private seleccionPendiente = false;
+  private cancelarManejadorSeleccion: (() => void) | null = null;
   // Último humano que tuvo el dispositivo: el relevo se decide contra él y
   // no contra el tirador inmediato, para que una IA entre medias no deje
   // pasar la información de un humano al siguiente sin relevo.
@@ -402,7 +405,9 @@ export class Partida extends Phaser.Scene {
     reiniciarIntegridad();
     reiniciarParticipantes();
     reiniciarRelevo();
+    reiniciarSeleccion();
     this.relevoPendiente = false;
+    this.seleccionPendiente = false;
     this.ultimoHumano = null;
     window.__debug.eliminadas = [];
     window.__debug.ganador = undefined;
@@ -436,12 +441,12 @@ export class Partida extends Phaser.Scene {
 
     // modos-y-presupuesto: ?modo= sigue la misma convención que ?mapa=/
     // ?semilla= -- atajo determinista para los tests e2e, con la última
-    // palabra sobre datosEscena.modo. ?saldo= SOLO existe para que modo-2
-    // pueda forzar el saldo a 0 sin jugar la partida entera hasta agotarlo.
+    // palabra sobre datosEscena.modo. ?saldo= fija el presupuesto de la ronda
+    // para que un e2e pueda probar el saldo 0 sin gastarlo eligiendo armas.
     const modoParam = parametrosUrl.get("modo");
     const modo: ModoJuego = modoParam === "presupuesto" ? "presupuesto" : modoParam === "barra-libre" ? "barra-libre" : (this.datosEscena.modo ?? "barra-libre");
     const saldoParam = parametrosUrl.get("saldo");
-    const saldoInicial = modo === "presupuesto" ? (saldoParam !== null ? Number(saldoParam) : SALDO_INICIAL) : undefined;
+    const saldoInicial = modo === "presupuesto" ? (saldoParam !== null ? Number(saldoParam) : PRESUPUESTO_BASE) : undefined;
     fijarModo(modo, saldoInicial ?? null);
     window.__debug.modo = modo;
     window.__debug.saldo = saldoInicial ?? null;
@@ -477,7 +482,7 @@ export class Partida extends Phaser.Scene {
       this.estado = {
         ...crearPartidaInicial(mundoAjustado, mascara, xNaves, mapa.semillaPartida),
         modo,
-        ...(saldoInicial !== undefined ? { saldos: this.saldosIniciales(saldoInicial) } : {}),
+        ...(saldoInicial !== undefined ? this.economiaInicial(saldoInicial) : {}),
       };
 
       const { terreno } = crearTerrenoPhaser(this, mascara, "terreno-partida", mapa.paleta);
@@ -529,7 +534,7 @@ export class Partida extends Phaser.Scene {
         resultado: { tipo: "en-curso" },
         planetas: sistema.planetas,
         modo,
-        ...(saldoInicial !== undefined ? { saldos: this.saldosIniciales(saldoInicial) } : {}),
+        ...(saldoInicial !== undefined ? this.economiaInicial(saldoInicial) : {}),
       };
 
       // cie-2: el mismo sistema.planetas que usa la gravedad y el render,
@@ -778,6 +783,8 @@ export class Partida extends Phaser.Scene {
     window.__debug.turno = this.estado.turno;
     publicarTurno(this.estado.turno);
     window.__debug.numeroTurno = this.estado.numeroTurno;
+    this.refrescarEconomia();
+    this.iniciarSelecciones();
     publicarJugable(this.puedeJugarAhora());
   }
 
@@ -1087,7 +1094,8 @@ export class Partida extends Phaser.Scene {
       // "sigue siendo tu turno, sin animación", y el botón de disparar se
       // reactivaría antes de que el turno real haya pasado.
       !this.avanceTurnoPendiente &&
-      !this.relevoPendiente
+      !this.relevoPendiente &&
+      !this.seleccionPendiente
     );
   }
 
@@ -1099,6 +1107,8 @@ export class Partida extends Phaser.Scene {
     this.cancelarManejadorRepeticion = null;
     this.cancelarManejadorRelevo?.();
     this.cancelarManejadorRelevo = null;
+    this.cancelarManejadorSeleccion?.();
+    this.cancelarManejadorSeleccion = null;
     this.game.events.off(Phaser.Core.Events.PAUSE, pausarAudio);
     this.game.events.off(Phaser.Core.Events.RESUME, reanudarAudio);
   }
@@ -1422,10 +1432,55 @@ export class Partida extends Phaser.Scene {
     return memoria;
   }
 
-  // Solo el humano 0 lleva presupuesto hasta que economia-loadout dé saldo a
-  // cada jugador: el resto de asientos queda sin saldo, como la IA de siempre.
-  private saldosIniciales(saldoInicial: number): readonly (number | undefined)[] {
-    return this.controladores.map((_controlador, id) => (id === 0 ? saldoInicial : undefined));
+  // Cada humano arranca con el mismo presupuesto y el loadout vacío (solo las
+  // gratis) hasta que lo rellena en su pantalla de selección; la IA no lleva
+  // presupuesto y dispara como en barra libre.
+  private economiaInicial(saldoInicial: number): Pick<EstadoPartida, "saldos" | "loadouts"> {
+    return {
+      saldos: this.controladores.map((controlador) => (controlador.tipo === "humano" ? saldoInicial : undefined)),
+      loadouts: this.controladores.map((controlador) => (controlador.tipo === "humano" ? [] : undefined)),
+    };
+  }
+
+  // economia-loadout: cada humano elige sus armas antes de que empiece la
+  // ronda, una pantalla opaca por jugador. Con varios humanos cada una pide
+  // identificarse primero, y al acabar el último se abre un relevo hacia
+  // quien abre el turno para que no herede a la vista el arsenal ajeno.
+  private iniciarSelecciones(): void {
+    const humanos = this.controladores.flatMap((controlador, id) => (controlador.tipo === "humano" ? [id] : []));
+    if (this.estado.modo !== "presupuesto" || humanos.length === 0) return;
+    const conRelevo = humanos.length > 1 && !this.datosEscena.todosVemosTodo;
+    this.seleccionPendiente = true;
+    publicarJugable(false);
+
+    const abrir = (indice: number): void => {
+      if (indice >= humanos.length) {
+        this.cancelarManejadorSeleccion?.();
+        this.cancelarManejadorSeleccion = null;
+        cerrarSeleccion();
+        this.seleccionPendiente = false;
+        this.refrescarEconomia();
+        const primero = this.estado.turno;
+        if (conRelevo && this.esHumano(primero) && humanos[humanos.length - 1] !== primero) {
+          this.relevoPendiente = true;
+          publicarRelevo(nombreDeNave(this.controladores, primero), null, null);
+        }
+        publicarJugable(this.puedeJugarAhora());
+        return;
+      }
+      const id = humanos[indice];
+      abrirSeleccion(nombreDeNave(this.controladores, id), this.estado.saldos?.[id] ?? PRESUPUESTO_BASE, conRelevo);
+      this.cancelarManejadorSeleccion?.();
+      this.cancelarManejadorSeleccion = registrarManejadorSeleccion((seleccion: SeleccionArmas) => {
+        this.estado = {
+          ...this.estado,
+          saldos: this.estado.saldos?.map((saldo, nave) => (nave === id ? seleccion.saldo : saldo)),
+          loadouts: this.estado.loadouts?.map((loadout, nave) => (nave === id ? seleccion.armas : loadout)),
+        };
+        abrir(indice + 1);
+      });
+    };
+    abrir(0);
   }
 
   // Extraído de aplicarResultadoTurno para que window.__debug.dispararEventoRoce
@@ -1756,8 +1811,16 @@ export class Partida extends Phaser.Scene {
   // el HUD (fuera del lienzo) lee el saldo del store, nunca de window.__debug
   // (eso es solo para los tests e2e).
   private refrescarEconomia(): void {
-    const saldo = this.estado.modo === "presupuesto" ? (this.estado.saldos?.[ID_JUGADOR] ?? 0) : null;
-    publicarSaldo(saldo);
+    if (this.estado.modo !== "presupuesto") {
+      publicarEconomia(null, null);
+      window.__debug!.saldo = null;
+      return;
+    }
+    // Durante el turno de la IA el HUD sigue mostrando al último humano.
+    const turno = this.estado.turno;
+    const id = this.estado.loadouts?.[turno] !== undefined ? turno : (this.ultimoHumano ?? ID_JUGADOR);
+    const saldo = this.estado.saldos?.[id] ?? 0;
+    publicarEconomia(saldo, idsDisponibles(this.estado.loadouts?.[id] ?? []));
     window.__debug!.saldo = saldo;
   }
 

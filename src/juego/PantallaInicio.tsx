@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import { almacenamientoDisponible, guardarRivalElegido, leerProgreso } from "@/juego/control/progreso";
 import { desbloquearAudio } from "@/juego/audio/motor";
-import { SALDO_INICIAL } from "@/sim/partida/economia";
+import { PRESUPUESTO_BASE } from "@/sim/partida/economia";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
 import { MAX_NAVES, MAX_NOMBRE_JUGADOR, MIN_NAVES, sanearNombre, type JugadorConfig } from "@/juego/jugadores";
@@ -37,10 +37,8 @@ export function PantallaInicio({ onJugar }: Props) {
   // relevo-turno: solo se ofrece con 2 o más humanos; con uno no hay relevo.
   const [todosVemosTodo, setTodosVemosTodo] = useState(false);
   const [nombres, setNombres] = useState<readonly string[]>(["", "", "", ""]);
-  // El presupuesto por jugador llega con el loadout por ronda: hasta
-  // entonces solo tiene sentido con un humano contra un rival.
   const esMultijugador = humanos > 1 || rivalesIA > 1;
-  const modoEfectivo: ModoJuego = esMultijugador ? "barra-libre" : modo;
+  const modoEfectivo: ModoJuego = modo;
 
   function elegirHumanos(cantidad: number): void {
     setHumanos(cantidad);
@@ -246,12 +244,6 @@ export function PantallaInicio({ onJugar }: Props) {
       </section>
       )}
 
-      {esMultijugador ? (
-        <p data-testid="aviso-modo-multijugador" style={{ maxWidth: 360, margin: 0, font: "12px system-ui, sans-serif" }}>
-          En las partidas de varios jugadores todas las armas están disponibles desde el primer turno (barra libre): el
-          presupuesto por jugador llega más adelante.
-        </p>
-      ) : (
       <section style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 360 }}>
         <h2 style={{ margin: 0, fontSize: 15 }}>Elige modo</h2>
         <button
@@ -283,12 +275,11 @@ export function PantallaInicio({ onJugar }: Props) {
           <strong>Con presupuesto</strong>
           <br />
           <span style={{ font: "12px system-ui, sans-serif" }}>
-            Empiezas con {SALDO_INICIAL} créditos: cada disparo cuesta y acertar ingresa por el daño causado. Tres
-            armas son siempre gratis.
+            Empiezas con {PRESUPUESTO_BASE} créditos para elegir armas antes de jugar: cada una es un disparo y
+            cuesta según su daño y lo fácil que es acertar. Sin armas, quedan tres gratis.
           </span>
         </button>
       </section>
-      )}
 
       <section data-testid="ultima-partida" style={{ maxWidth: 360 }}>
         <h2 style={{ margin: "0 0 4px", fontSize: 15 }}>Tu última partida</h2>

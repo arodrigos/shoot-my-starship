@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { SALDO_INICIAL } from "@/sim/partida/economia";
+import { PRESUPUESTO_BASE } from "@/sim/partida/economia";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 
@@ -23,11 +23,11 @@ test("cie-4: el README cubre los dos modos", async () => {
   assert.match(readme, /[Cc]on presupuesto/);
 });
 
-test("cie-4: el README explica cómo funciona el dinero, con el saldo inicial real", async () => {
+test("cie-4: el README explica cómo funciona el dinero, con el presupuesto base real", async () => {
   const readme = await leerReadme();
-  assert.match(readme, /saldo inicial|SALDO_INICIAL/);
-  assert.match(readme, /cada disparo cuesta/);
-  assert.match(readme, new RegExp(String(SALDO_INICIAL)));
+  assert.match(readme, /PRESUPUESTO_BASE/);
+  assert.match(readme, /No hay ingreso por daño/);
+  assert.match(readme, new RegExp(String(PRESUPUESTO_BASE)));
 });
 
 test("cie-4: el README nombra las tres armas gratis, y son de verdad las tres de coste 0 del catálogo", async () => {

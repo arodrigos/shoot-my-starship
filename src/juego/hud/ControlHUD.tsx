@@ -16,7 +16,7 @@ import {
   fijarSacudidaActiva,
   iniciarArrastre,
   obtenerEstadoControl,
-  puedeCostearArma,
+  armaDisponible,
   repetirUltimoDisparo,
   seleccionarArma,
   solicitarDisparo,
@@ -161,7 +161,6 @@ export function ControlHUD() {
   }
 
   const enPresupuesto = estado.modo === "presupuesto";
-  const saldoInsuficienteParaSeleccionada = enPresupuesto && !puedeCostearArma(armaSeleccionada.id);
   const potenciaEnCero = Math.round(estado.ajuste.potencia) <= 0;
   // lay-6: motivo concreto de por qué "Disparar" no responde -- distinto de
   // puedeDisparar (que gobierna la escena: turno, animación en curso...) y
@@ -179,11 +178,9 @@ export function ControlHUD() {
   // puedeDisparar que el usuario ya ve en el botón Disparar deshabilitado.
   const avisoAccionImposible = potenciaEnCero
     ? "Potencia a 0: arrastra arriba para cargar el disparo."
-    : saldoInsuficienteParaSeleccionada
-      ? `Saldo insuficiente para ${armaSeleccionada.nombre}: cambia de arma.`
-      : !estado.puedeDisparar
-        ? "Espera a que termine el disparo."
-        : null;
+    : !estado.puedeDisparar
+      ? "Espera a que termine el disparo."
+      : null;
 
   return (
     // layout-dos-zonas: esta consola ocupa el 100% de su contenedor (la
@@ -669,17 +666,15 @@ export function ControlHUD() {
                 font: "12px system-ui, sans-serif",
               }}
             >
-              {CATALOGO_ARMAS.map((arma) => {
+              {CATALOGO_ARMAS.filter((arma) => armaDisponible(arma.id)).map((arma) => {
                 const agotada = armaEstaAgotada(arma.id);
                 const coste = costeDeArma(arma.id);
-                const asequible = puedeCostearArma(arma.id);
-                const faltan = enPresupuesto && !asequible ? coste - (estado.saldo ?? 0) : 0;
                 return (
                   <button
                     key={arma.id}
                     type="button"
                     data-testid={`arma-${arma.id}`}
-                    disabled={agotada || !asequible}
+                    disabled={agotada}
                     onClick={() => {
                       seleccionarArma(arma.id);
                       setSelectorAbierto(false);
@@ -689,7 +684,7 @@ export function ControlHUD() {
                       width: "100%",
                       minHeight: TAMANO_MINIMO_BOTON_PX,
                       textAlign: "left",
-                      opacity: agotada || !asequible ? 0.45 : 1,
+                      opacity: agotada ? 0.45 : 1,
                       marginBottom: 4,
                     }}
                   >
@@ -703,14 +698,6 @@ export function ControlHUD() {
                         <br />
                         <span data-testid={`ayuda-arma-${arma.id}`} style={{ color: "#9fd3ff", fontStyle: "italic" }}>
                           {arma.notaAyuda}
-                        </span>
-                      </>
-                    )}
-                    {faltan > 0 && (
-                      <>
-                        <br />
-                        <span data-testid={`saldo-insuficiente-${arma.id}`} style={{ color: "#ffcc66" }}>
-                          Te faltan {faltan} créditos: dispara una gratis o acierta para ingresar.
                         </span>
                       </>
                     )}
@@ -782,7 +769,7 @@ export function ControlHUD() {
             )}
             <p data-testid="explicacion-modo">
               {estado.modo === "presupuesto"
-                ? `Modo con presupuesto: empiezas con ${estado.saldo ?? 0} créditos, cada disparo cuesta el suyo y acertar ingresa por el daño causado. Tres armas son siempre gratis.`
+                ? `Modo con presupuesto: empiezas con ${estado.saldo ?? 0} créditos, eliges armas antes de empezar y cada una es un disparo. Si te quedas sin ellas, quedan las tres gratis.`
                 : "Modo barra libre: todas las armas están disponibles siempre, sin coste."}
             </p>
             <button type="button" data-testid="ayuda-cerrar" onClick={cerrarAyuda} style={botonEstilo}>

@@ -1,7 +1,7 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/armas/resolver";
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
-import { costeArma, ingresoPorDanio } from "@/sim/partida/economia";
+import { consumirArma, idsDisponibles } from "@/sim/partida/economia";
 import { categorizarResultado, type CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import {
@@ -45,21 +45,13 @@ export function avanzar(
   }
   const arma = buscarArma(entrada.arma);
 
-  // modos-y-presupuesto / nucleo-n-naves-3: el guardián vive aquí (y no solo
-  // en el HUD) por la misma razón que el guardián de "partida ya terminada"
-  // de arriba -- el control deshabilita el botón antes de que esto se
-  // alcance en el juego real, pero avanzar() es la fuente de verdad y no
-  // confía en que la cáscara nunca deje pasar un disparo que no se puede
-  // pagar. Solo quien tiene saldo declarado en `saldos` participa del
-  // guardián: en 1vIA, la IA sigue sin tener entrada en `saldos` y por tanto
-  // sigue disparando como en barra libre siempre (ver desviaciones).
-  const saldoTirador = estado.saldos?.[tirador];
-  const disparaConPresupuesto = estado.modo === "presupuesto" && saldoTirador !== undefined;
-  if (disparaConPresupuesto) {
-    const coste = costeArma(arma);
-    if (coste > saldoTirador) {
-      throw new Error(`avanzar: saldo insuficiente para disparar "${arma.nombre}" (cuesta ${coste}, saldo ${saldoTirador})`);
-    }
+  // economia-loadout: el guardián vive aquí (y no solo en el HUD) porque
+  // avanzar() es la fuente de verdad y no confía en que la cáscara nunca deje
+  // pasar un arma que el jugador no eligió. Solo quien tiene loadout declarado
+  // participa: la IA sigue disparando como en barra libre.
+  const loadoutTirador = estado.modo === "presupuesto" ? estado.loadouts?.[tirador] : undefined;
+  if (loadoutTirador !== undefined && !idsDisponibles(loadoutTirador).includes(arma.id)) {
+    throw new Error(`avanzar: "${arma.nombre}" no está en el loadout de la nave ${tirador}`);
   }
 
   const eventos: EventoSimulacion[] = [
@@ -136,16 +128,12 @@ export function avanzar(
   // es un coste por turno, no por paso de física.
   const planetasTrasDisparo = estado.planetas ? recalcularRegistro(estado.planetas, resultado.mascara) : estado.planetas;
 
-  // modos-y-presupuesto (modo-1): se descuenta el precio y se ingresa por el
-  // daño CAUSADO de verdad (resultado.danioObjetivo, tras fiabilidad y
-  // dispersión) en la misma operación -- nunca dos pasos con un estado
-  // intermedio, que es lo que dejaría hueco a un redondeo distinto del que
-  // espera el test.
-  const saldosTrasDisparo = disparaConPresupuesto
-    ? estado.saldos?.map((saldo, id) =>
-        id === tirador ? (saldo ?? 0) - costeArma(arma) + ingresoPorDanio(resultado.danioObjetivo) : saldo,
-      )
-    : estado.saldos;
+  // Disparar consume el arma del loadout; el saldo no se toca porque ya se
+  // pagó al elegir y no hay ingreso por daño.
+  const loadoutsTrasDisparo =
+    loadoutTirador !== undefined
+      ? estado.loadouts?.map((loadout, id) => (id === tirador && loadout !== undefined ? consumirArma(loadout, arma.id) : loadout))
+      : estado.loadouts;
 
   // humor-sistemico: el arma ha fallado su tirada de fiabilidad. Va antes de
   // los eventos "impacto" (que igualmente se emiten, con daño 0, para que la
@@ -321,7 +309,7 @@ export function avanzar(
         aleatorio: resultado.aleatorio,
         resultado: { tipo: "terminada", ganador },
         planetas: planetasTrasDisparo,
-        saldos: saldosTrasDisparo,
+        loadouts: loadoutsTrasDisparo,
       },
       eventos,
       categoriaBroma,
@@ -339,7 +327,7 @@ export function avanzar(
       turno: proximoTurno,
       numeroTurno: estado.numeroTurno + 1,
       planetas: planetasTrasDisparo,
-      saldos: saldosTrasDisparo,
+      loadouts: loadoutsTrasDisparo,
     },
     eventos,
     categoriaBroma,

@@ -6,7 +6,7 @@ import { decidirTurnoIA } from "@/sim/ia/decidir";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { ALMIRANTE_BISAGRA, LA_CONTABLE } from "@/sim/ia/personalidades";
 import { jugarPartida } from "@/sim/partida/motor";
-import { SALDO_INICIAL, puedeCostearArma } from "@/sim/partida/economia";
+import { PRESUPUESTO_BASE, idsDisponibles, puedeCostearArma } from "@/sim/partida/economia";
 import type { EstadoPartida, FuenteDeTurno, ParametrosMundo } from "@/sim/partida/tipos";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
@@ -27,11 +27,10 @@ const PUNTERIA_MEDIA = ALMIRANTE_BISAGRA;
 
 // El jugador simulado: la misma solución balística/error de ia-personalidades
 // (decidirTurnoIA) decide ÁNGULO y POTENCIA -- lo único que modo-7 sustituye
-// es la elección de arma, que aquí SÍ respeta el saldo (al contrario que la
+// es la elección de arma, que aquí SÍ respeta el loadout (al contrario que la
 // IA rival, que nunca conoce presupuesto, ver desviaciones del entregable).
-// "La mejor que se puede pagar" es la política greedy más simple que un
-// jugador real seguiría con presupuesto limitado.
-function fuenteJugadorConPresupuesto(): FuenteDeTurno {
+// Dispara siempre la de más daño que tiene a mano.
+function fuenteJugadorConLoadout(): FuenteDeTurno {
   return (estado: EstadoPartida) => {
     const naveJugador = estado.naves[0];
     const naveRival = estado.naves[1];
@@ -48,10 +47,8 @@ function fuenteJugadorConPresupuesto(): FuenteDeTurno {
       ultimoIntento: null,
     });
 
-    const saldo = estado.saldos?.[0] ?? 0;
-    const asequibles = CATALOGO_ARMAS.filter((arma) => puedeCostearArma(arma, saldo));
-    // Siempre hay al menos una (las tres gratis, coste 0, nunca dejan de
-    // caber en cualquier saldo >= 0) -- el invariante que modo-7 exige.
+    const disponibles = idsDisponibles(estado.loadouts?.[0] ?? []);
+    const asequibles = CATALOGO_ARMAS.filter((arma) => disponibles.includes(arma.id));
     const elegida = asequibles.reduce((mejor, candidata) => {
       const danioMejor = mejor.efecto.tipo === "empuje" ? 0 : mejor.efecto.danioMaximo;
       const danioCandidata = candidata.efecto.tipo === "empuje" ? 0 : candidata.efecto.danioMaximo;
@@ -71,7 +68,7 @@ function fuenteJugadorConPresupuesto(): FuenteDeTurno {
 }
 
 test("modo-7: el catálogo garantiza que siempre hay un arma asequible (las tres gratis, coste 0)", () => {
-  for (let saldo = 0; saldo <= SALDO_INICIAL; saldo += 50) {
+  for (let saldo = 0; saldo <= PRESUPUESTO_BASE; saldo += 50) {
     const asequibles = CATALOGO_ARMAS.filter((arma) => puedeCostearArma(arma, saldo));
     assert.ok(asequibles.length >= 3, `saldo ${saldo}: menos de 3 armas asequibles`);
     assert.ok(
@@ -81,10 +78,12 @@ test("modo-7: el catálogo garantiza que siempre hay un arma asequible (las tres
   }
 });
 
-test("modo-7: en 200 partidas simuladas en modo presupuesto, el saldo final no se agota en más del 20% ni triplica el inicial en más del 20%", () => {
-  let agotadas = 0;
-  let triplicadas = 0;
-  let jugadas = 0;
+test("modo-7: en 200 partidas simuladas con loadout, el guardián nunca salta y el saldo no cambia disparando", () => {
+  // Loadout de 3 armas de pago que cuestan menos que el presupuesto: tras
+  // agotarlas el jugador cae a las gratis y la partida sigue sin callejón.
+  const elegidas = ["tostadora-orbital", "despedida", "barrena-planetaria"];
+  const gasto = elegidas.reduce((suma, id) => suma + (CATALOGO_ARMAS.find((arma) => arma.id === id)?.coste ?? 0), 0);
+  assert.ok(gasto <= PRESUPUESTO_BASE);
 
   for (let semilla = 0; semilla < NUMERO_PARTIDAS; semilla++) {
     const mascara = crearMascaraPlana(ANCHO, ALTO, ALTURA_SUELO);
@@ -102,21 +101,13 @@ test("modo-7: en 200 partidas simuladas en modo presupuesto, el saldo final no s
       aleatorio: crearEstadoAleatorio(semilla + 1),
       resultado: { tipo: "en-curso" },
       modo: "presupuesto",
-      saldos: [SALDO_INICIAL, undefined],
+      saldos: [PRESUPUESTO_BASE - gasto, undefined],
+      loadouts: [elegidas, undefined],
     };
 
-    const resultado = jugarPartida(estadoInicial, [fuenteJugadorConPresupuesto(), crearFuenteIA(LA_CONTABLE)], LIMITE_TURNOS);
-    jugadas += 1;
-    const saldoFinal = resultado.estado.saldos?.[0] ?? 0;
-    if (saldoFinal <= 0) agotadas += 1;
-    if (saldoFinal > SALDO_INICIAL * 3) triplicadas += 1;
+    // jugarPartida lanzaría si algún turno disparase fuera del loadout.
+    const resultado = jugarPartida(estadoInicial, [fuenteJugadorConLoadout(), crearFuenteIA(LA_CONTABLE)], LIMITE_TURNOS);
+    assert.equal(resultado.estado.saldos?.[0], PRESUPUESTO_BASE - gasto, `semilla ${semilla}: disparar no puede mover el saldo`);
+    assert.ok((resultado.estado.loadouts?.[0] ?? []).length <= elegidas.length);
   }
-
-  const fraccionAgotadas = agotadas / jugadas;
-  const fraccionTriplicadas = triplicadas / jugadas;
-  assert.ok(fraccionAgotadas <= 0.2, `saldo agotado en ${(fraccionAgotadas * 100).toFixed(1)}% de las partidas (límite 20%)`);
-  assert.ok(
-    fraccionTriplicadas <= 0.2,
-    `saldo por encima del triple en ${(fraccionTriplicadas * 100).toFixed(1)}% de las partidas (límite 20%)`,
-  );
 });
