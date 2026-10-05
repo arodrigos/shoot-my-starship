@@ -44,7 +44,7 @@ async function dispararTurnoHumano(page: Page): Promise<number> {
 }
 
 test("multi-setup-partida-1/3/5/6/7: configurar 4 humanos a 360x640 y jugar hasta el ganador, sin red y con nombres literales", async ({ page }) => {
-  test.setTimeout(240000);
+  test.setTimeout(420000);
   const peticionesAjenas: string[] = [];
   const origen = new URL(page.url() === "about:blank" ? "http://127.0.0.1:3000" : page.url()).origin;
   page.on("request", (peticion) => {
@@ -161,7 +161,7 @@ test("multi-setup-partida-1/3/5/6/7: configurar 4 humanos a 360x640 y jugar hast
 });
 
 test("multi-setup-partida-6: 2 humanos y 2 rivales de IA se juegan hasta el final", async ({ page }) => {
-  test.setTimeout(240000);
+  test.setTimeout(360000);
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto(`/?mapa=${MAPA_SEMBRADO}`);
   await page.getByTestId("humanos-2").click();

@@ -199,6 +199,7 @@ export function PantallaInicio({ onJugar }: Props) {
         </p>
       </section>
 
+      {rivalesIA > 0 && (
       <section style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 360 }}>
         <h2 style={{ margin: 0, fontSize: 15 }}>Elige rival</h2>
         {PERSONALIDADES.map((personalidad) => (
@@ -221,7 +222,14 @@ export function PantallaInicio({ onJugar }: Props) {
           </button>
         ))}
       </section>
+      )}
 
+      {esMultijugador ? (
+        <p data-testid="aviso-modo-multijugador" style={{ maxWidth: 360, margin: 0, font: "12px system-ui, sans-serif" }}>
+          En las partidas de varios jugadores todas las armas están disponibles desde el primer turno (barra libre): el
+          presupuesto por jugador llega más adelante.
+        </p>
+      ) : (
       <section style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 360 }}>
         <h2 style={{ margin: 0, fontSize: 15 }}>Elige modo</h2>
         <button
@@ -258,6 +266,7 @@ export function PantallaInicio({ onJugar }: Props) {
           </span>
         </button>
       </section>
+      )}
 
       <section data-testid="ultima-partida" style={{ maxWidth: 360 }}>
         <h2 style={{ margin: "0 0 4px", fontSize: 15 }}>Tu última partida</h2>

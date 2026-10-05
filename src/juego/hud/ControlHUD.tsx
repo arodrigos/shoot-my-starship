@@ -28,6 +28,7 @@ import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_M
 import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
+import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { RoceHUD } from "@/juego/hud/RoceHUD";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
@@ -109,6 +110,7 @@ function crearClicConToleranciaDeArrastre(accion: () => void) {
 export function ControlHUD() {
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const resultadoTurno = useSyncExternalStore(suscribirResultadoTurno, obtenerResultadoTurno, obtenerResultadoTurno);
+  const navesEnPartida = useSyncExternalStore(suscribirIntegridad, obtenerIntegridad, obtenerIntegridad).naves.length;
   const bromas = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
@@ -226,8 +228,20 @@ export function ControlHUD() {
           CuentaAtrasHUD) vive fuera de la consola, superpuesto a la zona de
           juego con position:fixed, así que no reserva nada de su alto. */}
       <div data-testid="canal-estado" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: "56%", minWidth: 0 }}>
+        {/* multi-setup-partida: con 3 o 4 barras de integridad ya no caben al
+            lado del resumen del turno (lo estrechaban hasta una columna de una
+            letra de ancho): pasan a su propia fila, a todo el ancho. */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: navesEnPartida > 2 ? "wrap" : "nowrap",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 6,
+          }}
+        >
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: navesEnPartida > 2 ? "100%" : "56%", minWidth: 0 }}>
           <div
             role="status"
             data-testid="resultado-turno"
@@ -258,7 +272,7 @@ export function ControlHUD() {
             </div>
           )}
         </div>
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, ...(navesEnPartida > 2 ? { flex: "1 1 100%" } : {}) }}>
           <IntegridadHUD />
         </div>
         </div>
