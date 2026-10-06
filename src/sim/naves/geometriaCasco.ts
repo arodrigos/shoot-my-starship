@@ -57,31 +57,30 @@ export type VarianteNave = 0 | 1 | 2 | 3;
 export function puntosCascoVariante(variante: VarianteNave, dir: 1 | -1): readonly PuntoCasco[] {
   if (variante === 0) return puntosCasco(dir);
   const factores: Record<Exclude<VarianteNave, 0>, readonly PuntoCasco[]> = {
-    // Variante 1 "lanza": morro muy adelantado y agudo, cola estrecha.
+    // Variante 1 "dardo": fuselaje fino y largo, morro muy agudo.
     1: [
-      { x: -0.3, y: 0.3 },
-      { x: -0.45, y: -0.35 },
-      { x: 0.1, y: -0.5 },
+      { x: -0.5, y: 0.14 },
+      { x: -0.5, y: -0.14 },
+      { x: 0.1, y: -0.12 },
       { x: 0.65, y: 0 },
-      { x: 0.1, y: 0.4 },
+      { x: 0.1, y: 0.12 },
     ],
-    // Variante 2 "tanque": fuselaje ancho y romo, casi rectangular.
+    // Variante 2 "platillo": ancho y achatado, con el borde delantero romo.
     2: [
-      { x: -0.55, y: 0.45 },
-      { x: -0.55, y: -0.45 },
-      { x: 0.2, y: -0.5 },
-      { x: 0.5, y: 0 },
-      { x: 0.2, y: 0.5 },
+      { x: -0.55, y: 0.35 },
+      { x: -0.55, y: 0 },
+      { x: 0.1, y: -0.2 },
+      { x: 0.55, y: 0.05 },
+      { x: 0.15, y: 0.35 },
     ],
-    // Variante 3 "insecto": asimétrica, con el morro desplazado hacia
-    // abajo en vez de hacia arriba -- la silueta más distinta de las
-    // cuatro vista en conjunto.
+    // Variante 3 "ala delta": cola a todo lo alto y morro bajo en el centro,
+    // la única con el vértice más alto detrás de la cabina.
     3: [
-      { x: -0.35, y: 0.5 },
-      { x: -0.6, y: -0.15 },
-      { x: 0.05, y: -0.55 },
-      { x: 0.6, y: 0.05 },
-      { x: 0.1, y: 0.35 },
+      { x: -0.55, y: 0.5 },
+      { x: -0.55, y: -0.5 },
+      { x: -0.05, y: -0.1 },
+      { x: 0.6, y: 0.1 },
+      { x: -0.05, y: 0.25 },
     ],
   };
   return factores[variante].map((p) => ({ x: p.x * ANCHO_CASCO * dir, y: p.y * ALTO_CASCO }));

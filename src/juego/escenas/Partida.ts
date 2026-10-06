@@ -2036,6 +2036,7 @@ export class Partida extends Phaser.Scene {
       hashSilueta: this.naves[indice].obtenerHashSilueta(),
       activa: this.naves[indice].estaActiva(),
       escudo: this.naves[indice].obtenerEscudoTurnos(),
+      silueta: this.naves[indice].obtenerVariante(),
     }));
     // imp-11: el HUD (fuera del lienzo Phaser) necesita enterarse de la
     // integridad por el mismo canal pub/sub que ya usan resultado-turno y

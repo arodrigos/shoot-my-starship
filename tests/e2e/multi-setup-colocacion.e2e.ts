@@ -37,6 +37,8 @@ for (const { humanos, semilla } of CASOS) {
 
     const { naves, camara } = await page.evaluate(() => ({ naves: window.__debug.naves!, camara: window.__debug.camara! }));
     expect(naves).toHaveLength(humanos);
+    // sil-2 (limites): cada asiento dibuja una familia de casco distinta.
+    expect(new Set(naves.map((nave) => nave.silueta)).size).toBe(humanos);
     const lienzo = await page.locator("#game-container canvas").boundingBox();
     expect(lienzo).not.toBeNull();
     const escala = lienzo!.width / camara.ancho;
