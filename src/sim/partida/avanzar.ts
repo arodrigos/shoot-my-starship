@@ -13,8 +13,11 @@ import {
   huboDerivaTraiciona,
   idLiderDerrumbado,
 } from "@/sim/partida/eventosHumor";
+import { existeTiroViable, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
 import { recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
 import { siguienteTurno, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
+
+const PRESUPUESTO_VIABILIDAD_DESTINO = 120;
 
 function conIntegridad(nave: EstadoNave, integridad: number): EstadoNave {
   return { ...nave, integridad: Math.min(100, Math.max(0, integridad)) };
@@ -325,6 +328,29 @@ export function avanzar(
     });
     return repeticion.danioObjetivo > 0;
   };
+  // Un destino tampoco vale si deja a un bando sin ningún tiro posible contra
+  // el otro (detrás de un planeta, por ejemplo): la partida se quedaría sin
+  // forma de acabar salvo por la muerte súbita, y colocarNaves ya garantiza
+  // lo contrario al empezar. Presupuesto acotado: se rinde al primer tiro con
+  // daño y como mucho prueba PRESUPUESTO_VIABILIDAD_DESTINO vuelos.
+  const sinTiroEntreLosDos = (punto: { x: number; y: number }): boolean => {
+    if (navesVivas === undefined) return false;
+    const naves = navesVivas.map((nave) => (nave.id === objetivoId ? { ...nave, x: punto.x, y: punto.y } : nave));
+    const comun = {
+      mascara: resultado.mascara,
+      ancho: estado.mundo.ancho,
+      alto: estado.mundo.alto,
+      planetas: estado.planetas,
+      gravedad: estado.mundo.gravedad,
+      deriva: estado.mundo.deriva,
+      aleatorio: estado.aleatorio,
+      arma,
+      naves,
+      rangoAngulos: RANGO_ANGULOS_ORACULO,
+      presupuestoIntentos: PRESUPUESTO_VIABILIDAD_DESTINO,
+    };
+    return !existeTiroViable({ ...comun, tiradorId: tirador, objetivoId }) || !existeTiroViable({ ...comun, tiradorId: objetivoId, objetivoId: tirador });
+  };
   const desplazadas = desplazarNavesDanadas(
     estado,
     navesTrasDanio,
@@ -332,7 +358,7 @@ export function avanzar(
     radioEfectoEnMundo(arma, estado.mundo.ancho, estado.mundo.alto),
     resultado.aleatorio,
     objetivoId,
-    repetiriaElImpacto,
+    (punto) => repetiriaElImpacto(punto) || sinTiroEntreLosDos(punto),
   );
   const naves = desplazadas.naves;
   eventos.push(...desplazadas.eventos);
