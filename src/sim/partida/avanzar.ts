@@ -141,7 +141,7 @@ export function avanzar(
     eventos.push({ tipo: "arma-falla", nave: tirador, arma: entrada.arma });
   }
   if (resultado.proyectilPerdido) {
-    eventos.push({ tipo: "proyectil-perdido", nave: tirador });
+    eventos.push({ tipo: "proyectil-perdido", nave: tirador, arma: entrada.arma });
   }
 
   const detonaciones = detonacionesDeDisparo(arma, resultado.puntosDeImpacto, resultado.danioPorPunto, estado.mascara, estado.mundo);

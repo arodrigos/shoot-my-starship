@@ -83,7 +83,9 @@ export type EventoSimulacion =
   // -- una órbita estable de facto. No es un fallo de fiabilidad (arma-falla,
   // que sí tiene punto de caída): aquí no hay ningún punto de impacto que
   // mostrar, el turno pasa igual.
-  | { readonly tipo: "proyectil-perdido"; readonly nave: IdNave }
+  // arma: qué arma se perdió, para que el texto del turno distinga el gancho
+  // que no encuentra a qué agarrarse de un disparo atrapado en órbita.
+  | { readonly tipo: "proyectil-perdido"; readonly nave: IdNave; readonly arma?: string }
   // contacto-honesto (con-1, con-3): el vuelo ha entrado en la silueta
   // DIBUJADA de una nave (esc-1) sin cortar su casco de colisión real -- se
   // anuncia en pantalla con su propio mensaje, pero no es un evento de humor

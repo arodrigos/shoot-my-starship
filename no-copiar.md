@@ -36,6 +36,26 @@ normales, como cualquier nombre propio.
 - King of Thieves Artillery
 - Shellshock Live
 
+<!-- catalogo-y-selector (cat-5): armas y utilidades icónicas de los
+     referentes, para que ningún arma, equipo o evento nuevo las copie por
+     inercia. Las mecánicas se toman de los referentes; los nombres, no. -->
+- Oveja Explosiva
+- Super Oveja
+- Banana Bomb
+- Plátano Bomba
+- Holy Hand Grenade
+- Granada Sagrada
+- Ninja Rope
+- Cuerda Ninja
+- Old Woman
+- Burro de Hormigón
+- Concrete Donkey
+- Mad Cow
+- Vaca Loca
+- Baseball Bat
+- Dynamite Stick
+- Homing Missile
+
 ## Franquicias de ciencia ficción
 
 - Star Wars

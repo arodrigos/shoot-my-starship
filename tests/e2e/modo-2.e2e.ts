@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // gratis (coste 55): las tres armas gratis reales son zanjadora-manolita,
 // petardo-de-feria y pelota-de-chatarra (src/sim/armas/catalogo.ts).
 const ARMA_GRATIS_ID = "zanjadora-manolita";
-const ARMA_DE_PAGO_ID = "tostadora-orbital";
+const ARMA_DE_PAGO_ID = "mortero-lamentable";
 
 // modo-2: con el saldo forzado a 0, las tres gratis siguen disparables de
 // punta a punta y las de pago aparecen deshabilitadas pero visibles con su

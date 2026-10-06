@@ -48,7 +48,7 @@ export function memoriaIAInicial(): MemoriaIA {
 // en el anuncio de ganador y en localStorage. Se acota por puntos de código
 // (no por unidades UTF-16, que partirían un emoji por la mitad) y se le
 // quitan los caracteres de control; el escapado de HTML no es cosa de esta
-// función: React pinta todo como texto y nada usa dangerouslySetInnerHTML.
+// función: React pinta todo como texto y nada inyecta HTML en bruto.
 export function sanearNombre(texto: string, respaldo: string): string {
   const limpio = texto.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
   const acotado = Array.from(limpio).slice(0, MAX_NOMBRE_JUGADOR).join("").trim();

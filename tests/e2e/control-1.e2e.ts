@@ -30,7 +30,7 @@ test("elegir arma, apuntar por gesto y disparar hace perder píxeles de terreno 
 
   // Elegir arma: abrir selector y escoger la Tostadora Orbital.
   await page.getByTestId("selector-arma-abrir").click();
-  await page.getByTestId("arma-tostadora-orbital").click();
+  await page.getByTestId("arma-mortero-lamentable").click();
 
   const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
   expect(solucion).not.toBeNull();

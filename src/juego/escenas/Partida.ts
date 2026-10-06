@@ -85,13 +85,21 @@ import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } f
 import { calcularBandaPrevisualizacion, superaPresupuestoComputo } from "@/sim/armas/previsualizacion";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
+import type { DebugEfectoVisible } from "@/debug/tipos";
 import "@/debug/tipos";
+
+// cat-2: el haz del Rayo Láser se ve al menos esto antes de apagarse.
+const DURACION_HAZ_MS = 450;
 
 // render-espacio (esp-6): el texto del panel "resultado del turno" -- un
 // mensaje propio para "proyectil perdido en órbita" (grav-6), porque ese
 // turno no tiene ni impacto ni fallo que describir con el resto de casos.
 function resumenTurno(eventos: readonly EventoSimulacion[]): string {
-  if (eventos.some((evento) => evento.tipo === "proyectil-perdido")) {
+  const perdido = eventos.find((evento) => evento.tipo === "proyectil-perdido");
+  if (perdido?.tipo === "proyectil-perdido" && perdido.arma !== undefined && esComportamientoAdherente(buscarArma(perdido.arma).comportamiento)) {
+    return "El gancho no se agarra al vacío del borde: se pierde sin efecto. El turno pasa igual.";
+  }
+  if (perdido) {
     return "Tu disparo se ha quedado atrapado en órbita, sin caer nunca. El turno pasa igual.";
   }
   if (eventos.some((evento) => evento.tipo === "arma-falla")) {
@@ -300,6 +308,8 @@ export class Partida extends Phaser.Scene {
   // vuelo de nuevo sin tocar this.estado ni this.naves, así que un jugador
   // puede pedir la repetición sin que eso cuente como un turno.
   private animadorRepeticion!: AnimadorProyectil;
+  // cat-2: de dónde sale el haz del último disparo (la boca del cañón).
+  private origenUltimoDisparo: { x: number; y: number } | null = null;
   private ultimoVueloParaRepetir: {
     readonly inicial: EstadoProyectil;
     readonly gravedad: number;
@@ -1287,6 +1297,7 @@ export class Partida extends Phaser.Scene {
     const v = velocidadDesdePotencia(entrada.potencia);
     const inicial: EstadoProyectil = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
     const detenerse = detenerseEnSuelo(estadoAntes.mascara, estadoAntes.mundo.ancho, estadoAntes.mundo.alto);
+    this.origenUltimoDisparo = { x: inicial.x, y: inicial.y };
 
     // impacto-naves: mismo criterio que avanzar.ts para decidir si hay
     // cuerpo de colisión de casco -- modo espacial (las dos naves con `y`) y
@@ -1510,15 +1521,40 @@ export class Partida extends Phaser.Scene {
   // sacudida de cámara dispare para que aplicarResultadoTurno pueda retrasar
   // el avance de turno hasta que la cámara vuelva a reposo -- 0 si ningún
   // evento la disparó (roce, impacto sin daño, o ajuste desactivado).
+  // cat-2: el rayo se pinta ENTERO de una vez (nave → punto de impacto) y se
+  // apaga a los DURACION_HAZ_MS: no es un proyectil que viaje. Va justo antes
+  // de la explosión del punto final, que ya registra el núcleo.
+  private dibujarHazLaser(detonaciones: readonly Detonacion[]): DebugEfectoVisible | null {
+    const final = detonaciones[0];
+    const origen = this.origenUltimoDisparo;
+    if (!final || !origen || buscarArma(final.armaId).comportamiento.tipo !== "instantaneo") return null;
+    const trazo = 1 / this.scale.displayScale.x;
+    const grafico = this.add.graphics().setDepth(31);
+    grafico.lineStyle(6 * trazo, 0xff2e63, 0.9).lineBetween(origen.x, origen.y, final.x, final.y);
+    grafico.lineStyle(2 * trazo, 0xffe3ea, 1).lineBetween(origen.x, origen.y, final.x, final.y);
+    this.tweens.add({ targets: grafico, alpha: 0, duration: DURACION_HAZ_MS, onComplete: () => grafico.destroy() });
+    return { tipo: "haz-laser", duracionMs: DURACION_HAZ_MS, desde: { x: origen.x, y: origen.y }, x: final.x, y: final.y, radioOnda: 0, particulas: 0, escala: 0, sobre: final.sobre };
+  }
+
   private manejarEventosVisuales(eventos: readonly EventoSimulacion[], detonaciones: readonly Detonacion[]): number {
     let esperaSacudidaMs = 0;
     const movimientoReducido = prefiereMovimientoReducido();
     window.__debug!.detonaciones = detonaciones;
-    window.__debug!.efectosVisibles = detonaciones.map((detonacion) => {
+    const explosiones = detonaciones.map((detonacion) => {
       const datos = this.explosionPorCapas.reproducir(detonacion, 1 / this.scale.displayScale.x, movimientoReducido);
       window.__debug!.ultimaExplosionPorCapas = datos;
-      return { x: datos.x, y: datos.y, radioOnda: datos.radioOnda, particulas: datos.particulas, escala: datos.escala, sobre: datos.sobre };
+      return {
+        tipo: "explosion" as const,
+        x: datos.x,
+        y: datos.y,
+        radioOnda: datos.radioOnda,
+        particulas: datos.particulas,
+        escala: datos.escala,
+        sobre: datos.sobre,
+      };
     });
+    const haz = this.dibujarHazLaser(detonaciones);
+    window.__debug!.efectosVisibles = haz ? [haz, ...explosiones] : explosiones;
     for (const evento of eventos) {
       if (evento.tipo === "impacto") {
         // sonido-procedimental (snd-2): distinto de "roce" de abajo -- el

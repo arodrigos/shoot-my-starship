@@ -12,10 +12,9 @@ function danioAlObjetivo(eventos: readonly EventoSimulacion[] | undefined): numb
 // falla de forma ruidosa, no en silencio.
 const GANANCIA_ANGULO_GRADOS = 120;
 const GANANCIA_POTENCIA = 150;
-// Del catálogo real (src/sim/armas/catalogo.ts): Tostadora Orbital, coste 75
-// tras el reprecio de armas-reprecio-roles (antes 30).
-const ARMA_ID = "tostadora-orbital";
-const COSTE_ARMA = 75;
+// Del catálogo real (src/sim/armas/catalogo.ts): Pepinazo de Cortesía, coste 55.
+const ARMA_ID = "pepinazo-cortesia";
+const COSTE_ARMA = 55;
 
 async function dispararConGesto(page: import("@playwright/test").Page): Promise<void> {
   const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());

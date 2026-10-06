@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
-import { puntosSilueta } from "@/juego/proyectiles/geometriaProyectil";
+import { IconoArmaGracioso } from "@/juego/hud/iconos/iconosArmas";
 import {
   actualizarArrastre,
   ajustarAnguloFino,
@@ -124,19 +124,24 @@ interface PropsControl {
   readonly alAlternarPlegado: () => void;
 }
 
-// Icono del arma en la barra mínima: la misma silueta que vuela, para que se
-// reconozca sin leer el nombre (que no cabe junto a Disparar a 360 px).
+// Icono del arma en la barra mínima: el mismo dibujo que la celda del selector,
+// para que se reconozca sin leer el nombre (que no cabe junto a Disparar a
+// 360 px).
 function IconoArma({ armaId }: { readonly armaId: string }) {
-  const arma = CATALOGO_ARMAS.find((candidata) => candidata.id === armaId) ?? CATALOGO_ARMAS[0];
-  const puntos = puntosSilueta(arma);
-  const xs = puntos.map((p) => p.x);
-  const ys = puntos.map((p) => p.y);
-  const lado = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1);
   return (
-    <svg width={28} height={28} viewBox={`${-lado / 2} ${-lado / 2} ${lado} ${lado}`} aria-hidden="true" data-testid="icono-arma">
-      <polygon points={puntos.map((p) => `${p.x},${p.y}`).join(" ")} fill="var(--color-cromado-texto)" />
-    </svg>
+    <span data-testid="icono-arma" style={{ display: "inline-flex" }}>
+      <IconoArmaGracioso armaId={armaId} tamano={28} />
+    </span>
   );
+}
+
+// Eje propio de las armas que no hacen daño: enseñar «Daño 0» de una
+// utilitaria es mentir sobre lo que hace.
+function textoEjeDeArma(arma: (typeof CATALOGO_ARMAS)[number]): string {
+  if (arma.efecto.tipo === "empuje") return `Empuje: ${arma.efecto.desplazamientoPx} u`;
+  if (arma.utilitaria === true && arma.huella.tipo === "circular") return `Relleno: ${Math.round(Math.PI * arma.huella.radio ** 2)} u²`;
+  if (arma.efecto.tipo === "danio" || arma.efecto.tipo === "danio-y-autodanio") return `Daño: ${arma.efecto.danioMaximo}`;
+  return "";
 }
 
 export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
@@ -776,7 +781,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
                 bottom: "calc(100% + 4px)",
                 left: 0,
                 zIndex: 20,
-                width: 220,
+                width: "min(336px, calc(100vw - 16px))",
                 background: "var(--color-cromado-fondo)",
                 borderRadius: 8,
                 padding: 6,
@@ -791,50 +796,59 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
                   Sin saldo para armas de pago: te quedan las gratis (daño reducido). Un evento de lotería puede darte más.
                 </p>
               )}
-              {CATALOGO_ARMAS.map((arma) => {
-                const agotada = armaEstaAgotada(arma.id);
-                const coste = costeDeArma(arma.id);
-                const faltan = armaFaltaSaldo(arma.id);
-                const deshabilitada = agotada || faltan > 0;
-                return (
-                  <button
-                    key={arma.id}
-                    type="button"
-                    data-testid={`arma-${arma.id}`}
-                    disabled={deshabilitada}
-                    onClick={() => {
-                      seleccionarArma(arma.id);
-                      setSelectorAbierto(false);
-                    }}
-                    style={{
-                      ...botonEstilo,
-                      width: "100%",
-                      minHeight: TAMANO_MINIMO_BOTON_PX,
-                      textAlign: "left",
-                      opacity: deshabilitada ? 0.45 : 1,
-                      marginBottom: 4,
-                    }}
-                  >
-                    <strong>{arma.nombre}</strong>
-                    {agotada ? " (agotada)" : ""}
-                    {enPresupuesto && <span data-testid={`precio-${arma.id}`}>{coste > 0 ? ` — ${coste} cr` : " — Gratis"}</span>}
-                    {enPresupuesto && coste === 0 && arma.efecto.tipo === "danio" && (
-                      <span data-testid={`gratis-reducida-${arma.id}`}> · Gratis · daño reducido al 25 %</span>
-                    )}
-                    {enPresupuesto && faltan > 0 && !agotada && <span data-testid={`faltan-${arma.id}`}> · Te faltan {faltan} cr</span>}
-                    <br />
-                    <span>{arma.descripcion}</span>
-                    {arma.notaAyuda && (
-                      <>
-                        <br />
-                        <span data-testid={`ayuda-arma-${arma.id}`} style={{ color: "#9fd3ff", fontStyle: "italic" }}>
+              {/* cat-3: rejilla de celdas con icono, de 2 columnas (≥ 44 px de alto, 6 px de separación) */}
+              <div data-testid="rejilla-armas" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
+                {CATALOGO_ARMAS.map((arma) => {
+                  const agotada = armaEstaAgotada(arma.id);
+                  const coste = costeDeArma(arma.id);
+                  const faltan = armaFaltaSaldo(arma.id);
+                  const deshabilitada = agotada || faltan > 0;
+                  const eje = textoEjeDeArma(arma);
+                  return (
+                    <button
+                      key={arma.id}
+                      type="button"
+                      data-testid={`arma-${arma.id}`}
+                      disabled={deshabilitada}
+                      onClick={() => {
+                        seleccionarArma(arma.id);
+                        setSelectorAbierto(false);
+                      }}
+                      style={{
+                        ...botonEstilo,
+                        minWidth: TAMANO_MINIMO_BOTON_PX,
+                        minHeight: TAMANO_MINIMO_BOTON_PX,
+                        textAlign: "left",
+                        opacity: deshabilitada ? 0.45 : 1,
+                        outline: arma.id === armaSeleccionada.id ? "2px solid #ffd23f" : "none",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <IconoArmaGracioso armaId={arma.id} />
+                        <strong style={{ lineHeight: 1.1 }}>{arma.nombre}</strong>
+                      </span>
+                      <span style={{ fontSize: 11 }}>
+                        {agotada ? "(agotada) Ya la usaste en esta partida" : ""}
+                        {enPresupuesto && <span data-testid={`precio-${arma.id}`}>{coste > 0 ? `${coste} cr` : "Gratis"}</span>}
+                        {eje !== "" && <span data-testid={`eje-${arma.id}`}>{enPresupuesto ? " · " : ""}{eje}</span>}
+                        {enPresupuesto && coste === 0 && arma.efecto.tipo === "danio" && (
+                          <span data-testid={`gratis-reducida-${arma.id}`}> · Gratis · daño reducido al 25 %</span>
+                        )}
+                        {enPresupuesto && faltan > 0 && !agotada && <span data-testid={`faltan-${arma.id}`}> · Te faltan {faltan} cr</span>}
+                      </span>
+                      <span style={{ fontSize: 10.5, opacity: 0.85 }}>{arma.descripcion}</span>
+                      {arma.notaAyuda && (
+                        <span data-testid={`ayuda-arma-${arma.id}`} style={{ color: "#9fd3ff", fontStyle: "italic", fontSize: 10.5 }}>
                           {arma.notaAyuda}
                         </span>
-                      </>
-                    )}
-                  </button>
-                );
-              })}
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
