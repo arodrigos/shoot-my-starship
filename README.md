@@ -120,6 +120,15 @@ Al jugar unas partidas, lo que de verdad hay que evaluar es:
   personalidad, `src/contenido/bancoBromas.ts`) siguen sonando frescas
   turno tras turno o cansan antes de que termine la partida.
 
+## Música y sonido
+
+Todo el audio se genera con Web Audio, sin ficheros. Hay dos controles
+independientes en la consola: «Sonido» (efectos, silenciado por defecto) y
+«Música» (activada por defecto, se recuerda entre sesiones). Ninguno de los
+dos crea el audio hasta un gesto tuyo: pulsar «Jugar» o el propio control.
+La música es un bucle sobre una escala pentatónica que tarda más de 60 s en
+repetirse y suena por debajo de los efectos.
+
 ## Desarrollo
 
 ```bash

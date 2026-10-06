@@ -4,6 +4,9 @@ import { arrastrarBarraHasta } from "./utilesControl";
 
 async function entrarAPartida(page: import("@playwright/test").Page): Promise<void> {
   await page.setViewportSize({ width: 360, height: 640 });
+  // banda-sonora: la música viene activada y crearía el contexto con "Jugar";
+  // estos tests miden solo el camino de los efectos.
+  await page.addInitScript(() => localStorage.setItem("banda-sonora:activada", "0"));
   await page.goto("/?mapa=calma-de-los-restos");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");

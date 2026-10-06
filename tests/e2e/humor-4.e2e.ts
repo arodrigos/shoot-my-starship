@@ -36,6 +36,10 @@ test("humor-4: el audio no arranca hasta el primer gesto real, y entonces arranc
     }
   });
 
+  // banda-sonora: la música viene activada y SÍ crea el contexto con el clic
+  // en "Jugar"; este test comprueba el camino de los efectos, así que se
+  // parte con la música desactivada.
+  await page.addInitScript(() => localStorage.setItem("banda-sonora:activada", "0"));
   await page.goto("/");
   await expect(page.getByTestId("pantalla-inicio")).toBeVisible();
   expect(await page.evaluate(() => window.__debug)).toBeUndefined();

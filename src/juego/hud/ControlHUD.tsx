@@ -6,6 +6,7 @@ import {
   actualizarArrastre,
   ajustarAnguloFino,
   ajustarPotenciaFino,
+  alternarMusicaActiva,
   alternarSilenciado,
   armaEstaAgotada,
   cerrarAyuda,
@@ -23,7 +24,7 @@ import {
   suscribirControl,
   terminarArrastre,
 } from "@/juego/control/store";
-import { obtenerHistorialEfectos, sonidoSilenciado } from "@/juego/audio/motor";
+import { estadoMusica, obtenerHistorialEfectos, sonidoSilenciado } from "@/juego/audio/motor";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
@@ -139,6 +140,9 @@ export function ControlHUD() {
     // renders de React, así que un valor fijado aquí quedaría obsoleto
     // (mismo motivo que estadoAudio, ver src/debug/tipos.ts).
     window.__debug.audio = () => ({ silenciado: sonidoSilenciado(), historial: obtenerHistorialEfectos() });
+    // banda-sonora: en vivo por la misma razón que audio (las notas se
+    // programan fuera del ciclo de React).
+    window.__debug.musica = () => estadoMusica();
   }, [estado]);
 
   useEffect(() => {
@@ -550,6 +554,26 @@ export function ControlHUD() {
           }}
         >
           Sonido: {estado.silenciado ? "Off" : "On"}
+        </button>
+        <button
+          type="button"
+          data-testid="toggle-musica"
+          aria-pressed={estado.musicaActiva}
+          onClick={() => alternarMusicaActiva()}
+          title={estado.musicaActiva ? "Quitar la música" : "Poner la música"}
+          style={{
+            minWidth: TAMANO_MINIMO_BOTON_PX,
+            minHeight: TAMANO_MINIMO_BOTON_PX,
+            padding: "0 8px",
+            borderRadius: 8,
+            border: "none",
+            background: "var(--color-cromado-fondo)",
+            color: "var(--color-cromado-texto)",
+            font: "12px system-ui, sans-serif",
+            cursor: "pointer",
+          }}
+        >
+          Música: {estado.musicaActiva ? "Sí" : "No"}
         </button>
       </div>
 

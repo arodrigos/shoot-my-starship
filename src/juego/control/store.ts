@@ -16,7 +16,7 @@ import {
   type FraccionDeVentana,
 } from "@/juego/control/apuntado";
 import { UMBRAL_POTENCIA_DISPERSION_VISIBLE } from "@/sim/balistica/dispersionPotencia";
-import { alternarSonido, sonidoSilenciado } from "@/juego/audio/motor";
+import { alternarMusica, alternarSonido, musicaActivada, sonidoSilenciado } from "@/juego/audio/motor";
 
 // Puente entre React (ControlHUD, fuera del lienzo) y la escena de Phaser
 // (que sí sabe de terreno y física): un módulo-singleton con
@@ -69,6 +69,8 @@ export interface EstadoControl {
   // evita que ControlHUD tenga que leer un módulo imperativo fuera de su
   // ciclo de render.
   readonly silenciado: boolean;
+  // banda-sonora: espejo de motor.ts/musicaActivada(), igual que silenciado.
+  readonly musicaActiva: boolean;
   // hud-canales-1/2: de quién es el turno, para el canal de estado -- la
   // escena ya lo sabía (window.__debug.turno, solo para e2e); esto es lo
   // mismo pero reactivo para la UI real. nombreRival llega una sola vez por
@@ -183,6 +185,7 @@ let estado: EstadoControl = {
   armasDisponibles: null,
   sacudidaActiva: leerSacudidaActivaGuardada(),
   silenciado: sonidoSilenciado(),
+  musicaActiva: musicaActivada(),
   turno: 0,
   nombreRival: "Rival",
   ayudaApuntadoVisible: false,
@@ -409,6 +412,10 @@ export function fijarSacudidaActiva(valor: boolean): void {
 export function alternarSilenciado(): void {
   const valor = alternarSonido();
   fijar({ silenciado: valor });
+}
+
+export function alternarMusicaActiva(): void {
+  fijar({ musicaActiva: alternarMusica() });
 }
 
 type ManejadorDisparo = (entrada: EntradaDeTurno) => void;

@@ -7,6 +7,8 @@
 // pública está envuelta en try/catch y no lanza nunca, así que un navegador
 // sin Web Audio, con --mute-audio o con la política de autoplay bloqueando
 // el contexto deja el juego mudo pero nunca roto.
+import { CLAVE_MUSICA, crearProgramador, sanearPreferenciaMusica, type Programador } from "@/juego/audio/musica";
+
 export type EstadoAudio = "sin-inicializar" | "suspendido" | "en-marcha";
 
 let contexto: AudioContext | null = null;
@@ -46,6 +48,53 @@ function guardarSilenciado(valor: boolean): void {
 
 let silenciado = leerSilenciadoGuardado();
 
+// banda-sonora: la música tiene su propio interruptor, independiente del de
+// efectos. Viene activada por defecto, pero igual que los efectos no crea el
+// AudioContext hasta un gesto del usuario.
+function leerMusicaGuardada(): boolean {
+  try {
+    return sanearPreferenciaMusica(window.localStorage.getItem(CLAVE_MUSICA));
+  } catch {
+    return true;
+  }
+}
+
+let musicaActiva = leerMusicaGuardada();
+let programador: Programador | null = null;
+let audioNoDisponible = false;
+
+export function musicaActivada(): boolean {
+  return musicaActiva;
+}
+
+export type EstadoMusicaDebug = "esperando-gesto" | "sonando" | "parada" | "sin-audio";
+
+export function estadoMusica(): {
+  readonly estado: EstadoMusicaDebug;
+  readonly notasProgramadas: number;
+  readonly vocesActivas: number;
+} {
+  const contadores = programador?.estado() ?? { notasProgramadas: 0, vocesActivas: 0 };
+  const estado: EstadoMusicaDebug = !musicaActiva
+    ? "parada"
+    : audioNoDisponible
+      ? "sin-audio"
+      : programador?.activo()
+        ? "sonando"
+        : "esperando-gesto";
+  return { estado, ...contadores };
+}
+
+function arrancarMusica(): void {
+  if (!contexto || !musicaActiva) return;
+  try {
+    programador = programador ?? crearProgramador(contexto);
+    programador.iniciar();
+  } catch {
+    audioNoDisponible = true;
+  }
+}
+
 export function sonidoSilenciado(): boolean {
   return silenciado;
 }
@@ -62,7 +111,7 @@ export function sonidoSilenciado(): boolean {
 // hacer aparecer un AudioContext mientras el jugador no haya pedido sonido
 // explícitamente con el silenciador (ver alternarSonido).
 export function desbloquearAudio(): void {
-  if (silenciado) return;
+  if (silenciado && !musicaActiva) return;
   try {
     if (!contexto) {
       contexto = new AudioContext();
@@ -72,7 +121,10 @@ export function desbloquearAudio(): void {
     }
   } catch {
     // Sin Web Audio el juego sigue siendo jugable en silencio.
+    audioNoDisponible = true;
+    return;
   }
+  arrancarMusica();
 }
 
 // snd-1: único punto que activa o desactiva el sonido -- lo llama el
@@ -82,12 +134,32 @@ export function desbloquearAudio(): void {
 export function alternarSonido(): boolean {
   silenciado = !silenciado;
   guardarSilenciado(silenciado);
-  if (silenciado) {
-    pausarAudio();
-  } else {
+  if (!silenciado) {
     desbloquearAudio();
+  } else if (!musicaActiva) {
+    // Con la música sonando el contexto no se suspende: silenciar los
+    // efectos no puede cortar la música.
+    pausarAudio();
   }
   return silenciado;
+}
+
+// banda-sonora: único punto que activa o desactiva la música. Como
+// alternarSonido, pulsarlo es el gesto que desbloquea el AudioContext.
+export function alternarMusica(): boolean {
+  musicaActiva = !musicaActiva;
+  try {
+    window.localStorage.setItem(CLAVE_MUSICA, musicaActiva ? "1" : "0");
+  } catch {
+    // Misma política que guardarSilenciado: la preferencia no persiste.
+  }
+  if (musicaActiva) {
+    desbloquearAudio();
+  } else {
+    programador?.detener();
+    if (silenciado) pausarAudio();
+  }
+  return musicaActiva;
 }
 
 // Enganchado al evento PAUSE de Phaser (humor-5): la pestaña en segundo
@@ -148,7 +220,7 @@ const GANANCIA_INICIAL = 0.2;
 const GANANCIA_MINIMA = 0.001;
 
 export function reproducirTono(tipo: TonoReaccion): void {
-  if (!contexto || contexto.state !== "running") {
+  if (silenciado || !contexto || contexto.state !== "running") {
     return;
   }
   try {
@@ -200,7 +272,9 @@ export function obtenerHistorialEfectos(): readonly { id: IdEfectoSonoro; enMs: 
 
 export function reproducirEfecto(id: IdEfectoSonoro): void {
   historialEfectos = [...historialEfectos, { id, enMs: Date.now() }].slice(-TOPE_HISTORIAL_EFECTOS);
-  if (!contexto || contexto.state !== "running") {
+  // El contexto puede estar en marcha solo por la música: los efectos siguen
+  // su propio interruptor.
+  if (silenciado || !contexto || contexto.state !== "running") {
     return;
   }
   try {
