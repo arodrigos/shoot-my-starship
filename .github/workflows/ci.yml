@@ -170,6 +170,24 @@ jobs:
       - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4 --reporter=list,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: resultado-e2e.json
+      # Los logs de un job no se leen por la API sin sesión: volcar los tests
+      # fallidos como anotaciones deja el motivo del rojo en el check-run.
+      - if: failure()
+        run: |
+          node -e '
+            const fs = require("fs");
+            if (!fs.existsSync("resultado-e2e.json")) { console.log("::error::Playwright no llegó a escribir resultado-e2e.json (falló antes de ejecutar tests)"); process.exit(0); }
+            const visitar = (suite) => {
+              for (const s of suite.suites ?? []) visitar(s);
+              for (const spec of suite.specs ?? []) {
+                if (spec.ok) continue;
+                const msg = spec.tests.flatMap((t) => t.results).map((r) => (r.error?.message ?? r.status)).join(" | ");
+                const limpio = (spec.file + " " + spec.title + ": " + msg).replace(/\u001b\[[0-9;]*m/g, "").replace(/\s+/g, " ").slice(0, 900);
+                console.log("::error::" + limpio);
+              }
+            };
+            for (const suite of JSON.parse(fs.readFileSync("resultado-e2e.json", "utf8")).suites) visitar(suite);
+          '
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
