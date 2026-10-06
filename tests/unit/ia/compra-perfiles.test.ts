@@ -6,6 +6,7 @@ import { buscarArma } from "@/sim/armas/catalogo";
 import { decidirCompraTurno } from "@/sim/ia/compra";
 import { ALMIRANTE_BISAGRA, CHISPA, LA_CONTABLE, PERSONALIDADES } from "@/sim/ia/personalidades";
 import { costeArma } from "@/sim/partida/economia";
+import { medirCompraIA } from "../../utils/medirCompraIA";
 
 const precioDe = (id: string): number => costeArma(buscarArma(id));
 
@@ -54,4 +55,11 @@ test("eco-1: con 30 cr ninguna personalidad intenta pagar un arma de ataque: dis
 test("eco-7: no repite un arma con usos agotados (Despedida)", () => {
   const { armaId } = decidirCompraTurno(ALMIRANTE_BISAGRA, 850, 1, crearEstadoAleatorio(1), { despedida: 1 });
   assert.notEqual(armaId, "despedida");
+});
+
+// eco-4: la medición de `medir:ia -- --modo presupuesto`, con menos semillas.
+test("eco-4: con saldo para el arma de pago más barata, al menos el 70 % de los disparos de la IA son de pago", () => {
+  const informe = medirCompraIA(8);
+  assert.ok(informe.turnosConSaldo > 0);
+  assert.ok(informe.porcentajeDePago >= 70, `solo ${informe.porcentajeDePago.toFixed(1)} % de pago`);
 });
