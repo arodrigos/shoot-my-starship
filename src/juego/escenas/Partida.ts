@@ -1517,7 +1517,7 @@ export class Partida extends Phaser.Scene {
     window.__debug!.efectosVisibles = detonaciones.map((detonacion) => {
       const datos = this.explosionPorCapas.reproducir(detonacion, 1 / this.scale.displayScale.x, movimientoReducido);
       window.__debug!.ultimaExplosionPorCapas = datos;
-      return { x: datos.x, y: datos.y, radioOnda: datos.radioOnda, particulas: datos.particulas, sobre: datos.sobre };
+      return { x: datos.x, y: datos.y, radioOnda: datos.radioOnda, particulas: datos.particulas, escala: datos.escala, sobre: datos.sobre };
     });
     for (const evento of eventos) {
       if (evento.tipo === "impacto") {
