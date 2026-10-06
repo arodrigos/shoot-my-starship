@@ -785,7 +785,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
                 background: "var(--color-cromado-fondo)",
                 borderRadius: 8,
                 padding: 6,
-                maxHeight: 260,
+                maxHeight: "min(62vh, 440px)",
                 overflowY: "auto",
                 color: "var(--color-cromado-texto)",
                 font: "12px system-ui, sans-serif",
