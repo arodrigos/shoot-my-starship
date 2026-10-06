@@ -20,7 +20,7 @@ import { cajaCasco } from "@/sim/naves/geometriaCasco";
 import { puntosSilueta, dimensionMayor } from "@/juego/proyectiles/geometriaProyectil";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
-import { barridoRejilla } from "@/sim/balistica/rejilla";
+import { barridoRejilla, RANGO_ANGULOS_JUGADOR } from "@/sim/balistica/rejilla";
 import type { NavePosicion } from "@/sim/naves/impacto";
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { contarPixelesDestruidos } from "@/sim/terreno/estadisticas";
@@ -1991,6 +1991,9 @@ export class Partida extends Phaser.Scene {
       naves: this.navesParaOraculo(estado),
       tiradorId: tirador,
       objetivoId,
+      // La colocación garantiza un tiro a quien juega en 0-360°, no en el
+      // semicírculo de la IA: con ese rango el oráculo podía no ver el único tiro.
+      rangoAngulos: RANGO_ANGULOS_JUGADOR,
     });
     return candidatos[0] ?? null;
   }
