@@ -49,6 +49,11 @@ export const RANGO_ANGULOS_JUGADOR: RangoAngulos = {
   maximo: ANGULO_MAXIMO_GRADOS - PASO_ANGULO_VIABILIDAD_JUGADOR,
   paso: PASO_ANGULO_VIABILIDAD_JUGADOR,
 };
+// Vuelta entera con el paso grueso de la IA: solo lo usa el oráculo de depuración.
+export const RANGO_ANGULOS_ORACULO: RangoAngulos = {
+  minimo: ANGULO_MINIMO_GRADOS,
+  maximo: ANGULO_MAXIMO_GRADOS - PASO_ANGULO_GRUESO_GRADOS,
+};
 const POTENCIAS_PROBADAS_PORCENTAJE = [40, 55, 70, 85, 100];
 // Exportado (ia-multipozo): cuántos vuelos consume barrer la rejilla entera
 // sin presupuesto -- el rival lo necesita para repartir su propio techo de

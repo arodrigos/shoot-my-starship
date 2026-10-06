@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
-import { ANGULO_INICIAL_GRADOS, POTENCIA_INICIAL, GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apuntado";
+import { FRACCION_LADO_MENOR_POTENCIA_MAXIMA } from "@/juego/control/apuntado";
+import { arrastrarDesdeNave } from "./utilesApuntado";
 
 // esp-2 (camino crítico): lo que se renderiza es lo que colisiona. Un mismo
 // disparo (mismo ángulo, misma potencia, mismo origen -- las naves no se
@@ -37,8 +38,16 @@ import { ANGULO_INICIAL_GRADOS, POTENCIA_INICIAL, GANANCIA_ANGULO_GRADOS, GANANC
 // impacta dentro del mundo (contra un planeta), y el segundo, tras el
 // cráter, continúa por la MISMA trayectoria determinista y aterriza ~497px
 // más allá -- holgado frente al umbral de 30px.
-const ANGULO_OBJETIVO_GRADOS = 126.5;
-const POTENCIA_OBJETIVO = 23;
+//
+// apuntado-y-relevo: ampliar la viabilidad de la colocación a los 360° del
+// humano movió la colocación de "?semilla=20" (las naves cambian de sitio y
+// el disparo de antes cae casi en el mismo punto, 5,6 px). Se rebuscó sobre
+// la colocación nueva con avanzar() real, dos disparos seguidos: 336°/50
+// impacta contra terreno las dos veces y el segundo aterriza ~270 px más
+// allá. El gesto es el apuntado directo (arrastre desde la nave), no el
+// arrastre combinado anterior, que no llega a 336° dentro de la pantalla.
+const ANGULO_OBJETIVO_GRADOS = 336;
+const POTENCIA_OBJETIVO = 50;
 
 function esEventoImpacto(evento: EventoSimulacion): evento is Extract<EventoSimulacion, { tipo: "impacto" }> {
   return evento.tipo === "impacto";
@@ -60,18 +69,8 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
   }
 
   const viewport = page.viewportSize()!;
-  const deltaVerticalFraccion = (ANGULO_OBJETIVO_GRADOS - ANGULO_INICIAL_GRADOS) / GANANCIA_ANGULO_GRADOS;
-  const deltaHorizontalFraccion = (POTENCIA_OBJETIVO - POTENCIA_INICIAL) / GANANCIA_POTENCIA;
-  const inicio = { x: viewport.width * 0.5, y: viewport.height * 0.85 };
-  const fin = {
-    x: inicio.x + deltaHorizontalFraccion * viewport.width,
-    y: inicio.y - deltaVerticalFraccion * viewport.height,
-  };
-  await page.mouse.move(inicio.x, inicio.y);
-  await page.mouse.down();
-  await page.mouse.move((inicio.x + fin.x) / 2, (inicio.y + fin.y) / 2, { steps: 5 });
-  await page.mouse.move(fin.x, fin.y, { steps: 5 });
-  await page.mouse.up();
+  const distanciaArrastre = (POTENCIA_OBJETIVO / 100) * FRACCION_LADO_MENOR_POTENCIA_MAXIMA * Math.min(viewport.width, viewport.height);
+  await arrastrarDesdeNave(page, 0, ANGULO_OBJETIVO_GRADOS, distanciaArrastre);
 
   await page.waitForFunction(
     (objetivo) =>
