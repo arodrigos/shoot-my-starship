@@ -129,8 +129,10 @@ export function planificarExplosion(entrada: EntradaPlanExplosion): PlanExplosio
     };
   }
 
-  const pedidosEscombros = Math.round(entrada.cantidadMaxEscombros * escala);
-  const pedidosHumo = Math.round(entrada.cantidadMaxHumo * escala);
+  // El realce de nave puede llevar la escala por encima de 1; la cantidad de
+  // partículas no, porque su techo en REGISTRO_EFECTOS es duro (pre-1).
+  const pedidosEscombros = Math.min(entrada.cantidadMaxEscombros, Math.round(entrada.cantidadMaxEscombros * escala));
+  const pedidosHumo = Math.min(entrada.cantidadMaxHumo, Math.round(entrada.cantidadMaxHumo * escala));
   const escombros = entrada.particulasConcedibles(pedidosEscombros, DURACION_ESCOMBROS_MS);
   const humo = entrada.particulasConcedibles(pedidosHumo, DURACION_HUMO_MS);
   return {

@@ -168,3 +168,17 @@ test("exp-1: una detonación que daña a una nave tiene mayor escala que la mism
     { numRuns: 300 },
   );
 });
+
+test("el realce de nave no pide más partículas que el máximo del emisor", () => {
+  const plan = planificarExplosion({
+    detonacion: { x: 0, y: 0, armaId: "pepinazo", radioEfectoU: 200, danioAplicado: 1000, sobre: "nave" },
+    cssPorUnidad: 1,
+    movimientoReducido: false,
+    cantidadMaxEscombros: 16,
+    cantidadMaxHumo: 10,
+    particulasConcedibles: (n: number) => n,
+  } as Parameters<typeof planificarExplosion>[0]);
+  assert.ok(plan.escala > 1);
+  assert.equal(plan.escombros, 16);
+  assert.equal(plan.humo, 10);
+});
