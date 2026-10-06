@@ -54,10 +54,6 @@ export interface EstadoControl {
   // saldo, ni siquiera uno enorme).
   readonly modo: ModoJuego;
   readonly saldo: number | null;
-  // economia-loadout: ids que el jugador de turno puede disparar (su loadout,
-  // o las 3 gratis si lo agotó); null en barra libre, donde sirve todo el
-  // catálogo.
-  readonly armasDisponibles: readonly string[] | null;
   // realce-impacto (rlc-3): si la sacudida de cámara y el destello de daño
   // están activados -- persistido como ayudaVisible (localStorage, no se
   // resetea en reiniciarControl porque es preferencia del navegador, no de
@@ -182,7 +178,6 @@ let estado: EstadoControl = {
   modoEspacial: false,
   modo: "barra-libre",
   saldo: null,
-  armasDisponibles: null,
   sacudidaActiva: leerSacudidaActivaGuardada(),
   silenciado: sonidoSilenciado(),
   musicaActiva: musicaActivada(),
@@ -294,11 +289,11 @@ export function ajustarPotenciaFino(sentido: 1 | -1): void {
   fijarAjuste({ potencia: potenciaConPasoFino(estado.ajuste.potencia, sentido) });
 }
 
-// economia-loadout: solo se puede seleccionar lo que el loadout permite --
-// mismo rechazo silencioso que armaEstaAgotada (el HUD ni siquiera lista el
-// resto; esto es la red de seguridad del store).
-export function armaDisponible(armaId: string): boolean {
-  return estado.armasDisponibles === null || estado.armasDisponibles.includes(armaId);
+// Créditos que faltan para pagar el arma con el saldo actual (0 si alcanza o
+// si no hay presupuesto).
+export function armaFaltaSaldo(armaId: string): number {
+  if (estado.modo !== "presupuesto" || estado.saldo === null) return 0;
+  return Math.max(0, costeDeArma(armaId) - estado.saldo);
 }
 
 export function costeDeArma(armaId: string): number {
@@ -306,9 +301,11 @@ export function costeDeArma(armaId: string): number {
   return arma ? costeArma(arma) : 0;
 }
 
+// Seleccionar o cambiar de arma nunca cobra (se paga al disparar), pero tampoco
+// se deja seleccionar una de pago que el saldo no cubre: dispararía en vacío.
 export function seleccionarArma(armaId: string): void {
   if (armaEstaAgotada(armaId)) return;
-  if (!armaDisponible(armaId)) return;
+  if (armaFaltaSaldo(armaId) > 0) return;
   fijarAjuste({ armaId });
 }
 
@@ -318,16 +315,16 @@ export function fijarModo(modo: ModoJuego, saldoInicial: number | null): void {
   fijar({ modo, saldo: saldoInicial });
 }
 
-// Si el arma que quedó seleccionada ya no está disponible (se acaba de
-// consumir), salta a la primera que sí lo está.
-export function publicarEconomia(saldo: number | null, armasDisponibles: readonly string[] | null): void {
-  const armaId =
-    armasDisponibles !== null && !armasDisponibles.includes(estado.ajuste.armaId) ? armasDisponibles[0] : estado.ajuste.armaId;
-  fijar({ saldo, armasDisponibles, ajuste: { ...estado.ajuste, armaId } });
+// Si el arma seleccionada deja de ser pagable (se acaba de gastar el saldo),
+// salta a la primera gratis para que Disparar nunca apunte a algo imposible.
+export function publicarEconomia(saldo: number | null): void {
+  const sinSaldo = saldo !== null && costeDeArma(estado.ajuste.armaId) > saldo;
+  const armaId = sinSaldo ? (CATALOGO_ARMAS.find((arma) => costeArma(arma) === 0)?.id ?? estado.ajuste.armaId) : estado.ajuste.armaId;
+  fijar({ saldo, ajuste: { ...estado.ajuste, armaId } });
 }
 
 export function repetirUltimoDisparo(): void {
-  if (!estado.ultimoDisparo || armaEstaAgotada(estado.ultimoDisparo.armaId)) return;
+  if (!estado.ultimoDisparo || armaEstaAgotada(estado.ultimoDisparo.armaId) || armaFaltaSaldo(estado.ultimoDisparo.armaId) > 0) return;
   fijarAjuste({ ...estado.ultimoDisparo });
 }
 
@@ -461,8 +458,7 @@ export function reiniciarControl(): void {
     modoEspacial: false,
     modo: "barra-libre",
     saldo: null,
-    armasDisponibles: null,
-    turno: 0,
+      turno: 0,
     nombreRival: "Rival",
     ayudaApuntadoVisible: true,
     // preparando no se toca: lo gobierna el montaje de la partida, y la

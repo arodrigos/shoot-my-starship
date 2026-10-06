@@ -1,7 +1,7 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/armas/resolver";
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
-import { consumirArma, idsDisponibles } from "@/sim/partida/economia";
+import { armaEfectiva, costeArma } from "@/sim/partida/economia";
 import { categorizarResultado, type CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { detonacionesDeDisparo, type Detonacion } from "@/sim/partida/detonaciones";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
@@ -44,16 +44,20 @@ export function avanzar(
   if (objetivoId === tirador || estado.naves[objetivoId] === undefined || estado.naves[objetivoId].integridad <= 0) {
     throw new Error(`avanzar: objetivoId inválido (${objetivoId}) para el tirador ${tirador}`);
   }
-  const arma = buscarArma(entrada.arma);
+  const presupuesto = estado.modo === "presupuesto";
+  const arma = armaEfectiva(buscarArma(entrada.arma), presupuesto);
 
-  // economia-loadout: el guardián vive aquí (y no solo en el HUD) porque
-  // avanzar() es la fuente de verdad y no confía en que la cáscara nunca deje
-  // pasar un arma que el jugador no eligió. Solo quien tiene loadout declarado
-  // participa: la IA sigue disparando como en barra libre.
-  const loadoutTirador = estado.modo === "presupuesto" ? estado.loadouts?.[tirador] : undefined;
-  if (loadoutTirador !== undefined && !idsDisponibles(loadoutTirador).includes(arma.id)) {
-    throw new Error(`avanzar: "${arma.nombre}" no está en el loadout de la nave ${tirador}`);
+  // economia-rectificada: el arma de pago se cobra al usarla, no al elegirla.
+  // El guardián vive aquí (y no solo en el HUD) porque avanzar() es la fuente
+  // de verdad: rechaza antes de mutar nada, así un intento sin saldo deja el
+  // estado serializado intacto.
+  const saldoTirador = presupuesto ? estado.saldos?.[tirador] : undefined;
+  const precio = costeArma(arma);
+  if (saldoTirador !== undefined && precio > saldoTirador) {
+    throw new Error(`avanzar: "${arma.nombre}" cuesta ${precio} cr y la nave ${tirador} solo tiene ${saldoTirador}`);
   }
+  const saldosTrasDisparo =
+    saldoTirador !== undefined ? estado.saldos?.map((saldo, id) => (id === tirador && saldo !== undefined ? saldo - precio : saldo)) : estado.saldos;
 
   const eventos: EventoSimulacion[] = [
     {
@@ -128,13 +132,6 @@ export function avanzar(
   // bucle de integración (grav-4). Fuerza bruta sobre la máscara resultante:
   // es un coste por turno, no por paso de física.
   const planetasTrasDisparo = estado.planetas ? recalcularRegistro(estado.planetas, resultado.mascara) : estado.planetas;
-
-  // Disparar consume el arma del loadout; el saldo no se toca porque ya se
-  // pagó al elegir y no hay ingreso por daño.
-  const loadoutsTrasDisparo =
-    loadoutTirador !== undefined
-      ? estado.loadouts?.map((loadout, id) => (id === tirador && loadout !== undefined ? consumirArma(loadout, arma.id) : loadout))
-      : estado.loadouts;
 
   // humor-sistemico: el arma ha fallado su tirada de fiabilidad. Va antes de
   // los eventos "impacto" (que igualmente se emiten, con daño 0, para que la
@@ -312,7 +309,7 @@ export function avanzar(
         aleatorio: resultado.aleatorio,
         resultado: { tipo: "terminada", ganador },
         planetas: planetasTrasDisparo,
-        loadouts: loadoutsTrasDisparo,
+        saldos: saldosTrasDisparo,
       },
       eventos,
       categoriaBroma,
@@ -331,7 +328,7 @@ export function avanzar(
       turno: proximoTurno,
       numeroTurno: estado.numeroTurno + 1,
       planetas: planetasTrasDisparo,
-      loadouts: loadoutsTrasDisparo,
+      saldos: saldosTrasDisparo,
     },
     eventos,
     categoriaBroma,

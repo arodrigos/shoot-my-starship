@@ -91,15 +91,14 @@ test("nucleo-n-naves-2: nada en el núcleo asume dos bandos -- la IA elige objet
   assert.equal(entradaTrasEliminacion.objetivoId, 2);
 });
 
-test("nucleo-n-naves-3: saldo y loadout son campos por nave: disparar consume solo el arma del tirador y no mueve ningún saldo", () => {
+test("nucleo-n-naves-3: el saldo es un campo por nave: disparar cobra solo el precio del arma al tirador y no mueve ningún otro saldo", () => {
   const mascara = crearMascaraPlana(MUNDO.ancho, MUNDO.alto, ALTURA_SUELO);
   const xNaves = [200, 900, 1720, 1720 - 100];
   const base = crearPartidaInicial(MUNDO, mascara, xNaves, 7);
   const estado: EstadoPartida = {
     ...base,
     modo: "presupuesto",
-    saldos: [1000, 500, 1000, 1000],
-    loadouts: [["pepinazo-cortesia", "despedida"], ["despedida"], undefined, []],
+    saldos: [1000, 500, undefined, 1000],
   };
 
   const [solucion] = resolverSolucionesBalisticas(estado.naves[0].x, ALTURA_SUELO, estado.naves[1].x, ALTURA_SUELO, estado.mundo.gravedad);
@@ -110,11 +109,7 @@ test("nucleo-n-naves-3: saldo y loadout son campos por nave: disparar consume so
     objetivoId: 1,
   });
 
-  assert.deepEqual(tras.loadouts?.[0], ["despedida"], "el arma disparada sale del loadout de la nave 0");
-  assert.deepEqual(tras.loadouts?.[1], ["despedida"], "el loadout de otra nave no cambia por el disparo de la primera");
-  assert.equal(tras.loadouts?.[2], undefined);
-  assert.deepEqual(tras.loadouts?.[3], []);
-  assert.deepEqual(tras.saldos, [1000, 500, 1000, 1000], "ningún saldo se mueve al disparar: se paga al elegir y no hay ingreso por daño");
+  assert.deepEqual(tras.saldos, [1000 - 55, 500, undefined, 1000], "solo el saldo del tirador baja, exactamente el precio del Pepinazo");
 });
 
 test("nucleo-n-naves-6: invariantes del modelo de turnos (fast-check)", () => {

@@ -12,9 +12,7 @@ import { PreparandoHUD } from "@/juego/hud/PreparandoHUD";
 import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
 import { publicarPreparando } from "@/juego/control/store";
 import { RelevoHUD } from "@/juego/hud/RelevoHUD";
-import { SeleccionHUD } from "@/juego/hud/SeleccionHUD";
 import { obtenerRelevo, suscribirRelevo } from "@/juego/control/relevoStore";
-import { obtenerSeleccion, suscribirSeleccion } from "@/juego/control/seleccionStore";
 import type { DatosEscenaPartida, IdEscena } from "@/juego/main";
 import { FRACCION_ALTO_ZONA_JUEGO } from "@/juego/layoutContenedor";
 
@@ -41,7 +39,6 @@ export function PhaserGame({ escena, datosEscena }: Props) {
   const [estado] = useState<Estado>(() => (hayWebGL() ? "disponible" : "sin-webgl"));
   const juego = useRef<Phaser.Game | null>(null);
   const relevoActivo = useSyncExternalStore(suscribirRelevo, () => obtenerRelevo().activo, () => false);
-  const seleccionActiva = useSyncExternalStore(suscribirSeleccion, () => obtenerSeleccion().activa, () => false);
 
   useLayoutEffect(() => {
     if (estado !== "disponible") {
@@ -95,8 +92,8 @@ export function PhaserGame({ escena, datosEscena }: Props) {
           {/* relevo-turno: durante el relevo el control se desmonta (no solo
               se tapa) para que su saldo y arma seleccionada del jugador
               anterior no estén en el DOM del siguiente. */}
-          {!relevoActivo && !seleccionActiva && <ControlHUD />}
-          {!relevoActivo && !seleccionActiva && <ReaccionHUD />}
+          {!relevoActivo && <ControlHUD />}
+          {!relevoActivo && <ReaccionHUD />}
         </div>
       )}
       {esPartida && <AyudaApuntadoHUD />}
@@ -104,7 +101,6 @@ export function PhaserGame({ escena, datosEscena }: Props) {
       {esPartida && <ParteDeGuerraHUD />}
       {esPartida && <CuentaAtrasHUD />}
       {esPartida && <RelevoHUD />}
-      {esPartida && <SeleccionHUD />}
     </div>
   );
 }

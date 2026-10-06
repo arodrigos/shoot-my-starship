@@ -17,7 +17,7 @@ import {
   fijarSacudidaActiva,
   iniciarArrastre,
   obtenerEstadoControl,
-  armaDisponible,
+  armaFaltaSaldo,
   repetirUltimoDisparo,
   seleccionarArma,
   solicitarDisparo,
@@ -697,15 +697,22 @@ export function ControlHUD() {
                 font: "12px system-ui, sans-serif",
               }}
             >
-              {CATALOGO_ARMAS.filter((arma) => armaDisponible(arma.id)).map((arma) => {
+              {enPresupuesto && estado.saldo !== null && !CATALOGO_ARMAS.some((arma) => costeDeArma(arma.id) > 0 && armaFaltaSaldo(arma.id) === 0) && (
+                <p data-testid="selector-sin-saldo" style={{ margin: "0 0 6px" }}>
+                  Sin saldo para armas de pago: te quedan las gratis (daño reducido). Un evento de lotería puede darte más.
+                </p>
+              )}
+              {CATALOGO_ARMAS.map((arma) => {
                 const agotada = armaEstaAgotada(arma.id);
                 const coste = costeDeArma(arma.id);
+                const faltan = armaFaltaSaldo(arma.id);
+                const deshabilitada = agotada || faltan > 0;
                 return (
                   <button
                     key={arma.id}
                     type="button"
                     data-testid={`arma-${arma.id}`}
-                    disabled={agotada}
+                    disabled={deshabilitada}
                     onClick={() => {
                       seleccionarArma(arma.id);
                       setSelectorAbierto(false);
@@ -715,13 +722,17 @@ export function ControlHUD() {
                       width: "100%",
                       minHeight: TAMANO_MINIMO_BOTON_PX,
                       textAlign: "left",
-                      opacity: agotada ? 0.45 : 1,
+                      opacity: deshabilitada ? 0.45 : 1,
                       marginBottom: 4,
                     }}
                   >
                     <strong>{arma.nombre}</strong>
                     {agotada ? " (agotada)" : ""}
                     {enPresupuesto && <span data-testid={`precio-${arma.id}`}>{coste > 0 ? ` — ${coste} cr` : " — Gratis"}</span>}
+                    {enPresupuesto && coste === 0 && arma.efecto.tipo === "danio" && (
+                      <span data-testid={`gratis-reducida-${arma.id}`}> · Gratis · daño reducido al 25 %</span>
+                    )}
+                    {enPresupuesto && faltan > 0 && !agotada && <span data-testid={`faltan-${arma.id}`}> · Te faltan {faltan} cr</span>}
                     <br />
                     <span>{arma.descripcion}</span>
                     {arma.notaAyuda && (
@@ -800,7 +811,7 @@ export function ControlHUD() {
             )}
             <p data-testid="explicacion-modo">
               {estado.modo === "presupuesto"
-                ? `Modo con presupuesto: empiezas con ${estado.saldo ?? 0} créditos, eliges armas antes de empezar y cada una es un disparo. Si te quedas sin ellas, quedan las tres gratis.`
+                ? `Modo con presupuesto: empiezas con ${estado.saldo ?? 0} créditos, cada arma de pago se cobra al dispararla. Las tres gratis siempre están, con el daño reducido al 25 %.`
                 : "Modo barra libre: todas las armas están disponibles siempre, sin coste."}
             </p>
             <button type="button" data-testid="ayuda-cerrar" onClick={cerrarAyuda} style={botonEstilo}>

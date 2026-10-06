@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { PRESUPUESTO_BASE } from "@/sim/partida/economia";
+import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 
