@@ -61,25 +61,6 @@ async function medirBloqueDeFondo(
   return { ancho: maxX - minX + 1, alto: maxY - minY + 1, muestras };
 }
 
-// min-2 (camino crítico): a diferencia de gra-2 (panel DOM position:fixed),
-// el contador de la mina es un GameObject DENTRO del lienzo de Phaser
-// (ContadorAdherencia.ts) -- no tiene rect DOM propio que leer. Su
-// disjunción del HUD se comprueba por construcción geométrica: si el rect
-// del LIENZO entero es disjunto de cada panel del HUD, cualquier cosa
-// dibujada dentro del lienzo (incluido el contador) también lo es. Mismo
-// motivo que documenta el comentario de ContadorAdherencia.ts.
-const TESTIDS_HUD_OPACO = [
-  "resultado-turno",
-  "reticulo",
-  "paso-angulo-mas",
-  "paso-angulo-menos",
-  "selector-arma-abrir",
-  "repetir-disparo",
-  "disparar",
-  "panel-roce",
-  "panel-bromas",
-];
-
 // min-2 (camino crítico): el contador de la mina se ve anclado al punto de
 // adherencia (dentro de 2px de mundo del impacto resuelto), disjunto del
 // HUD, y llega a cero en el mismo fotograma que la explosión.
@@ -153,30 +134,11 @@ test("min-2: el contador de la mina está anclado al punto de adherencia, es dis
   // la que se compara la posición del contador.
   const impactoResuelto = await page.evaluate(() => window.__debug.ultimoDisparo!.impacto);
 
-  const rectangulosHud = await page.evaluate((testids) => {
-    return testids
-      .map((id) => document.querySelector(`[data-testid="${id}"]`))
-      .filter((el): el is Element => el !== null)
-      .map((el) => {
-        const r = el.getBoundingClientRect();
-        return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-      });
-  }, TESTIDS_HUD_OPACO);
-
-  type Rect = { left: number; top: number; right: number; bottom: number };
-
-  function disjunto(a: Rect, b: Rect): boolean {
-    return a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom;
-  }
-
   const rectLienzo = await page.evaluate(() => {
     const lienzo = document.querySelector("#game-container canvas") as HTMLCanvasElement;
     const r = lienzo.getBoundingClientRect();
     return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
   });
-  for (const hud of rectangulosHud) {
-    expect(disjunto(rectLienzo, hud)).toBe(true);
-  }
 
   // Mientras la mecha está encendida (cuentaAtrasAdherencia no nulo),
   // comprueba en varios fotogramas reales que la posición publicada sigue a
@@ -197,6 +159,10 @@ test("min-2: el contador de la mina está anclado al punto de adherencia, es dis
       expect(Math.abs(instante.contador.x - impactoResuelto.x)).toBeLessThanOrEqual(2);
       expect(Math.abs(instante.contador.y - impactoResuelto.y)).toBeLessThanOrEqual(2);
       if (!capturada) {
+        // pantalla-completa: el lienzo ocupa todo el viewport, así que ya no
+        // es disjunto del HUD por construcción. Lo que garantiza que nada
+        // tape el contador es que la consola se aparta durante el vuelo.
+        await expect(page.getByTestId("consola")).toHaveAttribute("data-oculta", "true");
         const buffer = await page.screenshot({ path: "capturas/arma-mina-adherente-18-cuenta-atras.png" });
         capturada = true;
 

@@ -37,7 +37,10 @@ test("crt-1: tras tres impactos reales el cráter se distingue de la roca intact
 
   const planetas = (await page.evaluate(() => window.__debug.planetas))!;
   expect(planetas.length).toBeGreaterThan(0);
-  const planeta = planetas[0];
+  // pantalla-completa: el mundo es mayor y hay más planetas; los desplazamientos
+  // de abajo (hasta 28 px) piden uno grande para que el cráter quede en roca.
+  const planeta = planetas.reduce((mayor, actual) => (actual.radio > mayor.radio ? actual : mayor));
+  expect(planeta.radio).toBeGreaterThan(75);
 
   // Punto de referencia bien dentro del planeta (en su centro), lejos de
   // cualquier impacto: roca intacta, antes y después.
