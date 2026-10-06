@@ -123,6 +123,10 @@ export interface DebugNave {
   // Phaser -- ni un e2e podía mirar window.__debug para ver a quién
   // marcarActiva() dejó visible. Refleja Nave.estaActiva() tal cual.
   readonly activa: boolean;
+  // escudo-y-propulsores: turnos que le quedan al escudo dibujado (0 = sin
+  // escudo), leídos de la propia Nave y no del estado, para que el e2e
+  // compruebe lo que se ve.
+  readonly escudo: number;
 }
 
 // hum-1: un registro por turno de lo que reaccionarABroma publicó de
@@ -166,6 +170,10 @@ export interface DebugGlobal {
   control?: DebugControl;
   deriva?: DebugDeriva;
   naves?: readonly DebugNave[];
+  // escudo-y-propulsores (esc-2): radio del círculo de alcance de los
+  // propulsores en unidades de mundo, y la ruta prevista cuando están elegidos.
+  alcancePropulsores?: number;
+  previsualizacionPropulsores?: { readonly puntos: readonly { readonly x: number; readonly y: number }[]; readonly motivo: string } | null;
   // desplazamiento-tras-impacto (des-3): marcas «Estaba aquí» vivas durante el
   // turno siguiente, con el origen de cada desplazamiento.
   fantasmas?: readonly { readonly nave: number; readonly x: number; readonly y: number }[];

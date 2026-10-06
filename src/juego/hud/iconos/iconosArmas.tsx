@@ -196,3 +196,38 @@ export function IconoArmaGracioso({ armaId, tamano = 36 }: { readonly armaId: st
     </svg>
   );
 }
+
+// Equipo: mismo estilo que las armas (SVG inline, silueta propia, un guiño).
+const ICONOS_EQUIPO: Readonly<Record<string, () => ReactElement>> = {
+  // Escudo con cara de pocos amigos y un abollón de orgullo.
+  escudo: () => (
+    <>
+      <path d="M24 5 L40 11 V24 C40 34 33 41 24 44 C15 41 8 34 8 24 V11 Z" fill="#3f8fd6" />
+      <path d="M24 9 L36 13.5 V24 C36 31.5 31 37 24 40 Z" fill="#6cc0ff" />
+      {OJOS(18, 28, 22)}
+      <path d="M18 31 Q23 28 29 31" stroke="#fff" strokeWidth={2} fill="none" strokeLinecap="round" />
+      <circle cx={33} cy={16} r={2.2} fill="#ffd23f" />
+    </>
+  ),
+  // Cohete diminuto con llamas que no se deciden y una cara de pánico.
+  propulsores: () => (
+    <>
+      <path d="M24 4 C32 12 33 22 31 32 H17 C15 22 16 12 24 4 Z" fill="#e4e8f2" />
+      <circle cx={24} cy={19} r={5} fill="#6cc0ff" />
+      {OJOS(21, 27, 19)}
+      <path d="M17 26 L9 36 L18 33 Z" fill="#d7263d" />
+      <path d="M31 26 L39 36 L30 33 Z" fill="#d7263d" />
+      <path d="M19 33 Q24 46 29 33 Z" fill="#ff9f1c" />
+      <path d="M21.5 33 Q24 41 26.5 33 Z" fill="#ffd23f" />
+    </>
+  ),
+};
+
+export function IconoEquipoGracioso({ equipoId, tamano = 36 }: { readonly equipoId: string; readonly tamano?: number }) {
+  const dibujo = ICONOS_EQUIPO[equipoId] ?? ICONO_GENERICO;
+  return (
+    <svg width={tamano} height={tamano} viewBox="0 0 48 48" aria-hidden="true" data-testid={`equipo-icono-${equipoId}`} style={{ flexShrink: 0 }}>
+      {dibujo()}
+    </svg>
+  );
+}

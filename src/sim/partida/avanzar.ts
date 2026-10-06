@@ -16,9 +16,24 @@ import {
 } from "@/sim/partida/eventosHumor";
 import { existeTiroViable, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
 import { recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
-import { siguienteTurno, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
+import { buscarEquipo, TURNOS_ESCUDO } from "@/sim/equipo/catalogo";
+import { volarConPropulsores } from "@/sim/equipo/propulsores";
+import { siguienteTurno, type AccionDeTurno, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
 
 const PRESUPUESTO_VIABILIDAD_DESTINO = 120;
+
+function estaProtegida(nave: EstadoNave): boolean {
+  return (nave.escudoTurnosRestantes ?? 0) > 0;
+}
+
+// El escudo baja al empezar cada turno de su dueño: activado en el turno N, el
+// rival juega con él puesto, y desaparece al empezar el segundo turno propio
+// posterior (2 → 1 → 0), de modo que protege exactamente dos rondas de rivales.
+function gastarTurnoDeEscudo(naves: EstadoNave[], dueno: IdNave): EstadoNave[] {
+  const nave = naves[dueno];
+  if (!estaProtegida(nave)) return naves;
+  return naves.map((candidata, id) => (id === dueno ? { ...candidata, escudoTurnosRestantes: (nave.escudoTurnosRestantes ?? 1) - 1 } : candidata));
+}
 
 function conIntegridad(nave: EstadoNave, integridad: number): EstadoNave {
   return { ...nave, integridad: Math.min(100, Math.max(0, integridad)) };
@@ -40,12 +55,15 @@ function conDesplazamiento(nave: EstadoNave, desplazamientoPx: number, anchoMund
 export function avanzar(
   estado: EstadoPartida,
   entrada: EntradaDeTurno,
-): { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma; detonaciones: Detonacion[] } {
+): { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma | undefined; detonaciones: Detonacion[] } {
   if (estado.resultado.tipo === "terminada") {
     throw new Error("avanzar: la partida ya ha terminado, no admite más turnos");
   }
 
   const tirador: IdNave = estado.turno;
+  if (entrada.accion !== undefined && entrada.accion !== "disparo") {
+    return avanzarConEquipo(estado, entrada.accion, entrada);
+  }
   const objetivoId: IdNave = entrada.objetivoId;
   if (objetivoId === tirador || estado.naves[objetivoId] === undefined || estado.naves[objetivoId].integridad <= 0) {
     throw new Error(`avanzar: objetivoId inválido (${objetivoId}) para el tirador ${tirador}`);
@@ -304,11 +322,23 @@ export function avanzar(
     eventos.push({ tipo: "danio-colateral", nave: id, danio });
   });
 
+  // escudo-y-propulsores: el escudo bloquea el daño y el empuje de los disparos
+  // AJENOS; el autodaño del tirador no pasa por aquí. Sin daño no hay
+  // desplazamiento posterior, que se decide por la pérdida de integridad.
   const navesTrasDanio: EstadoNave[] = estado.naves.map((nave, id) => {
     if (id === tirador) return tiradorTrasDisparo;
-    if (id === objetivoId) return objetivoTrasImpacto;
-    const danio = danioColateral.get(id);
-    return danio === undefined ? nave : conIntegridad(nave, nave.integridad - danio);
+    const tras = id === objetivoId ? objetivoTrasImpacto : conIntegridad(nave, nave.integridad - (danioColateral.get(id) ?? 0));
+    if (!estaProtegida(nave)) return tras;
+    const evitado = nave.integridad - tras.integridad;
+    if (evitado > 0) eventos.push({ tipo: "escudo-bloquea", nave: id, danio: evitado });
+    return nave;
+  });
+  // El daño que el escudo ha parado no se anuncia como recibido: la cáscara
+  // cuenta el daño hecho a partir de los eventos de impacto.
+  eventos.forEach((evento, indice) => {
+    if (evento.tipo === "impacto" && evento.objetivo !== tirador && estaProtegida(estado.naves[evento.objetivo])) {
+      eventos[indice] = { ...evento, danio: 0 };
+    }
   });
 
   // desplazamiento-tras-impacto: toda nave viva que ha perdido integridad en
@@ -404,27 +434,122 @@ export function avanzar(
     };
   }
 
+  return cerrarTurno({
+    estado,
+    tirador,
+    naves,
+    mascara: resultado.mascara,
+    planetas: planetasTrasDisparo,
+    aleatorio: desplazadas.aleatorio,
+    robots: robotsTrasDisparo,
+    saldos: saldosTrasDisparo,
+    eventos,
+    detonaciones,
+    categoriaBroma,
+  });
+}
+
+// escudo-y-propulsores: usar equipo ocupa el turno entero (nada de disparar).
+// En presupuesto se cobra aquí, como las armas de pago, y si no llega el saldo
+// se rechaza sin tocar el estado.
+function avanzarConEquipo(
+  estado: EstadoPartida,
+  accion: Exclude<AccionDeTurno, "disparo">,
+  entrada: EntradaDeTurno,
+): ReturnType<typeof avanzar> {
+  const tirador = estado.turno;
+  const equipo = buscarEquipo(accion);
+  const nave = estado.naves[tirador];
+  const presupuesto = estado.modo === "presupuesto";
+  const saldo = presupuesto ? estado.saldos?.[tirador] : undefined;
+  if (saldo !== undefined && equipo.coste > saldo) {
+    throw new Error(`avanzar: "${equipo.nombre}" cuesta ${equipo.coste} cr y la nave ${tirador} solo tiene ${saldo}`);
+  }
+  if (accion === "escudo" && estaProtegida(nave)) {
+    throw new Error(`avanzar: la nave ${tirador} ya tiene el escudo activo`);
+  }
+  const saldos = saldo !== undefined ? estado.saldos?.map((valor, id) => (id === tirador && valor !== undefined ? valor - equipo.coste : valor)) : estado.saldos;
+
+  const eventos: EventoSimulacion[] = [];
+  const naves: EstadoNave[] = [...estado.naves];
+  if (accion === "escudo") {
+    naves[tirador] = { ...nave, escudoTurnosRestantes: TURNOS_ESCUDO };
+    eventos.push({ tipo: "escudo-activado", nave: tirador, turnos: TURNOS_ESCUDO });
+  } else {
+    if (nave.y === undefined) throw new Error("avanzar: los propulsores solo existen en el modo espacial");
+    const otras = estado.naves.flatMap((otra, id) => (id !== tirador && otra.integridad > 0 && otra.y !== undefined ? [{ x: otra.x, y: otra.y }] : []));
+    const vuelo = volarConPropulsores({
+      desde: { x: nave.x, y: nave.y },
+      anguloGrados: entrada.anguloGrados,
+      potencia: entrada.potencia,
+      mundo: estado.mundo,
+      mascara: estado.mascara,
+      planetas: estado.planetas,
+      otras,
+    });
+    naves[tirador] = { ...nave, x: vuelo.destino.x, y: vuelo.destino.y };
+    eventos.push({ tipo: "propulsores", nave: tirador, desdeX: nave.x, desdeY: nave.y, x: vuelo.destino.x, y: vuelo.destino.y, motivo: vuelo.motivo });
+  }
+  // Un turno de equipo no dispara: sin categoría de broma, la cáscara no comenta.
+  return cerrarTurno({
+    estado: { ...estado, saldos },
+    tirador,
+    naves,
+    mascara: estado.mascara,
+    planetas: estado.planetas,
+    aleatorio: estado.aleatorio,
+    robots: estado.robots ?? [],
+    saldos,
+    eventos,
+    detonaciones: [],
+    categoriaBroma: undefined,
+  });
+}
+
+interface ContextoCierre {
+  readonly estado: EstadoPartida;
+  readonly tirador: IdNave;
+  readonly naves: EstadoNave[];
+  readonly mascara: EstadoPartida["mascara"];
+  readonly planetas: EstadoPartida["planetas"];
+  readonly aleatorio: EstadoPartida["aleatorio"];
+  readonly robots: readonly EstadoRobot[];
+  readonly saldos: EstadoPartida["saldos"];
+  readonly eventos: EventoSimulacion[];
+  readonly detonaciones: Detonacion[];
+  readonly categoriaBroma: CategoriaBroma | undefined;
+}
+
+// Cierre común a todo turno (disparo, escudo o propulsores): fase de robots del
+// siguiente jugador, fin de partida, relevo y cuenta atrás de su escudo.
+function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
+  const { estado, tirador, naves, mascara, planetas, aleatorio: aleatorioInicial, robots, saldos, eventos, detonaciones, categoriaBroma } = contexto;
   // minirobot: al empezar el turno de su dueño, sin gastarle el turno. Se
   // resuelve aquí, al cerrar el turno anterior, porque el estado que ve el
   // jugador al empezar ya es el de después de que sus robots se muevan.
   let navesFinal: EstadoNave[] = naves;
-  let mascaraFinal = resultado.mascara;
-  let planetasFinal = planetasTrasDisparo;
-  let aleatorioFinal = desplazadas.aleatorio;
-  let robotsFinal = robotsTrasDisparo;
+  let mascaraFinal = mascara;
+  let planetasFinal = planetas;
+  let aleatorioFinal = aleatorioInicial;
+  let robotsFinal = robots;
   const detonacionesFinal = [...detonaciones];
   const turnoSiguiente = siguienteTurno({ ...estado, naves }, tirador);
-  if (robotsTrasDisparo.length > 0) {
-    const fase = faseDeRobots({ robots: robotsTrasDisparo, turno: turnoSiguiente, naves, mascara: resultado.mascara, mundo: estado.mundo, planetas: planetasTrasDisparo });
+  if (robots.length > 0) {
+    const fase = faseDeRobots({ robots, turno: turnoSiguiente, naves, mascara, mundo: estado.mundo, planetas });
     robotsFinal = [...fase.robots];
     eventos.push(...fase.eventos);
     detonacionesFinal.push(...fase.detonaciones);
     if (fase.detonaciones.length > 0) {
       mascaraFinal = fase.mascara;
-      planetasFinal = planetasTrasDisparo ? recalcularRegistro(planetasTrasDisparo, fase.mascara) : planetasTrasDisparo;
+      planetasFinal = planetas ? recalcularRegistro(planetas, fase.mascara) : planetas;
       const heridas = naves.map((nave, id) => {
         const danio = fase.danios.get(id);
-        return danio === undefined ? nave : conIntegridad(nave, nave.integridad - danio);
+        if (danio === undefined) return nave;
+        if (estaProtegida(nave)) {
+          eventos.push({ tipo: "escudo-bloquea", nave: id, danio });
+          return nave;
+        }
+        return conIntegridad(nave, nave.integridad - danio);
       });
       const recolocadas = desplazarNavesDanadas({ ...estado, naves }, heridas, mascaraFinal, fase.detonaciones[0].radioEfectoU, aleatorioFinal, -1, () => false);
       navesFinal = recolocadas.naves;
@@ -447,7 +572,7 @@ export function avanzar(
         aleatorio: aleatorioFinal,
         resultado: { tipo: "terminada", ganador },
         planetas: planetasFinal,
-        saldos: saldosTrasDisparo,
+        saldos,
         ...conRobots([]),
       },
       eventos,
@@ -462,12 +587,12 @@ export function avanzar(
     estado: {
       ...sinRobots(estado),
       mascara: mascaraFinal,
-      naves: navesFinal,
+      naves: gastarTurnoDeEscudo(navesFinal, proximoTurno),
       aleatorio: aleatorioFinal,
       turno: proximoTurno,
       numeroTurno: estado.numeroTurno + 1,
       planetas: planetasFinal,
-      saldos: saldosTrasDisparo,
+      saldos,
       ...conRobots(robotsFinal),
     },
     eventos,

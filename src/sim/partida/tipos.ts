@@ -25,6 +25,10 @@ export interface EstadoNave {
   // una nave en vacío -- así que viaja aquí, fija, hasta que algo la mueva
   // explícitamente (un empuje de arma).
   readonly y?: number;
+  // escudo-y-propulsores: turnos propios que le quedan al escudo. Ausente (no
+  // 0) mientras no lo haya tenido activo, para que las partidas sin escudo
+  // serialicen igual que antes. Baja al empezar cada turno del dueño.
+  readonly escudoTurnosRestantes?: number;
 }
 
 // Parámetros de un mapa concreto (decisión de ambientación de esta
@@ -108,7 +112,14 @@ export interface EstadoPartida {
 // (nombre, huella, daño, trayectoria...) es el bloque balistica-armas. Aquí
 // solo hace falta que el dato exista y viaje en los eventos, para que ese
 // bloque no tenga que tocar la forma de EntradaDeTurno.
+// escudo-y-propulsores: el turno es exactamente una acción. Ausente = disparo,
+// que es lo que ya declaraban todas las entradas anteriores a este bloque; con
+// 'escudo' o 'propulsores', `arma` lleva el id del equipo y no se busca en el
+// catálogo de armas.
+export type AccionDeTurno = "disparo" | "escudo" | "propulsores";
+
 export interface EntradaDeTurno {
+  readonly accion?: AccionDeTurno;
   readonly arma: string;
   // 0 = horizontal hacia +x, 180 = horizontal hacia -x, 90 = vertical. El
   // rango exacto que expone el control (control-apuntado) es decisión de

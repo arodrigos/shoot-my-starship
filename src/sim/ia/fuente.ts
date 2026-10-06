@@ -1,6 +1,7 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { PRESUPUESTO_VUELOS_RIVAL_TURNO, valorarRival } from "@/sim/ia/busquedaMultipozo";
 import { decidirCompraTurno } from "@/sim/ia/compra";
+import { debeActivarEscudoIA } from "@/sim/ia/equipo";
 import { ARMA_BASE_ID, decidirTurnoIA, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import type { Personalidad } from "@/sim/ia/tipos";
 import type { NavePosicion } from "@/sim/naves/impacto";
@@ -86,6 +87,9 @@ export function crearFuenteIA(
   // medición para medir:ia) lo trackea y lo pasa aquí por el mismo motivo que
   // ultimoIntento: esta función no ve el resultado de turnos anteriores.
   usosPorArma: Readonly<Record<string, number>> = {},
+  // escudo-y-propulsores: quien llama lleva la cuenta (esta fuente no ve los
+  // turnos anteriores); por defecto la IA no se protege, que es lo de siempre.
+  danioRecibidoDesdeSuTurno = false,
 ): FuenteDeTurno {
   return (estado: EstadoPartida) => {
     const tirador = estado.turno;
@@ -114,6 +118,10 @@ export function crearFuenteIA(
       saldo === undefined
         ? undefined
         : decidirCompraTurno(personalidad, saldo, Math.floor(estado.numeroTurno / estado.ordenTurno.length), estado.aleatorio, usosPorArma);
+
+    if (debeActivarEscudoIA({ integridad: naveTiradora.integridad, saldo, danioRecibidoDesdeSuTurno, escudoActivo: (naveTiradora.escudoTurnosRestantes ?? 0) > 0 })) {
+      return { entrada: { accion: "escudo", arma: "escudo", anguloGrados: 0, potencia: 0, objetivoId }, estado };
+    }
 
     const resultado = decidirTurnoIA({
       mascara: estado.mascara,

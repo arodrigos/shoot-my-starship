@@ -47,6 +47,11 @@ const OPACIDAD_TOBERA: Readonly<Record<NivelDanio, number>> = {
 // bitmap, para que cambiar de paleta o de forma sea cambiar números, no
 // encargar arte. El "torcido" es la forma del cañón (dos tramos con un
 // quiebro), no su puntería -- eso lo decide anguloGrados.
+const COLOR_ESCUDO = 0x7fd7ff;
+// Por encima del casco dibujado (≈ 66 u de diámetro mayor) para que el anillo
+// no tape la silueta.
+const RADIO_ESCUDO_U = 50;
+
 export class Nave {
   private readonly contenedor: Phaser.GameObjects.Container;
   private readonly casco: Phaser.GameObjects.Graphics;
@@ -65,6 +70,11 @@ export class Nave {
   // nve-1: tramo de daño actual y hash de la silueta que le corresponde --
   // se recalculan solo cuando actualizarIntegridad cruza de tramo, nunca en
   // cada fotograma, porque dibujarCasco no es gratis.
+  // escudo-y-propulsores: anillo e insignia con los turnos que quedan; viven
+  // en el contenedor para seguir a la nave (también durante un deslizamiento).
+  private readonly anilloEscudo: Phaser.GameObjects.Graphics;
+  private readonly insigniaEscudo: Phaser.GameObjects.Text;
+  private escudoTurnos = 0;
   private nivelDanioActual: NivelDanio = "alta";
   private hashSiluetaActual = 0;
 
@@ -125,6 +135,35 @@ export class Nave {
     );
     this.indicadorActiva.setVisible(false);
     this.contenedor.add(this.indicadorActiva);
+
+    this.anilloEscudo = escena.add.graphics();
+    this.anilloEscudo.lineStyle(7, COLOR_ESCUDO, 0.95).strokeCircle(0, 0, RADIO_ESCUDO_U);
+    this.anilloEscudo.fillStyle(COLOR_ESCUDO, 0.14).fillCircle(0, 0, RADIO_ESCUDO_U);
+    this.anilloEscudo.setVisible(false);
+    this.insigniaEscudo = escena
+      .add.text(RADIO_ESCUDO_U * 0.72, -RADIO_ESCUDO_U * 0.72, "", {
+        fontSize: "40px",
+        fontStyle: "bold",
+        color: "#0b1a2b",
+        backgroundColor: "#7fd7ff",
+        padding: { x: 9, y: 2 },
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
+    this.contenedor.add([this.anilloEscudo, this.insigniaEscudo]);
+  }
+
+  // Los turnos que le quedan al escudo (0 lo oculta). Solo redibuja al cambiar
+  // el texto de la insignia: el anillo se pinta una vez, en el constructor.
+  mostrarEscudo(turnos: number): void {
+    if (turnos === this.escudoTurnos) return;
+    this.escudoTurnos = turnos;
+    this.anilloEscudo.setVisible(turnos > 0);
+    this.insigniaEscudo.setVisible(turnos > 0).setText(String(turnos));
+  }
+
+  obtenerEscudoTurnos(): number {
+    return this.escudoTurnos;
   }
 
   // esc-5: el dibujo miente (opción B) y esto lo hace honesto en la
