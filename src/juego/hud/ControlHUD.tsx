@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
+import { puntosSilueta } from "@/juego/proyectiles/geometriaProyectil";
 import {
   actualizarArrastre,
   ajustarAnguloFino,
@@ -42,6 +43,9 @@ import "@/debug/tipos";
 // control-2 -- este hito exige el umbral más alto para los controles que de
 // verdad se disparan con el pulgar en 360x640.
 const TAMANO_MINIMO_BOTON_PX = 44;
+// pan-3: el botón de plegar es el único control que se pulsa con la consola
+// escondida y a pulso, así que sube al tamaño de objetivo cómodo de 48 px.
+const TAMANO_BOTON_PLEGAR_PX = 48;
 
 function fraccionDeVentana(clienteX: number, clienteY: number): { x: number; y: number } {
   return { x: clienteX / window.innerWidth, y: clienteY / window.innerHeight };
@@ -115,7 +119,27 @@ function textoAnguloGrados(grados: number): string {
   return (decimas / 10).toFixed(1).replace(".", ",");
 }
 
-export function ControlHUD() {
+interface PropsControl {
+  readonly plegada: boolean;
+  readonly alAlternarPlegado: () => void;
+}
+
+// Icono del arma en la barra mínima: la misma silueta que vuela, para que se
+// reconozca sin leer el nombre (que no cabe junto a Disparar a 360 px).
+function IconoArma({ armaId }: { readonly armaId: string }) {
+  const arma = CATALOGO_ARMAS.find((candidata) => candidata.id === armaId) ?? CATALOGO_ARMAS[0];
+  const puntos = puntosSilueta(arma);
+  const xs = puntos.map((p) => p.x);
+  const ys = puntos.map((p) => p.y);
+  const lado = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1);
+  return (
+    <svg width={28} height={28} viewBox={`${-lado / 2} ${-lado / 2} ${lado} ${lado}`} aria-hidden="true" data-testid="icono-arma">
+      <polygon points={puntos.map((p) => `${p.x},${p.y}`).join(" ")} fill="var(--color-cromado-texto)" />
+    </svg>
+  );
+}
+
+export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const resultadoTurno = useSyncExternalStore(suscribirResultadoTurno, obtenerResultadoTurno, obtenerResultadoTurno);
   const navesEnPartida = useSyncExternalStore(suscribirIntegridad, obtenerIntegridad, obtenerIntegridad).naves.length;
@@ -193,6 +217,68 @@ export function ControlHUD() {
       ? "Espera a que termine el disparo."
       : null;
 
+  const botonPlegar = (
+    <button
+      type="button"
+      data-testid="boton-plegar-consola"
+      aria-expanded={!plegada}
+      aria-label={plegada ? "Mostrar controles" : "Ocultar controles"}
+      title={plegada ? "Mostrar controles" : "Ocultar controles"}
+      onPointerDown={(evento) => evento.stopPropagation()}
+      onClick={alAlternarPlegado}
+      style={{
+        ...botonEstilo,
+        width: TAMANO_BOTON_PLEGAR_PX,
+        height: TAMANO_BOTON_PLEGAR_PX,
+        minWidth: TAMANO_BOTON_PLEGAR_PX,
+        minHeight: TAMANO_BOTON_PLEGAR_PX,
+        padding: 0,
+        font: "20px system-ui, sans-serif",
+      }}
+    >
+      <span aria-hidden="true">{plegada ? "▴" : "▾"}</span>
+    </button>
+  );
+
+  // pan-2: con la consola plegada se apunta en el lienzo (apuntado directo) y
+  // aquí solo queda lo imprescindible para disparar sin desplegar nada.
+  if (plegada) {
+    const costeSeleccionada = costeDeArma(armaSeleccionada.id);
+    return (
+      <div
+        data-testid="barra-minima"
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "4px 8px",
+          touchAction: "none",
+          userSelect: "none",
+        }}
+      >
+        {botonPlegar}
+        <div data-testid="arma-minima" style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif" }}>
+          <IconoArma armaId={armaSeleccionada.id} />
+          <span data-testid="precio-arma-minima">{enPresupuesto ? (costeSeleccionada > 0 ? `${costeSeleccionada} cr` : "Gratis") : "Sin coste"}</span>
+        </div>
+        <button
+          type="button"
+          data-testid="disparar"
+          onClick={solicitarDisparo}
+          disabled={!estado.puedeDisparar}
+          style={{ ...botonEstilo, minHeight: TAMANO_BOTON_PLEGAR_PX, padding: "6px 14px", background: "#ff6b4a" }}
+        >
+          Disparar
+        </button>
+      </div>
+    );
+  }
+
   return (
     // layout-dos-zonas: esta consola ocupa el 100% de su contenedor (la
     // franja inferior de PhaserGame, ya separada del lienzo) en un flujo
@@ -226,6 +312,9 @@ export function ControlHUD() {
       onPointerCancel={terminarArrastre}
       data-testid="superficie-arrastre"
     >
+      {/* Flota sobre el borde superior del panel (no dentro de su alto): el
+          panel ya no tiene sitio libre en 360x640 con el tope del 45 %. */}
+      <div style={{ position: "absolute", right: 8, top: -(TAMANO_BOTON_PLEGAR_PX + 4) }}>{botonPlegar}</div>
       {/* canal-estado (hud-canales-1): permanente -- de quién es el turno y
           el nombre del rival ya no son una fila propia (ver IntegridadHUD:
           resalta la nave de quien juega y sustituye su etiqueta genérica),

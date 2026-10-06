@@ -1,6 +1,5 @@
 import Phaser from "phaser";
-import { configurarTamanoMundo, MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
-import { calcularTamanoContenedorJuego } from "@/juego/layoutContenedor";
+import { configurarMundoParaViewport, MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { Sandbox } from "@/juego/scenes/Sandbox";
 import { Siluetas } from "@/juego/scenes/Siluetas";
 import { Partida } from "@/juego/escenas/Partida";
@@ -68,29 +67,17 @@ function crearConfiguracion(contenedor: string): Phaser.Types.Core.GameConfig {
   };
 }
 
-// encuadre-movil: solo la escena de partida necesita el mundo reconfigurado
-// -- Sandbox y Siluetas son escenas de depuración (/pruebas/...) que ya
-// asumen 1920x1080 en su propio código y no forman parte del camino
-// jugable en móvil, así que tocarlas ahí sería una migración sin bloque.
-// Se mide el contenedor real en vez de window.innerWidth/innerHeight
-// porque layout-dos-zonas solo le reserva el 58% del alto de la ventana al
-// lienzo (ver layoutContenedor.ts): el aspecto que importa es el del hueco
-// disponible, no el del viewport completo.
+// pantalla-completa: solo la escena de partida reconfigura el mundo (Sandbox
+// y Siluetas asumen 1920x1080). El lienzo ocupa el viewport entero, así que
+// el aspecto del mundo es el del contenedor medido; sin layout real (jsdom)
+// se cae a la ventana.
 function ajustarMundoAlContenedor(contenedor: string): void {
-  const elemento = document.getElementById(contenedor);
-  if (elemento === null) {
+  const rect = document.getElementById(contenedor)?.getBoundingClientRect();
+  if (rect !== undefined && rect.width > 0 && rect.height > 0) {
+    configurarMundoParaViewport(rect.width, rect.height);
     return;
   }
-  const rect = elemento.getBoundingClientRect();
-  if (rect.width > 0 && rect.height > 0) {
-    configurarTamanoMundo(rect.width, rect.height);
-    return;
-  }
-  // jsdom y algunos entornos sin layout real devuelven un rect en 0x0 --
-  // calcularTamanoContenedorJuego reproduce el mismo 58% a partir del
-  // viewport para no dejar el mundo en el tamaño por defecto sin motivo.
-  const { ancho, alto } = calcularTamanoContenedorJuego(window.innerWidth, window.innerHeight);
-  configurarTamanoMundo(ancho, alto);
+  configurarMundoParaViewport(window.innerWidth, window.innerHeight);
 }
 
 export function iniciarJuego(
@@ -102,6 +89,14 @@ export function iniciarJuego(
     ajustarMundoAlContenedor(contenedor);
   }
   const juego = new Phaser.Game(crearConfiguracion(contenedor));
+  // pan-1: prueba observable de que plegar la consola no redimensiona el
+  // lienzo ni recalcula el mundo.
+  window.__debug = window.__debug ?? {};
+  window.__debug.contadorResize = 0;
+  juego.scale.on("resize", () => {
+    window.__debug = window.__debug ?? {};
+    window.__debug.contadorResize = (window.__debug.contadorResize ?? 0) + 1;
+  });
   // La clave pasada aquí tiene que coincidir con el super(key) de cada
   // escena (Partida.ts, Sandbox.ts) -- Phaser identifica la escena por esa
   // clave, no por la posición en el array de configuración.

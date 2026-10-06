@@ -10,7 +10,23 @@ import type { EstadoNave, ParametrosMundo } from "@/sim/partida/tipos";
 // otra, ninguna nave pegada al borde del mundo.
 export const HOLGURA_SOLIDO_NAVE_PX = 30;
 export const SEPARACION_MINIMA_NAVES_PX = 350;
-export const MARGEN_MUNDO_NAVE_PX = 40;
+// pantalla-completa (pan-4): el lienzo llega hasta el borde físico de la
+// pantalla, así que una nave a 40 u del borde (unos 14 px CSS) queda pegada al
+// marco o bajo el pulgar. El margen de 44 u lo confirmó Adrián y se mide hasta
+// el CASCO, no hasta el centro: el centro va a 44 + 22 (radio de colisión).
+export const MARGEN_BORDE_U = 44;
+const RADIO_CASCO_COLOCACION_U = 22;
+export const MARGEN_MUNDO_NAVE_PX = MARGEN_BORDE_U + RADIO_CASCO_COLOCACION_U;
+
+// pantalla-completa (pan-4): la barra mínima de la consola tapa la parte baja
+// del lienzo incluso plegada. Es una fracción del alto del mundo y no un valor
+// en u porque el mundo escala con el viewport; 0,13 cubre su alto (≈ 72 px CSS)
+// en 360x640 (≈ 0,112 del alto) con holgura para el casco.
+export const FRACCION_FRANJA_INFERIOR = 0.13;
+
+export function franjaInferiorU(altoMundo: number): number {
+  return altoMundo * FRACCION_FRANJA_INFERIOR;
+}
 
 // impacto-naves (imp-8): el arma que se usa para comprobar viabilidad es
 // siempre la de serie -- la misma que usaba nav-3, ahora sobre el oráculo
@@ -110,7 +126,8 @@ function elegirPunto(
     aleatorio = pasoY.estado;
 
     const x = MARGEN_MUNDO_NAVE_PX + pasoX.valor * (ancho - 2 * MARGEN_MUNDO_NAVE_PX);
-    const y = margenSuperior + pasoY.valor * (alto - margenSuperior - MARGEN_MUNDO_NAVE_PX);
+    const limiteInferior = alto - Math.max(MARGEN_MUNDO_NAVE_PX, franjaInferiorU(alto) + RADIO_CASCO_COLOCACION_U);
+    const y = margenSuperior + pasoY.valor * (limiteInferior - margenSuperior);
 
     if (!libreDeSolido(mascara, x, y, HOLGURA_SOLIDO_NAVE_PX)) continue;
     if (evitar.some((otro) => Math.hypot(otro.x - x, otro.y - y) < separacionMinima)) continue;
@@ -257,7 +274,8 @@ function colocarSinViabilidad(sistema: SistemaGenerado, mundo: ParametrosMundo, 
 // imp-9.test.ts pueda forzar este escalón a mano en vez de depender de
 // construir un sistema patológico que agote los dos anteriores.
 export function colocacionUltimoRecurso(mundo: ParametrosMundo, cantidad = 2): readonly EstadoNave[] {
-  const y = MARGEN_CORREDOR_SUPERIOR / 2;
+  // El corredor mide 90 u: a 66 el casco (22) llega a 88 y sigue dentro.
+  const y = MARGEN_MUNDO_NAVE_PX;
   const recorrido = mundo.ancho - 2 * MARGEN_MUNDO_NAVE_PX;
   return Array.from({ length: cantidad }, (_nave, id) => ({
     x: MARGEN_MUNDO_NAVE_PX + (recorrido * id) / (cantidad - 1),
@@ -292,7 +310,7 @@ export function colocarNaves(
   // siempre, que garantiza un tiro a quien solo sabe disparar hacia arriba.
   asientosIA: readonly boolean[] = Array.from({ length: cantidad }, () => true),
 ): ResultadoColocacion {
-  let sistema = generarSistema(semillaSistema, mundo.ancho, mundo.alto);
+  let sistema = generarSistema(semillaSistema, mundo.ancho, mundo.alto, { factorPlanetas: mundo.factorPlanetas });
   let aleatorio = aleatorioInicial;
 
   let resultado = intentarColocarEnSistema(sistema, mundo, aleatorio, cantidad, asientosIA);
@@ -304,7 +322,7 @@ export function colocarNaves(
   const maxRegeneraciones = cantidad === 2 ? MAX_REGENERACIONES_SISTEMA : MAX_REGENERACIONES_SISTEMA_N_NAVES;
   for (let regeneracion = 1; regeneracion <= maxRegeneraciones; regeneracion++) {
     const semillaDerivada = semillaSistema + regeneracion * OFFSET_SEMILLA_REGENERACION;
-    sistema = generarSistema(semillaDerivada, mundo.ancho, mundo.alto);
+    sistema = generarSistema(semillaDerivada, mundo.ancho, mundo.alto, { factorPlanetas: mundo.factorPlanetas });
     resultado = intentarColocarEnSistema(sistema, mundo, aleatorio, cantidad, asientosIA);
     aleatorio = resultado.aleatorio;
     if (resultado.naves) {

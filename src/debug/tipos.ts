@@ -194,6 +194,8 @@ export interface DebugGlobal {
   // al contenedor real -- MUNDO_ANCHO/MUNDO_ALTO ya no son fijos, así que el
   // e2e necesita este canal en vez de asumir 1920x1080.
   mundo?: { ancho: number; alto: number };
+  // pantalla-completa (pan-1): cuenta los "resize" de Phaser.Scale desde que arranca la partida.
+  contadorResize?: number;
   // humor-1: la sacudida de cámara es una transformación de la matriz de
   // render (Camera.shakeEffect), no un desplazamiento de worldView/scroll --
   // no hay forma de detectarla comparando el rectángulo de cámara entre dos

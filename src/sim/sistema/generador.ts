@@ -86,7 +86,37 @@ export interface SistemaGenerado {
 // sería frágil y dependería de que el sorteo interno no cambie nunca. El
 // resto de criterios (sis-1 a sis-4) no usan `forzar` y ejercitan el sorteo
 // real, guiado solo por la semilla.
+// pantalla-completa (pan-5): "más mundo y más planetas". El mundo de la
+// partida crece ×1,5 en área y con la rejilla fija de 2×3 seguiría teniendo
+// el mismo número de planetas, solo más separados. El factor es el cociente
+// entre el área del mundo y la del mundo móvil anterior (1920×1080 / 1,6); un
+// mundo igual o menor da 1 y deja el generador exactamente como estaba.
+const AREA_REFERENCIA_PLANETAS = (1920 * 1080) / 1.6;
+
+export function factorPlanetasParaArea(ancho: number, alto: number): number {
+  return Math.max(1, Math.round((ancho * alto * 100) / AREA_REFERENCIA_PLANETAS) / 100);
+}
+
+interface RejillaPlanetas {
+  readonly columnas: number;
+  readonly filas: number;
+}
+
+// Con factor 1 la rejilla es la de siempre. Con más área se busca la rejilla
+// con ~6 × factor celdas y proporción del mundo, recortándola si una celda
+// bajara de 2 × PAD (el mínimo que garantiza «cero solapes por construcción»).
+function rejillaParaFactor(factor: number, usableAncho: number, usableAlto: number): RejillaPlanetas {
+  if (factor <= 1) return { columnas: COLUMNAS_REJILLA, filas: FILAS_REJILLA };
+  const celdas = Math.round(SLOTS_TOTALES * factor);
+  let columnas = Math.max(1, Math.round(Math.sqrt((celdas * usableAncho) / usableAlto)));
+  let filas = Math.max(1, Math.ceil(celdas / columnas));
+  while (columnas > 1 && usableAncho / columnas < 2 * PAD_X) columnas--;
+  while (filas > 1 && usableAlto / filas < 2 * PAD_Y) filas--;
+  return { columnas, filas };
+}
+
 export interface ParametrosForzados {
+  readonly factorPlanetas?: number;
   readonly numPlanetas?: number;
   readonly numAnillos?: number;
   readonly numAsteroides?: number;
@@ -167,20 +197,22 @@ function generarPlanetas(
   alto: number,
   numPlanetas: number,
   numAnillos: number,
+  factorPlanetas: number,
 ): PlanetaConAnillo[] {
   const usableAncho = ancho - 2 * MARGEN_LATERAL;
   const usableAlto = alto - MARGEN_CORREDOR_SUPERIOR - MARGEN_INFERIOR;
-  const slotAncho = usableAncho / COLUMNAS_REJILLA;
-  const slotAlto = usableAlto / FILAS_REJILLA;
+  const { columnas, filas } = rejillaParaFactor(factorPlanetas, usableAncho, usableAlto);
+  const slotAncho = usableAncho / columnas;
+  const slotAlto = usableAlto / filas;
 
   const ordenSlots = barajar(
-    Array.from({ length: SLOTS_TOTALES }, (_, indice) => indice),
+    Array.from({ length: columnas * filas }, (_, indice) => indice),
     aleatorio,
   ).slice(0, numPlanetas);
 
   const planetas: Planeta[] = ordenSlots.map((slot, indice) => {
-    const fila = Math.floor(slot / COLUMNAS_REJILLA);
-    const columna = slot % COLUMNAS_REJILLA;
+    const fila = Math.floor(slot / columnas);
+    const columna = slot % columnas;
     const slotXMin = MARGEN_LATERAL + columna * slotAncho;
     const slotYMin = MARGEN_CORREDOR_SUPERIOR + fila * slotAlto;
 
@@ -266,11 +298,13 @@ export function generarSistema(semilla: number, ancho: number, alto: number, for
   const aleatorio = crearGeneradorAleatorio(semilla);
   const mascara = crearMascaraVacia(ancho, alto);
 
-  const numPlanetas =
-    forzar?.numPlanetas ?? PLANETAS_MIN + Math.floor(aleatorio() * (PLANETAS_MAX - PLANETAS_MIN + 1));
+  const factorPlanetas = forzar?.factorPlanetas ?? 1;
+  const minPlanetas = Math.round(PLANETAS_MIN * factorPlanetas);
+  const maxPlanetas = Math.round(PLANETAS_MAX * factorPlanetas);
+  const numPlanetas = forzar?.numPlanetas ?? minPlanetas + Math.floor(aleatorio() * (maxPlanetas - minPlanetas + 1));
   const numAnillos = Math.min(numPlanetas, forzar?.numAnillos ?? Math.floor(aleatorio() * (MAX_ANILLOS + 1)));
 
-  const planetasConAnillo = generarPlanetas(aleatorio, ancho, alto, numPlanetas, numAnillos);
+  const planetasConAnillo = generarPlanetas(aleatorio, ancho, alto, numPlanetas, numAnillos, factorPlanetas);
   const asteroides = generarCinturon(aleatorio, ancho, alto, planetasConAnillo, forzar?.numAsteroides);
 
   // Orden de pintado: planetas primero, luego sus anillos (fuera de su

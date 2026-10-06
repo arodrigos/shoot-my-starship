@@ -1,3 +1,5 @@
+import { FRACCION_ALTO_ZONA_JUEGO } from "@/juego/layoutContenedor";
+
 // Tamaño lógico del mundo del juego. Arranca en el valor histórico (16:9 de
 // escritorio) pero encuadre-movil lo hace reconfigurable con
 // configurarTamanoMundo antes de construir la escena de partida: son
@@ -19,6 +21,32 @@ const AREA_MUNDO_BASE = 1920 * 1080;
 // se exige en retrato (360x640), así que la reducción se limita a esa
 // orientación: en paisaje el área se mantiene y sobra margen de sobra.
 const FACTOR_REDUCCION_AREA_RETRATO = 1.6;
+
+// pantalla-completa (pan-5): el lienzo pasa a ocupar el viewport entero, pero
+// el mundo no puede crecer en la misma proporción o las naves se encogerían:
+// Adrián confirmó un zoom out de 1,5 × el ÁREA que daba la regla anterior
+// (contenedor de ancho × 0,58 alto). Al ser el lienzo más alto, la escala
+// resultante en px por u sale ≥ la anterior (1/√(0,58 × 1,5) ≈ 1,07).
+const FACTOR_ZOOM_OUT_AREA = 1.5;
+
+export function areaMundoParaViewport(anchoViewport: number, altoViewport: number): number {
+  const aspectoAnterior = anchoViewport / (altoViewport * FRACCION_ALTO_ZONA_JUEGO);
+  const areaAnterior = aspectoAnterior < 1 ? AREA_MUNDO_BASE / FACTOR_REDUCCION_AREA_RETRATO : AREA_MUNDO_BASE;
+  return areaAnterior * FACTOR_ZOOM_OUT_AREA;
+}
+
+// pantalla-completa: una sola vez por partida (main.ts, antes de crear la
+// escena). El aspecto del mundo es el del viewport, así que Scale.FIT no deja
+// letterbox, y plegar la consola no vuelve a llamar aquí.
+export function configurarMundoParaViewport(anchoViewport: number, altoViewport: number): void {
+  if (!(anchoViewport > 0) || !(altoViewport > 0)) {
+    return;
+  }
+  const aspecto = anchoViewport / altoViewport;
+  const area = areaMundoParaViewport(anchoViewport, altoViewport);
+  MUNDO_ANCHO = Math.round(Math.sqrt(area * aspecto));
+  MUNDO_ALTO = Math.round(Math.sqrt(area / aspecto));
+}
 
 // encuadre-movil-1: ajusta el mundo lógico al aspecto real del contenedor
 // (no al del viewport completo -- layout-dos-zonas solo le da el 58% del
