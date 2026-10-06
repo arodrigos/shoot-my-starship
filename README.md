@@ -2,7 +2,7 @@
 
 Artillería espacial por turnos: de dos a cuatro naves flotando entre los
 planetas de un sistema generado por semilla, con la gravedad de esos mismos
-planetas curvando el tiro. Terreno destructible, catorce armas con precio
+planetas curvando el tiro. Terreno destructible, quince armas con precio
 y papel propios, dos modos de juego, partidas de 1 a 4 humanos en el mismo
 dispositivo y rivales de IA con mala idea. Next.js (App Router) + Phaser 4,
 100% cliente, sin cuenta y sin instalar nada.
@@ -31,7 +31,7 @@ trayectorias extremas de esa banda y no miente.
 
 ### Los dos modos
 
-- **Barra libre**: las catorce armas están disponibles desde el primer
+- **Barra libre**: las quince armas están disponibles desde el primer
   turno, sin coste.
 - **Con presupuesto** (economía por ronda): todos los asientos, también las
   IAs, parten del mismo presupuesto (`PRESUPUESTO_BASE` = 1000 créditos,
@@ -55,7 +55,7 @@ que tapa el campo, resume el turno anterior y exige un toque ("Soy ...") antes
 de enseñar nada; el ajuste "todos vemos todo" desactiva el relevo. Gana la última nave
 en pie.
 
-### El catálogo: catorce armas, cada una con su papel
+### El catálogo: quince armas, cada una con su papel
 
 El precio sale de la combinación de daño y facilidad de acierto medida con el
 simulador real (`npm run medir:armas`, informe en `docs/facilidad-armas.md`):
@@ -79,6 +79,7 @@ de Chatarra**) son el fondo de armario.
 | Mosca Cojonera | 75 | trayectoria errática: difícil de planear, castiga bien si llega |
 | Granada de Espoleta | 80 | cuenta atrás desde el disparo: área grande, momento de detonar incierto |
 | Gancho Pegajoso | 115 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
+| Minirobot Saltaplanetas | 85 | lento pero seguro: tarda unos turnos en llegar y te deja jugar mientras tanto |
 
 ### Qué le pasa a un planeta al que le arrancas un trozo
 

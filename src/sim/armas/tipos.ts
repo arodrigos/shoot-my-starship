@@ -33,7 +33,12 @@ export type ComportamientoDeVuelo =
   | { readonly tipo: "instantaneo" }
   | { readonly tipo: "erratico"; readonly magnitudPxS2: number }
   | { readonly tipo: "mecha"; readonly segundosHastaDetonar: number }
-  | { readonly tipo: "adherente-con-mecha"; readonly segundosHastaDetonar: number };
+  | { readonly tipo: "adherente-con-mecha"; readonly segundosHastaDetonar: number }
+  // minirobot: vuela como impacto-simple, pero al tocar un planeta no detona:
+  // se queda posado y avanzar() lo mueve al empezar cada turno de su dueño
+  // (src/sim/armas/minirobot.ts). La detonación es una fase del turno, no del
+  // vuelo, por eso el resolutor solo sabe "aquí se queda".
+  | { readonly tipo: "minirobot" };
 
 // Eje 2 (huella en el terreno): la forma que deja en la máscara. "circular"
 // cubre cráter y relleno según el signo; "capsula" es la excavación alargada

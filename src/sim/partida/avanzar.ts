@@ -1,5 +1,6 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/armas/resolver";
+import { crearRobot, faseDeRobots, type EstadoRobot } from "@/sim/armas/minirobot";
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
 import { armaEfectiva, costeArma } from "@/sim/partida/economia";
 import { categorizarResultado, type CategoriaBroma } from "@/sim/partida/categoriaBroma";
@@ -148,9 +149,22 @@ export function avanzar(
     eventos.push({ tipo: "proyectil-perdido", nave: tirador, arma: entrada.arma });
   }
 
-  const detonaciones = detonacionesDeDisparo(arma, resultado.puntosDeImpacto, resultado.danioPorPunto, estado.mascara, estado.mundo);
+  // minirobot: el proyectil que acaba en un planeta no detona, se queda posado
+  // como robot (sin explosión ni evento de impacto: aún no ha pasado nada).
+  const puntoRobot =
+    arma.comportamiento.tipo === "minirobot" && !resultado.fallo && !resultado.proyectilPerdido && resultado.puntosDeImpacto[0]?.impactoNave === undefined
+      ? resultado.puntosDeImpacto[0]
+      : undefined;
+  const robotNuevo = puntoRobot
+    ? crearRobot({ dueno: tirador, objetivoId, armaId: arma.id, contacto: puntoRobot, mascara: resultado.mascara, planetas: planetasTrasDisparo })
+    : undefined;
+  if (robotNuevo) eventos.push({ tipo: "robot-posado", nave: tirador, x: robotNuevo.x, y: robotNuevo.y });
 
-  resultado.puntosDeImpacto.forEach((punto, indice) => {
+  const detonaciones = puntoRobot
+    ? []
+    : detonacionesDeDisparo(arma, resultado.puntosDeImpacto, resultado.danioPorPunto, estado.mascara, estado.mundo);
+
+  (puntoRobot ? [] : resultado.puntosDeImpacto).forEach((punto, indice) => {
     eventos.push({
       tipo: "impacto",
       x: punto.x,
@@ -368,19 +382,21 @@ export function avanzar(
   // queda nadie en pie (Despedida contra rivales ya muy dañados) gana el
   // objetivo, porque quien dispara asumió el riesgo del autodaño: es el mismo
   // desempate de siempre, que mantiene idénticas las partidas de dos naves.
+  const robotsTrasDisparo = [...(estado.robots ?? []), ...(robotNuevo ? [robotNuevo] : [])];
   const vivos = naves.flatMap((nave, id) => (nave.integridad > 0 ? [id as IdNave] : []));
   if (vivos.length <= 1) {
     const ganador: IdNave | null = vivos.length === 1 ? vivos[0] : objetivoId;
     eventos.push({ tipo: "partida-fin", ganador });
     return {
       estado: {
-        ...estado,
+        ...sinRobots(estado),
         mascara: resultado.mascara,
         naves,
         aleatorio: desplazadas.aleatorio,
         resultado: { tipo: "terminada", ganador },
         planetas: planetasTrasDisparo,
         saldos: saldosTrasDisparo,
+        ...conRobots([]),
       },
       eventos,
       categoriaBroma,
@@ -388,23 +404,88 @@ export function avanzar(
     };
   }
 
-  const proximoTurno = siguienteTurno({ ...estado, naves }, tirador);
+  // minirobot: al empezar el turno de su dueño, sin gastarle el turno. Se
+  // resuelve aquí, al cerrar el turno anterior, porque el estado que ve el
+  // jugador al empezar ya es el de después de que sus robots se muevan.
+  let navesFinal: EstadoNave[] = naves;
+  let mascaraFinal = resultado.mascara;
+  let planetasFinal = planetasTrasDisparo;
+  let aleatorioFinal = desplazadas.aleatorio;
+  let robotsFinal = robotsTrasDisparo;
+  const detonacionesFinal = [...detonaciones];
+  const turnoSiguiente = siguienteTurno({ ...estado, naves }, tirador);
+  if (robotsTrasDisparo.length > 0) {
+    const fase = faseDeRobots({ robots: robotsTrasDisparo, turno: turnoSiguiente, naves, mascara: resultado.mascara, mundo: estado.mundo, planetas: planetasTrasDisparo });
+    robotsFinal = [...fase.robots];
+    eventos.push(...fase.eventos);
+    detonacionesFinal.push(...fase.detonaciones);
+    if (fase.detonaciones.length > 0) {
+      mascaraFinal = fase.mascara;
+      planetasFinal = planetasTrasDisparo ? recalcularRegistro(planetasTrasDisparo, fase.mascara) : planetasTrasDisparo;
+      const heridas = naves.map((nave, id) => {
+        const danio = fase.danios.get(id);
+        return danio === undefined ? nave : conIntegridad(nave, nave.integridad - danio);
+      });
+      const recolocadas = desplazarNavesDanadas({ ...estado, naves }, heridas, mascaraFinal, fase.detonaciones[0].radioEfectoU, aleatorioFinal, -1, () => false);
+      navesFinal = recolocadas.naves;
+      aleatorioFinal = recolocadas.aleatorio;
+      eventos.push(...recolocadas.eventos);
+    }
+  }
+
+  const vivosFinal = navesFinal.flatMap((nave, id) => (nave.integridad > 0 ? [id as IdNave] : []));
+  if (vivosFinal.length <= 1) {
+    // Un robot puede matar a los dos últimos a la vez: empate real, sin
+    // objetivo declarado al que concedérselo.
+    const ganador: IdNave | null = vivosFinal.length === 1 ? vivosFinal[0] : null;
+    eventos.push({ tipo: "partida-fin", ganador });
+    return {
+      estado: {
+        ...sinRobots(estado),
+        mascara: mascaraFinal,
+        naves: navesFinal,
+        aleatorio: aleatorioFinal,
+        resultado: { tipo: "terminada", ganador },
+        planetas: planetasFinal,
+        saldos: saldosTrasDisparo,
+        ...conRobots([]),
+      },
+      eventos,
+      categoriaBroma,
+      detonaciones: detonacionesFinal,
+    };
+  }
+
+  const proximoTurno = siguienteTurno({ ...estado, naves: navesFinal }, tirador);
   eventos.push({ tipo: "turno-fin", siguienteTurno: proximoTurno });
   return {
     estado: {
-      ...estado,
-      mascara: resultado.mascara,
-      naves,
-      aleatorio: desplazadas.aleatorio,
+      ...sinRobots(estado),
+      mascara: mascaraFinal,
+      naves: navesFinal,
+      aleatorio: aleatorioFinal,
       turno: proximoTurno,
       numeroTurno: estado.numeroTurno + 1,
-      planetas: planetasTrasDisparo,
+      planetas: planetasFinal,
       saldos: saldosTrasDisparo,
+      ...conRobots(robotsFinal),
     },
     eventos,
     categoriaBroma,
-    detonaciones,
+    detonaciones: detonacionesFinal,
   };
+}
+
+function sinRobots(estado: EstadoPartida): EstadoPartida {
+  const copia: { -readonly [K in keyof EstadoPartida]: EstadoPartida[K] } = { ...estado };
+  delete copia.robots;
+  return copia;
+}
+
+// `robots` solo existe en el estado mientras haya alguno: así una partida sin
+// robots serializa idéntica a como lo hacía antes de este arma.
+function conRobots(robots: readonly EstadoRobot[]): { robots?: readonly EstadoRobot[] } {
+  return robots.length > 0 ? { robots } : {};
 }
 
 // Terceras naves vivas (ni tirador ni objetivo declarado) con el daño que les

@@ -30,6 +30,7 @@ aparte que mantener sincronizada con el resolutor.
 | Mosca Cojonera | 28 | 50 | 0.80s | 3.2% | 75 |
 | Granada de Espoleta | 34 | 62 | 0.89s | 2.8% | 80 |
 | Gancho Pegajoso | 24 | 38 | 0.87s | 8.1% | 115 |
+| Minirobot Saltaplanetas | 40 | 60 | 0.89s | 2.8% | 85 |
 
 ## Dominancia
 
