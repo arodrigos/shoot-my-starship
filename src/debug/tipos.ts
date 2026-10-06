@@ -217,6 +217,12 @@ export interface DebugGlobal {
   // (Phaser), fuera del ciclo de React, así que una instantánea fijada en un
   // efecto quedaría obsoleta entre disparos.
   audio?: () => { silenciado: boolean; historial: readonly { id: IdEfectoSonoro; enMs: number }[] };
+  // banda-sonora (mus-1): estado en vivo de la música, para verificar sin oír.
+  musica?: () => {
+    estado: "esperando-gesto" | "sonando" | "parada" | "sin-audio";
+    notasProgramadas: number;
+    vocesActivas: number;
+  };
   // humor-6: dispara la repetición instantánea del último disparo resuelto
   // (de cualquiera de las dos naves) sin tocar el estado de partida; expone
   // el punto de impacto que la repetición reproduce para comparar con el
