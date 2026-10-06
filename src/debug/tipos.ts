@@ -166,6 +166,9 @@ export interface DebugGlobal {
   control?: DebugControl;
   deriva?: DebugDeriva;
   naves?: readonly DebugNave[];
+  // desplazamiento-tras-impacto (des-3): marcas «Estaba aquí» vivas durante el
+  // turno siguiente, con el origen de cada desplazamiento.
+  fantasmas?: readonly { readonly nave: number; readonly x: number; readonly y: number }[];
   // render-2, render-5: juega N turnos reales (misma avanzar() que un
   // jugador) sin animación, para que el test pueda comprobar el estado
   // renderizado tras una partida guionizada sin depender de temporizadores.
