@@ -1,4 +1,5 @@
 import { test, type Page } from "@playwright/test";
+import { arrastrarDesdeNave } from "./utilesApuntado";
 
 // render-7: calidad visual subjetiva, la valora el Gatekeeper con estas
 // capturas -- este test no tiene aserciones propias, solo genera las 4
@@ -17,16 +18,13 @@ async function capturarSecuenciaDePartida(page: Page, prefijo: string) {
   }
   await page.screenshot({ path: `test-results/render-7/${prefijo}-01-inicio.png` });
 
-  // DESVIACIÓN (control-apuntado): el tirachinas (arrastrar y disparar en
-  // el mismo gesto) ya no existe -- se sustituye por apuntado indirecto con
-  // ganancia y un botón explícito de disparo.
+  // DESVIACIÓN (apuntado-y-relevo): el apuntado es directo -- el gesto mide
+  // ángulo y potencia desde la nave, no desde donde empieza el dedo. El
+  // antiguo arrastre en diagonal fijaba 81°/95 % en escritorio y un vuelo que
+  // no terminaba dentro del techo de espera; 45°/50 % es el apuntado por
+  // defecto y cierra siempre. La potencia llega a 100 al 40 % del lado menor.
   const viewport = page.viewportSize()!;
-  const inicio = { x: viewport.width * 0.3, y: viewport.height * 0.85 };
-  const fin = { x: viewport.width * 0.6, y: viewport.height * 0.55 };
-  await page.mouse.move(inicio.x, inicio.y);
-  await page.mouse.down();
-  await page.mouse.move(fin.x, fin.y, { steps: 10 });
-  await page.mouse.up();
+  await arrastrarDesdeNave(page, 0, 45, 0.5 * 0.4 * Math.min(viewport.width, viewport.height));
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   await page.getByTestId("disparar").click();
 
