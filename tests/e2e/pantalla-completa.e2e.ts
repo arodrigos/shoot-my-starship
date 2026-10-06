@@ -96,7 +96,7 @@ test("pan-7: 4 naves a 360x640, las pestañas no se cortan y la etiqueta de deri
   await page.getByTestId("humanos-1").click();
   await page.getByTestId("ias-3").click();
   await page.getByTestId("boton-jugar").click();
-  await page.waitForFunction(() => window.__debug.naves !== undefined && window.__debug.deriva !== undefined, undefined, { timeout: 120000 });
+  await page.waitForFunction(() => window.__debug?.naves !== undefined && window.__debug?.deriva !== undefined, undefined, { timeout: 120000 });
   if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
 
   for (let id = 0; id < 4; id++) {
