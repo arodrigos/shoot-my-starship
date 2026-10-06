@@ -84,13 +84,20 @@ test("crt-1: tras tres impactos reales el cráter se distingue de la roca intact
   // referencia -- no basta con que la clasificación lógica difiera, tiene
   // que notarse en el píxel real (una sola lectura de canvas, mismo patrón
   // que comprobarPuntos).
-  const [colorCentro, colorBorde] = await page.evaluate(
-    (puntos) => window.__debug.terreno!.leerColores(puntos),
-    [centro, borde],
-  );
-  const distanciaColor =
-    Math.abs(colorCentro.r - colorBorde.r) + Math.abs(colorCentro.g - colorBorde.g) + Math.abs(colorCentro.b - colorBorde.b);
-  expect(distanciaColor).toBeGreaterThan(10);
+  // pantalla-completa: la textura se repinta en un fotograma posterior a las
+  // huellas, así que se espera al estado real del píxel en vez de leerlo ya.
+  await expect
+    .poll(
+      async () => {
+        const [colorCentro, colorBorde] = await page.evaluate(
+          (puntos) => window.__debug.terreno!.leerColores(puntos),
+          [centro, borde],
+        );
+        return Math.abs(colorCentro.r - colorBorde.r) + Math.abs(colorCentro.g - colorBorde.g) + Math.abs(colorCentro.b - colorBorde.b);
+      },
+      { timeout: 10000 },
+    )
+    .toBeGreaterThan(10);
 
   // El escombro del cinturón (material 255, generado de fábrica, no creado
   // por este bloque) nunca se confunde con un planeta: ni en la
