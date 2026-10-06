@@ -97,6 +97,19 @@ export type EventoSimulacion =
   // presentación pinta una explosión por cada "impacto" y aquí el punto ya
   // está dibujado; esto solo anuncia quién ha perdido integridad.
   | { readonly tipo: "danio-colateral"; readonly nave: IdNave; readonly danio: number }
+  // desplazamiento-tras-impacto: la nave que ha recibido daño se recoloca
+  // (con `reserva` distinta de "ninguna" no hubo destino normal, ver
+  // desplazamiento.ts). Lleva origen y destino porque la presentación anima
+  // el trayecto y deja una marca en el sitio donde estaba.
+  | {
+      readonly tipo: "desplazamiento";
+      readonly nave: IdNave;
+      readonly desdeX: number;
+      readonly desdeY: number;
+      readonly x: number;
+      readonly y: number;
+      readonly reserva: "ninguna" | "mas-lejano" | "se-queda";
+    }
   | { readonly tipo: "turno-fin"; readonly siguienteTurno: IdNave }
   // nucleo-n-naves: ganador nullable -- empate real cuando un disparo de
   // área deja sin vida a las dos últimas naves en pie a la vez.

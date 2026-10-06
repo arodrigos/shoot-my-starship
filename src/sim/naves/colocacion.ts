@@ -86,7 +86,7 @@ export const MARGEN_HUD_SUPERIOR_N_NAVES_PX = 400;
 
 export type EscalonColocacion = "recolocacion" | "regeneracion" | "sin-viabilidad" | "corredor";
 
-function libreDeSolido(mascara: SistemaGenerado["mascara"], x: number, y: number, holgura: number): boolean {
+export function libreDeSolido(mascara: SistemaGenerado["mascara"], x: number, y: number, holgura: number): boolean {
   const cx = Math.round(x);
   const cy = Math.round(y);
   const r = Math.ceil(holgura);
