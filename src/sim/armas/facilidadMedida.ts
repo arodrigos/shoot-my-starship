@@ -6,7 +6,6 @@
 // para que no pueda quedarse vieja en silencio.
 export const FACILIDAD_MEDIDA_PCT: Readonly<Record<string, number>> = {
   "pepinazo-cortesia": 2.8,
-  "tostadora-orbital": 2.8,
   "mortero-lamentable": 2.8,
   "zanjadora-manolita": 2.4,
   "vertedero-portatil": 0.0,
@@ -15,10 +14,9 @@ export const FACILIDAD_MEDIDA_PCT: Readonly<Record<string, number>> = {
   "pelota-de-chatarra": 2.2,
   "graviton-segunda-mano": 0.0,
   "despedida": 3.5,
-  "andanada-de-flechas": 8.4,
   "barrena-planetaria": 2.8,
   "rayo-laser": 1.1,
   "mosca-cojonera": 3.2,
   "granada-de-espoleta": 2.8,
-  "gancho-pegajoso": 2.8,
+  "gancho-pegajoso": 8.1,
 };

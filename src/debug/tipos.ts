@@ -142,6 +142,11 @@ export interface DebugBromaEntry {
 }
 
 export interface DebugEfectoVisible {
+  // cat-2: "haz-laser" es el rayo instantáneo (un único segmento nave → punto
+  // de impacto, que dura duracionMs); "explosion" es lo de siempre.
+  readonly tipo?: "explosion" | "haz-laser";
+  readonly duracionMs?: number;
+  readonly desde?: { readonly x: number; readonly y: number };
   readonly x: number;
   readonly y: number;
   readonly radioOnda: number;

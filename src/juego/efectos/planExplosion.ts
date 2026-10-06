@@ -7,7 +7,7 @@ import { radioEfectoDeArma, type Detonacion } from "@/sim/partida/detonaciones";
 export const DANIO_REFERENCIA_ESCALA_MAXIMA = Math.max(
   ...CATALOGO_ARMAS.map((arma) => (arma.efecto.tipo === "empuje" ? 0 : arma.efecto.danioMaximo)),
 );
-export const RADIO_REFERENCIA_ESCALA_MAXIMA = Math.max(...CATALOGO_ARMAS.map(radioEfectoDeArma));
+export const RADIO_REFERENCIA_ESCALA_MAXIMA = Math.max(...CATALOGO_ARMAS.map((arma) => radioEfectoDeArma(arma)));
 
 export const ESCALA_MINIMA = 0.35;
 

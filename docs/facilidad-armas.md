@@ -17,7 +17,6 @@ aparte que mantener sincronizada con el resolutor.
 | Arma | Daño máx. | Radio de efecto (px) | Tiempo de vuelo medio | Facilidad medida | Coste |
 | --- | --- | --- | --- | --- | --- |
 | Pepinazo de Cortesía | 18 | 55 | 0.89s | 2.8% | 55 |
-| Tostadora Orbital | 32 | 42 | 0.89s | 2.8% | 75 |
 | Mortero Lamentable | 24 | 70 | 0.89s | 2.8% | 65 |
 | Zanjadora Manolita | 4 | 56 | 0.92s | 2.4% | 0 |
 | Vertedero Portátil | 0 | 0 | n/a | 0.0% | 15 |
@@ -26,12 +25,11 @@ aparte que mantener sincronizada con el resolutor.
 | La Pelota de Chatarra | 8 | 30 | 0.95s | 2.2% | 0 |
 | Gravitón de Segunda Mano | 0 | 0 | n/a | 0.0% | 45 |
 | Despedida | 55 | 115 | 0.87s | 3.5% | 120 |
-| Andanada de Flechas | 16 | 34 | 1.25s | 8.4% | 105 |
 | Barrena Planetaria | 44 | 38 | 0.89s | 2.8% | 90 |
 | Rayo Láser | 46 | 80 | 0.44s | 1.1% | 115 |
 | Mosca Cojonera | 28 | 50 | 0.80s | 3.2% | 75 |
 | Granada de Espoleta | 34 | 62 | 0.89s | 2.8% | 80 |
-| Gancho Pegajoso | 40 | 38 | 0.89s | 2.8% | 85 |
+| Gancho Pegajoso | 24 | 38 | 0.87s | 8.1% | 115 |
 
 ## Dominancia
 

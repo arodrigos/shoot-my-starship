@@ -2,7 +2,7 @@
 
 Artillería espacial por turnos: de dos a cuatro naves flotando entre los
 planetas de un sistema generado por semilla, con la gravedad de esos mismos
-planetas curvando el tiro. Terreno destructible, dieciséis armas con precio
+planetas curvando el tiro. Terreno destructible, catorce armas con precio
 y papel propios, dos modos de juego, partidas de 1 a 4 humanos en el mismo
 dispositivo y rivales de IA con mala idea. Next.js (App Router) + Phaser 4,
 100% cliente, sin cuenta y sin instalar nada.
@@ -31,7 +31,7 @@ trayectorias extremas de esa banda y no miente.
 
 ### Los dos modos
 
-- **Barra libre**: las dieciséis armas están disponibles desde el primer
+- **Barra libre**: las catorce armas están disponibles desde el primer
   turno, sin coste.
 - **Con presupuesto** (economía por ronda): todos los asientos, también las
   IAs, parten del mismo presupuesto (`PRESUPUESTO_BASE` = 1000 créditos,
@@ -55,7 +55,7 @@ que tapa el campo, resume el turno anterior y exige un toque ("Soy ...") antes
 de enseñar nada; el ajuste "todos vemos todo" desactiva el relevo. Gana la última nave
 en pie.
 
-### El catálogo: dieciséis armas, cada una con su papel
+### El catálogo: catorce armas, cada una con su papel
 
 El precio sale de la combinación de daño y facilidad de acierto medida con el
 simulador real (`npm run medir:armas`, informe en `docs/facilidad-armas.md`):
@@ -66,7 +66,6 @@ de Chatarra**) son el fondo de armario.
 | Arma | Precio (cr) | Papel |
 | --- | --- | --- |
 | Pepinazo de Cortesía | 55 | equilibrada: ni la más floja ni la más fuerte |
-| Tostadora Orbital | 75 | daño alto con radio contenido: exige puntería, no regala área |
 | Mortero Lamentable | 65 | área máxima permitida: perdona el error de ángulo, cuesta en consecuencia |
 | Zanjadora Manolita | 0 | gratis, de daño bajo y difícil de acertar -- fondo de armario |
 | Vertedero Portátil | 15 | utilitaria: rellena terreno, precio por volumen afectado, no por daño |
@@ -75,12 +74,11 @@ de Chatarra**) son el fondo de armario.
 | La Pelota de Chatarra | 0 | gratis, de daño bajo: rueda hasta un agujero, pero no garantiza cuál |
 | Gravitón de Segunda Mano | 45 | utilitaria: reposiciona, precio por magnitud del desplazamiento, no por daño |
 | Despedida | 120 | la más cara y la más dañina: un solo uso, con autodaño real de por medio |
-| Andanada de Flechas | 105 | tres proyectiles en abanico: cubre un ángulo, no un punto |
 | Barrena Planetaria | 90 | atraviesa terreno y pega fuerte: cara y de las de más daño |
 | Rayo Láser | 115 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
 | Mosca Cojonera | 75 | trayectoria errática: difícil de planear, castiga bien si llega |
 | Granada de Espoleta | 80 | cuenta atrás desde el disparo: área grande, momento de detonar incierto |
-| Gancho Pegajoso | 85 | se pega donde toque primero: elige el punto, no el momento, y pega fuerte |
+| Gancho Pegajoso | 115 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
 
 ### Qué le pasa a un planeta al que le arrancas un trozo
 

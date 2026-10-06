@@ -44,7 +44,7 @@ test("proy-5: en móvil, el proyectil real se ve dentro del lienzo y sin tapar p
   // Arma explícitamente distinta de la de catálogo por defecto (proy-1..3 ya
   // cubrieron esa) -- así la comprobación de silueta prueba de verdad que la
   // vista sigue al arma elegida, no a la inicial.
-  const ARMA_ELEGIDA = "tostadora-orbital";
+  const ARMA_ELEGIDA = "mortero-lamentable";
   await page.getByTestId("selector-arma-abrir").click();
   await page.getByTestId(`arma-${ARMA_ELEGIDA}`).click();
   await page.waitForFunction(

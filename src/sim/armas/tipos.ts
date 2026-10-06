@@ -64,6 +64,11 @@ export type EfectoSobreNave =
 export interface Arma {
   readonly id: string;
   readonly nombre: string;
+  // cat-1: lo que el arma HACE en una palabra. Ninguna arma del catálogo
+  // repite verbo: es la comprobación de que dos armas no son la misma con
+  // otro nombre. Opcional en el tipo para no romper los fixtures de otros
+  // bloques; el test de catálogo exige que las reales lo declaren.
+  readonly verbo?: string;
   readonly descripcion: string;
   readonly comportamiento: ComportamientoDeVuelo;
   readonly huella: HuellaDeArma;
@@ -128,4 +133,8 @@ export interface Arma {
   // comprueba su presencia en las 16 armas reales del catálogo, no en
   // fixtures de test.
   readonly rol?: string;
+  // cat-4: si está, el radio de efecto no es fijo en píxeles sino esta
+  // fracción de la diagonal del mundo (el gancho: 1/8). La onda nunca daña
+  // a quien dispara.
+  readonly ondaFraccionDiagonal?: number;
 }

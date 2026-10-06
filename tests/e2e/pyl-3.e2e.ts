@@ -30,7 +30,6 @@ const REPRESENTANTE_POR_FAMILIA: Record<string, string> = {
   racimo: "racimo-de-tuppers",
   chatarra: "pelota-de-chatarra",
   orbe: "graviton-segunda-mano",
-  flecha: "andanada-de-flechas",
   broca: "barrena-planetaria",
   haz: "rayo-laser",
 };

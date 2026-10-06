@@ -22,8 +22,8 @@ test("modo-4: en barra libre no hay saldo ni precios, y las armas de pago están
   await expect(page.getByTestId("saldo")).toHaveCount(0);
 
   await page.getByTestId("selector-arma-abrir").click();
-  const botonDePago = page.getByTestId("arma-tostadora-orbital");
+  const botonDePago = page.getByTestId("arma-mortero-lamentable");
   await expect(botonDePago).toBeVisible();
   await expect(botonDePago).toBeEnabled();
-  await expect(page.getByTestId("precio-tostadora-orbital")).toHaveCount(0);
+  await expect(page.getByTestId("precio-mortero-lamentable")).toHaveCount(0);
 });

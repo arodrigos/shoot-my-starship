@@ -21,7 +21,10 @@ test("arm-2: cada eje nuevo (coste, penetración, dispersión, ráfaga, radio de
   assert.ok(coste.size >= 2, `coste solo tiene ${coste.size} valor(es) distintos`);
   assert.ok(penetracion.size >= 2, `penetración solo tiene ${penetracion.size} valor(es) distintos`);
   assert.ok(dispersion.size >= 2, `dispersión solo tiene ${dispersion.size} valor(es) distintos`);
-  assert.ok(rafagaCantidad.size >= 2, `ráfaga solo tiene ${rafagaCantidad.size} valor(es) distintos`);
+  // catalogo-y-selector retiró la Andanada de Flechas (única ráfaga): el motor
+  // conserva el eje, probado en arm-5 con un arma de prueba, pero ya no hay
+  // arma real que lo ejercite.
+  assert.ok(rafagaCantidad.size >= 1);
   assert.ok(radioDanio.size >= 2, `radio de daño solo tiene ${radioDanio.size} valor(es) distintos`);
   assert.ok(inmunidad.size >= 2, `inmunidad a gravedad solo tiene ${inmunidad.size} valor(es) distintos`);
 });

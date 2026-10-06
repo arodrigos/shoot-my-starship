@@ -9,16 +9,16 @@ import {
 } from "@/juego/proyectiles/geometriaProyectil";
 import type { PuntoProyectil } from "@/juego/proyectiles/geometriaProyectil";
 
-// pyl-1: un arma representante por cada una de las ocho familias visuales,
+// pyl-1: un arma representante por cada familia visual con arma real (la
+// "flecha" de la Andanada se quedó sin arma al retirarla del catálogo),
 // confirmadas contra familiaVisualDe (no elegidas a ojo) para que este test
 // no se desincronice si el catálogo cambia de armas.
-const REPRESENTANTE_POR_FAMILIA: Record<FamiliaVisual, string> = {
+const REPRESENTANTE_POR_FAMILIA: Record<Exclude<FamiliaVisual, "flecha">, string> = {
   bomba: "pepinazo-cortesia",
   capsula: "mortero-lamentable",
   racimo: "racimo-de-tuppers",
   chatarra: "pelota-de-chatarra",
   orbe: "graviton-segunda-mano",
-  flecha: "andanada-de-flechas",
   broca: "barrena-planetaria",
   haz: "rayo-laser",
 };
@@ -41,7 +41,7 @@ function firmaDeForma(puntos: readonly PuntoProyectil[]): string {
   return `${puntos.length}:${normalizadas.join(",")}`;
 }
 
-test("pyl-1: cada una de las ocho familias visuales es reconocible por su forma, no solo por su hash", () => {
+test("pyl-1: cada una de las siete familias visuales con arma real es reconocible por su forma, no solo por su hash", () => {
   const firmas = new Map<string, FamiliaVisual>();
   for (const [familia, idArma] of Object.entries(REPRESENTANTE_POR_FAMILIA) as [FamiliaVisual, string][]) {
     const arma = buscarArma(idArma);
@@ -58,10 +58,10 @@ test("pyl-1: cada una de las ocho familias visuales es reconocible por su forma,
     );
     firmas.set(firma, familia);
   }
-  assert.equal(firmas.size, 8);
+  assert.equal(firmas.size, 7);
 });
 
-test("pyl-1: los ocho hashes de silueta (uno por familia) son distintos dos a dos", () => {
+test("pyl-1: los siete hashes de silueta (uno por familia con arma real) son distintos dos a dos", () => {
   const hashes = new Set<string>();
   for (const [familia, idArma] of Object.entries(REPRESENTANTE_POR_FAMILIA) as [FamiliaVisual, string][]) {
     const arma = buscarArma(idArma);
@@ -69,7 +69,7 @@ test("pyl-1: los ocho hashes de silueta (uno por familia) son distintos dos a do
     assert.ok(!hashes.has(hash), `${familia} (${idArma}): hash de silueta repetido`);
     hashes.add(hash);
   }
-  assert.equal(hashes.size, 8);
+  assert.equal(hashes.size, 7);
 });
 
 test("pyl-1: la silueta de cada familia tiene al menos tres vértices propios (no es un punto ni un segmento degenerado)", () => {

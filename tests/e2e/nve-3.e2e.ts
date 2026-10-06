@@ -36,8 +36,8 @@ test("nve-3: tras un impacto real, el tramo de daño dibujado corresponde a la i
   // Misma arma que control-1: su solución balística contra calma-de-los-restos
   // cae dentro del recorrido de arrastre que cabe en el viewport de 390x844.
   await page.getByTestId("selector-arma-abrir").click();
-  await page.getByTestId("arma-tostadora-orbital").click();
-  await page.waitForFunction(() => window.__debug.control!.ajuste.armaId === "tostadora-orbital");
+  await page.getByTestId("arma-mortero-lamentable").click();
+  await page.waitForFunction(() => window.__debug.control!.ajuste.armaId === "mortero-lamentable");
 
   const numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
 

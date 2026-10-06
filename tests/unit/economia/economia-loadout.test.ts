@@ -45,9 +45,9 @@ test("economia-loadout-8: el README cita el número real de armas y el precio y 
       `el README no recoge el precio y el papel actuales de ${arma.nombre}`,
     );
   }
-  const numeros = ["dieciséis", String(CATALOGO_ARMAS.length)];
+  const numeros = ["catorce", String(CATALOGO_ARMAS.length)];
   assert.ok(numeros.some((n) => readme.includes(n)));
-  assert.equal(CATALOGO_ARMAS.length, 16, "si el catálogo cambia, el texto 'dieciséis armas' del README hay que revisarlo");
+  assert.equal(CATALOGO_ARMAS.length, 14, "si el catálogo cambia, el texto 'catorce armas' del README hay que revisarlo");
   for (const tema of [/360°/, /relevo/i, /de 1 a 4 humanos|2 a 4 naves/, /recalibrada/, /dispersión/, /No hay ingreso por daño/]) {
     assert.match(readme, tema);
   }

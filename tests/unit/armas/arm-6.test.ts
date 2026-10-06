@@ -185,7 +185,7 @@ test(`arm-6: las ${NUMERO_DE_PARTIDAS} partidas de ia-n7 con el catálogo de 13 
 // daño real con cada una.
 const NUM_SISTEMAS_ARMAS_NUEVAS_COMPLETO = 150;
 const NUM_SISTEMAS_ARMAS_NUEVAS = muestra(NUM_SISTEMAS_ARMAS_NUEVAS_COMPLETO);
-// andanada-de-flechas y barrena-planetaria siguen una parábola normal (la
+// barrena-planetaria sigue una parábola normal (la
 // gravedad las cura alrededor de los planetas, igual que a cualquier otra
 // arma del catálogo), así que se les exige el mismo listón que ia-n1. El
 // rayo-laser es la excepción de diseño (arm-4): vuela en línea recta e
@@ -198,7 +198,6 @@ const NUM_SISTEMAS_ARMAS_NUEVAS = muestra(NUM_SISTEMAS_ARMAS_NUEVAS_COMPLETO);
 // Mínimos sobre los 150 sistemas completos; con muestra reducida se exige
 // la misma proporción (minimoProporcional).
 const MINIMOS_CON_DANIO: Record<string, number> = {
-  "andanada-de-flechas": 130,
   "barrena-planetaria": 130,
   "rayo-laser": 40,
 };

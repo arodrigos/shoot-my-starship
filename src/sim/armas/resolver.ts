@@ -5,6 +5,7 @@ import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { dispersionPorPotenciaGrados } from "@/sim/balistica/dispersionPotencia";
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import type { Arma } from "@/sim/armas/tipos";
+import { radioEfectoEnMundo } from "@/sim/armas/radioEfecto";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { resolverCaida } from "@/sim/terreno/caida";
 import { esSolido, type Mascara } from "@/sim/terreno/mascara";
@@ -140,6 +141,34 @@ function crearDetenerseConPenetracion(mascara: Mascara, ancho: number, alto: num
   };
 
   return { detenerse, puntosPenetrados };
+}
+
+// cat-2: condición de parada del haz láser. A diferencia del túnel de la
+// Barrena (detona al SALIR de la roca), el haz sigue su línea recta tras
+// cruzar roca fina y puede dañar un casco que haya detrás; solo se detiene
+// cuando la roca recorrida suma `penetracionMaximaPx`.
+function crearDetenerseHaz(mascara: Mascara, ancho: number, alto: number, penetracionMaximaPx: number) {
+  let distanciaEnSolidoPx = 0;
+  let anterior: EstadoProyectil | null = null;
+  return (p: EstadoProyectil): boolean => {
+    if (p.y >= alto || p.x < 0 || p.x >= ancho) return true;
+    // El paso de integración puede ser de decenas de píxeles: se recorre el
+    // segmento de 1 en 1 para medir la roca realmente cruzada, no el paso.
+    if (anterior !== null) {
+      const largo = Math.hypot(p.x - anterior.x, p.y - anterior.y);
+      const muestras = Math.max(1, Math.ceil(largo));
+      for (let i = 1; i <= muestras; i++) {
+        const t = i / muestras;
+        if (esSolido(mascara, Math.round(anterior.x + (p.x - anterior.x) * t), Math.round(anterior.y + (p.y - anterior.y) * t))) {
+          distanciaEnSolidoPx += largo / muestras;
+        }
+      }
+    } else if (esSolido(mascara, Math.round(p.x), Math.round(p.y))) {
+      distanciaEnSolidoPx += 1;
+    }
+    anterior = { ...p };
+    return distanciaEnSolidoPx >= penetracionMaximaPx;
+  };
 }
 
 // vuelo-extensible (vex-1, vex-2, vex-4): variante de detenerseEnSuelo para
@@ -315,6 +344,22 @@ function resolverSubmuniciones(
   return { puntos, perdido: puntos.length === 0, roce, pasos };
 }
 
+// Un punto está "anclado" si cae dentro del mundo y toca roca en su entorno
+// inmediato: la parada contra sólido deja el proyectil en la superficie, cuyo
+// píxel exacto puede ser aire, así que se sondea un entorno corto.
+const SONDA_ANCLAJE_PX = 3;
+function estaAnclado(mascara: Mascara, x: number, y: number, ancho: number, alto: number): boolean {
+  if (x < 0 || x >= ancho || y < 0 || y >= alto) return false;
+  const desplazamientos: readonly (readonly [number, number])[] = [
+    [0, 0],
+    [SONDA_ANCLAJE_PX, 0],
+    [-SONDA_ANCLAJE_PX, 0],
+    [0, SONDA_ANCLAJE_PX],
+    [0, -SONDA_ANCLAJE_PX],
+  ];
+  return desplazamientos.some(([dx, dy]) => esSolido(mascara, Math.round(x + dx), Math.round(y + dy)));
+}
+
 // Un único vuelo con el comportamiento del arma (impacto-simple, rodante,
 // submuniciones o instantáneo) y, si declara penetracionPx, el rastro de
 // túnel que deja. La ráfaga (resolverPuntosDeImpacto) llama a esto una vez
@@ -366,7 +411,11 @@ function resolverUnDisparo(
     // superior sin que ninguna de esas condiciones se cumpla nunca, y
     // simularVuelo agota sus 100.000 pasos y lanza en vez de perder el tiro.
     // Se añade aquí, solo para el instantáneo, el borde que le falta.
-    const detenerseSuelo = detenerseEnSuelo(mascara, ancho, alto);
+    // cat-2: con penetracionPx el haz atraviesa hasta esa cantidad de roca
+    // ACUMULADA y sigue: solo detona dentro de la roca cuando la agota (si no,
+    // en el primer casco, sólido que no puede cruzar, o el borde).
+    const penetracionHaz = arma.penetracionPx ?? 0;
+    const detenerseSuelo = penetracionHaz > 0 ? crearDetenerseHaz(mascara, ancho, alto, penetracionHaz) : detenerseEnSuelo(mascara, ancho, alto);
     const detenerse = (p: EstadoProyectil): boolean => p.y < 0 || detenerseSuelo(p);
     const { proyectil, pasos, perdido, impactoNave, roceNave } = simularVuelo(inicial, 0, 0, detenerse, { rastreadorNaves });
     if (perdido) {
@@ -439,6 +488,12 @@ function resolverUnDisparo(
     // era cierto para la física de vuelo, no para este caso límite.
     const detenerse = detenerseEnSuelo(mascara, ancho, alto);
     const { proyectil, pasos, impactoNave, roceNave } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
+    // cat-4: el gancho solo se ancla a roca de planeta o a un casco. En el
+    // borde del mundo (o si el presupuesto de vuelo se agota en el vacío) se
+    // pierde sin efecto: ni daño ni cambio en la máscara.
+    if (!impactoNave && !estaAnclado(mascara, proyectil.x, proyectil.y, ancho, alto)) {
+      return { puntos: [], perdido: true, aleatorio, pasos };
+    }
     return {
       puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
       perdido: false,
@@ -728,8 +783,9 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     // imp-3: distancia EUCLÍDEA 2D al punto de detonación -- nunca solo en
     // X, que es como se medía antes de este bloque (herencia del suelo
     // plano, donde toda nave estaba a la misma altura y la X ya bastaba).
+    const radioEfecto = radioEfectoEnMundo(arma, params.ancho, params.alto);
     danioPorPunto = puntosDeImpacto.map((punto) =>
-      danioPorDistancia(efecto.radioEfectoPx, efecto.danioMaximo, Math.hypot(punto.x - params.objetivoX, punto.y - params.objetivoY)),
+      danioPorDistancia(radioEfecto, efecto.danioMaximo, Math.hypot(punto.x - params.objetivoX, punto.y - params.objetivoY)),
     );
     if (efecto.tipo === "danio-y-autodanio") {
       danioPropio = efecto.autoDanioMaximo;
@@ -739,7 +795,9 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     // imp-5: autoimpacto por gravedad -- SEPARADO de danioPropio (Despedida,
     // garantizado por catálogo en cada disparo). Solo ocurre cuando el
     // rastreador ha detenido el vuelo de verdad sobre el propio casco.
-    const puntoAutoimpacto = puntosDeImpacto.find((punto) => punto.impactoNave === params.tiradorId);
+    // cat-4: la onda del gancho nunca daña a quien dispara.
+    const puntoAutoimpacto =
+      arma.ondaFraccionDiagonal !== undefined ? undefined : puntosDeImpacto.find((punto) => punto.impactoNave === params.tiradorId);
     if (puntoAutoimpacto) {
       const danio = danioPorDistancia(
         efecto.radioEfectoPx,

@@ -40,7 +40,7 @@ test("exp-2: cada arma del catálogo declara una detonación por impacto, en su 
         assert.ok(detonaciones.length <= impactos.length, "no hay más detonaciones que impactos");
         for (const detonacion of detonaciones) {
           assert.equal(detonacion.armaId, armaId);
-          assert.equal(detonacion.radioEfectoU, radioEfectoDeArma(arma));
+          assert.equal(detonacion.radioEfectoU, radioEfectoDeArma(arma, MUNDO_LOTE.ancho, MUNDO_LOTE.alto));
           const evento = impactos.find((e) => e.tipo === "impacto" && Math.abs(e.x - detonacion.x) <= 1 && Math.abs(e.y - detonacion.y) <= 1);
           assert.ok(evento, `la detonación (${detonacion.x}, ${detonacion.y}) tiene su impacto a ≤ 1 u`);
         }
