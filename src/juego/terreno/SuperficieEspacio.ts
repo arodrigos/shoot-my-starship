@@ -3,7 +3,7 @@ import { esMaterialPlaneta, obtenerMaterial, type Mascara } from "@/sim/terreno/
 import type { RectanguloSucio } from "@/sim/terreno/huella";
 import type { SuperficieDeTerreno } from "@/juego/terreno/Terreno";
 import { FACTOR_BORDE_QUEMADO, PALETA_ESPACIO_ESCOMBRO, PALETA_ESPACIO_PLANETAS, type PaletaTerreno, oscurecer } from "@/juego/paleta";
-import { clasificarPixelVisual } from "@/juego/terreno/clasificacionVisual";
+import { ANCHO_BORDE_QUEMADO_PX, clasificarPixelVisual } from "@/juego/terreno/clasificacionVisual";
 
 // Geometría de un planeta a efectos de sombreado: cx/cy/radio, FIJOS de por
 // vida (nucleo-gravedad -- el centro de atracción y el radio declarado nunca
@@ -89,17 +89,23 @@ export class SuperficieEspacio implements SuperficieDeTerreno {
   // el de AIRE (siempre transparente, sea cual sea el material que había
   // antes) -- el resto se pinta píxel a píxel, acotado al rectángulo sucio
   // (pequeño: el radio de huella de un arma, nunca el mapa entero).
-  refrescarRectangulo(mascara: Mascara, rectangulo: RectanguloSucio): void {
-    if (rectangulo.ancho <= 0 || rectangulo.alto <= 0) {
+  refrescarRectangulo(mascara: Mascara, sucio: RectanguloSucio): void {
+    if (sucio.ancho <= 0 || sucio.alto <= 0) {
       return;
     }
 
+    // La banda quemada cae FUERA del hueco que devuelve la huella: sus
+    // píxeles pasan de "roca" a "borde-quemado" sin cambiar de material, así
+    // que el rectángulo de la máscara no los incluye y se quedaban con el
+    // color de roca intacta. Se amplía por el ancho de la banda.
+    const minX = Math.max(0, sucio.x - ANCHO_BORDE_QUEMADO_PX);
+    const minY = Math.max(0, sucio.y - ANCHO_BORDE_QUEMADO_PX);
+    const maxX = Math.min(mascara.ancho - 1, sucio.x + sucio.ancho - 1 + ANCHO_BORDE_QUEMADO_PX);
+    const maxY = Math.min(mascara.alto - 1, sucio.y + sucio.alto - 1 + ANCHO_BORDE_QUEMADO_PX);
     const contexto = this.textura.context;
-    const maxX = rectangulo.x + rectangulo.ancho - 1;
-    const maxY = rectangulo.y + rectangulo.alto - 1;
 
-    for (let y = rectangulo.y; y <= maxY; y++) {
-      let x = rectangulo.x;
+    for (let y = minY; y <= maxY; y++) {
+      let x = minX;
       while (x <= maxX) {
         const material = obtenerMaterial(mascara, x, y);
         if (material === 0) {
