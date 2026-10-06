@@ -18,6 +18,26 @@ test("humor-1: un evento de humor dispara una reacción visible y mueve la cáma
     await page.getByTestId("ayuda-cerrar").click();
   }
 
+  // El banner se oculta solo a los 2,6 s, y con la consola superpuesta el
+  // lienzo pinta más: leerlo con varios viajes al navegador (visible, tipo,
+  // texto) dejaba que expirara entre uno y otro. Un observador dentro de la
+  // página anota cada banner que aparece, así la comprobación no depende de
+  // cuándo llegue el test a mirar.
+  await page.evaluate(() => {
+    const vistos: Array<{ tipo: string | null; texto: string }> = [];
+    (window as unknown as { __bannersVistos: typeof vistos }).__bannersVistos = vistos;
+    const anotar = () => {
+      const el = document.querySelector('[data-testid="reaccion-texto"]');
+      if (!el) return;
+      const texto = el.textContent ?? "";
+      const tipo = el.getAttribute("data-tipo-evento");
+      const ultimo = vistos[vistos.length - 1];
+      if (!ultimo || ultimo.tipo !== tipo || ultimo.texto !== texto) vistos.push({ tipo, texto });
+    };
+    new MutationObserver(anotar).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
+    anotar();
+  });
+
   await page.evaluate(() => window.__debug.forzarFinDePartida!());
 
   // La sacudida dura solo 220ms: si el polling arrancara después de las
@@ -43,11 +63,11 @@ test("humor-1: un evento de humor dispara una reacción visible y mueve la cáma
   // orden y el banner se queda con el último, así que se comprueba que lo
   // mostrado es de verdad uno de los eventos de ESTE turno, no que sea
   // necesariamente el autoimpacto que garantizó que hubiera alguno.
-  const banner = page.getByTestId("reaccion-texto");
-  await expect(banner).toBeVisible();
-  const tipoMostrado = await banner.getAttribute("data-tipo-evento");
-  expect(eventos.some((evento) => evento.tipo === tipoMostrado)).toBe(true);
-  expect((await banner.textContent())?.length ?? 0).toBeGreaterThan(0);
+  const bannersVistos = await page.evaluate(
+    () => (window as unknown as { __bannersVistos: Array<{ tipo: string | null; texto: string }> }).__bannersVistos,
+  );
+  expect(bannersVistos.length).toBeGreaterThan(0);
+  expect(bannersVistos.some((b) => b.texto.length > 0 && eventos.some((evento) => evento.tipo === b.tipo))).toBe(true);
 
   // Comprobado por polling (lanzado más arriba, antes de las demás
   // comprobaciones), porque la sacudida es una animación de 220ms, no un
