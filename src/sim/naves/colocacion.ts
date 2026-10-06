@@ -2,7 +2,7 @@ import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { existeTiroViable, RANGO_ANGULOS_IA, RANGO_ANGULOS_JUGADOR } from "@/sim/balistica/rejilla";
 import { esSolido } from "@/sim/terreno/mascara";
-import { generarSistema, MARGEN_CORREDOR_SUPERIOR, type SistemaGenerado } from "@/sim/sistema/generador";
+import { generarSistema, type SistemaGenerado } from "@/sim/sistema/generador";
 import type { EstadoNave, ParametrosMundo } from "@/sim/partida/tipos";
 
 // Las tres holguras que separan "aleatorio" de "aleatorio jugable"
@@ -77,7 +77,12 @@ const FRACCION_SEPARACION_PREFERIDA_N_NAVES = 1 / 8;
 // más el radio del casco (22) y un respiro. Una fracción del alto no servía: la
 // de 0,15 (173) dejaba el casco tocando el botón y solo se aplicaba en un
 // escalón, así que recolocación y regeneración podían poner una nave en y≈18.
-export const MARGEN_HUD_SUPERIOR_N_NAVES_PX = 190;
+//
+// pantalla-completa (pan-7): la etiqueta de deriva (hasta dos líneas, bajo los
+// botones) llega a ~135 px CSS del borde superior; con el mundo a ≥ 0,3 px CSS
+// por u son ~440 u en el viewport más estrecho, así que 190 ya no bastaba y una
+// nave de 3-4 podía quedar tapada por ella. 400 cubre 360x640 (0,344 px/u).
+export const MARGEN_HUD_SUPERIOR_N_NAVES_PX = 400;
 
 export type EscalonColocacion = "recolocacion" | "regeneracion" | "sin-viabilidad" | "corredor";
 

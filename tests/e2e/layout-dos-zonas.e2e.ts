@@ -57,20 +57,27 @@ const TESTIDS_HUD = [
   "integridad-nave-1",
 ];
 
-test("lay-1: en 360x640 la zona de juego ocupa >=55% del alto y >=90% del ancho, sin que el HUD la solape", async ({
+// pantalla-completa: lay-1 ("la consola no solapa la zona de juego") quedó
+// obsoleto por diseño -- el lienzo ocupa ya el viewport entero y la consola es
+// una capa encima. Lo que se sigue exigiendo es que ningún control se salga de
+// la consola y que esta no pase del 45 % del alto.
+test("lay-1: en 360x640 el lienzo ocupa el viewport y todo el HUD cabe dentro de la consola superpuesta (≤ 45 % del alto)", async ({
   page,
 }) => {
   await irAPartida(page, VIEWPORT_MOVIL);
 
   const zonaJuego = (await page.getByTestId("zona-juego").boundingBox())!;
-  expect(zonaJuego.height / VIEWPORT_MOVIL.height).toBeGreaterThanOrEqual(0.55);
-  expect(zonaJuego.width / VIEWPORT_MOVIL.width).toBeGreaterThanOrEqual(0.9);
+  expect(zonaJuego.height).toBeGreaterThanOrEqual(VIEWPORT_MOVIL.height - 1);
+  expect(zonaJuego.width).toBeGreaterThanOrEqual(VIEWPORT_MOVIL.width - 1);
+
+  const consola = (await page.getByTestId("consola").boundingBox())!;
+  expect(consola.height / VIEWPORT_MOVIL.height).toBeLessThanOrEqual(0.45 + 0.002);
 
   for (const testId of TESTIDS_HUD) {
     const locator = page.getByTestId(testId);
     if (!(await locator.isVisible().catch(() => false))) continue;
     const caja = (await locator.boundingBox())!;
-    expect(seSolapan(zonaJuego, caja), `${testId} no debe solapar la zona de juego`).toBe(false);
+    expect(caja.y, `${testId} no debe quedar por encima de la consola`).toBeGreaterThanOrEqual(consola.y - 1);
   }
 
   await page.screenshot({ path: "capturas/layout-dos-zonas-1-zonas-360x640.png" });

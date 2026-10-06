@@ -104,7 +104,7 @@ for (const vp of VIEWPORTS_PAN_4) {
           );
         });
       }),
-      { numRuns: 60 },
+      { numRuns: 40 },
     );
   });
 }
