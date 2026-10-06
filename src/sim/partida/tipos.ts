@@ -1,4 +1,5 @@
 import type { EstadoAleatorio } from "@/sim/aleatorio";
+import type { EstadoRobot } from "@/sim/armas/minirobot";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { Mascara } from "@/sim/terreno/mascara";
 
@@ -97,6 +98,10 @@ export interface EstadoPartida {
   // llevan saldo, también las IAs, y cada arma de pago se cobra al usarla.
   readonly modo?: ModoJuego;
   readonly saldos?: readonly (number | undefined)[];
+  // minirobot: robots posados en un planeta que se mueven al empezar el turno
+  // de su dueño. Ausente (no vacío) mientras no haya ninguno, para que las
+  // partidas sin robots serialicen exactamente igual que antes.
+  readonly robots?: readonly EstadoRobot[];
 }
 
 // El arma es un identificador de texto y nada más: el catálogo declarativo

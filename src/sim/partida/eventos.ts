@@ -110,6 +110,20 @@ export type EventoSimulacion =
       readonly y: number;
       readonly reserva: "ninguna" | "mas-lejano" | "se-queda";
     }
+  // minirobot: el robot se ha posado tras el disparo, ha saltado a otro planeta
+  // (con el número de saltos hechos) o ha detonado sobre su objetivo. La
+  // detonación llega además en resultadoTurno.detonaciones para dibujarla.
+  | { readonly tipo: "robot-posado"; readonly nave: IdNave; readonly x: number; readonly y: number }
+  | {
+      readonly tipo: "robot-salta";
+      readonly nave: IdNave;
+      readonly desdeX: number;
+      readonly desdeY: number;
+      readonly x: number;
+      readonly y: number;
+      readonly saltos: number;
+    }
+  | { readonly tipo: "robot-detona"; readonly nave: IdNave; readonly objetivo: IdNave; readonly x: number; readonly y: number; readonly danio: number }
   | { readonly tipo: "turno-fin"; readonly siguienteTurno: IdNave }
   // nucleo-n-naves: ganador nullable -- empate real cuando un disparo de
   // área deja sin vida a las dos últimas naves en pie a la vez.

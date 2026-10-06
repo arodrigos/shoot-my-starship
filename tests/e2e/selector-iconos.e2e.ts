@@ -3,16 +3,19 @@ import { abrirSelector, dispararConSolucionExacta, empezarPresupuesto, esperarJu
 
 // cat-3: de punta a punta por la UI real, a 360x640. Una celda con icono por
 // arma, pulsable con comodidad, y el arma elegida es la que se dispara.
+// El minirobot subió el catálogo de 14 a 15 armas: el conteo es parte de lo que se comprueba.
+const ARMAS_EN_CATALOGO = 15;
+
 test("selector-iconos: una celda con icono por arma, ≥ 44 px y 6 px de separación, sin scroll horizontal", async ({ page }) => {
   test.setTimeout(240000);
   await empezarPresupuesto(page, { saldo: 60 });
   await abrirSelector(page);
 
   const celdas = page.locator('[data-testid^="arma-"]');
-  expect(await celdas.count()).toBe(14);
+  expect(await celdas.count()).toBe(ARMAS_EN_CATALOGO);
 
   const cajas: { x: number; y: number; width: number; height: number }[] = [];
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < ARMAS_EN_CATALOGO; i++) {
     const celda = celdas.nth(i);
     await celda.scrollIntoViewIfNeeded();
     const caja = (await celda.boundingBox())!;

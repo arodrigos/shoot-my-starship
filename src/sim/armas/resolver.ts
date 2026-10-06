@@ -607,7 +607,7 @@ function resolverPuntosDeImpacto(
   };
 }
 
-function aplicarHuellaDeArma(mascara: Mascara, arma: Arma, punto: PuntoDeImpacto): void {
+export function aplicarHuellaDeArma(mascara: Mascara, arma: Arma, punto: PuntoDeImpacto): void {
   if (arma.huella.tipo === "circular") {
     aplicarHuellaCircular(mascara, punto.x, punto.y, arma.huella.radio, arma.huella.signo);
   } else if (arma.huella.tipo === "capsula") {
@@ -740,7 +740,13 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     rastreadorNaves,
   );
 
-  if (fallo || proyectilPerdido) {
+  // minirobot: el vuelo acaba en un planeta y ahí se queda; ni cráter ni daño
+  // hasta que avanzar() lo haga detonar en un turno posterior. Si ha tocado un
+  // casco, en cambio, detona al instante como cualquier otra arma.
+  const robotPosado =
+    arma.comportamiento.tipo === "minirobot" && puntosDeImpacto.length > 0 && puntosDeImpacto[0].impactoNave === undefined;
+
+  if (fallo || proyectilPerdido || robotPosado) {
     const danioPorPunto = puntosDeImpacto.map(() => 0);
     return {
       mascara,
