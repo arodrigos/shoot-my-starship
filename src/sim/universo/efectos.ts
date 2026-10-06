@@ -1,0 +1,257 @@
+import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
+import { recalcularRegistro } from "@/sim/gravedad/planetas";
+import { octavoDelMundo } from "@/sim/naves/desplazamiento";
+import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { esPosicionValida, type PuntoNave } from "@/sim/naves/zonaValida";
+import type { EventoSimulacion } from "@/sim/partida/eventos";
+import { idsNavesVivas, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
+import { PREMIO_LOTERIA } from "@/sim/economia/parametros";
+import type { Mascara } from "@/sim/terreno/mascara";
+import { programarSiguiente, sortearIndice, type ContextoSorteo } from "@/sim/universo/calendario";
+import { sortearEventoGratis } from "@/sim/universo/disparoGratis";
+import type { EfectoActivo, EstadoUniverso, EventoProgramado, FasePartida, TipoEfecto } from "@/sim/universo/tipos";
+
+export const TURNOS_EFECTO_NAVE = 3;
+export const FACTOR_VITAMINAS = 2;
+export const FACTOR_VIRUS = 0.5;
+export const FRACCION_REPARACION = 0.5;
+// Aceleración que el viento solar suma a mundo.deriva (los mapas de suelo plano
+// van de -18 a 26); el signo se sortea.
+export const DERIVA_VIENTO_SOLAR = 20;
+const MAX_CANDIDATOS_TERREMOTO = 64;
+
+type EstadoSinUniverso = Omit<EstadoPartida, "universo">;
+
+// El universo solo existe si alguien lo activa: las partidas de simulación
+// masiva (ia-*, armas-*) siguen idénticas bit a bit sin eventos.
+export function conUniverso(estado: EstadoPartida): EstadoPartida {
+  const aleatorio = crearEstadoAleatorio((estado.aleatorio.semilla ^ 0x9e3779b9) >>> 0);
+  const sorteo = programarSiguiente(aleatorio, contextoDe(estado));
+  const universo: EstadoUniverso = {
+    aleatorio: sorteo.aleatorio,
+    proximo: sorteo.evento,
+    efectos: [],
+    mascaraInicial: { ...estado.mascara, datos: estado.mascara.datos.slice() },
+  };
+  return { ...estado, universo };
+}
+
+export function faseDe(estado: EstadoPartida): FasePartida {
+  return estado.muerteSubita === true ? "muerte-subita" : "normal";
+}
+
+function contextoDe(estado: EstadoSinUniverso & { muerteSubita?: boolean }): ContextoSorteo {
+  return {
+    modo: estado.modo,
+    fase: estado.muerteSubita === true ? "muerte-subita" : "normal",
+    vivas: idsNavesVivas(estado as EstadoPartida),
+  };
+}
+
+// Multiplicador de daño de los efectos de la nave que dispara. Vitaminas y
+// virus no se acumulan: uno nuevo sustituye al anterior (ver sustituirEfecto).
+export function factorDanio(estado: EstadoPartida, nave: IdNave): number {
+  const efecto = estado.universo?.efectos.find((candidato) => candidato.nave === nave);
+  if (efecto?.tipo === "vitaminas") return FACTOR_VITAMINAS;
+  if (efecto?.tipo === "virus") return FACTOR_VIRUS;
+  return 1;
+}
+
+function sustituirEfecto(efectos: readonly EfectoActivo[], nuevo: EfectoActivo): EfectoActivo[] {
+  return [...efectos.filter((efecto) => efecto.nave === undefined || efecto.nave !== nuevo.nave), nuevo];
+}
+
+// Los globales se aplican sobre el mismo estado que leen la previsualización y
+// el vuelo (densidad de los planetas, gravedad y deriva del mundo): no existe un
+// multiplicador «solo de vuelo» que pudiera hacer mentir al trazo.
+function conGravedad(estado: EstadoPartida, factor: number): EstadoPartida {
+  return {
+    ...estado,
+    mundo: { ...estado.mundo, gravedad: estado.mundo.gravedad * factor },
+    planetas: estado.planetas?.map((planeta) => ({ ...planeta, densidad: planeta.densidad * factor })),
+  };
+}
+
+function conDeriva(estado: EstadoPartida, suma: number): EstadoPartida {
+  return { ...estado, mundo: { ...estado.mundo, deriva: estado.mundo.deriva + suma } };
+}
+
+// Una ronda = tantos turnos como naves vivas hay al empezar el efecto.
+function turnosDeRonda(estado: EstadoPartida): number {
+  return idsNavesVivas(estado).length;
+}
+
+function terremoto(estado: EstadoPartida, aleatorioInicial: EstadoAleatorio): { naves: EstadoNave[]; aleatorio: EstadoAleatorio } {
+  const octavo = octavoDelMundo(estado.mundo);
+  const naves = [...estado.naves];
+  let aleatorio = aleatorioInicial;
+  naves.forEach((nave, id) => {
+    if (nave.integridad <= 0 || nave.y === undefined) return;
+    const otras: PuntoNave[] = naves.flatMap((otra, idOtra) => (idOtra !== id && otra.integridad > 0 && otra.y !== undefined ? [{ x: otra.x, y: otra.y }] : []));
+    for (let candidato = 0; candidato < MAX_CANDIDATOS_TERREMOTO; candidato++) {
+      const angulo = sortearIndice(aleatorio, 3600);
+      const distancia = sortearIndice(angulo.aleatorio, 1001);
+      aleatorio = distancia.aleatorio;
+      const radio = octavo * (1 + distancia.indice / 1000);
+      const radianes = (angulo.indice / 3600) * 2 * Math.PI;
+      const punto = { x: nave.x + radio * Math.cos(radianes), y: (nave.y as number) + radio * Math.sin(radianes) };
+      if (esPosicionValida(punto, estado.mundo, estado.mascara, otras)) {
+        naves[id] = { ...nave, x: punto.x, y: punto.y };
+        return;
+      }
+    }
+  });
+  return { naves, aleatorio };
+}
+
+// Devuelve a cada planeta la mitad de lo que le falta, de dentro afuera y sin
+// pisar ningún casco vivo, y recalcula la masa.
+function repararPlanetas(estado: EstadoPartida, inicial: Mascara): { mascara: Mascara; planetas: EstadoPartida["planetas"] } {
+  const planetas = estado.planetas;
+  if (planetas === undefined) return { mascara: estado.mascara, planetas };
+  const datos = estado.mascara.datos.slice();
+  const ancho = estado.mascara.ancho;
+  const cascos = estado.naves.flatMap((nave) => (nave.integridad > 0 && nave.y !== undefined ? [{ x: nave.x, y: nave.y }] : []));
+  for (const planeta of planetas) {
+    const perdidos: { indice: number; distancia: number }[] = [];
+    for (let indice = 0; indice < datos.length; indice++) {
+      if (inicial.datos[indice] !== planeta.id || datos[indice] === planeta.id) continue;
+      const x = indice % ancho;
+      const y = Math.floor(indice / ancho);
+      if (cascos.some((casco) => Math.hypot(casco.x - x, casco.y - y) <= RADIO_CASCO_NAVE_PX)) continue;
+      perdidos.push({ indice, distancia: Math.hypot(x - planeta.cx, y - planeta.cy) });
+    }
+    perdidos.sort((a, b) => a.distancia - b.distancia || a.indice - b.indice);
+    const cuantos = Math.floor(perdidos.length * FRACCION_REPARACION);
+    for (let i = 0; i < cuantos; i++) datos[perdidos[i].indice] = planeta.id;
+  }
+  const mascara = { ...estado.mascara, datos };
+  return { mascara, planetas: recalcularRegistro(planetas, mascara) };
+}
+
+// Aplica un evento ya sorteado. Si el afectado ha muerto entre el aviso y el
+// disparo, el evento se anuncia como perdido en vez de caer sobre otra nave:
+// el pronóstico no puede mentir.
+export function aplicarEvento(
+  estado: EstadoPartida,
+  evento: EventoProgramado,
+  origen: "calendario" | "arma-gratis",
+): { estado: EstadoPartida; eventos: EventoSimulacion[] } {
+  const universo = estado.universo as EstadoUniverso;
+  const anuncio = { tipo: "evento-universo" as const, evento: evento.tipo, nave: evento.afectado, origen };
+  if (estado.naves[evento.afectado].integridad <= 0) {
+    return { estado, eventos: [{ ...anuncio, perdido: true }] };
+  }
+  let siguiente: EstadoPartida = estado;
+  let efectos = universo.efectos;
+  let aleatorio = universo.aleatorio;
+  const duracionGlobal = turnosDeRonda(estado);
+  switch (evento.tipo) {
+    case "loteria": {
+      const saldo = estado.saldos?.[evento.afectado];
+      if (saldo !== undefined) {
+        siguiente = { ...estado, saldos: estado.saldos?.map((valor, id) => (id === evento.afectado && valor !== undefined ? valor + PREMIO_LOTERIA : valor)) };
+      }
+      break;
+    }
+    case "vitaminas":
+    case "virus":
+      efectos = sustituirEfecto(efectos, { tipo: evento.tipo, nave: evento.afectado, turnosRestantes: TURNOS_EFECTO_NAVE });
+      break;
+    case "reparacion": {
+      const reparado = repararPlanetas(estado, universo.mascaraInicial);
+      siguiente = { ...estado, mascara: reparado.mascara, planetas: reparado.planetas };
+      break;
+    }
+    case "terremoto": {
+      const movido = terremoto(estado, aleatorio);
+      siguiente = { ...estado, naves: movido.naves };
+      aleatorio = movido.aleatorio;
+      break;
+    }
+    case "gravedad-x2":
+    case "gravedad-mitad": {
+      // Un efecto de gravedad nuevo sustituye al anterior: primero se deshace
+      // el viejo para que los factores no se multipliquen entre sí.
+      efectos.filter((efecto) => efecto.tipo === "gravedad-x2" || efecto.tipo === "gravedad-mitad").forEach((previo) => {
+        siguiente = deshacerEfecto(siguiente, previo);
+      });
+      siguiente = conGravedad(siguiente, evento.tipo === "gravedad-x2" ? 2 : 0.5);
+      efectos = [...efectos.filter((efecto) => efecto.tipo !== "gravedad-x2" && efecto.tipo !== "gravedad-mitad"), { tipo: evento.tipo, turnosRestantes: duracionGlobal }];
+      break;
+    }
+    case "viento-solar": {
+      const signo = sortearIndice(aleatorio, 2);
+      aleatorio = signo.aleatorio;
+      const suma = signo.indice === 0 ? DERIVA_VIENTO_SOLAR : -DERIVA_VIENTO_SOLAR;
+      const previos = efectos.filter((efecto) => efecto.tipo === "viento-solar");
+      previos.forEach((previo) => {
+        siguiente = conDeriva(siguiente, -(previo.derivaAnadida ?? 0));
+      });
+      siguiente = conDeriva(siguiente, suma);
+      efectos = [...efectos.filter((efecto) => efecto.tipo !== "viento-solar"), { tipo: "viento-solar", turnosRestantes: duracionGlobal, derivaAnadida: suma }];
+      break;
+    }
+  }
+  return { estado: { ...siguiente, universo: { ...universo, aleatorio, efectos } }, eventos: [anuncio] };
+}
+
+function deshacerEfecto(estado: EstadoPartida, efecto: EfectoActivo): EstadoPartida {
+  switch (efecto.tipo as TipoEfecto) {
+    case "gravedad-x2":
+      return conGravedad(estado, 0.5);
+    case "gravedad-mitad":
+      return conGravedad(estado, 2);
+    case "viento-solar":
+      return conDeriva(estado, -(efecto.derivaAnadida ?? 0));
+    default:
+      return estado;
+  }
+}
+
+// Cierre de turno del universo: gasta los efectos, resuelve el disparo gratis y
+// avanza el calendario, en ese orden. Un efecto recién aplicado no se gasta en
+// el mismo cierre, así que vitaminas dura exactamente 3 turnos propios.
+export function avanzarUniverso(
+  estado: EstadoPartida,
+  cierre: { readonly tirador: IdNave; readonly armaGratis: boolean },
+): { estado: EstadoPartida; eventos: EventoSimulacion[] } {
+  const universoInicial = estado.universo;
+  if (universoInicial === undefined) return { estado, eventos: [] };
+  const eventos: EventoSimulacion[] = [];
+
+  let actual: EstadoPartida = estado;
+  const vigentes: EfectoActivo[] = [];
+  for (const efecto of universoInicial.efectos) {
+    const gasta = efecto.nave === undefined || efecto.nave === cierre.tirador;
+    const restantes = gasta ? efecto.turnosRestantes - 1 : efecto.turnosRestantes;
+    if (restantes > 0) vigentes.push({ ...efecto, turnosRestantes: restantes });
+    else actual = deshacerEfecto(actual, efecto);
+  }
+  actual = { ...actual, universo: { ...universoInicial, efectos: vigentes } };
+
+  if (cierre.armaGratis && actual.modo === "presupuesto") {
+    const universo = actual.universo as EstadoUniverso;
+    const sorteo = sortearEventoGratis(universo.aleatorio, contextoDe(actual));
+    actual = { ...actual, universo: { ...universo, aleatorio: sorteo.aleatorio } };
+    if (sorteo.evento !== null) {
+      const aplicado = aplicarEvento(actual, sorteo.evento, "arma-gratis");
+      actual = aplicado.estado;
+      eventos.push(...aplicado.eventos);
+    }
+  }
+
+  const universo = actual.universo as EstadoUniverso;
+  const enTurnos = universo.proximo.enTurnos - 1;
+  if (enTurnos > 0) {
+    return { estado: { ...actual, universo: { ...universo, proximo: { ...universo.proximo, enTurnos } } }, eventos };
+  }
+  const aplicado = aplicarEvento(actual, universo.proximo, "calendario");
+  eventos.push(...aplicado.eventos);
+  const universoTrasEvento = aplicado.estado.universo as EstadoUniverso;
+  const siguiente = programarSiguiente(universoTrasEvento.aleatorio, contextoDe(aplicado.estado));
+  return {
+    estado: { ...aplicado.estado, universo: { ...universoTrasEvento, aleatorio: siguiente.aleatorio, proximo: siguiente.evento } },
+    eventos,
+  };
+}

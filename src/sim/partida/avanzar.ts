@@ -1,6 +1,7 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/armas/resolver";
 import { crearRobot, faseDeRobots, type EstadoRobot } from "@/sim/armas/minirobot";
+import { avanzarUniverso, factorDanio } from "@/sim/universo/efectos";
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
 import { armaEfectiva, costeArma } from "@/sim/partida/economia";
 import { categorizarResultado, type CategoriaBroma } from "@/sim/partida/categoriaBroma";
@@ -69,7 +70,15 @@ export function avanzar(
     throw new Error(`avanzar: objetivoId inválido (${objetivoId}) para el tirador ${tirador}`);
   }
   const presupuesto = estado.modo === "presupuesto";
-  const arma = armaEfectiva(buscarArma(entrada.arma), presupuesto);
+  const armaBase = armaEfectiva(buscarArma(entrada.arma), presupuesto);
+  // eventos-universo: vitaminas y virus escalan el daño del arma, no su
+  // alcance ni su precio; la previsualización no muestra daño, así que no hay
+  // nada que desincronizar.
+  const factor = factorDanio(estado, tirador);
+  const arma =
+    factor !== 1 && (armaBase.efecto.tipo === "danio" || armaBase.efecto.tipo === "danio-y-autodanio")
+      ? { ...armaBase, efecto: { ...armaBase.efecto, danioMaximo: armaBase.efecto.danioMaximo * factor } }
+      : armaBase;
 
   // economia-rectificada: el arma de pago se cobra al usarla, no al elegirla.
   // El guardián vive aquí (y no solo en el HUD) porque avanzar() es la fuente
@@ -446,6 +455,7 @@ export function avanzar(
     eventos,
     detonaciones,
     categoriaBroma,
+    armaGratis: presupuesto && costeArma(arma) === 0,
   });
 }
 
@@ -503,6 +513,7 @@ function avanzarConEquipo(
     eventos,
     detonaciones: [],
     categoriaBroma: undefined,
+    armaGratis: false,
   });
 }
 
@@ -518,12 +529,13 @@ interface ContextoCierre {
   readonly eventos: EventoSimulacion[];
   readonly detonaciones: Detonacion[];
   readonly categoriaBroma: CategoriaBroma | undefined;
+  readonly armaGratis: boolean;
 }
 
 // Cierre común a todo turno (disparo, escudo o propulsores): fase de robots del
 // siguiente jugador, fin de partida, relevo y cuenta atrás de su escudo.
 function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
-  const { estado, tirador, naves, mascara, planetas, aleatorio: aleatorioInicial, robots, saldos, eventos, detonaciones, categoriaBroma } = contexto;
+  const { estado, tirador, naves, mascara, planetas, aleatorio: aleatorioInicial, robots, saldos, eventos, detonaciones, categoriaBroma, armaGratis } = contexto;
   // minirobot: al empezar el turno de su dueño, sin gastarle el turno. Se
   // resuelve aquí, al cerrar el turno anterior, porque el estado que ve el
   // jugador al empezar ya es el de después de que sus robots se muevan.
@@ -583,8 +595,8 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
 
   const proximoTurno = siguienteTurno({ ...estado, naves: navesFinal }, tirador);
   eventos.push({ tipo: "turno-fin", siguienteTurno: proximoTurno });
-  return {
-    estado: {
+  const universo = avanzarUniverso(
+    {
       ...sinRobots(estado),
       mascara: mascaraFinal,
       naves: gastarTurnoDeEscudo(navesFinal, proximoTurno),
@@ -595,10 +607,10 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
       saldos,
       ...conRobots(robotsFinal),
     },
-    eventos,
-    categoriaBroma,
-    detonaciones: detonacionesFinal,
-  };
+    { tirador, armaGratis },
+  );
+  eventos.push(...universo.eventos);
+  return { estado: universo.estado, eventos, categoriaBroma, detonaciones: detonacionesFinal };
 }
 
 function sinRobots(estado: EstadoPartida): EstadoPartida {

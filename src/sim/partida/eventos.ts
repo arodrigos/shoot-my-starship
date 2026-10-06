@@ -1,4 +1,5 @@
 import type { IdNave } from "@/sim/partida/tipos";
+import type { TipoEvento as TipoEventoUniverso } from "@/sim/universo/tipos";
 
 // Los siete tipos de evento de humor (humor-sistemico): un tipo aparte para
 // que el selector de frases y el banco de reacciones indexen por él sin
@@ -30,6 +31,15 @@ export const TIPOS_EVENTO_HUMOR: readonly TipoEventoHumor[] = [
 // discriminada es aditivo; avanzar() ya podía emitirlos sin que este fichero
 // necesitara ninguna otra forma nueva.
 export type EventoSimulacion =
+  | {
+      // eventos-universo: un evento del catálogo ha ocurrido. `perdido` si su
+      // afectado murió antes de que llegara.
+      readonly tipo: "evento-universo";
+      readonly evento: TipoEventoUniverso;
+      readonly nave: IdNave;
+      readonly origen: "calendario" | "arma-gratis";
+      readonly perdido?: boolean;
+    }
   | {
       readonly tipo: "disparo";
       readonly nave: IdNave;
