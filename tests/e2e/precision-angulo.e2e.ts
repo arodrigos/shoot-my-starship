@@ -34,7 +34,9 @@ test("precision-angulo: arrastre en el lienzo y ≤ 5 toques finos dejan el áng
       await page.getByTestId(diferencia > 0 ? "paso-angulo-mas" : "paso-angulo-menos").click();
     }
     const final = await page.evaluate(() => window.__debug.control!.ajuste.anguloGrados);
-    expect(final).toBeCloseTo(objetivo, 5);
+    // Distancia circular: tras un arrastre 0° puede quedar en 359,999997°.
+    const distanciaFinal = Math.min(Math.abs(final - objetivo), 360 - Math.abs(final - objetivo));
+    expect(distanciaFinal).toBeLessThan(0.05);
     await expect(page.getByTestId("valor-angulo")).toHaveText(`${objetivo.toFixed(1).replace(".", ",")}°`);
   }
 });
