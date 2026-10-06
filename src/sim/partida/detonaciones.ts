@@ -1,5 +1,6 @@
 import type { Arma } from "@/sim/armas/tipos";
 import type { PuntoDeImpacto } from "@/sim/armas/resolver";
+import { radioEfectoEnMundo } from "@/sim/armas/radioEfecto";
 import { esSolido, type Mascara } from "@/sim/terreno/mascara";
 
 // explosiones-visuales: lo que el núcleo declara de CADA detonación real, para
@@ -28,7 +29,9 @@ const DESPLAZAMIENTOS_SONDA: readonly (readonly [number, number])[] = [
 
 // El empuje (Gravitón) no declara radio de efecto: lo que enseña su onda es
 // el área que talla en el terreno.
-export function radioEfectoDeArma(arma: Arma): number {
+// Sin tamaño de mundo, un arma de onda relativa (gancho) da su valor nominal.
+export function radioEfectoDeArma(arma: Arma, ancho?: number, alto?: number): number {
+  if (ancho !== undefined && alto !== undefined) return radioEfectoEnMundo(arma, ancho, alto);
   if (arma.efecto.tipo !== "empuje") return arma.efecto.radioEfectoPx;
   return arma.huella.tipo === "ninguna" ? 0 : arma.huella.radio;
 }
@@ -40,8 +43,9 @@ export function detonacionesDeDisparo(
   puntos: readonly PuntoDeImpacto[],
   danioPorPunto: readonly number[],
   mascaraAntes: Mascara,
+  mundo?: { readonly ancho: number; readonly alto: number },
 ): Detonacion[] {
-  const radioEfectoU = radioEfectoDeArma(arma);
+  const radioEfectoU = radioEfectoDeArma(arma, mundo?.ancho, mundo?.alto);
   return puntos.map((punto, indice) => {
     const danioAplicado = danioPorPunto[indice] ?? 0;
     const sobreSolido = DESPLAZAMIENTOS_SONDA.some(([dx, dy]) =>

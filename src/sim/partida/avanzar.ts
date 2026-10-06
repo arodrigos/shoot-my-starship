@@ -3,6 +3,7 @@ import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/arma
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
 import { armaEfectiva, costeArma } from "@/sim/partida/economia";
 import { categorizarResultado, type CategoriaBroma } from "@/sim/partida/categoriaBroma";
+import { radioEfectoEnMundo } from "@/sim/armas/radioEfecto";
 import { detonacionesDeDisparo, type Detonacion } from "@/sim/partida/detonaciones";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import {
@@ -143,7 +144,7 @@ export function avanzar(
     eventos.push({ tipo: "proyectil-perdido", nave: tirador });
   }
 
-  const detonaciones = detonacionesDeDisparo(arma, resultado.puntosDeImpacto, resultado.danioPorPunto, estado.mascara);
+  const detonaciones = detonacionesDeDisparo(arma, resultado.puntosDeImpacto, resultado.danioPorPunto, estado.mascara, estado.mundo);
 
   resultado.puntosDeImpacto.forEach((punto, indice) => {
     eventos.push({
@@ -350,11 +351,12 @@ function danioATercerasNaves(
   const efecto = arma.efecto;
   if (resultado.fallo || resultado.proyectilPerdido) return danios;
   if (efecto.tipo !== "danio" && efecto.tipo !== "danio-y-autodanio") return danios;
+  const radio = radioEfectoEnMundo(arma, estado.mundo.ancho, estado.mundo.alto);
   estado.naves.forEach((nave, id) => {
     if (id === tirador || id === objetivoId || nave.integridad <= 0) return;
     const y = nave.y ?? alturaSuperficie(estado.mascara, nave.x) ?? estado.mundo.alto - 1;
     const danio = resultado.puntosDeImpacto.reduce(
-      (total, punto) => total + danioPorDistancia(efecto.radioEfectoPx, efecto.danioMaximo, Math.hypot(punto.x - nave.x, punto.y - y)),
+      (total, punto) => total + danioPorDistancia(radio, efecto.danioMaximo, Math.hypot(punto.x - nave.x, punto.y - y)),
       0,
     );
     if (danio > 0) danios.set(id, danio);

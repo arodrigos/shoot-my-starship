@@ -25,7 +25,6 @@ export const LA_CONTABLE: Personalidad = {
   // es una lotería) y las de daño cero (Vertedero, Gravitón).
   ordenPreferenciaArmas: [
     "despedida",
-    "tostadora-orbital",
     "mortero-lamentable",
     "pepinazo-cortesia",
     "pelota-de-chatarra",
@@ -64,7 +63,6 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
     "mortero-lamentable",
     "despedida",
     "pepinazo-cortesia",
-    "tostadora-orbital",
     "pelota-de-chatarra",
     "zanjadora-manolita",
     "graviton-segunda-mano",
@@ -104,7 +102,6 @@ export const CHISPA: Personalidad = {
     "pelota-de-chatarra",
     "racimo-de-tuppers",
     "mortero-lamentable",
-    "tostadora-orbital",
     "pepinazo-cortesia",
     "despedida",
   ],

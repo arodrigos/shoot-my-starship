@@ -22,6 +22,7 @@ import type { Arma } from "@/sim/armas/tipos";
 export const CATALOGO_ARMAS: readonly Arma[] = [
   {
     id: "pepinazo-cortesia",
+    verbo: "estallar",
     nombre: "Pepinazo de Cortesía",
     descripcion:
       "El arma que viene de serie. Hace exactamente lo que promete y nada más, como un funcionario a las dos menos cinco.",
@@ -33,18 +34,8 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     rol: "equilibrada: ni la más floja ni la más fuerte",
   },
   {
-    id: "tostadora-orbital",
-    nombre: "Tostadora Orbital",
-    descripcion: "Alguien le quitó la resistencia a una tostadora y le atornilló un cañón. Sale recta, sale rápida y el impacto huele a desayuno.",
-    comportamiento: { tipo: "impacto-simple" },
-    huella: { tipo: "circular", radio: 26, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 42, danioMaximo: 32 },
-    fiabilidad: 1,
-    coste: 75,
-    rol: "daño alto con radio contenido: exige puntería, no regala área",
-  },
-  {
     id: "mortero-lamentable",
+    verbo: "lobear",
     nombre: "Mortero Lamentable",
     descripcion: "Sube tanto que da tiempo a arrepentirse, redactar una disculpa y verla bajar.",
     comportamiento: { tipo: "impacto-simple" },
@@ -60,6 +51,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   },
   {
     id: "zanjadora-manolita",
+    verbo: "excavar",
     nombre: "Zanjadora Manolita",
     descripcion: "No mata a nadie. Reorganiza el planeta, que a la larga es peor.",
     comportamiento: { tipo: "impacto-simple" },
@@ -71,6 +63,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   },
   {
     id: "vertedero-portatil",
+    verbo: "rellenar",
     nombre: "Vertedero Portátil",
     descripcion: "La única arma que aumenta el patrimonio del enemigo mientras le arruina la vida.",
     comportamiento: { tipo: "impacto-simple" },
@@ -88,6 +81,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   },
   {
     id: "racimo-de-tuppers",
+    verbo: "esparcir",
     nombre: "Racimo de Tuppers",
     descripcion: "Se abre a media altura y reparte. Nadie ha conseguido saber qué había dentro y nadie quiere.",
     comportamiento: { tipo: "submuniciones", cantidad: 5, dispersionPxS: 220 },
@@ -99,6 +93,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   },
   {
     id: "petardo-de-feria",
+    verbo: "chisporrotear",
     nombre: "Petardo de Feria",
     descripcion: "Fabricado un jueves. Funciona tres de cada cuatro veces, y la cuarta es la graciosa.",
     comportamiento: { tipo: "impacto-simple" },
@@ -114,6 +109,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   },
   {
     id: "pelota-de-chatarra",
+    verbo: "rodar",
     nombre: "La Pelota de Chatarra",
     descripcion: "Paciente. Va bajando. Encuentra tu agujero antes que tú.",
     comportamiento: { tipo: "rodante", distanciaMaximaPx: 140, pasoPx: 4 },
@@ -125,6 +121,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   },
   {
     id: "graviton-segunda-mano",
+    verbo: "empujar",
     nombre: "Gravitón de Segunda Mano",
     descripcion: "No te hace daño: te cambia de sitio. El daño lo eliges tú al aterrizar.",
     comportamiento: { tipo: "impacto-simple" },
@@ -141,6 +138,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   },
   {
     id: "despedida",
+    verbo: "inmolar",
     nombre: "Despedida",
     descripcion: "Se dispara desde el propio casco. Si te la juegas, hazlo con estilo.",
     comportamiento: { tipo: "impacto-simple" },
@@ -165,20 +163,8 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   // romper imp-*/ia-* que las referencian por id, y arm-1/arm-2 solo piden
   // "10 armas o más" con los ejes nuevos presentes, no un recuento exacto.
   {
-    id: "andanada-de-flechas",
-    nombre: "Andanada de Flechas",
-    descripcion: "Tres a la vez, en abanico. Ninguna con puntería, pero entre las tres siempre hay alguna maleducada.",
-    comportamiento: { tipo: "impacto-simple" },
-    huella: { tipo: "circular", radio: 14, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 34, danioMaximo: 16 },
-    fiabilidad: 1,
-    coste: 105,
-    dispersionGrados: 3,
-    disparosSimultaneos: { cantidad: 3, aperturaGrados: 12 },
-    rol: "tres proyectiles en abanico: cubre un ángulo, no un punto",
-  },
-  {
     id: "barrena-planetaria",
+    verbo: "perforar",
     nombre: "Barrena Planetaria",
     descripcion: "No detona al tocar tierra: sigue. Sale por el otro lado, si el otro lado existe.",
     comportamiento: { tipo: "impacto-simple" },
@@ -195,6 +181,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   },
   {
     id: "rayo-laser",
+    verbo: "fulminar",
     nombre: "Rayo Láser",
     descripcion: "Va recto porque la gravedad no le ha convencido nunca. Cara, pero convence a quien la paga.",
     comportamiento: { tipo: "instantaneo" },
@@ -226,6 +213,8 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // comparación sin cambiar el papel de "la más cara tras Despedida".
     coste: 115,
     inmuneAGravedad: true,
+    // cat-2: el haz atraviesa hasta 40 u de roca antes de detonar.
+    penetracionPx: 40,
     rol: "recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso",
   },
   // arma-mosca (mos-1..mos-5): la que pidió Adrián en persona -- no sigue la
@@ -235,6 +224,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   // eje distinto ya cubierto por otra arma.
   {
     id: "mosca-cojonera",
+    verbo: "revolotear",
     nombre: "Mosca Cojonera",
     descripcion:
       "Sale del cañón y decide por su cuenta. No es que falle: es que tiene otros planes hasta que choca con algo.",
@@ -256,6 +246,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   // disparo pase lo que pase por el camino.
   {
     id: "granada-de-espoleta",
+    verbo: "temporizar",
     nombre: "Granada de Espoleta",
     descripcion: "Cuenta hasta cinco en voz alta desde que sale del cañón. Le da igual dónde esté cuando llegue.",
     comportamiento: { tipo: "mecha", segundosHastaDetonar: 5 },
@@ -278,6 +269,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
   // pega (notaAyuda de cada una lo deja explícito, min-5).
   {
     id: "gancho-pegajoso",
+    verbo: "agarrar",
     nombre: "Gancho Pegajoso",
     descripcion: "No explota al llegar. Se agarra, espera cinco segundos y entonces sí, con toda la mala fe del mundo.",
     comportamiento: { tipo: "adherente-con-mecha", segundosHastaDetonar: 5 },
@@ -287,15 +279,23 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // cae donde la física decida; un pelín más concentrada y algo más
     // dañina a cambio.
     huella: { tipo: "circular", radio: 34, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 38, danioMaximo: 40 },
+    // cat-4: radioEfectoPx es solo el valor nominal; el radio real de la onda
+    // es un octavo de la diagonal del mundo (ondaFraccionDiagonal), que
+    // radioEfectoEnMundo() resuelve con el tamaño real de cada partida.
+    efecto: { tipo: "danio", radioEfectoPx: 38, danioMaximo: 24 },
+    ondaFraccionDiagonal: 1 / 8,
     fiabilidad: 1,
-    coste: 85,
-    notaAyuda: "La cuenta empieza al pegarse, no al disparar: se queda fija donde toque y explota 5 s después.",
+    // Con la onda de 1/8 de diagonal su facilidad medida sube a ~8 %: pegarse y
+    // explotar con tanta área ya no es "difícil". Se baja el daño máximo (cae
+    // linealmente con la distancia) y se sube el precio para que no domine al
+    // Racimo de Tuppers (dominancia de armas-metrica).
+    coste: 115,
+    notaAyuda: "La cuenta empieza al pegarse, no al disparar: solo se agarra a un planeta o a una nave (nunca al borde) y su onda daña menos cuanto más lejos.",
     bromaPropia: {
       disparo: ["Ahí va, a buscar dónde agarrarse."],
       impacto: ["Se pegó, contó hasta cinco y cumplió su palabra."],
     },
-    rol: "se pega donde toque primero: elige el punto, no el momento, y pega fuerte",
+    rol: "se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos",
   },
 ];
 

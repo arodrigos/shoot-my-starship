@@ -95,44 +95,19 @@ test("min-1: un disparo que corta un casco se pega en el punto de contacto con l
   assert.equal(resultado.puntosDeImpacto[0].impactoNave, 1, "debe quedar pegada a la nave rival, no a ninguna otra superficie");
 });
 
-// min-1 (camino crítico): el caso límite que corrige la suposición original
-// de vuelo-extensible -- una órbita multipozo estable (grav-6) donde
-// `detenerse` nunca se cumple y el vuelo agota su presupuesto. Para
-// cualquier otra arma esto es "proyectil-perdido" legítimo (grav-6); para la
-// mina NO puede serlo, porque "ningún turno se queda sin resultado" (min-1)
-// es una exigencia explícita del diseño. Reconstruye el fixture de grav-6
-// pasando por la interfaz pública de ángulo/potencia (en vez de inyectar el
-// EstadoProyectil directamente, como hace grav-6 contra simularVuelo): 90°
-// exactos anula la componente x salvo el error de redondeo de coma flotante
-// de Math.cos(pi/2) (~1.8e-14 px/s), catorce órdenes de magnitud por debajo
-// de la velocidad orbital -- perturbación despreciable frente a los 720
-// pasos de presupuesto, pero real, así que primero se confirma con
-// simularVuelo que la órbita sigue sin tocar nada con esa perturbación
-// incluida.
-test("min-1: una órbita multipozo estable que nunca toca nada detona igualmente al agotar el presupuesto, nunca se pierde", () => {
+// cat-4: el gancho solo se ancla a roca o a casco. La órbita multipozo que
+// nunca toca nada (fixture de grav-6) ya no detona en la última posición
+// conocida: el gancho se pierde sin daño ni cambio en la máscara. Antes de
+// catalogo-y-selector el diseño pedía lo contrario (la mina nunca se perdía).
+test("min-1: una órbita multipozo estable que nunca toca nada pierde el gancho, sin daño ni cambio en la máscara", () => {
   const planeta = { id: 1, cx: 500, cy: 500, radio: 25, densidad: 1, pixelesVivos: 1_819_165 };
   const distanciaOrbita = 120;
   const velocidadOrbital = 301.59289474462014;
   const mascara = crearMascaraVacia(ANCHO, ALTO);
+  const copia = new Uint8Array(mascara.datos);
   const planetas: RegistroPlanetas = [planeta];
-
   const origenX = planeta.cx + distanciaOrbita;
-  const anguloGrados = 90;
   const potencia = ((velocidadOrbital - 300) / (1400 - 300)) * 100;
-
-  // Confirma primero, a nivel de física pura (igual que grav-6), que la
-  // perturbación de redondeo de 90° no le hace tocar nada dentro del
-  // presupuesto: si este assert.doesNotThrow fallara, el fixture no estaría
-  // modelando el caso límite que se pretende.
-  const inicialCrudo: EstadoProyectil = {
-    x: origenX,
-    y: planeta.cy,
-    vx: velocidadOrbital * Math.cos((anguloGrados * Math.PI) / 180),
-    vy: -velocidadOrbital * Math.sin((anguloGrados * Math.PI) / 180),
-  };
-  const sim = simularVuelo(inicialCrudo, 0, 0, () => false, { planetas });
-  assert.equal(sim.perdido, true, "el fixture debe reproducir fielmente la órbita estable de grav-6 (perdido a nivel de física pura)");
-  assert.equal(sim.pasos, PRESUPUESTO_VUELO_MULTIPOZO_PASOS);
 
   const resultado = resolverDisparo({
     mascara,
@@ -141,12 +116,8 @@ test("min-1: una órbita multipozo estable que nunca toca nada detona igualmente
     aleatorio: crearEstadoAleatorio(1),
     arma: MINA,
     origenX,
-    // resolverDisparo resta ALTURA_CANON_PX de origenY al construir el
-    // proyectil inicial (el cañón no dispara desde el punto exacto que se le
-    // da) -- se compensa aquí para que el punto de partida real coincida con
-    // INICIO.y = planeta.cy del fixture de grav-6.
     origenY: planeta.cy + ALTURA_CANON_PX,
-    anguloGrados,
+    anguloGrados: 90,
     potencia,
     objetivoX: origenX,
     objetivoY: planeta.cy,
@@ -155,8 +126,8 @@ test("min-1: una órbita multipozo estable que nunca toca nada detona igualmente
     planetas,
   });
 
-  assert.equal(resultado.proyectilPerdido, false, "la mina nunca puede quedar perdida: debe detonar en la última posición conocida");
-  assert.equal(resultado.puntosDeImpacto.length, 1);
-  assert.equal(Number.isFinite(resultado.puntosDeImpacto[0].x), true);
-  assert.equal(Number.isFinite(resultado.puntosDeImpacto[0].y), true);
+  assert.equal(resultado.proyectilPerdido, true);
+  assert.equal(resultado.puntosDeImpacto.length, 0);
+  assert.equal(resultado.danioObjetivo, 0);
+  assert.deepEqual(Array.from(resultado.mascara.datos), Array.from(copia));
 });

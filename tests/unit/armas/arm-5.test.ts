@@ -3,15 +3,21 @@ import assert from "node:assert/strict";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
+import type { Arma } from "@/sim/armas/tipos";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
 const ANCHO = 1920;
 const ALTO = 1080;
 const SUELO_Y = 900;
 
-test("arm-5: la Andanada de Flechas produce exactamente 3 proyectiles con la apertura angular declarada", () => {
+// catalogo-y-selector retiró la Andanada del catálogo; el motor de ráfaga y
+// de dispersión sigue vivo y se prueba con armas de prueba derivadas del
+// Pepinazo.
+const ARMA_RAFAGA = { ...buscarArma("pepinazo-cortesia"), disparosSimultaneos: { cantidad: 3, aperturaGrados: 12 }, dispersionGrados: 3 };
+
+test("arm-5: una ráfaga de 3 produce exactamente 3 proyectiles con la apertura angular declarada", () => {
   const mascara = crearMascaraPlana(ANCHO, ALTO, SUELO_Y);
-  const arma = buscarArma("andanada-de-flechas");
+  const arma = ARMA_RAFAGA;
   assert.deepEqual(arma.disparosSimultaneos, { cantidad: 3, aperturaGrados: 12 });
 
   const resultado = resolverDisparo({
@@ -29,7 +35,7 @@ test("arm-5: la Andanada de Flechas produce exactamente 3 proyectiles con la ape
     alto: ALTO,
   });
 
-  assert.equal(resultado.puntosDeImpacto.length, 3, "la Andanada debe producir exactamente 3 puntos de impacto");
+  assert.equal(resultado.puntosDeImpacto.length, 3, "la ráfaga debe producir exactamente 3 puntos de impacto");
   const xs = resultado.puntosDeImpacto.map((p) => p.x).sort((a, b) => a - b);
   // La apertura real (>0) se traduce en 3 puntos de caída distintos, nunca
   // los 3 en el mismo sitio -- si lo estuvieran, la apertura angular no se
@@ -46,8 +52,7 @@ test("arm-5: la Andanada de Flechas produce exactamente 3 proyectiles con la ape
 // test no se valide a sí mismo.
 const REPETICIONES = 200;
 
-function desviacionTipicaDeCaida(armaId: string): number {
-  const arma = buscarArma(armaId);
+function desviacionTipicaDeCaida(arma: Arma): number {
   const xs: number[] = [];
   for (let i = 0; i < REPETICIONES; i++) {
     const mascara = crearMascaraPlana(ANCHO, ALTO, SUELO_Y);
@@ -82,9 +87,9 @@ function desviacionTipicaDeCaida(armaId: string): number {
 
 test("arm-5: el orden de las armas por dispersión MEDIDA sobre 200 disparos coincide con el orden declarado", () => {
   // Orden declarado en el catálogo: pepinazo (0°) < andanada (3°) < petardo (6°).
-  const desviacionPepinazo = desviacionTipicaDeCaida("pepinazo-cortesia");
-  const desviacionAndanada = desviacionTipicaDeCaida("andanada-de-flechas");
-  const desviacionPetardo = desviacionTipicaDeCaida("petardo-de-feria");
+  const desviacionPepinazo = desviacionTipicaDeCaida(buscarArma("pepinazo-cortesia"));
+  const desviacionAndanada = desviacionTipicaDeCaida(ARMA_RAFAGA);
+  const desviacionPetardo = desviacionTipicaDeCaida(buscarArma("petardo-de-feria"));
 
   console.log(
     `arm-5: desviación típica medida -- pepinazo(0°)=${desviacionPepinazo.toFixed(2)}px, andanada(3°)=${desviacionAndanada.toFixed(2)}px, petardo(6°)=${desviacionPetardo.toFixed(2)}px`,

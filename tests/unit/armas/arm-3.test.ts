@@ -28,13 +28,14 @@ function crearMuroSintetico() {
 // Disparo horizontal puro (ángulo 0, gravedad 0): la fila de vuelo es
 // constante, así que el "camino de aire de lado a lado" se puede comprobar
 // en una sola fila conocida en vez de tener que rastrear una parábola.
-function dispararRecto(mascara: ReturnType<typeof crearMuroSintetico>, armaId: string) {
+function dispararRecto(mascara: ReturnType<typeof crearMuroSintetico>, armaId: string, huellaRadio?: number) {
+  const base = buscarArma(armaId);
   return resolverDisparo({
     mascara,
     gravedad: 0,
     deriva: 0,
     aleatorio: crearEstadoAleatorio(1),
-    arma: buscarArma(armaId),
+    arma: huellaRadio === undefined ? base : { ...base, huella: { tipo: "circular", radio: huellaRadio, signo: "restar" } },
     origenX: 300,
     origenY: ORIGEN_Y,
     anguloGrados: 0,
@@ -60,7 +61,9 @@ test("arm-3: la Barrena Planetaria atraviesa el muro sintético y deja un túnel
 
 test("arm-3: un arma sin penetración detona en la superficie del muro y NO abre túnel pasante", () => {
   const mascara = crearMuroSintetico();
-  const resultado = dispararRecto(mascara, "tostadora-orbital");
+  // Radio de huella 26 (el de la Tostadora retirada): lo que se prueba es la
+  // ausencia de penetración, no el tamaño del cráter del Pepinazo.
+  const resultado = dispararRecto(mascara, "pepinazo-cortesia", 26);
 
   assert.equal(resultado.fallo, false);
   // El lado lejano del muro, dentro del muro pero fuera del alcance del
