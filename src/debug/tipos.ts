@@ -182,6 +182,11 @@ export interface DebugGlobal {
   fantasmas?: readonly { readonly nave: number; readonly x: number; readonly y: number }[];
   // minirobot (rob-2): robots posados en un planeta, con su posición y saltos.
   robots?: readonly { readonly dueno: number; readonly planetaId: number; readonly x: number; readonly y: number; readonly saltos: number }[];
+  // eventos-universo: calendario y efectos vivos, y un gancho para fijar el
+  // próximo evento sin esperar al sorteo (solo e2e).
+  proximoEvento?: { readonly enTurnos: number; readonly tipo: string; readonly afectado: number } | null;
+  efectos?: readonly { readonly tipo: string; readonly nave?: number; readonly turnosRestantes: number }[];
+  fijarProximoEvento?: (proximo: { enTurnos: number; tipo: "loteria" | "vitaminas" | "virus" | "reparacion" | "terremoto" | "gravedad-x2" | "gravedad-mitad" | "viento-solar"; afectado: number }) => void;
   // render-2, render-5: juega N turnos reales (misma avanzar() que un
   // jugador) sin animación, para que el test pueda comprobar el estado
   // renderizado tras una partida guionizada sin depender de temporizadores.

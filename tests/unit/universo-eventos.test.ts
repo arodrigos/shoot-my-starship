@@ -9,6 +9,7 @@ import { simularVuelo } from "@/sim/fisica/vuelo";
 import { ALTURA_CANON_PX, detenerseEnSuelo } from "@/sim/armas/resolver";
 import { masaPlaneta } from "@/sim/gravedad/planetas";
 import { PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
+import { avanzar } from "@/sim/partida/avanzar";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { octavoDelMundo } from "@/sim/naves/desplazamiento";
 import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
@@ -298,4 +299,44 @@ test("determinismo: misma semilla y mismas entradas, mismo universo serializado"
     return JSON.stringify({ ...estado, mascara: undefined, universo: { ...universoDe(estado), mascaraInicial: undefined } });
   };
   assert.equal(correr(), correr());
+});
+
+// evt-1: con vitaminas el mismo disparo hace el doble de daño (y con virus la
+// mitad), pasando por avanzar() real y no por el multiplicador a solas.
+test("evt-1: vitaminas doblan y virus reducen a la mitad el daño de un disparo real", () => {
+  const dos = colocarNaves(SEMILLA_SISTEMA, MUNDO, crearEstadoAleatorio(SEMILLA_SISTEMA), 2, [false, false]);
+  const base: EstadoPartida = conProximo(
+    conUniverso({
+      version: 1,
+      mundo: MUNDO,
+      mascara: dos.sistema.mascara,
+      naves: dos.naves,
+      ordenTurno: [0, 1],
+      turno: 0,
+      numeroTurno: 0,
+      aleatorio: dos.aleatorio,
+      resultado: { tipo: "en-curso" },
+      planetas: dos.sistema.planetas,
+    }),
+    { enTurnos: 99, tipo: "virus", afectado: 1 },
+  );
+  const disparar = (estado: EstadoPartida, anguloGrados: number, potencia: number): number =>
+    100 - avanzar(estado, { arma: "pepinazo-cortesia", anguloGrados, potencia, objetivoId: 1 }).estado.naves[1].integridad;
+  let encontrado: { angulo: number; potencia: number; danio: number } | null = null;
+  for (let angulo = 0; angulo < 360 && encontrado === null; angulo += 2) {
+    for (const potencia of [30, 45, 60, 75, 90]) {
+      const danio = disparar(base, angulo, potencia);
+      if (danio > 0) {
+        encontrado = { angulo, potencia, danio };
+        break;
+      }
+    }
+  }
+  assert.ok(encontrado !== null, "ninguna combinación de la rejilla acierta: cambia de semilla");
+  assert.ok(encontrado.danio <= 50, "el escenario tiene que dejar margen para doblar sin topar con 100");
+  const conEfecto = (tipo: "vitaminas" | "virus"): EstadoPartida => aplicarEvento(base, { enTurnos: 0, tipo, afectado: 0 }, "calendario").estado;
+  // El daño se redondea a entero por disparo, de ahí la tolerancia de ±1.
+  assert.ok(Math.abs(disparar(conEfecto("vitaminas"), encontrado.angulo, encontrado.potencia) - 2 * encontrado.danio) <= 1);
+  const conVirus = disparar(conEfecto("virus"), encontrado.angulo, encontrado.potencia);
+  assert.ok(Math.abs(conVirus - encontrado.danio / 2) <= 1, `virus: ${conVirus} frente a ${encontrado.danio}`);
 });

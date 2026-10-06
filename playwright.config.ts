@@ -38,6 +38,14 @@ export default defineConfig({
     // da lo mismo que se necesita (traza disponible cuando algo falla, vía
     // el reintento) sin grabar en el camino que sí importa medir en tiempo real.
     trace: "on-first-retry",
+    // eventos-universo: los eventos de calendario (terremoto, gravedad...)
+    // cambian posiciones y trayectorias a mitad de partida, y los specs que
+    // miden posiciones exactas no cuentan con ellos. Se apagan en bloque por
+    // aquí; los specs de eventos los encienden con `?eventos=1`.
+    storageState: {
+      cookies: [],
+      origins: [{ origin: "http://127.0.0.1:3000", localStorage: [{ name: "universo:eventos", value: "0" }] }],
+    },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   // cie-2: sin BASE_URL (el caso de "npm run test:e2e" en CI y en local)

@@ -38,6 +38,7 @@ import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integrid
 import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { FantasmasHUD } from "@/juego/hud/FantasmasHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
+import { CartelEventoHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
 import { RoceHUD } from "@/juego/hud/RoceHUD";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import "@/debug/tipos";
@@ -739,6 +740,8 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
         <RoceHUD />
         <FantasmasHUD />
         <RobotsHUD />
+        <PronosticoHUD />
+        <CartelEventoHUD />
         {avisoAccionImposible && (
           <div
             role="status"
@@ -918,6 +921,9 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
                         {eje !== "" && <span data-testid={`eje-${arma.id}`}>{enPresupuesto ? " · " : ""}{eje}</span>}
                         {enPresupuesto && coste === 0 && arma.efecto.tipo === "danio" && (
                           <span data-testid={`gratis-reducida-${arma.id}`}> · Gratis · daño reducido al 25 %</span>
+                        )}
+                        {enPresupuesto && coste === 0 && (
+                          <span data-testid={`gratis-evento-${arma.id}`}> · 25 % de provocar un evento</span>
                         )}
                         {enPresupuesto && faltan > 0 && !agotada && <span data-testid={`faltan-${arma.id}`}> · Te faltan {faltan} cr</span>}
                       </span>
