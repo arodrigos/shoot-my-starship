@@ -146,6 +146,7 @@ export interface DebugEfectoVisible {
   readonly y: number;
   readonly radioOnda: number;
   readonly particulas: number;
+  readonly escala: number;
   readonly sobre: Detonacion["sobre"];
 }
 

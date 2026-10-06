@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { escalaPorRadio } from "@/juego/efectos/planExplosion";
 import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apuntado";
 
 async function arrastrarHasta(page: Page, anguloObjetivo: number, potenciaObjetivo: number): Promise<void> {
@@ -54,6 +55,14 @@ test("exp-1: cada detonación del turno tiene su explosión, en su sitio y con l
     expect(efectos[i].particulas).toBeGreaterThan(0);
   });
   expect(detonaciones.some((d) => d.radioEfectoU === 55)).toBe(true);
+
+  // El daño sobre la nave se nota: su escala supera a la que daría solo el
+  // radio, que es la de una detonación idéntica sobre un planeta.
+  detonaciones.forEach((detonacion, i) => {
+    if (detonacion.sobre === "nave" && detonacion.danioAplicado > 0) {
+      expect(efectos[i].escala).toBeGreaterThan(escalaPorRadio(detonacion.radioEfectoU));
+    }
+  });
 });
 
 // exp-4: con movimiento reducido la explosión sigue informando (anillo en el

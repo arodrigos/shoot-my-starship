@@ -18,6 +18,18 @@ export function escalaDeDanio(danio: number): number {
   return ESCALA_MINIMA + fraccion * (1 - ESCALA_MINIMA);
 }
 
+// Una detonación que daña a una nave crece sobre la misma sobre el vacío o un
+// planeta, y más cuanto más daño: con el Pepinazo el término de radio gana
+// siempre a escalaDeDanio, así que sin este factor el daño no se veía nunca.
+export const REALCE_MINIMO_SOBRE_NAVE = 1.1;
+export const REALCE_EXTRA_POR_DANIO = 0.3;
+
+export function factorRealceNave(danio: number): number {
+  if (danio <= 0) return 1;
+  const fraccion = Math.min(1, danio / DANIO_REFERENCIA_ESCALA_MAXIMA);
+  return REALCE_MINIMO_SOBRE_NAVE + REALCE_EXTRA_POR_DANIO * fraccion;
+}
+
 export function escalaPorRadio(radioEfectoU: number): number {
   const fraccion = Math.max(0, Math.min(1, radioEfectoU / RADIO_REFERENCIA_ESCALA_MAXIMA));
   return ESCALA_MINIMA + fraccion * (1 - ESCALA_MINIMA);
@@ -96,10 +108,11 @@ export interface PlanExplosion {
 
 export function planificarExplosion(entrada: EntradaPlanExplosion): PlanExplosion {
   const { detonacion, cssPorUnidad, movimientoReducido } = entrada;
-  const escala = Math.max(escalaPorRadio(detonacion.radioEfectoU), escalaDeDanio(detonacion.danioAplicado));
+  const realce = detonacion.sobre === "nave" && detonacion.danioAplicado > 0;
+  const escalaBase = Math.max(escalaPorRadio(detonacion.radioEfectoU), escalaDeDanio(detonacion.danioAplicado));
+  const escala = realce ? escalaBase * factorRealceNave(detonacion.danioAplicado) : escalaBase;
   const radioMinimoDestello = RADIO_MINIMO_DESTELLO_CSS / cssPorUnidad;
   const trazoOnda = TRAZO_MINIMO_ONDA_CSS / cssPorUnidad;
-  const realce = detonacion.sobre === "nave" && detonacion.danioAplicado > 0;
 
   if (movimientoReducido) {
     return {

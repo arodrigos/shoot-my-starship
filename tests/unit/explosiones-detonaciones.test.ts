@@ -139,3 +139,32 @@ test("exp-5: las referencias de escala salen del catálogo vigente (la mayor lle
   assert.equal(radioEfectoDeArma(pepinazo), 55);
   assert.equal(radioEfectoDeArma(despedida), 115);
 });
+
+// exp-1: el mismo arma (misma onda) sobre una nave con daño se ve más grande
+// que sobre un planeta o el vacío, y más cuanto más daño, también con el
+// Pepinazo, cuyo radio domina a escalaDeDanio.
+test("exp-1: una detonación que daña a una nave tiene mayor escala que la misma sobre un planeta y no menos escombros", () => {
+  fc.assert(
+    fc.property(
+      fc.double({ min: 0, max: 300, noNaN: true }),
+      fc.double({ min: 0.1, max: 100, noNaN: true }),
+      fc.double({ min: 0.1, max: 100, noNaN: true }),
+      (radioEfectoU, d1, d2) => {
+        const plan = (sobre: "nave" | "planeta", danioAplicado: number) =>
+          planificarExplosion({
+            detonacion: { x: 0, y: 0, armaId: "x", radioEfectoU, danioAplicado, sobre },
+            cssPorUnidad: 0.32,
+            movimientoReducido: false,
+            particulasConcedibles: (pedidas) => pedidas,
+            cantidadMaxEscombros: 16,
+            cantidadMaxHumo: 10,
+          });
+        const [bajo, alto] = d1 <= d2 ? [d1, d2] : [d2, d1];
+        assert.ok(plan("nave", bajo).escala > plan("planeta", 0).escala);
+        assert.ok(plan("nave", bajo).escala <= plan("nave", alto).escala);
+        assert.ok(plan("nave", bajo).escombros >= plan("planeta", 0).escombros);
+      },
+    ),
+    { numRuns: 300 },
+  );
+});
