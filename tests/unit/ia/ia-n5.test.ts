@@ -40,8 +40,11 @@ const NAVE_B_PLANA = { id: 1 as const, x: 1400, y: 900 };
 // denominador (dispersión plana) como la dispersión de cada sistema del
 // lote, así que 73 (razón con escalado 1.11 antes de este bloque) dejó de
 // demostrar el mecanismo -- 164 pasó el mismo barrido (razón con escalado
-// 0.78, sin escalado 0.65).
-const SEMILLA_SISTEMA_SENSIBLE = 164;
+// 0.78, sin escalado 0.65). Reelegida otra vez en pantalla-completa: el margen
+// de borde y la franja inferior mueven las colocaciones sembradas y 164 pasó
+// a dar 10,43 con escalado; la 27 sale del mismo barrido de las 70 primeras
+// semillas (razón con escalado 1,03, sin escalado 2,48).
+const SEMILLA_SISTEMA_SENSIBLE = 27;
 
 interface Escenario {
   readonly mascara: Mascara;

@@ -38,6 +38,8 @@ export interface ParametrosMundo {
   readonly gravedad: number;
   readonly deriva: number;
   readonly etiquetaDeriva: string;
+  // pantalla-completa (pan-5): más planetas cuanto más área; ausente = 1.
+  readonly factorPlanetas?: number;
 }
 
 // ganador nullable (nucleo-n-naves): con más de dos naves, un disparo de

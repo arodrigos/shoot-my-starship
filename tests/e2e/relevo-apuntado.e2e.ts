@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { arrastrarDesdeNave } from "./utilesApuntado";
+import { arrastrarDesdeNave, plegarConsola } from "./utilesApuntado";
 
 async function esperarJugable(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 30000 });
@@ -28,6 +28,8 @@ test("relevo-apuntado: cada asiento recupera su ángulo y potencia; la ayuda sal
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.naves !== undefined);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
   await esperarJugable(page);
+  // El plegado se recuerda entre asientos (localStorage), así que basta una vez.
+  await plegarConsola(page);
 
   // apu-6: aparece en el primer turno de Ana.
   const textoAyuda = "Arrastra desde tu nave hacia donde quieras disparar: más lejos, más fuerte";

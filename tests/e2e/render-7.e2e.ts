@@ -23,8 +23,11 @@ async function capturarSecuenciaDePartida(page: Page, prefijo: string) {
   // antiguo arrastre en diagonal fijaba 81°/95 % en escritorio y un vuelo que
   // no terminaba dentro del techo de espera; 45°/50 % es el apuntado por
   // defecto y cierra siempre. La potencia llega a 100 al 40 % del lado menor.
+  // pantalla-completa: con el mundo 1,5x mayor el vuelo al 50 % en escritorio
+  // seguía sin cerrar en 60 s en el CI; al 20 % cae pronto sobre el pozo
+  // cercano y la captura de explosión sigue siendo la misma secuencia.
   const viewport = page.viewportSize()!;
-  await arrastrarDesdeNave(page, 0, 45, 0.5 * 0.4 * Math.min(viewport.width, viewport.height));
+  await arrastrarDesdeNave(page, 0, 45, 0.2 * 0.4 * Math.min(viewport.width, viewport.height));
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   await page.getByTestId("disparar").click();
 

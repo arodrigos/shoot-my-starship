@@ -6,6 +6,7 @@ import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPh
 import { crearFondoEspacial } from "@/juego/fondo/FondoEspacial";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { colocarNaves } from "@/sim/naves/colocacion";
+import { factorPlanetasParaArea } from "@/sim/sistema/generador";
 import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
@@ -520,6 +521,7 @@ export class Partida extends Phaser.Scene {
         gravedad: 0,
         deriva: 0,
         etiquetaDeriva: "Vacío: aquí no empuja nada que no sea un planeta",
+        factorPlanetas: factorPlanetasParaArea(MUNDO_ANCHO, MUNDO_ALTO),
       };
       window.__debug.mapa = {
         id: `sistema-${semillaSistema}`,

@@ -8,6 +8,15 @@ export async function posicionPantallaNave(page: Page, id: number): Promise<{ x:
   return { x: caja.x + (nave.x / mundo.ancho) * caja.width, y: caja.y + ((nave.y as number) / mundo.alto) * caja.height };
 }
 
+// pantalla-completa: con la consola desplegada (capa sobre el 45 % inferior del
+// viewport) los eventos del lienzo bajo ella no llegan. Quien apunta arrastrando
+// sobre la nave pliega antes la consola, como haría un jugador.
+export async function plegarConsola(page: Page): Promise<void> {
+  const boton = page.getByTestId("boton-plegar-consola");
+  if ((await boton.getAttribute("aria-expanded")) === "true") await boton.click();
+  await page.getByTestId("barra-minima").waitFor();
+}
+
 // Arrastra sobre el lienzo desde la nave del turno hasta un punto a
 // `distancia` píxeles CSS en la dirección `grados` (0° a la derecha, 90°
 // arriba). down+move+up reales, como un dedo.

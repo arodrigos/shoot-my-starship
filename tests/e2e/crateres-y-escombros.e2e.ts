@@ -15,7 +15,9 @@ async function entrarAPartidaEspacial(page: import("@playwright/test").Page): Pr
   // escombro. La semilla 4 sí coloca las naves en el primer escalón
   // (recolocación) y conserva escombro real, comprobado por fuerza bruta
   // con colocarNaves fuera de test.
-  await page.goto("/?semilla=4");
+  // pantalla-completa: con el mundo ×1,5 la semilla 4 ya no genera cinturón;
+  // la 3 sí lo conserva a 360x640 (comprobado con colocarNaves fuera de test).
+  await page.goto("/?semilla=3");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.modoEspacial === true);
@@ -37,7 +39,10 @@ test("crt-1: tras tres impactos reales el cráter se distingue de la roca intact
 
   const planetas = (await page.evaluate(() => window.__debug.planetas))!;
   expect(planetas.length).toBeGreaterThan(0);
-  const planeta = planetas[0];
+  // pantalla-completa: el mundo es mayor y hay más planetas; los desplazamientos
+  // de abajo (hasta 28 px) piden uno grande para que el cráter quede en roca.
+  const planeta = planetas.reduce((mayor, actual) => (actual.radio > mayor.radio ? actual : mayor));
+  expect(planeta.radio).toBeGreaterThan(75);
 
   // Punto de referencia bien dentro del planeta (en su centro), lejos de
   // cualquier impacto: roca intacta, antes y después.
@@ -81,13 +86,20 @@ test("crt-1: tras tres impactos reales el cráter se distingue de la roca intact
   // referencia -- no basta con que la clasificación lógica difiera, tiene
   // que notarse en el píxel real (una sola lectura de canvas, mismo patrón
   // que comprobarPuntos).
-  const [colorCentro, colorBorde] = await page.evaluate(
-    (puntos) => window.__debug.terreno!.leerColores(puntos),
-    [centro, borde],
-  );
-  const distanciaColor =
-    Math.abs(colorCentro.r - colorBorde.r) + Math.abs(colorCentro.g - colorBorde.g) + Math.abs(colorCentro.b - colorBorde.b);
-  expect(distanciaColor).toBeGreaterThan(10);
+  // pantalla-completa: la textura se repinta en un fotograma posterior a las
+  // huellas, así que se espera al estado real del píxel en vez de leerlo ya.
+  await expect
+    .poll(
+      async () => {
+        const [colorCentro, colorBorde] = await page.evaluate(
+          (puntos) => window.__debug.terreno!.leerColores(puntos),
+          [centro, borde],
+        );
+        return Math.abs(colorCentro.r - colorBorde.r) + Math.abs(colorCentro.g - colorBorde.g) + Math.abs(colorCentro.b - colorBorde.b);
+      },
+      { timeout: 10000 },
+    )
+    .toBeGreaterThan(10);
 
   // El escombro del cinturón (material 255, generado de fábrica, no creado
   // por este bloque) nunca se confunde con un planeta: ni en la

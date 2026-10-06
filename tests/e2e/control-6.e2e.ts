@@ -27,6 +27,9 @@ test.describe("control-6", () => {
   });
 
   test("el selector de armas muestra nombre y descripción de cada arma del catálogo", async ({ page }) => {
+    // Con el lienzo a pantalla completa, WebGL por software tarda más en cada
+    // ida y vuelta de las dos aserciones por arma.
+    test.setTimeout(120000);
     await page.goto("/");
     await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");

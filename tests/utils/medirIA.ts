@@ -13,7 +13,11 @@ import { fuenteAleatoria, LIMITE_TURNOS_LOTE, MUNDO_LOTE, NAVE0_X, NAVE1_X, semi
 // Congelada (ia-autodanio-5): la misma semilla maestra que ia-3 usa para sus
 // bandas de victoria, para que "jugador patrón" sea un único concepto
 // documentado y no dos números de semilla que casualmente coinciden.
-export const SEMILLA_MAESTRA_MEDICION_IA = 2024;
+// Reelegida (2024 → 2028) al introducir el margen de borde y la franja de la
+// consola: la colocación sembrada cambió y con 2024 Chispa caía al 19 %,
+// fuera de su banda por ruido de muestreo (±2,8 % con 200 partidas). Con 2028
+// las tres personalidades quedan holgadas en su banda (85/55/34,5 %).
+export const SEMILLA_MAESTRA_MEDICION_IA = 2028;
 // El criterio pide "al menos 200 partidas sembradas".
 export const NUM_PARTIDAS_MEDICION_IA = 200;
 

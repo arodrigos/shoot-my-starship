@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import { FRACCION_LADO_MENOR_POTENCIA_MAXIMA } from "@/juego/control/apuntado";
-import { arrastrarDesdeNave } from "./utilesApuntado";
+import { arrastrarDesdeNave, plegarConsola } from "./utilesApuntado";
 
 // esp-2 (camino crítico): lo que se renderiza es lo que colisiona. Un mismo
 // disparo (mismo ángulo, misma potencia, mismo origen -- las naves no se
@@ -68,6 +68,7 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
     await page.getByTestId("ayuda-cerrar").click();
   }
 
+  await plegarConsola(page);
   const viewport = page.viewportSize()!;
   const distanciaArrastre = (POTENCIA_OBJETIVO / 100) * FRACCION_LADO_MENOR_POTENCIA_MAXIMA * Math.min(viewport.width, viewport.height);
   await arrastrarDesdeNave(page, 0, ANGULO_OBJETIVO_GRADOS, distanciaArrastre);

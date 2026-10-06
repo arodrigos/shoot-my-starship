@@ -16,22 +16,22 @@ aparte que mantener sincronizada con el resolutor.
 
 | Arma | Daño máx. | Radio de efecto (px) | Tiempo de vuelo medio | Facilidad medida | Coste |
 | --- | --- | --- | --- | --- | --- |
-| Pepinazo de Cortesía | 18 | 55 | 0.82s | 2.8% | 55 |
-| Tostadora Orbital | 32 | 42 | 0.82s | 2.6% | 75 |
-| Mortero Lamentable | 24 | 70 | 0.83s | 3.0% | 65 |
-| Zanjadora Manolita | 4 | 56 | 0.81s | 2.7% | 0 |
+| Pepinazo de Cortesía | 18 | 55 | 0.89s | 2.8% | 55 |
+| Tostadora Orbital | 32 | 42 | 0.89s | 2.8% | 75 |
+| Mortero Lamentable | 24 | 70 | 0.89s | 2.8% | 65 |
+| Zanjadora Manolita | 4 | 56 | 0.92s | 2.4% | 0 |
 | Vertedero Portátil | 0 | 0 | n/a | 0.0% | 15 |
-| Racimo de Tuppers | 20 | 62 | 0.71s | 5.4% | 85 |
-| Petardo de Feria | 13 | 62 | 0.98s | 2.5% | 0 |
-| La Pelota de Chatarra | 8 | 30 | 0.82s | 2.6% | 0 |
+| Racimo de Tuppers | 20 | 62 | 0.70s | 5.8% | 85 |
+| Petardo de Feria | 13 | 62 | 0.96s | 1.9% | 0 |
+| La Pelota de Chatarra | 8 | 30 | 0.95s | 2.2% | 0 |
 | Gravitón de Segunda Mano | 0 | 0 | n/a | 0.0% | 45 |
-| Despedida | 55 | 115 | 0.77s | 3.7% | 120 |
-| Andanada de Flechas | 16 | 34 | 1.12s | 7.6% | 105 |
-| Barrena Planetaria | 44 | 38 | 0.82s | 2.6% | 90 |
-| Rayo Láser | 46 | 80 | 0.46s | 1.6% | 115 |
-| Mosca Cojonera | 28 | 50 | 0.91s | 3.2% | 75 |
-| Granada de Espoleta | 34 | 62 | 0.84s | 2.9% | 80 |
-| Gancho Pegajoso | 40 | 38 | 0.82s | 2.6% | 85 |
+| Despedida | 55 | 115 | 0.87s | 3.5% | 120 |
+| Andanada de Flechas | 16 | 34 | 1.25s | 8.4% | 105 |
+| Barrena Planetaria | 44 | 38 | 0.89s | 2.8% | 90 |
+| Rayo Láser | 46 | 80 | 0.44s | 1.1% | 115 |
+| Mosca Cojonera | 28 | 50 | 0.80s | 3.2% | 75 |
+| Granada de Espoleta | 34 | 62 | 0.89s | 2.8% | 80 |
+| Gancho Pegajoso | 40 | 38 | 0.89s | 2.8% | 85 |
 
 ## Dominancia
 
