@@ -127,6 +127,9 @@ export interface DebugNave {
   // escudo), leídos de la propia Nave y no del estado, para que el e2e
   // compruebe lo que se ve.
   readonly escudo: number;
+  // sil-1/sil-2: familia de casco del asiento (0-3), leída de la Nave dibujada
+  // para que el e2e compruebe que cuatro naves se ven con cuatro formas.
+  readonly silueta: 0 | 1 | 2 | 3;
 }
 
 // hum-1: un registro por turno de lo que reaccionarABroma publicó de
