@@ -32,6 +32,8 @@ import { Nave } from "@/juego/naves/Nave";
 import { IndicadorDeriva } from "@/juego/deriva/IndicadorDeriva";
 import { AnimadorProyectil } from "@/juego/vuelo/AnimadorProyectil";
 import { crearFuenteIA } from "@/sim/ia/fuente";
+import { buscarEquipo, esIdEquipo } from "@/sim/equipo/catalogo";
+import { alcancePropulsores, volarConPropulsores } from "@/sim/equipo/propulsores";
 import { LA_CONTABLE, ALMIRANTE_BISAGRA, buscarPersonalidad } from "@/sim/ia/personalidades";
 import type { Personalidad } from "@/sim/ia/tipos";
 import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO } from "@/sim/ia/decidir";
@@ -47,6 +49,7 @@ import {
   publicarTurno,
   publicarPreparando,
   fijarApuntadoDirecto,
+  publicarEscudoPropio,
   registrarManejadorDisparo,
   reiniciarControl,
   seleccionarArma,
@@ -104,6 +107,14 @@ const RADIO_ROBOT_U = 14;
 // mensaje propio para "proyectil perdido en órbita" (grav-6), porque ese
 // turno no tiene ni impacto ni fallo que describir con el resto de casos.
 function resumenTurno(eventos: readonly EventoSimulacion[]): string {
+  const escudoActivado = eventos.find((evento) => evento.tipo === "escudo-activado");
+  if (escudoActivado) return "Escudo activado: los disparos ajenos no te harán daño durante 2 turnos tuyos.";
+  const vuelo = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "propulsores" }> => evento.tipo === "propulsores");
+  if (vuelo) {
+    return vuelo.motivo === "alcance" ? "Propulsores: la nave llega al límite de su alcance y se queda ahí." : "Propulsores: la nave se detiene al toparse con algo.";
+  }
+  const bloqueo = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "escudo-bloquea" }> => evento.tipo === "escudo-bloquea");
+  if (bloqueo) return "El escudo ha parado el golpe: sin daño.";
   const perdido = eventos.find((evento) => evento.tipo === "proyectil-perdido");
   if (perdido?.tipo === "proyectil-perdido" && perdido.arma !== undefined && esComportamientoAdherente(buscarArma(perdido.arma).comportamiento)) {
     return "El gancho no se agarra al vacío del borde: se pierde sin efecto. El turno pasa igual.";
@@ -713,12 +724,14 @@ export class Partida extends Phaser.Scene {
     window.addEventListener("pointermove", this.manejarPointerMove);
     window.addEventListener("pointerup", this.manejarPointerFin);
     window.addEventListener("pointercancel", this.manejarPointerFin);
-    this.cancelarManejadorDisparo = registrarManejadorDisparo((entrada) =>
+    this.cancelarManejadorDisparo = registrarManejadorDisparo((entrada) => {
       // El store del control no sabe a quién apunta cada humano (trae un
       // objetivo fijo, válido solo con dos naves): el objetivo lo decide
       // la escena, que es quien ve a todas las naves vivas.
-      this.dispararEntrada({ ...entrada, objetivoId: this.objetivoDe(this.estado.turno) }, true),
-    );
+      const completa = { ...entrada, objetivoId: this.objetivoDe(this.estado.turno) };
+      if (completa.accion !== undefined && completa.accion !== "disparo") this.usarEquipoEntrada(completa, true);
+      else this.dispararEntrada(completa, true);
+    });
     this.cancelarManejadorRepeticion = registrarManejadorRepeticion(() => this.reproducirRepeticion());
     this.cancelarManejadorRelevo = registrarManejadorRelevo(() => this.confirmarRelevoActual());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.limpiarEntrada());
@@ -906,6 +919,11 @@ export class Partida extends Phaser.Scene {
     const origenX = naveTiradora.x;
     const origenY = naveTiradora.y ?? alturaSuperficie(estado.mascara, origenX) ?? estado.mundo.alto - 1;
     const { anguloGrados, potencia, armaId } = obtenerEstadoControl().ajuste;
+    if (obtenerEstadoControl().equipoId === "propulsores" && naveTiradora.y !== undefined) {
+      this.dibujarPrevisualizacionPropulsores(estado, anguloGrados, potencia);
+      return;
+    }
+    window.__debug!.previsualizacionPropulsores = null;
     const arma = buscarArma(armaId);
 
     // impacto-naves: mismo criterio que dispararEntrada -- el casco solo
@@ -987,6 +1005,31 @@ export class Partida extends Phaser.Scene {
       extremoMayor: banda.extremoMayor.map((p) => ({ x: p.x, y: p.y })),
       amplitudGrados: banda.amplitudGrados,
     };
+  }
+
+  // esc-2: con los propulsores elegidos la mira no es un disparo sino el círculo
+  // de alcance y la ruta que seguiría la nave, calculada con el mismo
+  // volarConPropulsores que luego resuelve avanzar(): lo que se ve es lo que se
+  // vuela, incluida la gravedad vigente.
+  private dibujarPrevisualizacionPropulsores(estado: EstadoPartida, anguloGrados: number, potencia: number): void {
+    const nave = estado.naves[estado.turno];
+    if (nave.y === undefined) return;
+    const alcance = alcancePropulsores(estado.mundo);
+    const otras = estado.naves.flatMap((otra, id) => (id !== estado.turno && otra.integridad > 0 && otra.y !== undefined ? [{ x: otra.x, y: otra.y }] : []));
+    const vuelo = volarConPropulsores({ desde: { x: nave.x, y: nave.y }, anguloGrados, potencia, mundo: estado.mundo, mascara: estado.mascara, planetas: estado.planetas, otras });
+    const grosor = ANCHO_MIRA_CSS_PX * this.scale.displayScale.x;
+    const grafico = this.graficosPrevisualizacion;
+    grafico.lineStyle(grosor, 0x7fd7ff, 0.8).strokeCircle(nave.x, nave.y, alcance);
+    grafico.fillStyle(0x7fd7ff, 0.07).fillCircle(nave.x, nave.y, alcance);
+    grafico.lineStyle(grosor, 0xffd23f, 0.95);
+    for (let i = 1; i < vuelo.ruta.length; i++) {
+      if (i % 2 === 0) continue;
+      grafico.lineBetween(vuelo.ruta[i - 1].x, vuelo.ruta[i - 1].y, vuelo.ruta[i].x, vuelo.ruta[i].y);
+    }
+    grafico.fillStyle(0xffd23f, 0.95).fillCircle(vuelo.destino.x, vuelo.destino.y, 5 * this.scale.displayScale.x);
+    window.__debug!.alcancePropulsores = alcance;
+    window.__debug!.previsualizacionPropulsores = { puntos: vuelo.ruta.map((p) => ({ x: p.x, y: p.y })), motivo: vuelo.motivo };
+    window.__debug!.previsualizacion = null;
   }
 
   // arma-granada-espoleta (gra-2, gra-3): publica cada fotograma los
@@ -1453,6 +1496,32 @@ export class Partida extends Phaser.Scene {
     );
   }
 
+  // escudo-y-propulsores: el turno entero se gasta en equipo, sin vuelo de
+  // proyectil que animar. Comparte con el disparo el cierre de turno
+  // (aplicarResultadoTurno) y el relevo, para que la IA o el siguiente humano
+  // jueguen exactamente igual que tras un disparo.
+  private usarEquipoEntrada(entrada: EntradaDeTurno, esJugador: boolean): void {
+    const estadoAntes = this.estado;
+    if (estadoAntes.resultado.tipo === "terminada" || this.animador.enVuelo()) return;
+    limpiarRoce();
+    limpiarCuentaAtras();
+    const tirador: IdNave = estadoAntes.turno;
+    const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = avanzar(estadoAntes, entrada);
+    if (esJugador) this.ultimoHumano = tirador;
+    publicarJugable(false);
+    this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, undefined, {
+      detonaciones,
+      alAvanzarTurno: () => {
+        if (this.esHumano(tirador)) this.ultimoHumano = tirador;
+        if (this.estado.resultado.tipo !== "terminada" && !this.esHumano(this.estado.turno)) {
+          this.dispararTurnoIA();
+        } else if (this.estado.resultado.tipo !== "terminada") {
+          this.abrirRelevoSiHaceFalta(estadoAntes, estadoDespues, entrada.arma);
+        }
+      },
+    });
+  }
+
   // Tras resolver un disparo del jugador, si la partida sigue y el turno es
   // de la máquina, la máquina dispara sola -- así control-1 comprueba el
   // circuito completo (elegir, apuntar, disparar, responder) sin que el
@@ -1461,8 +1530,13 @@ export class Partida extends Phaser.Scene {
     const tirador = this.estado.turno;
     const memoria = this.memoriaDe(tirador);
     const personalidad = this.controladores[tirador]?.personalidad ?? this.rival;
-    const { entrada, estado } = crearFuenteIA(personalidad, memoria.ultimoIntento, memoria.usosPorArma)(this.estado);
+    const { entrada, estado } = crearFuenteIA(personalidad, memoria.ultimoIntento, memoria.usosPorArma, memoria.danioRecibidoDesdeSuTurno)(this.estado);
     this.estado = estado;
+    memoria.danioRecibidoDesdeSuTurno = false;
+    if (entrada.accion !== undefined && entrada.accion !== "disparo") {
+      this.usarEquipoEntrada(entrada, false);
+      return;
+    }
     memoria.usosPorArma = { ...memoria.usosPorArma, [entrada.arma]: (memoria.usosPorArma[entrada.arma] ?? 0) + 1 };
     this.dispararEntrada(entrada, false);
   }
@@ -1486,7 +1560,7 @@ export class Partida extends Phaser.Scene {
       nombreDeNave(this.controladores, siguiente),
       {
         tirador: nombreDeNave(this.controladores, tirador),
-        arma: buscarArma(armaId).nombre,
+        arma: esIdEquipo(armaId) ? buscarEquipo(armaId).nombre : buscarArma(armaId).nombre,
         danio,
         fallo: danio === 0,
         eliminadas: estadoAntes.naves.flatMap((nave, id) =>
@@ -1671,6 +1745,9 @@ export class Partida extends Phaser.Scene {
     const estadoAntes = this.estado;
     const tirador = estadoAntes.turno;
     this.limpiarMarcasFantasma();
+    estadoDespues.naves.forEach((nave, id) => {
+      if (nave.integridad < estadoAntes.naves[id].integridad) this.memoriaDe(id).danioRecibidoDesdeSuTurno = true;
+    });
     this.actualizarEstadisticas(tirador, estadoAntes, estadoDespues, eventos);
     window.__debug!.ultimosEventos = eventos;
     if (armaId !== undefined) window.__debug!.ultimaEntrada = { nave: tirador, arma: armaId };
@@ -1750,6 +1827,8 @@ export class Partida extends Phaser.Scene {
     estadoDespues: EstadoPartida,
     eventos: readonly EventoSimulacion[],
   ): void {
+    // Un turno de equipo no es un disparo: no cuenta para el parte de guerra.
+    if (!eventos.some((evento) => evento.tipo === "disparo")) return;
     const previas = this.estadisticas[tirador];
     const fallo = eventos.some((evento) => evento.tipo === "arma-falla");
     const autoimpacto = eventos.some((evento) => evento.tipo === "autoimpacto");
@@ -1891,7 +1970,9 @@ export class Partida extends Phaser.Scene {
     const movimientoReducido = prefiereMovimientoReducido();
     const fantasmas: { nave: number; x: number; y: number }[] = [];
     for (const evento of eventos) {
-      if (evento.tipo !== "desplazamiento" || evento.reserva === "se-queda") continue;
+      if (evento.tipo !== "desplazamiento" && evento.tipo !== "propulsores") continue;
+      if (evento.tipo === "desplazamiento" && evento.reserva === "se-queda") continue;
+      if (evento.tipo === "propulsores" && evento.desdeX === evento.x && evento.desdeY === evento.y) continue;
       const nave = this.naves[evento.nave];
       const desdeY = alturaRenderNave(evento.desdeY, evento.desdeY);
       const haciaY = alturaRenderNave(evento.y, evento.y);
@@ -1936,6 +2017,7 @@ export class Partida extends Phaser.Scene {
       );
       this.naves[indice].posicionarEn(naveEstado.x, y);
       this.naves[indice].actualizarIntegridad(naveEstado.integridad);
+      this.naves[indice].mostrarEscudo(naveEstado.escudoTurnosRestantes ?? 0);
       // arte-siluetas-3: el indicador de nave propia sigue al turno real
       // (this.estado.turno), no a un parpadeo de animación -- se recalcula
       // en cada refresco para que nunca quede marcada la nave equivocada
@@ -1953,6 +2035,7 @@ export class Partida extends Phaser.Scene {
       nivelDanio: this.naves[indice].obtenerNivelDanio(),
       hashSilueta: this.naves[indice].obtenerHashSilueta(),
       activa: this.naves[indice].estaActiva(),
+      escudo: this.naves[indice].obtenerEscudoTurnos(),
     }));
     // imp-11: el HUD (fuera del lienzo Phaser) necesita enterarse de la
     // integridad por el mismo canal pub/sub que ya usan resultado-turno y
@@ -1965,6 +2048,8 @@ export class Partida extends Phaser.Scene {
   // el HUD (fuera del lienzo) lee el saldo del store, nunca de window.__debug
   // (eso es solo para los tests e2e).
   private refrescarEconomia(): void {
+    const asiento = this.esHumano(this.estado.turno) ? this.estado.turno : (this.ultimoHumano ?? ID_JUGADOR);
+    publicarEscudoPropio(this.estado.naves[asiento]?.escudoTurnosRestantes ?? 0);
     if (this.estado.modo !== "presupuesto") {
       publicarEconomia(null);
       window.__debug!.saldo = null;

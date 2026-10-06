@@ -1,5 +1,6 @@
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { costeArma } from "@/sim/partida/economia";
+import { buscarEquipo, type IdEquipo } from "@/sim/equipo/catalogo";
 import type { EntradaDeTurno, IdNave, ModoJuego } from "@/sim/partida/tipos";
 import {
   ANGULO_INICIAL_GRADOS,
@@ -82,6 +83,13 @@ export interface EstadoControl {
   // apuntado-y-relevo (apu-4): true desde que se monta la partida hasta que
   // la escena termina de colocar las naves (con 3-4 naves son 4-9 s).
   readonly preparando: boolean;
+  // escudo-y-propulsores: equipo elegido en la pestaña «Equipo». Con uno
+  // elegido, el botón de acción lo usa en vez de disparar; elegir un arma lo
+  // suelta. No se persiste: es una intención de este turno.
+  readonly equipoId: IdEquipo | null;
+  // Turnos que le quedan al escudo del jugador al que le toca (0 = sin
+  // escudo): deshabilita «Activar escudo» mientras esté puesto.
+  readonly escudoPropioTurnos: number;
 }
 
 const CLAVE_AYUDA_VISTA = "control-apuntado:ayuda-vista";
@@ -185,6 +193,8 @@ let estado: EstadoControl = {
   nombreRival: "Rival",
   ayudaApuntadoVisible: false,
   preparando: true,
+  equipoId: null,
+  escudoPropioTurnos: 0,
 };
 
 // apuntado-y-relevo (apu-3): ángulo y potencia por asiento, para que el
@@ -296,6 +306,33 @@ export function armaFaltaSaldo(armaId: string): number {
   return Math.max(0, costeDeArma(armaId) - estado.saldo);
 }
 
+export function equipoFaltaSaldo(id: IdEquipo): number {
+  if (estado.modo !== "presupuesto" || estado.saldo === null) return 0;
+  return Math.max(0, buscarEquipo(id).coste - estado.saldo);
+}
+
+// Un equipo que no se puede usar ahora mismo, con el motivo que se le enseña
+// al jugador en la celda (esc-4): null si se puede elegir.
+export function motivoEquipoNoDisponible(id: IdEquipo): string | null {
+  const faltan = equipoFaltaSaldo(id);
+  return faltan > 0 ? `Te faltan ${faltan} cr` : null;
+}
+
+// El escudo se puede elegir aunque ya esté puesto (la celda explica qué hace),
+// pero no activar de nuevo: el botón de acción dice por qué está apagado.
+export function equipoYaActivo(id: IdEquipo | null): boolean {
+  return id === "escudo" && estado.escudoPropioTurnos > 0;
+}
+
+export function seleccionarEquipo(id: IdEquipo): void {
+  if (motivoEquipoNoDisponible(id) !== null) return;
+  fijar({ equipoId: id });
+}
+
+export function publicarEscudoPropio(turnos: number): void {
+  if (estado.escudoPropioTurnos !== turnos) fijar({ escudoPropioTurnos: turnos });
+}
+
 export function costeDeArma(armaId: string): number {
   const arma = CATALOGO_ARMAS.find((candidata) => candidata.id === armaId);
   return arma ? costeArma(arma) : 0;
@@ -306,6 +343,7 @@ export function costeDeArma(armaId: string): number {
 export function seleccionarArma(armaId: string): void {
   if (armaEstaAgotada(armaId)) return;
   if (armaFaltaSaldo(armaId) > 0) return;
+  if (estado.equipoId !== null) fijar({ equipoId: null });
   fijarAjuste({ armaId });
 }
 
@@ -320,7 +358,8 @@ export function fijarModo(modo: ModoJuego, saldoInicial: number | null): void {
 export function publicarEconomia(saldo: number | null): void {
   const sinSaldo = saldo !== null && costeDeArma(estado.ajuste.armaId) > saldo;
   const armaId = sinSaldo ? (CATALOGO_ARMAS.find((arma) => costeArma(arma) === 0)?.id ?? estado.ajuste.armaId) : estado.ajuste.armaId;
-  fijar({ saldo, ajuste: { ...estado.ajuste, armaId } });
+  const equipoSinSaldo = estado.equipoId !== null && saldo !== null && buscarEquipo(estado.equipoId).coste > saldo;
+  fijar({ saldo, ajuste: { ...estado.ajuste, armaId }, ...(equipoSinSaldo ? { equipoId: null } : {}) });
 }
 
 export function repetirUltimoDisparo(): void {
@@ -427,10 +466,17 @@ export function registrarManejadorDisparo(manejador: ManejadorDisparo): () => vo
 
 export function solicitarDisparo(): void {
   if (!estado.puedeDisparar || !manejadorDisparo) return;
+  if (equipoYaActivo(estado.equipoId)) return;
   if (estado.ayudaDispersionVisible) fijar({ ayudaDispersionVisible: false });
   // nucleo-n-naves: el jugador humano (id 0) sigue siendo solo-contra-la-IA
   // (id 1) hasta multi-setup-partida, que es quien construye la selección
   // de objetivo con varios rivales en pantalla.
+  if (estado.equipoId !== null) {
+    const equipoId = estado.equipoId;
+    fijar({ equipoId: null });
+    manejadorDisparo({ accion: equipoId, arma: equipoId, anguloGrados: estado.ajuste.anguloGrados, potencia: estado.ajuste.potencia, objetivoId: 1 });
+    return;
+  }
   manejadorDisparo({
     arma: estado.ajuste.armaId,
     anguloGrados: estado.ajuste.anguloGrados,
@@ -460,6 +506,8 @@ export function reiniciarControl(): void {
     saldo: null,
       turno: 0,
     nombreRival: "Rival",
+    equipoId: null,
+    escudoPropioTurnos: 0,
     ayudaApuntadoVisible: true,
     // preparando no se toca: lo gobierna el montaje de la partida, y la
     // escena llama a reiniciarControl dentro de la propia preparación.

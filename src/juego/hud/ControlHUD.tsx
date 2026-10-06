@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
-import { IconoArmaGracioso } from "@/juego/hud/iconos/iconosArmas";
+import { IconoArmaGracioso, IconoEquipoGracioso } from "@/juego/hud/iconos/iconosArmas";
+import { buscarEquipo, CATALOGO_EQUIPO } from "@/sim/equipo/catalogo";
 import {
   actualizarArrastre,
   ajustarAnguloFino,
@@ -13,7 +14,10 @@ import {
   cerrarAyuda,
   cerrarAyudaDispersion,
   costeDeArma,
+  equipoYaActivo,
   fijarAnguloDesdeFraccion,
+  motivoEquipoNoDisponible,
+  seleccionarEquipo,
   fijarPotenciaDesdeFraccion,
   fijarSacudidaActiva,
   iniciarArrastre,
@@ -152,6 +156,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
   const navesEnPartida = useSyncExternalStore(suscribirIntegridad, obtenerIntegridad, obtenerIntegridad).naves.length;
   const bromas = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
+  const [pestana, setPestana] = useState<"armas" | "equipo">("armas");
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
 
   useEffect(() => {
@@ -203,6 +208,16 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
   }
 
   const enPresupuesto = estado.modo === "presupuesto";
+  const equipoElegido = estado.equipoId === null ? null : buscarEquipo(estado.equipoId);
+  const escudoYaPuesto = equipoYaActivo(estado.equipoId);
+  // Con equipo elegido el botón de acción lo usa en vez de disparar; si es el
+  // escudo y ya está puesto, dice por qué no se puede repetir (esc-1, esc-4).
+  const etiquetaAccion = equipoElegido === null
+    ? "Disparar"
+    : escudoYaPuesto
+      ? "Ya tienes el escudo activo"
+      : `${equipoElegido.verboAccion}${enPresupuesto ? ` (${equipoElegido.coste} cr)` : ""}`;
+  const accionDeshabilitada = !estado.puedeDisparar || escudoYaPuesto;
   const potenciaEnCero = Math.round(estado.ajuste.potencia) <= 0;
   // lay-6: motivo concreto de por qué "Disparar" no responde -- distinto de
   // puedeDisparar (que gobierna la escena: turno, animación en curso...) y
@@ -218,7 +233,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
   // necesita incluso en su mínimo (minHeight 44). "Qué pasa y qué hacer"
   // cabe en una frase corta; el resto era repetir la condición de
   // puedeDisparar que el usuario ya ve en el botón Disparar deshabilitado.
-  const avisoAccionImposible = potenciaEnCero
+  const avisoAccionImposible = potenciaEnCero && estado.equipoId !== "escudo"
     ? "Potencia a 0: arrastra arriba para cargar el disparo."
     : !estado.puedeDisparar
       ? "Espera a que termine el disparo."
@@ -270,17 +285,21 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
       >
         {botonPlegar}
         <div data-testid="arma-minima" style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif" }}>
-          <IconoArma armaId={armaSeleccionada.id} />
-          <span data-testid="precio-arma-minima">{enPresupuesto ? (costeSeleccionada > 0 ? `${costeSeleccionada} cr` : "Gratis") : "Sin coste"}</span>
+          {equipoElegido === null ? <IconoArma armaId={armaSeleccionada.id} /> : <IconoEquipoGracioso equipoId={equipoElegido.id} tamano={28} />}
+          <span data-testid="precio-arma-minima">
+            {equipoElegido !== null
+              ? enPresupuesto ? `${equipoElegido.coste} cr` : "Sin coste"
+              : enPresupuesto ? (costeSeleccionada > 0 ? `${costeSeleccionada} cr` : "Gratis") : "Sin coste"}
+          </span>
         </div>
         <button
           type="button"
           data-testid="disparar"
           onClick={solicitarDisparo}
-          disabled={!estado.puedeDisparar}
-          style={{ ...botonEstilo, minHeight: TAMANO_BOTON_PLEGAR_PX, padding: "6px 14px", background: "#ff6b4a" }}
+          disabled={accionDeshabilitada}
+          style={{ ...botonEstilo, minHeight: TAMANO_BOTON_PLEGAR_PX, padding: "6px 14px", background: "#ff6b4a", whiteSpace: "normal", maxWidth: 150, lineHeight: 1.1 }}
         >
-          Disparar
+          {etiquetaAccion}
         </button>
       </div>
     );
@@ -765,7 +784,10 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
           <button
             type="button"
             data-testid="selector-arma-abrir"
-            onClick={() => setSelectorAbierto((valor) => !valor)}
+            onClick={() => {
+              setPestana("armas");
+              setSelectorAbierto((valor) => !valor);
+            }}
             style={{
               ...botonEstilo,
               maxWidth: 112,
@@ -776,7 +798,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
               lineHeight: 1.15,
             }}
           >
-            {armaSeleccionada.nombre}
+            {equipoElegido?.nombre ?? armaSeleccionada.nombre}
           </button>
           {selectorAbierto && (
             <div
@@ -795,12 +817,68 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
                 font: "12px system-ui, sans-serif",
               }}
             >
-              {enPresupuesto && estado.saldo !== null && !CATALOGO_ARMAS.some((arma) => costeDeArma(arma.id) > 0 && armaFaltaSaldo(arma.id) === 0) && (
+              <div role="tablist" style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                {(["armas", "equipo"] as const).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={pestana === id}
+                    data-testid={`pestana-${id}`}
+                    onClick={() => setPestana(id)}
+                    style={{ ...botonEstilo, flex: 1, minHeight: TAMANO_MINIMO_BOTON_PX, outline: pestana === id ? "2px solid #ffd23f" : "none" }}
+                  >
+                    {id === "armas" ? "Armas" : "Equipo"}
+                  </button>
+                ))}
+              </div>
+              {pestana === "equipo" && (
+                <div data-testid="rejilla-equipo" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
+                  {CATALOGO_EQUIPO.map((equipo) => {
+                    const motivo = motivoEquipoNoDisponible(equipo.id);
+                    return (
+                      <button
+                        key={equipo.id}
+                        type="button"
+                        data-testid={`equipo-${equipo.id}`}
+                        disabled={motivo !== null}
+                        onClick={() => {
+                          seleccionarEquipo(equipo.id);
+                          setSelectorAbierto(false);
+                        }}
+                        style={{
+                          ...botonEstilo,
+                          minWidth: TAMANO_MINIMO_BOTON_PX,
+                          minHeight: TAMANO_MINIMO_BOTON_PX,
+                          textAlign: "left",
+                          opacity: motivo !== null ? 0.45 : 1,
+                          outline: equipo.id === estado.equipoId ? "2px solid #ffd23f" : "none",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 2,
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <IconoEquipoGracioso equipoId={equipo.id} />
+                          <strong style={{ lineHeight: 1.1 }}>{equipo.nombre}</strong>
+                        </span>
+                        <span style={{ fontSize: 11 }}>
+                          {enPresupuesto && <span data-testid={`precio-equipo-${equipo.id}`}>{equipo.coste} cr</span>}
+                          {motivo !== null && <span data-testid={`faltan-equipo-${equipo.id}`}>{enPresupuesto ? " · " : ""}{motivo}</span>}
+                        </span>
+                        <span data-testid={`ayuda-equipo-${equipo.id}`} style={{ fontSize: 10.5, opacity: 0.85 }}>{equipo.ayuda}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {pestana === "armas" && enPresupuesto && estado.saldo !== null && !CATALOGO_ARMAS.some((arma) => costeDeArma(arma.id) > 0 && armaFaltaSaldo(arma.id) === 0) && (
                 <p data-testid="selector-sin-saldo" style={{ margin: "0 0 6px" }}>
                   Sin saldo para armas de pago: te quedan las gratis (daño reducido). Un evento de lotería puede darte más.
                 </p>
               )}
               {/* cat-3: rejilla de celdas con icono, de 2 columnas (≥ 44 px de alto, 6 px de separación) */}
+              {pestana === "armas" && (
               <div data-testid="rejilla-armas" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
                 {CATALOGO_ARMAS.map((arma) => {
                   const agotada = armaEstaAgotada(arma.id);
@@ -853,6 +931,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
                   );
                 })}
               </div>
+              )}
             </div>
           )}
         </div>
@@ -871,10 +950,10 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
             type="button"
             data-testid="disparar"
             onClick={solicitarDisparo}
-            disabled={!estado.puedeDisparar}
-            style={{ ...botonEstilo, background: "#ff6b4a" }}
+            disabled={accionDeshabilitada}
+            style={{ ...botonEstilo, background: "#ff6b4a", whiteSpace: "normal", maxWidth: 132, lineHeight: 1.1 }}
           >
-            Disparar
+            {etiquetaAccion}
           </button>
         </div>
       </div>

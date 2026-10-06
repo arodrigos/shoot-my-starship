@@ -32,6 +32,9 @@ export interface MemoriaIA {
   fallosConsecutivos: number;
   turnosSeguidosSinDanio: number;
   turnosSeguidosDanioInsuficiente: number;
+  // escudo-y-propulsores: ha perdido vida desde su último turno; es lo que le
+  // hace pensar en el escudo.
+  danioRecibidoDesdeSuTurno: boolean;
 }
 
 export function memoriaIAInicial(): MemoriaIA {
@@ -41,6 +44,7 @@ export function memoriaIAInicial(): MemoriaIA {
     fallosConsecutivos: 0,
     turnosSeguidosSinDanio: 0,
     turnosSeguidosDanioInsuficiente: 0,
+    danioRecibidoDesdeSuTurno: false,
   };
 }
 
