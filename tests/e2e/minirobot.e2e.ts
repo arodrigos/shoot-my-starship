@@ -46,6 +46,10 @@ test("minirobot: tras dispararlo se ve el robot con su contador y el selector ex
   await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurnoAntes, { timeout: 60000 });
 
   await page.waitForFunction(() => (window.__debug.robots?.length ?? 0) === 1, undefined, { timeout: 30000 });
+  // El aviso del HUD vive dentro de la consola: se pliega para apuntar y se
+  // despliega para leerlo, como haría un jugador.
+  const botonConsola = page.getByTestId("boton-plegar-consola");
+  if ((await botonConsola.getAttribute("aria-expanded")) !== "true") await botonConsola.click();
   const robot = page.getByTestId("robot-0");
   await expect(robot).toBeVisible();
   await expect(robot).toHaveText(/^Minirobot de .+: salto [0-4]\/4$/);
