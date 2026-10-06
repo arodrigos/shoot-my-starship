@@ -3,6 +3,7 @@ import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/arma
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
 import { consumirArma, idsDisponibles } from "@/sim/partida/economia";
 import { categorizarResultado, type CategoriaBroma } from "@/sim/partida/categoriaBroma";
+import { detonacionesDeDisparo, type Detonacion } from "@/sim/partida/detonaciones";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import {
   caeAlVacio,
@@ -33,7 +34,7 @@ function conDesplazamiento(nave: EstadoNave, desplazamientoPx: number, anchoMund
 export function avanzar(
   estado: EstadoPartida,
   entrada: EntradaDeTurno,
-): { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma } {
+): { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma; detonaciones: Detonacion[] } {
   if (estado.resultado.tipo === "terminada") {
     throw new Error("avanzar: la partida ya ha terminado, no admite más turnos");
   }
@@ -144,6 +145,8 @@ export function avanzar(
   if (resultado.proyectilPerdido) {
     eventos.push({ tipo: "proyectil-perdido", nave: tirador });
   }
+
+  const detonaciones = detonacionesDeDisparo(arma, resultado.puntosDeImpacto, resultado.danioPorPunto, estado.mascara);
 
   resultado.puntosDeImpacto.forEach((punto, indice) => {
     eventos.push({
@@ -313,6 +316,7 @@ export function avanzar(
       },
       eventos,
       categoriaBroma,
+      detonaciones,
     };
   }
 
@@ -331,6 +335,7 @@ export function avanzar(
     },
     eventos,
     categoriaBroma,
+    detonaciones,
   };
 }
 
