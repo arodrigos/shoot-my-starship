@@ -462,6 +462,10 @@ export interface ParametrosDecisionIA {
   // autodaña al dispararse). Ausente o {} reproduce EXACTAMENTE el camino de
   // siempre: ninguna arma se trata como agotada.
   readonly usosPorArma?: Readonly<Record<string, number>>;
+  // economia-rectificada: en modo presupuesto el arma la decide la compra
+  // (compra.ts) según el saldo, no la política de preferencia. Ausente, el
+  // camino de siempre bit a bit.
+  readonly armaElegida?: string;
 }
 
 export interface ResultadoDecisionIA {
@@ -514,6 +518,7 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
     objetivoId,
     presupuestoVuelosMax,
     usosPorArma = {},
+    armaElegida,
   } = params;
 
   const enModoMultipozo =
@@ -542,14 +547,10 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
     // elegirArma decide ANTES de la búsqueda cara -- así la búsqueda se hace
     // una sola vez, ya con el arma definitiva, en vez de dos (una de
     // referencia y otra real).
-    const { armaId: armaProvisional, aleatorio: aleatorioTrasArma } = elegirArma(
-      personalidad,
-      bloqueada,
-      params.aleatorio,
-      turnosSeguidosSinDanio,
-      desistirDeCavar,
-      usosPorArma,
-    );
+    const { armaId: armaProvisional, aleatorio: aleatorioTrasArma } =
+      armaElegida === undefined
+        ? elegirArma(personalidad, bloqueada, params.aleatorio, turnosSeguidosSinDanio, desistirDeCavar, usosPorArma)
+        : { armaId: armaElegida, aleatorio: params.aleatorio };
 
     const resultadoBusqueda = buscarSolucionRival({
       ...parametrosComunes,
@@ -659,14 +660,10 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
   // siempre (ia-4 lo exige bit a bit).
   const factorCorreccion = FACTOR_DE_CORRECCION ** fallosParaCorregir * factorSensibilidad;
   const { error, aleatorio: aleatorioTrasError } = calcularErrorInyectado(personalidad, params.aleatorio, factorCorreccion);
-  const { armaId, aleatorio: aleatorioFinal } = elegirArma(
-    personalidad,
-    bloqueada,
-    aleatorioTrasError,
-    turnosSeguidosSinDanio,
-    false,
-    usosPorArma,
-  );
+  const { armaId, aleatorio: aleatorioFinal } =
+    armaElegida === undefined
+      ? elegirArma(personalidad, bloqueada, aleatorioTrasError, turnosSeguidosSinDanio, false, usosPorArma)
+      : { armaId: armaElegida, aleatorio: aleatorioTrasError };
 
   const anguloGrados = Math.min(180, Math.max(0, solucionExacta.anguloGrados + error.anguloGrados));
   const potencia = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));

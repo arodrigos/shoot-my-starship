@@ -91,13 +91,10 @@ export interface EstadoPartida {
   // como antes (ninguna partida previa a este bloque declara modo). Pasa de
   // ser el saldo escalar de la nave 0 a un array paralelo a `naves`: la
   // posición `i` es el saldo de `naves[i]`, o undefined si esa nave no
-  // participa del presupuesto (la IA de 1vIA, ver desviaciones: sigue sin
-  // conocer presupuesto para no cambiar ninguna partida ya aprobada).
+  // participa del presupuesto. economia-rectificada: todos los asientos
+  // llevan saldo, también las IAs, y cada arma de pago se cobra al usarla.
   readonly modo?: ModoJuego;
   readonly saldos?: readonly (number | undefined)[];
-  // economia-loadout: armas elegidas por nave y aún sin disparar, paralelo a
-  // `naves`; undefined = nave sin presupuesto (la IA). Vacío = solo las gratis.
-  readonly loadouts?: readonly (readonly string[] | undefined)[];
 }
 
 // El arma es un identificador de texto y nada más: el catálogo declarativo

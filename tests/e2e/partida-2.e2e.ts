@@ -1,5 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { elegirArmasYConfirmar } from "./utilesControl";
 
 // partida-2 (camino_critico): nada sale del propio origen durante una
 // partida completa -- ni Supabase, ni telemetría, ni una API de LLM (el
@@ -99,14 +98,12 @@ test("modo-6: recargar la página resetea el saldo al valor inicial y ninguna pe
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.control !== undefined && window.__debug.saldo !== undefined && window.__debug.saldo !== null);
   expect(await page.evaluate(() => window.__debug.saldo)).toBe(SALDO_INICIAL);
-  await elegirArmasYConfirmar(page, [ARMA_SIN_DANIO_ID]);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {
     await page.getByTestId("ayuda-cerrar").click();
   }
 
-  // economia-loadout: el coste se paga al elegir, no al disparar.
-  const saldoInicial = SALDO_INICIAL - COSTE_ARMA_SIN_DANIO;
-  expect(await page.evaluate(() => window.__debug.saldo)).toBe(saldoInicial);
+  // economia-rectificada: el coste se paga al disparar, no al elegir.
+  expect(await page.evaluate(() => window.__debug.saldo)).toBe(SALDO_INICIAL);
 
   await page.getByTestId("selector-arma-abrir").click();
   await page.getByTestId(`arma-${ARMA_SIN_DANIO_ID}`).click();
@@ -117,7 +114,7 @@ test("modo-6: recargar la página resetea el saldo al valor inicial y ninguna pe
   });
 
   const saldoTrasDisparo = await page.evaluate(() => window.__debug.saldo);
-  expect(saldoTrasDisparo).toBe(saldoInicial);
+  expect(saldoTrasDisparo).toBe(SALDO_INICIAL - COSTE_ARMA_SIN_DANIO);
 
   // "Recargar la página" de verdad: navegación completa, no un reinicio de
   // React -- así el saldo solo puede sobrevivir si alguien lo guardó fuera

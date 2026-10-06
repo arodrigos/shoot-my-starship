@@ -271,6 +271,10 @@ export interface DebugGlobal {
   // leerlo sin esperar a que React repinte.
   modo?: "barra-libre" | "presupuesto";
   saldo?: number | null;
+  // economia-rectificada: saldo de cada asiento (null sin presupuesto) y el
+  // arma de la última entrada resuelta, para comprobar qué compró cada IA.
+  saldos?: readonly (number | null)[];
+  ultimaEntrada?: { nave: number; arma: string };
   // esp-3: cuántas veces se ha horneado el fondo de estrellas/nebulosa desde
   // que arrancó esta escena -- tiene que quedarse en 1 para siempre, también
   // después de varios turnos e impactos, porque el fondo no es terreno y

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import { almacenamientoDisponible, guardarRivalElegido, leerProgreso } from "@/juego/control/progreso";
 import { desbloquearAudio } from "@/juego/audio/motor";
-import { PRESUPUESTO_BASE } from "@/sim/partida/economia";
+import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
 import { MAX_NAVES, MAX_NOMBRE_JUGADOR, MIN_NAVES, sanearNombre, type JugadorConfig } from "@/juego/jugadores";
@@ -275,8 +275,8 @@ export function PantallaInicio({ onJugar }: Props) {
           <strong>Con presupuesto</strong>
           <br />
           <span style={{ font: "12px system-ui, sans-serif" }}>
-            Empiezas con {PRESUPUESTO_BASE} créditos para elegir armas antes de jugar: cada una es un disparo y
-            cuesta según su daño y lo fácil que es acertar. Sin armas, quedan tres gratis.
+            Empiezas con {PRESUPUESTO_BASE} créditos y pagas cada arma al dispararla, según su daño y lo fácil
+            que es acertar. Las tres gratis siempre están, pero hacen mucho menos daño.
           </span>
         </button>
       </section>

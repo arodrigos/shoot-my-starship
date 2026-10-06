@@ -1,66 +1,45 @@
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import type { Arma } from "@/sim/armas/tipos";
-
-// Presupuesto por ronda, igual para todas las naves: sin ingreso por daño,
-// porque premiar el daño con crédito en una partida de cuatro es una bola de
-// nieve para quien ya va ganando. Es el número más probable de tener que
-// moverse al equilibrar, por eso vive aislado en su propio fichero.
-export const PRESUPUESTO_BASE = 1000;
-
-// Lo no gastado se arrastra a la ronda siguiente hasta un presupuesto base:
-// ahorrar es una decisión, no una carrera de diez rondas acumulando.
-export const TOPE_ARRASTRE = PRESUPUESTO_BASE;
-
-export interface SeleccionArmas {
-  readonly saldo: number;
-  readonly armas: readonly string[];
-}
-
-export type ResultadoSeleccion =
-  | { readonly ok: true; readonly seleccion: SeleccionArmas }
-  | { readonly ok: false; readonly motivo: "saldo-insuficiente"; readonly faltan: number }
-  | { readonly ok: false; readonly motivo: "ya-elegida" };
+import { ARRASTRE_MAXIMO, FRACCION_DANIO_GRATIS, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 
 export function costeArma(arma: Arma): number {
   return arma.coste ?? 0;
-}
-
-export function puedeCostearArma(arma: Arma, saldo: number): boolean {
-  return costeArma(arma) <= saldo;
-}
-
-export function seleccionInicial(saldo: number = PRESUPUESTO_BASE): SeleccionArmas {
-  return { saldo, armas: [] };
-}
-
-// Cada arma elegida es una munición: el saldo baja al elegir (no al
-// disparar), así que nunca puede quedar negativo.
-export function elegirArma(seleccion: SeleccionArmas, arma: Arma): ResultadoSeleccion {
-  if (seleccion.armas.includes(arma.id)) return { ok: false, motivo: "ya-elegida" };
-  const coste = costeArma(arma);
-  if (coste > seleccion.saldo) return { ok: false, motivo: "saldo-insuficiente", faltan: coste - seleccion.saldo };
-  return { ok: true, seleccion: { saldo: seleccion.saldo - coste, armas: [...seleccion.armas, arma.id] } };
-}
-
-export function quitarArma(seleccion: SeleccionArmas, arma: Arma): SeleccionArmas {
-  if (!seleccion.armas.includes(arma.id)) return seleccion;
-  return { saldo: seleccion.saldo + costeArma(arma), armas: seleccion.armas.filter((id) => id !== arma.id) };
 }
 
 export function armasGratis(catalogo: readonly Arma[] = CATALOGO_ARMAS): readonly Arma[] {
   return catalogo.filter((arma) => costeArma(arma) === 0);
 }
 
-// Con el loadout agotado (o sin haber elegido nada) solo quedan las gratis,
-// que no se consumen: es el fondo de armario que impide un callejón sin salida.
-export function idsDisponibles(loadout: readonly string[], catalogo: readonly Arma[] = CATALOGO_ARMAS): readonly string[] {
-  return loadout.length > 0 ? loadout : armasGratis(catalogo).map((arma) => arma.id);
+// Daño que cuenta para fijar el listón de las gratis: solo armas de pago que
+// de verdad hacen daño. Las utilitarias (Vertedero, Gravitón) tienen daño 0
+// por diseño y dejarían el listón en cero.
+function danioDeReferencia(arma: Arma): number | null {
+  if (costeArma(arma) <= 0 || arma.utilitaria === true) return null;
+  if (arma.efecto.tipo === "empuje") return null;
+  return arma.efecto.danioMaximo > 0 ? arma.efecto.danioMaximo : null;
 }
 
-export function consumirArma(loadout: readonly string[], armaId: string): readonly string[] {
-  return loadout.filter((id) => id !== armaId);
+// Las gratis no pueden competir con las de pago: su daño máximo es el 25 % del
+// de la arma de pago más floja. En barra libre todo es gratis y no cambia nada.
+export function danioMaximoGratis(catalogo: readonly Arma[] = CATALOGO_ARMAS): number {
+  const referencias = catalogo.flatMap((arma) => {
+    const danio = danioDeReferencia(arma);
+    return danio === null ? [] : [danio];
+  });
+  return FRACCION_DANIO_GRATIS * Math.min(...referencias);
 }
 
+// Devuelve el arma tal como se resuelve en la partida: en presupuesto las
+// gratis con daño llevan el daño reducido. Un solo punto para que el núcleo, la
+// IA y el selector no discrepen.
+export function armaEfectiva(arma: Arma, presupuesto: boolean, catalogo: readonly Arma[] = CATALOGO_ARMAS): Arma {
+  if (!presupuesto || costeArma(arma) > 0 || arma.efecto.tipo !== "danio") return arma;
+  return { ...arma, efecto: { ...arma.efecto, danioMaximo: danioMaximoGratis(catalogo) } };
+}
+
+// Un sobrante corrupto (NaN, negativo, infinito) vale 0: el arrastre nunca
+// puede romper la calibración por un dato malo guardado.
 export function saldoDeRonda(saldoNoGastado: number): number {
-  return PRESUPUESTO_BASE + Math.min(Math.max(0, saldoNoGastado), TOPE_ARRASTRE);
+  const sobrante = Number.isFinite(saldoNoGastado) ? Math.max(0, saldoNoGastado) : 0;
+  return PRESUPUESTO_BASE + Math.min(sobrante, ARRASTRE_MAXIMO);
 }

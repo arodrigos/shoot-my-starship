@@ -1,5 +1,6 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { PRESUPUESTO_VUELOS_RIVAL_TURNO, valorarRival } from "@/sim/ia/busquedaMultipozo";
+import { decidirCompraTurno } from "@/sim/ia/compra";
 import { ARMA_BASE_ID, decidirTurnoIA, type UltimoIntentoIA } from "@/sim/ia/decidir";
 import type { Personalidad } from "@/sim/ia/tipos";
 import type { NavePosicion } from "@/sim/naves/impacto";
@@ -106,6 +107,14 @@ export function crearFuenteIA(
           .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }))
       : undefined;
 
+    // economia-rectificada: con saldo, la IA decide su compra antes de apuntar
+    // y el azar de esa decisión sale del mismo estado que el resto del turno.
+    const saldo = estado.modo === "presupuesto" ? estado.saldos?.[tirador] : undefined;
+    const compra =
+      saldo === undefined
+        ? undefined
+        : decidirCompraTurno(personalidad, saldo, Math.floor(estado.numeroTurno / estado.ordenTurno.length), estado.aleatorio, usosPorArma);
+
     const resultado = decidirTurnoIA({
       mascara: estado.mascara,
       origenX: naveTiradora.x,
@@ -117,7 +126,8 @@ export function crearFuenteIA(
       ancho: estado.mundo.ancho,
       alto: estado.mundo.alto,
       personalidad,
-      aleatorio: estado.aleatorio,
+      aleatorio: compra?.aleatorio ?? estado.aleatorio,
+      armaElegida: compra?.armaId,
       ultimoIntento,
       planetas: estado.planetas,
       naves,
