@@ -33,25 +33,26 @@ trayectorias extremas de esa banda y no miente.
 
 - **Barra libre**: las dieciséis armas están disponibles desde el primer
   turno, sin coste.
-- **Con presupuesto** (economía por ronda): cada humano parte del mismo
-  presupuesto (`PRESUPUESTO_BASE` = 1000 créditos, `src/sim/partida/economia.ts`)
-  y, antes de jugar, elige sus armas en una pantalla de selección que muestra
-  precio, daño y facilidad de acierto medida de cada una. Cada arma elegida es
-  un disparo: el saldo baja al elegir, no al disparar, y nunca queda negativo.
-  **No hay ingreso por daño**: el saldo depende solo del presupuesto y del
-  gasto. Lo que no se gasta se arrastra a la ronda siguiente con un tope de un
-  presupuesto base (`saldoDeRonda`). Si se agota el arsenal o se empieza sin
-  elegir nada, solo quedan las tres armas gratis. La IA no usa presupuesto. El
-  saldo vive solo en memoria de la pestaña.
+- **Con presupuesto** (economía por ronda): todos los asientos, también las
+  IAs, parten del mismo presupuesto (`PRESUPUESTO_BASE` = 1000 créditos,
+  `src/sim/economia/parametros.ts`). No hay pantalla previa de compra: todas
+  las armas están siempre en el selector y cada una de pago se cobra al
+  disparar (seleccionar o cambiar de arma no cobra). Una arma que el saldo no
+  cubre se ve deshabilitada con «Te faltan N cr», y el núcleo rechaza esa
+  entrada sin cambiar el estado. **No hay ingreso por daño**: el saldo depende
+  solo del presupuesto y del gasto. Lo que no se gasta se arrastra a la ronda
+  siguiente hasta `ARRASTRE_MAXIMO` (un cuarto de la base, `saldoDeRonda`). Las
+  tres armas gratis siempre están y no cobran, pero hacen solo el 25 % del daño
+  del arma de pago más floja. Cada IA decide su compra en cada turno según su
+  perfil de gasto (`decidirCompraTurno`). El saldo vive solo en memoria de la
+  pestaña.
 
 ### Multijugador local (2 a 4 naves)
 
 Todo ocurre en el mismo dispositivo, por turnos, sin servidor. Con dos o más
 humanos, entre turnos de jugadores distintos aparece una pantalla de relevo
 que tapa el campo, resume el turno anterior y exige un toque ("Soy ...") antes
-de enseñar nada; en modo presupuesto la selección de armas de cada jugador
-también va tras ese toque, para que el siguiente no vea el arsenal del
-anterior. El ajuste "todos vemos todo" desactiva el relevo. Gana la última nave
+de enseñar nada; el ajuste "todos vemos todo" desactiva el relevo. Gana la última nave
 en pie.
 
 ### El catálogo: dieciséis armas, cada una con su papel

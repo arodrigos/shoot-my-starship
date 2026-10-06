@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
-import { elegirArmasYConfirmar } from "./utilesControl";
 
 function danioAlObjetivo(eventos: readonly EventoSimulacion[] | undefined): number {
   return (eventos ?? [])
@@ -38,24 +37,22 @@ async function dispararConGesto(page: import("@playwright/test").Page): Promise<
   await page.getByTestId("disparar").click();
 }
 
-// modo-1 (reescrito por economia-loadout): el saldo se paga al ELEGIR el arma
-// y disparar ya no lo mueve: ni cuesta ni, si causa daño, ingresa. Un
-// disparo con daño real deja el saldo exactamente donde lo dejó la selección.
-test("modo-1: el saldo baja al elegir y un disparo con daño real no lo mueve", async ({ page }) => {
+// modo-1 (reescrito por economia-rectificada): el arma de pago se cobra al
+// DISPARAR, su precio exacto, y causar daño no ingresa nada: el saldo queda en
+// la base menos el precio.
+test("modo-1: el saldo baja el precio exacto al disparar y el daño no ingresa", async ({ page }) => {
   test.setTimeout(120000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?mapa=calma-de-los-restos&modo=presupuesto");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
-  await elegirArmasYConfirmar(page, [ARMA_ID, "despedida"]);
   await page.waitForFunction(() => window.__debug.control !== undefined && window.__debug.naves !== undefined && window.__debug.saldo !== undefined);
 
   if (await page.getByTestId("ayuda-cerrar").isVisible()) {
     await page.getByTestId("ayuda-cerrar").click();
   }
 
-  const saldoTrasSeleccion = (await page.evaluate(() => window.__debug.saldo))!;
-  expect(saldoTrasSeleccion).toBe(1000 - COSTE_ARMA - 120);
+  expect(await page.evaluate(() => window.__debug.saldo)).toBe(1000);
 
   await page.getByTestId("selector-arma-abrir").click();
   await page.getByTestId(`arma-${ARMA_ID}`).click();
@@ -67,5 +64,5 @@ test("modo-1: el saldo baja al elegir y un disparo con daño real no lo mueve", 
     eventos1: window.__debug.ultimosEventos,
   }));
   expect(danioAlObjetivo(eventos1), "el disparo tiene que causar daño real para probar que no ingresa").toBeGreaterThan(0);
-  expect(saldoTrasDisparo1).toBe(saldoTrasSeleccion);
+  expect(saldoTrasDisparo1).toBe(1000 - COSTE_ARMA);
 });
