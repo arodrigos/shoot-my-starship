@@ -26,7 +26,7 @@ aparte que mantener sincronizada con el resolutor.
 | Gravitón de Segunda Mano | 0 | 0 | n/a | 0.0% | 45 |
 | Despedida | 55 | 115 | 0.87s | 3.5% | 120 |
 | Barrena Planetaria | 44 | 38 | 0.89s | 2.8% | 90 |
-| Rayo Láser | 46 | 80 | 0.42s | 1.3% | 115 |
+| Rayo Láser | 46 | 80 | 0.44s | 1.1% | 115 |
 | Mosca Cojonera | 28 | 50 | 0.80s | 3.2% | 75 |
 | Granada de Espoleta | 34 | 62 | 0.89s | 2.8% | 80 |
 | Gancho Pegajoso | 24 | 38 | 0.87s | 8.1% | 115 |

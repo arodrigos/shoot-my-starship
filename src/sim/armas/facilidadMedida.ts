@@ -15,7 +15,7 @@ export const FACILIDAD_MEDIDA_PCT: Readonly<Record<string, number>> = {
   "graviton-segunda-mano": 0.0,
   "despedida": 3.5,
   "barrena-planetaria": 2.8,
-  "rayo-laser": 1.3,
+  "rayo-laser": 1.1,
   "mosca-cojonera": 3.2,
   "granada-de-espoleta": 2.8,
   "gancho-pegajoso": 8.1,
