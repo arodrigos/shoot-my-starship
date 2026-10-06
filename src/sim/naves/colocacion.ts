@@ -1,6 +1,6 @@
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
-import { existeTiroViable } from "@/sim/balistica/rejilla";
+import { existeTiroViable, RANGO_ANGULOS_IA, RANGO_ANGULOS_JUGADOR } from "@/sim/balistica/rejilla";
 import { esSolido } from "@/sim/terreno/mascara";
 import { generarSistema, MARGEN_CORREDOR_SUPERIOR, type SistemaGenerado } from "@/sim/sistema/generador";
 import type { EstadoNave, ParametrosMundo } from "@/sim/partida/tipos";
@@ -36,6 +36,11 @@ const MAX_INTENTOS_PUNTO = 500;
 // en la mayoría de los pares de puntos SÍ es que no hay tiro. Un presupuesto
 // bajo basta: cuando SÍ hay tiro, la mayoría se encuentra dentro de las
 // primeras decenas de combinaciones.
+//
+// apuntado-y-relevo (apu-5): el humano dispara en 0-360°, así que su
+// viabilidad barre una vuelta entera (40 combinaciones a la primera
+// potencia, con paso de 9°). La IA
+// conserva su semicírculo: solo lanza hacia arriba.
 const PRESUPUESTO_INTENTOS_VIABILIDAD = 40;
 // Offset primo para la "semilla derivada" de cada regeneración -- cualquier
 // desplazamiento fijo sirve, un primo grande evita que dos semillas de las
@@ -132,6 +137,7 @@ function intentarColocarEnSistema(
   mundo: ParametrosMundo,
   aleatorioInicial: EstadoAleatorio,
   cantidad: number,
+  asientosIA: readonly boolean[],
 ): ResultadoIntento {
   let aleatorio = aleatorioInicial;
   const armaBase = buscarArma(ARMA_BASE_ID);
@@ -163,8 +169,17 @@ function intentarColocarEnSistema(
       aleatorio,
       arma: armaBase,
       naves: navesCandidatas,
-      presupuestoIntentos: PRESUPUESTO_INTENTOS_VIABILIDAD,
     };
+    // Cada tirador se mide con lo que de verdad puede disparar su asiento.
+    const viable = (tiradorId: number, objetivoId: number): boolean =>
+      existeTiroViable({
+        ...parametrosViabilidadComunes,
+        tiradorId,
+        objetivoId,
+        ...(asientosIA[tiradorId]
+          ? { presupuestoIntentos: PRESUPUESTO_INTENTOS_VIABILIDAD, rangoAngulos: RANGO_ANGULOS_IA }
+          : { presupuestoIntentos: PRESUPUESTO_INTENTOS_VIABILIDAD, rangoAngulos: RANGO_ANGULOS_JUGADOR }),
+      });
     // ia-punteria-6 (hallazgo real, world espacial 1121x1156 derivado del
     // viewport 360x640, semilla 20260926): esta comprobación solo exigía el
     // tiro de la nave 0 a la nave 1, nunca el inverso -- con gravedad
@@ -185,10 +200,9 @@ function intentarColocarEnSistema(
     // la partida.
     const todosViables =
       cantidad === 2
-        ? existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: 0, objetivoId: 1 }) &&
-          existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: 1, objetivoId: 0 })
+        ? viable(0, 1) && viable(1, 0)
         : puntos.every((_punto, id) =>
-            puntos.some((_otro, otroId) => otroId !== id && existeTiroViable({ ...parametrosViabilidadComunes, tiradorId: id, objetivoId: otroId })),
+            puntos.some((_otro, otroId) => otroId !== id && viable(id, otroId)),
           );
     if (!todosViables) continue;
 
@@ -274,11 +288,14 @@ export function colocarNaves(
   mundo: ParametrosMundo,
   aleatorioInicial: EstadoAleatorio,
   cantidad = 2,
+  // Sin dato se asume que todos los asientos son IA: es el criterio estricto de
+  // siempre, que garantiza un tiro a quien solo sabe disparar hacia arriba.
+  asientosIA: readonly boolean[] = Array.from({ length: cantidad }, () => true),
 ): ResultadoColocacion {
   let sistema = generarSistema(semillaSistema, mundo.ancho, mundo.alto);
   let aleatorio = aleatorioInicial;
 
-  let resultado = intentarColocarEnSistema(sistema, mundo, aleatorio, cantidad);
+  let resultado = intentarColocarEnSistema(sistema, mundo, aleatorio, cantidad, asientosIA);
   aleatorio = resultado.aleatorio;
   if (resultado.naves) {
     return { sistema, naves: resultado.naves, aleatorio, intentos: resultado.intentos, escalon: "recolocacion" };
@@ -288,7 +305,7 @@ export function colocarNaves(
   for (let regeneracion = 1; regeneracion <= maxRegeneraciones; regeneracion++) {
     const semillaDerivada = semillaSistema + regeneracion * OFFSET_SEMILLA_REGENERACION;
     sistema = generarSistema(semillaDerivada, mundo.ancho, mundo.alto);
-    resultado = intentarColocarEnSistema(sistema, mundo, aleatorio, cantidad);
+    resultado = intentarColocarEnSistema(sistema, mundo, aleatorio, cantidad, asientosIA);
     aleatorio = resultado.aleatorio;
     if (resultado.naves) {
       return { sistema, naves: resultado.naves, aleatorio, intentos: resultado.intentos, escalon: "regeneracion" };

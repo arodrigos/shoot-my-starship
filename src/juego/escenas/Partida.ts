@@ -20,7 +20,7 @@ import { cajaCasco } from "@/sim/naves/geometriaCasco";
 import { puntosSilueta, dimensionMayor } from "@/juego/proyectiles/geometriaProyectil";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
-import { barridoRejilla } from "@/sim/balistica/rejilla";
+import { barridoRejilla, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
 import type { NavePosicion } from "@/sim/naves/impacto";
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { contarPixelesDestruidos } from "@/sim/terreno/estadisticas";
@@ -43,10 +43,13 @@ import {
   publicarNombreRival,
   publicarEconomia,
   publicarTurno,
+  publicarPreparando,
+  fijarApuntadoDirecto,
   registrarManejadorDisparo,
   reiniciarControl,
   seleccionarArma,
 } from "@/juego/control/store";
+import { anguloDesdeDedo, potenciaDesdeDistancia } from "@/juego/control/apuntado";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra, publicarSaldosFinales } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
@@ -358,6 +361,12 @@ export class Partida extends Phaser.Scene {
   private cancelarManejadorRepeticion: (() => void) | null = null;
 
   private readonly manejarPointerDown = (evento: PointerEvent): void => this.alPointerDown(evento);
+  private readonly manejarPointerMove = (evento: PointerEvent): void => this.alPointerMove(evento);
+  private readonly manejarPointerFin = (evento: PointerEvent): void => this.alPointerFin(evento);
+  // apuntado-y-relevo: id del puntero que arrastra sobre el lienzo (null si
+  // ninguno). Un segundo dedo o un arrastre que empezó en la consola no
+  // mueven el apuntado.
+  private punteroApuntando: number | null = null;
 
   constructor() {
     super("Partida");
@@ -520,7 +529,7 @@ export class Partida extends Phaser.Scene {
       // ninguna disposición sobre el original resulta viable con casco real
       // -- el `sistema` que se renderiza tiene que ser el mismo que el que
       // colocarNaves acabó usando de verdad, nunca uno generado aparte.
-      const colocacion = colocarNaves(semillaSistema, mundoEspacial, crearEstadoAleatorio(semillaSistema), cantidadNaves);
+      const colocacion = colocarNaves(semillaSistema, mundoEspacial, crearEstadoAleatorio(semillaSistema), cantidadNaves, this.controladores.map((controlador) => controlador.tipo === "ia"));
       const sistema = colocacion.sistema;
       this.estado = {
         version: 1,
@@ -663,6 +672,9 @@ export class Partida extends Phaser.Scene {
     this.emisorEstela.setDepth(40);
 
     window.addEventListener("pointerdown", this.manejarPointerDown);
+    window.addEventListener("pointermove", this.manejarPointerMove);
+    window.addEventListener("pointerup", this.manejarPointerFin);
+    window.addEventListener("pointercancel", this.manejarPointerFin);
     this.cancelarManejadorDisparo = registrarManejadorDisparo((entrada) =>
       // El store del control no sabe a quién apunta cada humano (trae un
       // objetivo fijo, válido solo con dos naves): el objetivo lo decide
@@ -786,6 +798,7 @@ export class Partida extends Phaser.Scene {
     this.refrescarEconomia();
     this.iniciarSelecciones();
     publicarJugable(this.puedeJugarAhora());
+    publicarPreparando(false);
   }
 
   update(_time: number, delta: number): void {
@@ -1101,6 +1114,9 @@ export class Partida extends Phaser.Scene {
 
   private limpiarEntrada(): void {
     window.removeEventListener("pointerdown", this.manejarPointerDown);
+    window.removeEventListener("pointermove", this.manejarPointerMove);
+    window.removeEventListener("pointerup", this.manejarPointerFin);
+    window.removeEventListener("pointercancel", this.manejarPointerFin);
     this.cancelarManejadorDisparo?.();
     this.cancelarManejadorDisparo = null;
     this.cancelarManejadorRepeticion?.();
@@ -1133,6 +1149,45 @@ export class Partida extends Phaser.Scene {
     // del lienzo (ControlHUD/juego/control): no necesita saber dónde está
     // el terreno, así que aquí solo queda este punto de depuración.
     window.__debug!.ultimoPunto = { x: fraccion.x * MUNDO_ANCHO, y: fraccion.y * MUNDO_ALTO };
+
+    // Solo el toque que cae sobre el propio lienzo apunta: los que caen en
+    // la consola o en un panel superpuesto siguen su camino normal.
+    if (evento.target === this.game.canvas && this.puedeJugarAhora()) {
+      this.punteroApuntando = evento.pointerId;
+      this.apuntarHacia(evento.clientX, evento.clientY);
+    }
+  }
+
+  private alPointerMove(evento: PointerEvent): void {
+    if (this.punteroApuntando !== evento.pointerId) return;
+    if (!this.puedeJugarAhora()) {
+      this.punteroApuntando = null;
+      return;
+    }
+    this.apuntarHacia(evento.clientX, evento.clientY);
+  }
+
+  private alPointerFin(evento: PointerEvent): void {
+    if (this.punteroApuntando === evento.pointerId) this.punteroApuntando = null;
+  }
+
+  // Posición de la nave del turno en píxeles CSS, medida contra el rectángulo
+  // real del lienzo (con Scale.FIT puede haber bandas laterales).
+  private posicionPantallaNaveDelTurno(): { x: number; y: number } {
+    const rect = this.game.canvas.getBoundingClientRect();
+    const nave = this.estado.naves[this.estado.turno];
+    const y = alturaRenderNave(nave.y, alturaSuperficie(this.estado.mascara, nave.x) ?? MUNDO_ALTO - 1);
+    return { x: rect.left + (nave.x / MUNDO_ANCHO) * rect.width, y: rect.top + (y / MUNDO_ALTO) * rect.height };
+  }
+
+  private apuntarHacia(clienteX: number, clienteY: number): void {
+    const nave = this.posicionPantallaNaveDelTurno();
+    const dedo = { x: clienteX, y: clienteY };
+    const ladoMenor = Math.min(window.innerWidth, window.innerHeight);
+    fijarApuntadoDirecto(
+      anguloDesdeDedo(nave, dedo),
+      potenciaDesdeDistancia(Math.hypot(dedo.x - nave.x, dedo.y - nave.y), ladoMenor),
+    );
   }
 
   // Resuelve el disparo YA (avanzar es puro y síncrono) y anima el vuelo con
@@ -1936,6 +1991,12 @@ export class Partida extends Phaser.Scene {
       naves: this.navesParaOraculo(estado),
       tiradorId: tirador,
       objetivoId,
+      // La colocación garantiza un tiro a quien juega en 0-360°, no en el
+      // semicírculo de la IA: con ese rango el oráculo podía no ver el único tiro.
+      // Con el paso de 9° de la viabilidad se pierden los tiros de más daño y
+      // los e2e que juegan hasta un ganador no lo alcanzaban en 10 rondas:
+      // el oráculo barre la vuelta entera con el paso fino de la IA.
+      rangoAngulos: RANGO_ANGULOS_ORACULO,
     });
     return candidatos[0] ?? null;
   }

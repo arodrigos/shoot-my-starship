@@ -8,6 +8,9 @@ import { ControlHUD } from "@/juego/hud/ControlHUD";
 import { ReaccionHUD } from "@/juego/hud/ReaccionHUD";
 import { ParteDeGuerraHUD } from "@/juego/hud/ParteDeGuerraHUD";
 import { CuentaAtrasHUD } from "@/juego/hud/CuentaAtrasHUD";
+import { PreparandoHUD } from "@/juego/hud/PreparandoHUD";
+import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
+import { publicarPreparando } from "@/juego/control/store";
 import { RelevoHUD } from "@/juego/hud/RelevoHUD";
 import { SeleccionHUD } from "@/juego/hud/SeleccionHUD";
 import { obtenerRelevo, suscribirRelevo } from "@/juego/control/relevoStore";
@@ -45,6 +48,9 @@ export function PhaserGame({ escena, datosEscena }: Props) {
       return;
     }
     let cancelado = false;
+    // Antes del primer pintado: el aviso tiene que estar ya en pantalla
+    // cuando la escena empiece a colocar naves y bloquee el hilo.
+    publicarPreparando(true);
     import("@/juego/main").then(({ iniciarJuego }) => {
       if (!cancelado) {
         juego.current = iniciarJuego(ID_CONTENEDOR, escena, datosEscena);
@@ -93,6 +99,8 @@ export function PhaserGame({ escena, datosEscena }: Props) {
           {!relevoActivo && !seleccionActiva && <ReaccionHUD />}
         </div>
       )}
+      {esPartida && <AyudaApuntadoHUD />}
+      {esPartida && <PreparandoHUD />}
       {esPartida && <ParteDeGuerraHUD />}
       {esPartida && <CuentaAtrasHUD />}
       {esPartida && <RelevoHUD />}

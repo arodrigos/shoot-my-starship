@@ -5,6 +5,7 @@ import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { NavePosicion } from "@/sim/naves/impacto";
 import type { IdNave } from "@/sim/partida/tipos";
 import type { Mascara } from "@/sim/terreno/mascara";
+import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS } from "@/juego/control/apuntado";
 
 // UN SOLO ORÁCULO DE TIRO (imp-8): esto REEMPLAZA por completo a
 // src/sim/balistica/busqueda.ts (borrado en este mismo bloque), que tenía su
@@ -25,7 +26,34 @@ export const PASO_ANGULO_GRUESO_GRADOS = 4;
 // candidato con daño real -- un límite propio que se desincronice de este
 // dejaría pasar un ángulo que la rejilla ni siquiera prueba.
 export const ANGULO_MIN_GRADOS = 2;
-export const ANGULO_MAX_GRADOS = 178;
+export const ANGULO_MAX_GRADOS = 180 - ANGULO_MIN_GRADOS;
+// apuntado-y-relevo (apu-5): la rejilla de la IA y de la medición de armas
+// conserva el semicírculo superior porque la facilidad medida (y con ella los
+// precios) se calibró con él. La viabilidad de la colocación, en cambio,
+// tiene que preguntar por todo lo que el jugador puede disparar: se pasa
+// RANGO_ANGULOS_JUGADOR. El último paso antes de 360° evita repetir el 0°
+// como 360°.
+export interface RangoAngulos {
+  readonly minimo: number;
+  readonly maximo: number;
+  // Ausente = PASO_ANGULO_GRUESO_GRADOS.
+  readonly paso?: number;
+}
+export const RANGO_ANGULOS_IA: RangoAngulos = { minimo: ANGULO_MIN_GRADOS, maximo: ANGULO_MAX_GRADOS };
+// Paso de 9° para que la vuelta entera cueste los mismos 40 vuelos que el
+// semicírculo de la IA: con 4° la colocación de un humano tardaba más del
+// doble y los e2e con reloj ajustado se pasaban de tiempo en el CI.
+const PASO_ANGULO_VIABILIDAD_JUGADOR = 9;
+export const RANGO_ANGULOS_JUGADOR: RangoAngulos = {
+  minimo: ANGULO_MINIMO_GRADOS,
+  maximo: ANGULO_MAXIMO_GRADOS - PASO_ANGULO_VIABILIDAD_JUGADOR,
+  paso: PASO_ANGULO_VIABILIDAD_JUGADOR,
+};
+// Vuelta entera con el paso grueso de la IA: solo lo usa el oráculo de depuración.
+export const RANGO_ANGULOS_ORACULO: RangoAngulos = {
+  minimo: ANGULO_MINIMO_GRADOS,
+  maximo: ANGULO_MAXIMO_GRADOS - PASO_ANGULO_GRUESO_GRADOS,
+};
 const POTENCIAS_PROBADAS_PORCENTAJE = [40, 55, 70, 85, 100];
 // Exportado (ia-multipozo): cuántos vuelos consume barrer la rejilla entera
 // sin presupuesto -- el rival lo necesita para repartir su propio techo de
@@ -52,6 +80,8 @@ export interface ParametrosBarridoRejilla {
   // semilla, no lo pasan y agotan la rejilla completa. Ausente = sin
   // límite.
   readonly presupuestoIntentos?: number;
+  // Ausente = semicírculo de la IA (ANGULO_MIN/MAX_GRADOS).
+  readonly rangoAngulos?: RangoAngulos;
 }
 
 export interface CandidatoDisparo {
@@ -89,9 +119,9 @@ export function compararCandidatos(a: CandidatoDisparo, b: CandidatoDisparo): nu
   return b.puntuacion - a.puntuacion;
 }
 
-function* combinacionesDeLaRejilla(): Generator<{ anguloGrados: number; potencia: number }> {
+function* combinacionesDeLaRejilla(rango: RangoAngulos): Generator<{ anguloGrados: number; potencia: number }> {
   for (const potencia of POTENCIAS_PROBADAS_PORCENTAJE) {
-    for (let anguloGrados = ANGULO_MIN_GRADOS; anguloGrados <= ANGULO_MAX_GRADOS; anguloGrados += PASO_ANGULO_GRUESO_GRADOS) {
+    for (let anguloGrados = rango.minimo; anguloGrados <= rango.maximo; anguloGrados += rango.paso ?? PASO_ANGULO_GRUESO_GRADOS) {
       yield { anguloGrados, potencia };
     }
   }
@@ -150,7 +180,7 @@ export function barridoRejilla(params: ParametrosBarridoRejilla): readonly Candi
 
   const candidatos: CandidatoDisparo[] = [];
   let evaluados = 0;
-  for (const { anguloGrados, potencia } of combinacionesDeLaRejilla()) {
+  for (const { anguloGrados, potencia } of combinacionesDeLaRejilla(params.rangoAngulos ?? RANGO_ANGULOS_IA)) {
     if (params.presupuestoIntentos !== undefined && evaluados >= params.presupuestoIntentos) break;
     evaluados++;
     const resultado = danioDelCandidato(params, tirador, objetivo, anguloGrados, potencia);
@@ -183,7 +213,7 @@ export function existeTiroViable(params: ParametrosBarridoRejilla): boolean {
   }
 
   let evaluados = 0;
-  for (const { anguloGrados, potencia } of combinacionesDeLaRejilla()) {
+  for (const { anguloGrados, potencia } of combinacionesDeLaRejilla(params.rangoAngulos ?? RANGO_ANGULOS_IA)) {
     if (params.presupuestoIntentos !== undefined && evaluados >= params.presupuestoIntentos) return false;
     evaluados++;
     if (danioDelCandidato(params, tirador, objetivo, anguloGrados, potencia).danio > 0) return true;

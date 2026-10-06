@@ -107,6 +107,13 @@ function crearClicConToleranciaDeArrastre(accion: () => void) {
   };
 }
 
+// Un arrastre deja ángulos como 359,999997°: toFixed(1) los pintaría como
+// «360,0°», que no existe en el rango [0, 360).
+function textoAnguloGrados(grados: number): string {
+  const decimas = Math.round(grados * 10) % 3600;
+  return (decimas / 10).toFixed(1).replace(".", ",");
+}
+
 export function ControlHUD() {
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const resultadoTurno = useSyncExternalStore(suscribirResultadoTurno, obtenerResultadoTurno, obtenerResultadoTurno);
@@ -395,7 +402,7 @@ export function ControlHUD() {
             data-testid="valor-angulo"
             style={{ marginLeft: "auto", marginRight: 8, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif", pointerEvents: "none" }}
           >
-            {estado.ajuste.anguloGrados.toFixed(1)}°
+            {textoAnguloGrados(estado.ajuste.anguloGrados)}°
           </div>
         </div>
         <button type="button" data-testid="paso-angulo-mas" onPointerDown={alBajarBotonPaso} onClick={crearClicConToleranciaDeArrastre(() => ajustarAnguloFino(1))} style={botonEstilo}>

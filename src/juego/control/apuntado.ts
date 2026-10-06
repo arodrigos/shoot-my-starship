@@ -80,10 +80,15 @@ export function potenciaTrasArrastre(
 // Redondear a una décima en cada paso (en vez de solo sumar) es lo que evita
 // que el error de coma flotante de sumar 0.1 diez veces seguidas deje el
 // ángulo en 45.99999999999999 en vez de 46 exactos (control-2).
+// apuntado-y-relevo: al llegar a 0°/360° el paso fino da la vuelta (359,9° +
+// 0,1° = 0,0°) en vez de quedarse pegado: el apuntado directo puede dejar el
+// ángulo a un lado u otro de la costura y afinar tiene que poder cruzarla.
 export function anguloConPasoFino(anguloActualGrados: number, sentido: 1 | -1): number {
   const bruto = anguloActualGrados + sentido * PASO_FINO_ANGULO_GRADOS;
   const redondeado = Math.round(bruto * 10) / 10;
-  return clampAngulo(redondeado);
+  const vuelta = ((redondeado % ANGULO_MAXIMO_GRADOS) + ANGULO_MAXIMO_GRADOS) % ANGULO_MAXIMO_GRADOS;
+  // Sumar 360 a un decimal vuelve a ensuciar el último bit.
+  return clampAngulo(Math.round(vuelta * 10) / 10);
 }
 
 export function potenciaConPasoFino(potenciaActual: number, sentido: 1 | -1): number {
@@ -109,6 +114,45 @@ export function anguloDesdeFraccionControl(fraccionHorizontal: number): number {
 export function potenciaDesdeFraccionControl(fraccionHorizontal: number): number {
   const t = Math.max(0, Math.min(1, fraccionHorizontal));
   return clampPotencia(POTENCIA_MINIMA + t * (POTENCIA_MAXIMA - POTENCIA_MINIMA));
+}
+
+// apuntado-y-relevo: apuntado directo sobre el lienzo, al estilo de arrastrar
+// la goma de un tirachinas: el ángulo es la dirección nave→dedo y la
+// potencia, la distancia entre ambos. Es lo que da precisión en el móvil: a
+// 120 px de la nave un píxel de dedo son ~0,5°, frente a los ~1,2° por
+// píxel de la barra horizontal. Trabaja en píxeles CSS de pantalla (y hacia
+// abajo), no en unidades de mundo, para que el gesto se sienta igual con
+// cualquier escala de mundo.
+//
+// Dentro de este radio la dirección nave→dedo es ruido (el dedo tapa la nave):
+// se ignora el gesto en vez de girar el ángulo a saltos.
+export const ZONA_MUERTA_APUNTADO_PX = 8;
+// Fracción del lado menor del viewport a la que la potencia llega a 100.
+export const FRACCION_LADO_MENOR_POTENCIA_MAXIMA = 0.4;
+
+export interface PuntoPantalla {
+  readonly x: number;
+  readonly y: number;
+}
+
+// null dentro de la zona muerta: quien llama conserva el ángulo anterior.
+export function anguloDesdeDedo(nave: PuntoPantalla, dedo: PuntoPantalla): number | null {
+  const dx = dedo.x - nave.x;
+  // La y de pantalla crece hacia abajo; el ángulo del juego crece hacia
+  // arriba (90° = arriba), de ahí la inversión.
+  const dy = nave.y - dedo.y;
+  if (Math.hypot(dx, dy) <= ZONA_MUERTA_APUNTADO_PX) return null;
+  const grados = (Math.atan2(dy, dx) * 180) / Math.PI;
+  const normalizado = grados < 0 ? grados + 360 : grados;
+  // atan2 de un valor negativo diminuto puede sumar 360 y dejar exactamente
+  // 360: es el mismo ángulo que 0, y el rango publicado es [0, 360).
+  return normalizado >= 360 ? 0 : normalizado;
+}
+
+export function potenciaDesdeDistancia(distanciaPx: number, ladoMenorViewportPx: number): number {
+  if (!(ladoMenorViewportPx > 0) || !Number.isFinite(distanciaPx)) return POTENCIA_MINIMA;
+  const fraccion = distanciaPx / (FRACCION_LADO_MENOR_POTENCIA_MAXIMA * ladoMenorViewportPx);
+  return clampPotencia(POTENCIA_MINIMA + fraccion * (POTENCIA_MAXIMA - POTENCIA_MINIMA));
 }
 
 // ctl-6: saneado del ajuste persistido en localStorage -- un valor corrupto
