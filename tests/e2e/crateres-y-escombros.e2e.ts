@@ -15,7 +15,9 @@ async function entrarAPartidaEspacial(page: import("@playwright/test").Page): Pr
   // escombro. La semilla 4 sí coloca las naves en el primer escalón
   // (recolocación) y conserva escombro real, comprobado por fuerza bruta
   // con colocarNaves fuera de test.
-  await page.goto("/?semilla=4");
+  // pantalla-completa: con el mundo ×1,5 la semilla 4 ya no genera cinturón;
+  // la 3 sí lo conserva a 360x640 (comprobado con colocarNaves fuera de test).
+  await page.goto("/?semilla=3");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.modoEspacial === true);

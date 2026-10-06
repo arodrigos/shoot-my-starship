@@ -5,7 +5,7 @@ import { AIRE, ESCOMBRO, type Mascara } from "@/sim/terreno/mascara";
 // tamaño es decisión de generador-sistema (el siguiente bloque); este no
 // genera ninguno, solo sabe qué hacer con ellos.
 export interface Planeta {
-  // 1..6 (mascara.PLANETA_MIN..PLANETA_MAX): coincide con el material que
+  // PLANETA_MIN..PLANETA_MAX (mascara.ts): coincide con el material que
   // ese planeta ocupa en la máscara, así que un píxel sabe de quién es sin
   // tabla de traducción aparte.
   readonly id: number;

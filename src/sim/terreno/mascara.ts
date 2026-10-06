@@ -15,7 +15,10 @@ export const AIRE = 0;
 export const SOLIDO = 1;
 export const ESCOMBRO = 255;
 export const PLANETA_MIN = 1;
-export const PLANETA_MAX = 6;
+// pantalla-completa: el mundo ×1,5 admite hasta 9 planetas, así que el rango
+// de materiales de planeta ya no puede quedarse en 6 (un planeta 7+ se leía
+// como escombro y se pintaba plano, sin sombra ni borde quemado).
+export const PLANETA_MAX = 12;
 
 export function esMaterialPlaneta(material: number): boolean {
   return material >= PLANETA_MIN && material <= PLANETA_MAX;

@@ -16,6 +16,10 @@ export interface GeometriaPlaneta {
   readonly radio: number;
 }
 
+// Hay más materiales de planeta que colores en la paleta: se reutilizan en
+// ciclo, y el sombreado esférico sigue distinguiendo cada cuerpo.
+const NUM_COLORES_PLANETA = Object.keys(PALETA_ESPACIO_PLANETAS).length;
+
 const AMBIENTE = 0.35;
 // Luz fija arriba-a-la-izquierda, normalizada -- el mismo vector para los
 // 6 planetas posibles, para que el terminador de todos caiga en el mismo
@@ -54,7 +58,7 @@ function colorPixel(
   if (!esMaterialPlaneta(material)) {
     return PALETA_ESPACIO_ESCOMBRO;
   }
-  const base = PALETA_ESPACIO_PLANETAS[material] ?? PALETA_ESPACIO_ESCOMBRO;
+  const base = PALETA_ESPACIO_PLANETAS[((material - 1) % NUM_COLORES_PLANETA) + 1] ?? PALETA_ESPACIO_ESCOMBRO;
   const geometria = geometrias.get(material);
   const sombreado = geometria
     ? (() => {

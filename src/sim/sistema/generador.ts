@@ -1,6 +1,6 @@
 import { crearGeneradorAleatorio, type GeneradorAleatorio } from "@/sim/aleatorio";
 import type { Planeta, RegistroPlanetas } from "@/sim/gravedad/planetas";
-import { crearMascaraVacia, ESCOMBRO, type Mascara } from "@/sim/terreno/mascara";
+import { crearMascaraVacia, ESCOMBRO, PLANETA_MAX, type Mascara } from "@/sim/terreno/mascara";
 
 // generador-sistema sustituye a los tres mapas fijos (src/juego/mundos/mapas.ts,
 // bloque render-espacio) por un sistema planetario generado desde una única
@@ -301,7 +301,12 @@ export function generarSistema(semilla: number, ancho: number, alto: number, for
   const factorPlanetas = forzar?.factorPlanetas ?? 1;
   const minPlanetas = Math.round(PLANETAS_MIN * factorPlanetas);
   const maxPlanetas = Math.round(PLANETAS_MAX * factorPlanetas);
-  const numPlanetas = forzar?.numPlanetas ?? minPlanetas + Math.floor(aleatorio() * (maxPlanetas - minPlanetas + 1));
+  // Cada planeta ocupa un material propio de la máscara: más de PLANETA_MAX
+  // se confundirían con otro material.
+  const numPlanetas = Math.min(
+    PLANETA_MAX,
+    forzar?.numPlanetas ?? minPlanetas + Math.floor(aleatorio() * (maxPlanetas - minPlanetas + 1)),
+  );
   const numAnillos = Math.min(numPlanetas, forzar?.numAnillos ?? Math.floor(aleatorio() * (MAX_ANILLOS + 1)));
 
   const planetasConAnillo = generarPlanetas(aleatorio, ancho, alto, numPlanetas, numAnillos, factorPlanetas);
