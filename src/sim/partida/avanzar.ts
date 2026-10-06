@@ -13,7 +13,11 @@ import {
   huboDerivaTraiciona,
   idLiderDerrumbado,
 } from "@/sim/partida/eventosHumor";
+import { existeTiroViable, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
+import { recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
 import { siguienteTurno, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
+
+const PRESUPUESTO_VIABILIDAD_DESTINO = 120;
 
 function conIntegridad(nave: EstadoNave, integridad: number): EstadoNave {
   return { ...nave, integridad: Math.min(100, Math.max(0, integridad)) };
@@ -286,12 +290,78 @@ export function avanzar(
     eventos.push({ tipo: "danio-colateral", nave: id, danio });
   });
 
-  const naves: EstadoNave[] = estado.naves.map((nave, id) => {
+  const navesTrasDanio: EstadoNave[] = estado.naves.map((nave, id) => {
     if (id === tirador) return tiradorTrasDisparo;
     if (id === objetivoId) return objetivoTrasImpacto;
     const danio = danioColateral.get(id);
     return danio === undefined ? nave : conIntegridad(nave, nave.integridad - danio);
   });
+
+  // desplazamiento-tras-impacto: toda nave viva que ha perdido integridad en
+  // este turno se recoloca, para que repetir el disparo sin apuntar de nuevo
+  // no vuelva a acertar. Se hace sobre la máscara ya con el cráter y con las
+  // posiciones ya movidas de las naves anteriores (orden por id, determinista).
+  // El objetivo declarado no puede caer en un destino por el que el mismo
+  // disparo, repetido tal cual, vuelva a darle: es lo que pide el criterio
+  // «repetir el disparo no acierta», y el simple alejamiento no basta cuando
+  // el nuevo sitio queda en la propia trayectoria.
+  const repetiriaElImpacto = (punto: { x: number; y: number }): boolean => {
+    const navesConDestino = navesVivas?.map((nave) => (nave.id === objetivoId ? { ...nave, x: punto.x, y: punto.y } : nave));
+    const repeticion = resolverDisparo({
+      mascara: estado.mascara,
+      gravedad: estado.mundo.gravedad,
+      deriva: estado.mundo.deriva,
+      aleatorio: estado.aleatorio,
+      arma,
+      origenX: naveTiradora.x,
+      origenY: naveTiradora.y,
+      anguloGrados: entrada.anguloGrados,
+      potencia: entrada.potencia,
+      objetivoX: punto.x,
+      objetivoY: punto.y,
+      ancho: estado.mundo.ancho,
+      alto: estado.mundo.alto,
+      planetas: estado.planetas,
+      naves: navesConDestino,
+      tiradorId: tirador,
+      incluirDispersionPotencia: true,
+    });
+    return repeticion.danioObjetivo > 0;
+  };
+  // Un destino tampoco vale si deja a un bando sin ningún tiro posible contra
+  // el otro (detrás de un planeta, por ejemplo): la partida se quedaría sin
+  // forma de acabar salvo por la muerte súbita, y colocarNaves ya garantiza
+  // lo contrario al empezar. Presupuesto acotado: se rinde al primer tiro con
+  // daño y como mucho prueba PRESUPUESTO_VIABILIDAD_DESTINO vuelos.
+  const sinTiroEntreLosDos = (punto: { x: number; y: number }): boolean => {
+    if (navesVivas === undefined) return false;
+    const naves = navesVivas.map((nave) => (nave.id === objetivoId ? { ...nave, x: punto.x, y: punto.y } : nave));
+    const comun = {
+      mascara: resultado.mascara,
+      ancho: estado.mundo.ancho,
+      alto: estado.mundo.alto,
+      planetas: estado.planetas,
+      gravedad: estado.mundo.gravedad,
+      deriva: estado.mundo.deriva,
+      aleatorio: estado.aleatorio,
+      arma,
+      naves,
+      rangoAngulos: RANGO_ANGULOS_ORACULO,
+      presupuestoIntentos: PRESUPUESTO_VIABILIDAD_DESTINO,
+    };
+    return !existeTiroViable({ ...comun, tiradorId: tirador, objetivoId }) || !existeTiroViable({ ...comun, tiradorId: objetivoId, objetivoId: tirador });
+  };
+  const desplazadas = desplazarNavesDanadas(
+    estado,
+    navesTrasDanio,
+    resultado.mascara,
+    radioEfectoEnMundo(arma, estado.mundo.ancho, estado.mundo.alto),
+    resultado.aleatorio,
+    objetivoId,
+    (punto) => repetiriaElImpacto(punto) || sinTiroEntreLosDos(punto),
+  );
+  const naves = desplazadas.naves;
+  eventos.push(...desplazadas.eventos);
 
   // nucleo-n-naves: "último en pie" sobre TODAS las naves, no solo tirador y
   // objetivo: con daño de área cualquiera puede caer en este turno. Si no
@@ -307,7 +377,7 @@ export function avanzar(
         ...estado,
         mascara: resultado.mascara,
         naves,
-        aleatorio: resultado.aleatorio,
+        aleatorio: desplazadas.aleatorio,
         resultado: { tipo: "terminada", ganador },
         planetas: planetasTrasDisparo,
         saldos: saldosTrasDisparo,
@@ -325,7 +395,7 @@ export function avanzar(
       ...estado,
       mascara: resultado.mascara,
       naves,
-      aleatorio: resultado.aleatorio,
+      aleatorio: desplazadas.aleatorio,
       turno: proximoTurno,
       numeroTurno: estado.numeroTurno + 1,
       planetas: planetasTrasDisparo,
@@ -362,4 +432,29 @@ function danioATercerasNaves(
     if (danio > 0) danios.set(id, danio);
   });
   return danios;
+}
+
+function desplazarNavesDanadas(
+  estado: EstadoPartida,
+  navesTrasDanio: readonly EstadoNave[],
+  mascara: EstadoPartida["mascara"],
+  radioEfectoU: number,
+  aleatorioInicial: EstadoPartida["aleatorio"],
+  objetivoId: IdNave,
+  descartarDestinoDelObjetivo: (punto: { x: number; y: number }) => boolean,
+): { naves: EstadoNave[]; eventos: EventoSimulacion[]; aleatorio: EstadoPartida["aleatorio"] } {
+  const naves = [...navesTrasDanio];
+  const eventos: EventoSimulacion[] = [];
+  let aleatorio = aleatorioInicial;
+  naves.forEach((nave, id) => {
+    const antes = estado.naves[id];
+    // Sin y no hay modo espacial: el suelo plano heredado no recoloca.
+    if (nave.y === undefined || nave.integridad <= 0 || nave.integridad >= antes.integridad) return;
+    const otras = naves.flatMap((otra, idOtra) => (idOtra !== id && otra.integridad > 0 && otra.y !== undefined ? [{ x: otra.x, y: otra.y }] : []));
+    const destino = recolocarTrasImpacto({ desde: { x: nave.x, y: nave.y }, mundo: estado.mundo, mascara, otras, radioEfectoU, aleatorio, ...(id === objetivoId ? { descartar: descartarDestinoDelObjetivo } : {}) });
+    aleatorio = destino.aleatorio;
+    naves[id] = { ...nave, x: destino.x, y: destino.y };
+    eventos.push({ tipo: "desplazamiento", nave: id, desdeX: nave.x, desdeY: nave.y, x: destino.x, y: destino.y, reserva: destino.reserva });
+  });
+  return { naves, eventos, aleatorio };
 }

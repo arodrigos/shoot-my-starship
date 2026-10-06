@@ -70,6 +70,7 @@ import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
 import { obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
+import { publicarFantasmas } from "@/juego/control/fantasmasStore";
 import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
@@ -91,6 +92,11 @@ import "@/debug/tipos";
 // cat-2: el haz del Rayo Láser se ve al menos esto antes de apagarse.
 const DURACION_HAZ_MS = 450;
 
+// desplazamiento-tras-impacto (des-3): el deslizamiento dura entre 300 y 600 ms.
+const DURACION_DESLIZAMIENTO_MS = 450;
+const RADIO_MARCA_FANTASMA_U = 22;
+const TAMANO_TEXTO_FANTASMA_PX = 34;
+
 // render-espacio (esp-6): el texto del panel "resultado del turno" -- un
 // mensaje propio para "proyectil perdido en órbita" (grav-6), porque ese
 // turno no tiene ni impacto ni fallo que describir con el resto de casos.
@@ -108,8 +114,11 @@ function resumenTurno(eventos: readonly EventoSimulacion[]): string {
   const impacto = eventos.find(
     (evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto",
   );
+  const despedida = eventos.some((evento) => evento.tipo === "desplazamiento" && evento.reserva !== "se-queda")
+    ? " La nave alcanzada salió despedida."
+    : "";
   if (impacto) {
-    return impacto.danio > 0 ? `Impacto directo: ${impacto.danio} de daño.` : "El disparo ha caído sin hacer daño.";
+    return (impacto.danio > 0 ? `Impacto directo: ${impacto.danio} de daño.` : "El disparo ha caído sin hacer daño.") + despedida;
   }
   return "Turno resuelto.";
 }
@@ -291,6 +300,9 @@ export class Partida extends Phaser.Scene {
   // multi-setup-partida: de tupla de 2 a lista paralela a this.estado.naves
   // (de 2 a 4) -- el tamaño ya no es parte del tipo, igual que EstadoPartida.
   private naves!: Nave[];
+  // desplazamiento-tras-impacto: marcas «Estaba aquí» del turno anterior; se
+  // destruyen al resolver el turno siguiente.
+  private marcasFantasma: Phaser.GameObjects.GameObject[] = [];
   private indicadorDeriva!: IndicadorDeriva;
   private animador!: AnimadorProyectil;
   // realce-impacto (rlc-1): avance de turno retrasado mientras dura la
@@ -1646,6 +1658,7 @@ export class Partida extends Phaser.Scene {
     // real del jugador o de la IA.
     const estadoAntes = this.estado;
     const tirador = estadoAntes.turno;
+    this.limpiarMarcasFantasma();
     this.actualizarEstadisticas(tirador, estadoAntes, estadoDespues, eventos);
     window.__debug!.ultimosEventos = eventos;
     if (armaId !== undefined) window.__debug!.ultimaEntrada = { nave: tirador, arma: armaId };
@@ -1676,6 +1689,7 @@ export class Partida extends Phaser.Scene {
       this.estado = estadoDespues;
       this.refrescarNaves();
       this.refrescarDebugNaves();
+      this.animarDesplazamientos(eventos);
       this.refrescarEconomia();
       window.__debug!.turno = this.estado.turno;
       window.__debug!.numeroTurno = this.estado.numeroTurno;
@@ -1847,6 +1861,57 @@ export class Partida extends Phaser.Scene {
       perturbacion,
       pasosHastaDetonarMecha,
       pasosHastaDetonarTrasAdherencia,
+    );
+  }
+
+  private limpiarMarcasFantasma(): void {
+    for (const marca of this.marcasFantasma) marca.destroy();
+    this.marcasFantasma = [];
+    window.__debug!.fantasmas = [];
+    publicarFantasmas([]);
+  }
+
+  // La nave ya está en su destino en el estado (refrescarNaves); aquí solo se
+  // adelanta visualmente a donde estaba y se desliza, y se deja la marca en el
+  // origen. Con movimiento reducido salta directa, sin tween.
+  private animarDesplazamientos(eventos: readonly EventoSimulacion[]): void {
+    const movimientoReducido = prefiereMovimientoReducido();
+    const fantasmas: { nave: number; x: number; y: number }[] = [];
+    for (const evento of eventos) {
+      if (evento.tipo !== "desplazamiento" || evento.reserva === "se-queda") continue;
+      const nave = this.naves[evento.nave];
+      const desdeY = alturaRenderNave(evento.desdeY, evento.desdeY);
+      const haciaY = alturaRenderNave(evento.y, evento.y);
+
+      const grafico = this.add.graphics().setDepth(29);
+      grafico.lineStyle(4, 0xffffff, 0.7).strokeCircle(evento.desdeX, desdeY, RADIO_MARCA_FANTASMA_U);
+      const texto = this.add
+        .text(evento.desdeX, desdeY + RADIO_MARCA_FANTASMA_U + 6, "Estaba aquí", {
+          fontSize: `${TAMANO_TEXTO_FANTASMA_PX}px`,
+          color: "#ffffff",
+        })
+        .setOrigin(0.5, 0)
+        .setAlpha(0.8)
+        .setDepth(29);
+      this.marcasFantasma.push(grafico, texto);
+      fantasmas.push({ nave: evento.nave, x: evento.desdeX, y: desdeY });
+
+      if (movimientoReducido) continue;
+      nave.posicionarEn(evento.desdeX, desdeY);
+      const progreso = { t: 0 };
+      this.tweens.add({
+        targets: progreso,
+        t: 1,
+        duration: DURACION_DESLIZAMIENTO_MS,
+        ease: "Sine.easeInOut",
+        onUpdate: () =>
+          nave.posicionarEn(evento.desdeX + (evento.x - evento.desdeX) * progreso.t, desdeY + (haciaY - desdeY) * progreso.t),
+        onComplete: () => nave.posicionarEn(evento.x, haciaY),
+      });
+    }
+    window.__debug!.fantasmas = fantasmas;
+    publicarFantasmas(
+      fantasmas.map(({ nave }) => ({ nave, texto: `Estaba aquí: ${nombreDeNave(this.controladores, nave)} fue desplazada de este punto.` })),
     );
   }
 

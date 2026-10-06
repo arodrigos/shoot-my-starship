@@ -32,6 +32,7 @@ import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
+import { FantasmasHUD } from "@/juego/hud/FantasmasHUD";
 import { RoceHUD } from "@/juego/hud/RoceHUD";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import "@/debug/tipos";
@@ -716,6 +717,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
         }}
       >
         <RoceHUD />
+        <FantasmasHUD />
         {avisoAccionImposible && (
           <div
             role="status"
