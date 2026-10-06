@@ -8,6 +8,7 @@ import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
 import type { DatosExplosionPorCapas, NombreFaseExplosion } from "@/juego/efectos/ExplosionPorCapas";
 import type { TipoVisualPixel } from "@/juego/terreno/clasificacionVisual";
+import type { Detonacion } from "@/sim/partida/detonaciones";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 
 // Punto de observación que los tests de Playwright leen desde fuera del
@@ -138,6 +139,14 @@ export interface DebugBromaEntry {
   readonly textoDisparo: string | null;
   readonly textoImpacto: string;
   readonly eventos: readonly EventoSimulacion[];
+}
+
+export interface DebugEfectoVisible {
+  readonly x: number;
+  readonly y: number;
+  readonly radioOnda: number;
+  readonly particulas: number;
+  readonly sobre: Detonacion["sobre"];
 }
 
 export interface DebugGlobal {
@@ -297,6 +306,14 @@ export interface DebugGlobal {
   // la escena, no Date.now(): fasesActivasExplosion(elapsedMs) espera un
   // desfase relativo a ESE instante, no al reloj del sistema.
   ultimaExplosionPorCapas?: DatosExplosionPorCapas;
+  // explosiones-visuales: las detonaciones del último turno tal como las
+  // declara el núcleo, y las explosiones que la cáscara dibujó para ellas
+  // (misma longitud y mismo orden). Se sustituyen en cada turno.
+  detonaciones?: readonly Detonacion[];
+  efectosVisibles?: readonly DebugEfectoVisible[];
+  // Cuántas veces se ha sacudido la cámara en la partida: con movimiento
+  // reducido tiene que quedarse como estaba.
+  sacudidasCamara?: number;
   // realce-impacto (rlc-1, rlc-2): datos del último realce de impacto (solo
   // en un impacto con daño real y con la sacudida activada) -- amplitud ya
   // calculada por la misma función pura que el unitario ejerce, para que el

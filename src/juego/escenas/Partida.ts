@@ -78,6 +78,7 @@ import { indiceTic } from "@/juego/audio/cadenciaTicTac";
 import type { DatosEscenaPartida } from "@/juego/main";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
 import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorCapas";
+import type { Detonacion } from "@/sim/partida/detonaciones";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { calcularBandaPrevisualizacion, superaPresupuestoComputo } from "@/sim/armas/previsualizacion";
@@ -229,6 +230,12 @@ function alturaRenderNave(naveY: number | undefined, alturaDerivada: number): nu
 // al letterbox de Phaser.Scale.FIT (necesario para render-4) exactamente
 // igual que lo era bajo el RESIZE de andamiaje-1: la fracción de ventana no
 // sabe que el lienzo existe.
+// Se lee en cada explosión y no una vez al montar: el usuario puede activar
+// el ajuste del sistema con la partida en marcha.
+function prefiereMovimientoReducido(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export class Partida extends Phaser.Scene {
   private estado!: EstadoPartida;
   private terreno!: ReturnType<typeof crearTerrenoPhaser>["terreno"];
@@ -740,10 +747,10 @@ export class Partida extends Phaser.Scene {
     // usa un turno jugado) para que el e2e compruebe con-2/con-3/con-6 sobre
     // el efecto en pantalla, no sobre la puntería.
     window.__debug.dispararEventoRoce = (nave, x, y) => {
-      this.manejarEventosVisuales([{ tipo: "roce", nave, x, y }]);
+      this.manejarEventosVisuales([{ tipo: "roce", nave, x, y }], []);
     };
     window.__debug.dispararEventoImpactoReal = (nave, x, y, danio = 0) => {
-      this.manejarEventosVisuales([{ tipo: "impacto", x, y, objetivo: nave, danio, impactoNave: nave }]);
+      this.manejarEventosVisuales([{ tipo: "impacto", x, y, objetivo: nave, danio, impactoNave: nave }], []);
     };
     // nve-1, nve-3: fuerza la integridad de una nave sin jugar el turno real
     // que la produciría -- aterrizar a mano en los tres tramos de daño no es
@@ -1219,7 +1226,7 @@ export class Partida extends Phaser.Scene {
     const origenX = naveTiradora.x;
     const origenY = naveTiradora.y ?? alturaSuperficie(estadoAntes.mascara, origenX) ?? estadoAntes.mundo.alto - 1;
 
-    const { estado: estadoDespues, eventos, categoriaBroma } = avanzar(estadoAntes, entrada);
+    const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = avanzar(estadoAntes, entrada);
 
     const eventoImpacto = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto");
 
@@ -1396,6 +1403,7 @@ export class Partida extends Phaser.Scene {
       // aplicarResultadoTurno pero con su propio guion de fuentes y SIN
       // estas opciones, disparen un turno extra no contado por su bucle.
       this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma, {
+        detonaciones,
         retrasarSiHaySacudida: true,
         alAvanzarTurno: () => {
           if (this.esHumano(tirador)) this.ultimoHumano = tirador;
@@ -1558,8 +1566,15 @@ export class Partida extends Phaser.Scene {
   // sacudida de cámara dispare para que aplicarResultadoTurno pueda retrasar
   // el avance de turno hasta que la cámara vuelva a reposo -- 0 si ningún
   // evento la disparó (roce, impacto sin daño, o ajuste desactivado).
-  private manejarEventosVisuales(eventos: readonly EventoSimulacion[]): number {
+  private manejarEventosVisuales(eventos: readonly EventoSimulacion[], detonaciones: readonly Detonacion[]): number {
     let esperaSacudidaMs = 0;
+    const movimientoReducido = prefiereMovimientoReducido();
+    window.__debug!.detonaciones = detonaciones;
+    window.__debug!.efectosVisibles = detonaciones.map((detonacion) => {
+      const datos = this.explosionPorCapas.reproducir(detonacion, 1 / this.scale.displayScale.x, movimientoReducido);
+      window.__debug!.ultimaExplosionPorCapas = datos;
+      return { x: datos.x, y: datos.y, radioOnda: datos.radioOnda, particulas: datos.particulas, sobre: datos.sobre };
+    });
     for (const evento of eventos) {
       if (evento.tipo === "impacto") {
         // sonido-procedimental (snd-2): distinto de "roce" de abajo -- el
@@ -1568,19 +1583,19 @@ export class Partida extends Phaser.Scene {
         // sigue distinguiendo el propio timbre de "impacto" frente al "roce",
         // no una tercera variante).
         reproducirEfecto("impacto");
+        // Con movimiento reducido no se emite ninguna partícula: el anillo y
+        // el destello de ExplosionPorCapas ya informan del impacto.
         if (evento.danio > 0) {
-          comprobarCantidadDentroDelTecho("explosion-con-danio", CANTIDAD_PARTICULAS_EXPLOSION);
-          this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
+          if (!movimientoReducido) {
+            comprobarCantidadDentroDelTecho("explosion-con-danio", CANTIDAD_PARTICULAS_EXPLOSION);
+            this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
+          }
           window.__debug!.ultimoTipoExplosion = "danio";
-          // explosiones-por-capas (exl-1): solo en el impacto que hace daño
-          // de verdad -- un "sin-danio" ya tiene su propio fogonazo apagado
-          // (imp-12) y un roce su chispa (con-3); las cinco capas son el
-          // refuerzo del impacto real, no un efecto genérico de cualquier
-          // detonación.
-          window.__debug!.ultimaExplosionPorCapas = this.explosionPorCapas.reproducir(evento.x, evento.y, evento.danio);
         } else {
-          comprobarCantidadDentroDelTecho("explosion-sin-danio", CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO);
-          this.emisorExplosionSinDanio.explode(CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO, evento.x, evento.y);
+          if (!movimientoReducido) {
+            comprobarCantidadDentroDelTecho("explosion-sin-danio", CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO);
+            this.emisorExplosionSinDanio.explode(CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO, evento.x, evento.y);
+          }
           window.__debug!.ultimoTipoExplosion = "sin-danio";
         }
         // con-2: el destello vive en el propio núcleo de la nave (no un
@@ -1599,9 +1614,9 @@ export class Partida extends Phaser.Scene {
           // contacto honesto de arriba, sin sacudida ni destello rojo, igual
           // que un roce (que ni siquiera entra en esta rama). Con el ajuste
           // desactivado (rlc-3), ningún desplazamiento de cámara.
-          if (evento.danio > 0 && obtenerEstadoControl().sacudidaActiva) {
+          if (evento.danio > 0 && obtenerEstadoControl().sacudidaActiva && !movimientoReducido) {
             const amplitud = amplitudSacudida(evento.danio);
-            this.cameras.main.shake(DURACION_SACUDIDA_IMPACTO_MS, amplitud);
+            this.sacudirCamara(DURACION_SACUDIDA_IMPACTO_MS, amplitud);
             this.naves[evento.impactoNave].destellarDanio(intensidadDestelloDanio(evento.danio));
             window.__debug!.ultimoRealceImpacto = { danio: evento.danio, amplitud };
             esperaSacudidaMs = Math.max(esperaSacudidaMs, DURACION_SACUDIDA_IMPACTO_MS);
@@ -1609,8 +1624,10 @@ export class Partida extends Phaser.Scene {
         }
       } else if (evento.tipo === "roce") {
         reproducirEfecto("roce");
-        comprobarCantidadDentroDelTecho("roce-chispazo", CANTIDAD_PARTICULAS_ROCE);
-        this.emisorRoce.explode(CANTIDAD_PARTICULAS_ROCE, evento.x, evento.y);
+        if (!movimientoReducido) {
+          comprobarCantidadDentroDelTecho("roce-chispazo", CANTIDAD_PARTICULAS_ROCE);
+          this.emisorRoce.explode(CANTIDAD_PARTICULAS_ROCE, evento.x, evento.y);
+        }
         const naveNombre = this.datosEscena.jugadores
           ? `la nave de ${nombreDeNave(this.controladores, evento.nave)}`
           : evento.nave === ID_JUGADOR
@@ -1635,6 +1652,9 @@ export class Partida extends Phaser.Scene {
     // corren el update() de Phaser entre turnos, y una sacudida retrasada
     // ahí se quedaría pendiente para siempre, no solo unos ms.
     opciones?: {
+      // explosiones-visuales: una explosión por entrada, tal como las declara
+      // el núcleo; la escena no deduce dónde estalló nada.
+      readonly detonaciones?: readonly Detonacion[];
       readonly retrasarSiHaySacudida?: boolean;
       readonly alAvanzarTurno?: () => void;
     },
@@ -1651,7 +1671,7 @@ export class Partida extends Phaser.Scene {
 
     this.terreno.sincronizarDesde(estadoDespues.mascara);
 
-    const esperaSacudidaMs = this.manejarEventosVisuales(eventos);
+    const esperaSacudidaMs = this.manejarEventosVisuales(eventos, opciones?.detonaciones ?? []);
     this.reaccionarAHumor(eventos);
     if (categoriaBroma) {
       this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos, armaId ? buscarArma(armaId) : undefined);
@@ -1743,6 +1763,13 @@ export class Partida extends Phaser.Scene {
     };
   }
 
+  // Único punto por el que se sacude la cámara: el contador es lo que el e2e
+  // de movimiento reducido lee para comprobar que no hubo ninguna.
+  private sacudirCamara(duracionMs: number, intensidad: number): void {
+    this.cameras.main.shake(duracionMs, intensidad);
+    window.__debug!.sacudidasCamara = (window.__debug!.sacudidasCamara ?? 0) + 1;
+  }
+
   // humor-1, humor-2: sacudida de cámara, tono y frase contextual para cada
   // evento de humor del turno -- la voz que narra es siempre la del rival
   // elegido (this.rival), también cuando el evento le ha pasado al jugador,
@@ -1750,7 +1777,7 @@ export class Partida extends Phaser.Scene {
   private reaccionarAHumor(eventos: readonly EventoSimulacion[]): void {
     for (const evento of eventos) {
       if (!esEventoHumor(evento)) continue;
-      this.cameras.main.shake(DURACION_SACUDIDA_MS, INTENSIDAD_SACUDIDA);
+      if (!prefiereMovimientoReducido()) this.sacudirCamara(DURACION_SACUDIDA_MS, INTENSIDAD_SACUDIDA);
       const frase = this.selectorFrases.elegir(this.rival.id, evento.tipo);
       publicarReaccion(frase, evento.tipo);
       reproducirTono(evento.tipo);
@@ -1910,8 +1937,8 @@ export class Partida extends Phaser.Scene {
       if (this.estado.resultado.tipo === "terminada") {
         break;
       }
-      const { estado, eventos } = jugarTurno(this.estado, fuentes);
-      this.aplicarResultadoTurno(estado, eventos);
+      const { estado, eventos, detonaciones } = jugarTurno(this.estado, fuentes);
+      this.aplicarResultadoTurno(estado, eventos, undefined, undefined, { detonaciones });
     }
   }
 
@@ -2062,13 +2089,13 @@ export class Partida extends Phaser.Scene {
       }
 
       const solucion = this.calcularSolucionBalistica(this.estado) ?? { anguloGrados: 45, potencia: 70 };
-      const { estado, eventos, categoriaBroma } = avanzar(this.estado, {
+      const { estado, eventos, categoriaBroma, detonaciones } = avanzar(this.estado, {
         arma: ARMA_DESENLACE,
         anguloGrados: solucion.anguloGrados,
         potencia: solucion.potencia,
         objetivoId: this.objetivoDe(this.estado.turno),
       });
-      this.aplicarResultadoTurno(estado, eventos, categoriaBroma, ARMA_DESENLACE);
+      this.aplicarResultadoTurno(estado, eventos, categoriaBroma, ARMA_DESENLACE, { detonaciones });
     }
   }
 }

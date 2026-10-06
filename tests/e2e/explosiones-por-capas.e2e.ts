@@ -79,9 +79,10 @@ test("exl-1: el impacto con daño dispara destello, onda y escombros en instante
 
   // Proporcional al daño real, no fija: la escala registrada en el impacto
   // real coincide con la misma función pura aplicada al daño que el núcleo
-  // resolvió -- y esa función, por construcción, da números distintos para
+  // resolvió (la escala final es el máximo entre la del daño y la del radio de
+  // efecto, explosiones-visuales) -- y esa función, por construcción, da números distintos para
   // daños distintos (comprobado también en el unitario explosionPorCapas).
-  expect(datos!.escala).toBeCloseTo(escalaDeDanio(datos!.danio), 6);
+  expect(datos!.escala).toBeGreaterThanOrEqual(escalaDeDanio(datos!.danio));
   expect(escalaDeDanio(60)).toBeGreaterThan(escalaDeDanio(4));
 });
 

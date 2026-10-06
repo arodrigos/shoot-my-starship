@@ -1,5 +1,6 @@
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { avanzar } from "@/sim/partida/avanzar";
+import type { Detonacion } from "@/sim/partida/detonaciones";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import type { EstadoNave, EstadoPartida, FuenteDeTurno, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
@@ -45,7 +46,7 @@ export function crearPartidaInicial(
 export function jugarTurno(
   estado: EstadoPartida,
   fuentes: readonly FuenteDeTurno[],
-): { estado: EstadoPartida; eventos: EventoSimulacion[] } {
+): { estado: EstadoPartida; eventos: EventoSimulacion[]; detonaciones: Detonacion[] } {
   const fuente = fuentes[estado.turno];
   const { entrada, estado: estadoTrasDecidir } = fuente(estado);
   return avanzar(estadoTrasDecidir, entrada);
