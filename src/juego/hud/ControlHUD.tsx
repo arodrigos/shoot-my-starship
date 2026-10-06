@@ -33,6 +33,7 @@ import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { FantasmasHUD } from "@/juego/hud/FantasmasHUD";
+import { RobotsHUD } from "@/juego/hud/RobotsHUD";
 import { RoceHUD } from "@/juego/hud/RoceHUD";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import "@/debug/tipos";
@@ -718,6 +719,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
       >
         <RoceHUD />
         <FantasmasHUD />
+        <RobotsHUD />
         {avisoAccionImposible && (
           <div
             role="status"

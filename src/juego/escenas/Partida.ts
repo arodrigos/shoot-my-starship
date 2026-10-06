@@ -71,6 +71,8 @@ import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/cont
 import { obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
 import { publicarFantasmas } from "@/juego/control/fantasmasStore";
+import { publicarRobots } from "@/juego/control/robotsStore";
+import { MAX_SALTOS_ROBOT } from "@/sim/armas/minirobot";
 import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
@@ -96,6 +98,7 @@ const DURACION_HAZ_MS = 450;
 const DURACION_DESLIZAMIENTO_MS = 450;
 const RADIO_MARCA_FANTASMA_U = 22;
 const TAMANO_TEXTO_FANTASMA_PX = 34;
+const RADIO_ROBOT_U = 14;
 
 // render-espacio (esp-6): el texto del panel "resultado del turno" -- un
 // mensaje propio para "proyectil perdido en órbita" (grav-6), porque ese
@@ -114,6 +117,13 @@ function resumenTurno(eventos: readonly EventoSimulacion[]): string {
   const impacto = eventos.find(
     (evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto",
   );
+  const detonacionRobot = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "robot-detona" }> => evento.tipo === "robot-detona");
+  if (!impacto && eventos.some((evento) => evento.tipo === "robot-posado")) {
+    return "El minirobot se ha agarrado al planeta: saltará hacia su objetivo al empezar tu próximo turno.";
+  }
+  if (!impacto && detonacionRobot) {
+    return detonacionRobot.danio > 0 ? `El minirobot ha saltado encima y explota: ${detonacionRobot.danio} de daño.` : "El minirobot explota sin llegar a nadie.";
+  }
   const despedida = eventos.some((evento) => evento.tipo === "desplazamiento" && evento.reserva !== "se-queda")
     ? " La nave alcanzada salió despedida."
     : "";
@@ -303,6 +313,7 @@ export class Partida extends Phaser.Scene {
   // desplazamiento-tras-impacto: marcas «Estaba aquí» del turno anterior; se
   // destruyen al resolver el turno siguiente.
   private marcasFantasma: Phaser.GameObjects.GameObject[] = [];
+  private marcasRobot: Phaser.GameObjects.GameObject[] = [];
   private indicadorDeriva!: IndicadorDeriva;
   private animador!: AnimadorProyectil;
   // realce-impacto (rlc-1): avance de turno retrasado mientras dura la
@@ -823,6 +834,7 @@ export class Partida extends Phaser.Scene {
     publicarTurno(this.estado.turno);
     window.__debug.numeroTurno = this.estado.numeroTurno;
     this.refrescarEconomia();
+    this.refrescarRobots();
     publicarJugable(this.puedeJugarAhora());
     publicarPreparando(false);
   }
@@ -1691,6 +1703,7 @@ export class Partida extends Phaser.Scene {
       this.refrescarDebugNaves();
       this.animarDesplazamientos(eventos);
       this.refrescarEconomia();
+      this.refrescarRobots();
       window.__debug!.turno = this.estado.turno;
       window.__debug!.numeroTurno = this.estado.numeroTurno;
       publicarTurno(this.estado.turno);
@@ -1964,6 +1977,35 @@ export class Partida extends Phaser.Scene {
     publicarEconomia(saldo);
     window.__debug!.saldo = saldo;
     window.__debug!.saldos = this.estado.saldos?.map((valor) => valor ?? null);
+  }
+
+  // minirobot (rob-2): el robot se dibuja en el lienzo con su contador, y el
+  // mismo texto sube al HUD. Se redibuja entero tras cada turno: son como
+  // mucho unos pocos y el estado del núcleo es la única fuente de verdad.
+  private refrescarRobots(): void {
+    for (const marca of this.marcasRobot) marca.destroy();
+    this.marcasRobot = [];
+    const robots = this.estado.robots ?? [];
+    for (const robot of robots) {
+      const y = alturaRenderNave(robot.y, robot.y);
+      const cuerpo = this.add.graphics().setDepth(28);
+      cuerpo.fillStyle(0xe8743b, 1).fillCircle(robot.x, y - RADIO_ROBOT_U, RADIO_ROBOT_U);
+      cuerpo.lineStyle(3, 0xffffff, 0.9).strokeCircle(robot.x, y - RADIO_ROBOT_U, RADIO_ROBOT_U);
+      const contador = this.add
+        .text(robot.x, y - 2 * RADIO_ROBOT_U - 4, `${robot.saltos}/${MAX_SALTOS_ROBOT}`, { fontSize: `${TAMANO_TEXTO_FANTASMA_PX}px`, color: "#ffffff" })
+        .setOrigin(0.5, 1)
+        .setDepth(28);
+      this.marcasRobot.push(cuerpo, contador);
+    }
+    window.__debug!.robots = robots.map((robot) => ({ dueno: robot.dueno, planetaId: robot.planetaId, x: robot.x, y: robot.y, saltos: robot.saltos }));
+    publicarRobots(
+      robots.map((robot) => ({
+        dueno: robot.dueno,
+        saltos: robot.saltos,
+        maxSaltos: MAX_SALTOS_ROBOT,
+        texto: `Minirobot de ${nombreDeNave(this.controladores, robot.dueno)}: salto ${robot.saltos}/${MAX_SALTOS_ROBOT}`,
+      })),
+    );
   }
 
   private refrescarIndicadorDeriva(): void {

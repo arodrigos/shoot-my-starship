@@ -156,6 +156,18 @@ const ICONOS: Readonly<Record<string, () => ReactElement>> = {
       <path d="M24 28 L24 22 M24 28 L29 30" stroke="#1b1b2f" strokeWidth={2} strokeLinecap="round" />
     </>
   ),
+  // Robotito de cuerpo cuadrado con muelles en vez de patas, mirando al frente.
+  "minirobot-saltaplanetas": () => (
+    <>
+      <path d="M14 44 Q10 38 16 36 Q22 34 16 30" stroke="#c0c4cc" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+      <path d="M34 44 Q38 38 32 36 Q26 34 32 30" stroke="#c0c4cc" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+      <rect x={12} y={10} width={24} height={21} rx={4} fill="#e8743b" />
+      <path d="M24 10 L24 4" stroke="#c0c4cc" strokeWidth={2.5} />
+      <circle cx={24} cy={4} r={2.5} fill="#ffe680" />
+      {OJOS(19, 29, 19)}
+      <path d="M18 26 L30 26" stroke="#1b1b2f" strokeWidth={2} strokeLinecap="round" />
+    </>
+  ),
   // Gancho amarillo goteando pegamento.
   "gancho-pegajoso": () => (
     <>

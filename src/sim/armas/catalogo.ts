@@ -304,7 +304,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     descripcion: "Se agarra al primer planeta que toca y, cada vez que te toca jugar, salta al siguiente más cerca de tu rival. Cuando lo tiene a tiro, se lanza encima.",
     comportamiento: { tipo: "minirobot" },
     huella: { tipo: "circular", radio: 30, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 60, danioMaximo: 40 },
+    efecto: { tipo: "danio", radioEfectoPx: 50, danioMaximo: 40 },
     fiabilidad: 1,
     // El arnés de medición mide el disparo directo (no el viaje por planetas): su
     // facilidad es ~2,8 % y la curva da 85-90. calibrado-economia lo recalibra
