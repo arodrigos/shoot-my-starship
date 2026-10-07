@@ -97,11 +97,13 @@ de trayectoria empezaría a mentir en cuanto el terreno deja de ser simétrico.
 Cada nave tiene un casco con tamaño: un radio de colisión fijo de 22px
 (`RADIO_CASCO_NAVE_PX`, `src/sim/naves/impacto.ts`), no un punto. El daño de
 una explosión cae con la distancia 2D real entre el punto donde estalla el
-proyectil y la silueta dibujada de la nave (`distanciaACasco`, `src/sim/naves/contacto.ts`;
-vale 0 si estalla dentro), hasta el radio de daño de esa arma
+proyectil y el casco de la nave, hasta el radio de daño de esa arma
 concreta -- por eso un tiro que roza el borde del radio de daño hace poco
-daño, y uno que revienta sobre el casco hace el máximo declarado del arma.
-Lo que se ve como impacto cuenta: el casco se dibuja a escala 3 y el daño se mide contra ese dibujo, no contra el círculo de colisión de 22px, que solo decide cuándo se detiene el proyectil.
+daño, y uno que revienta pegado al casco hace el máximo declarado del arma.
+El casco se dibuja a escala 3, mucho más grande que ese círculo de colisión:
+lo que se ve como impacto cuenta, así que una explosión cuya área alcanza la
+silueta dibujada (`distanciaDeDanio`, `src/sim/naves/contacto.ts`) hace al
+menos el 20 % del daño máximo del arma, aunque estalle lejos del centro.
 Entender esto es la clave para leer por qué un disparo "que parecía bueno"
 no hizo apenas nada: probablemente pasó cerca, no dentro.
 

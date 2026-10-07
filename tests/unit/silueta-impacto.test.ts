@@ -4,7 +4,7 @@ import fc from "fast-check";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { resolverDisparo } from "@/sim/armas/resolver";
-import { direccionDeNave, distanciaACasco } from "@/sim/naves/contacto";
+import { direccionDeNave, distanciaACasco, distanciaDeDanio } from "@/sim/naves/contacto";
 import { puntosCascoVariante, type PuntoCasco } from "@/sim/naves/geometriaCasco";
 import type { IdNave } from "@/sim/partida/tipos";
 import { crearMascaraPlana } from "../utils/terrenoPlano";
@@ -67,7 +67,7 @@ test("sil-2: una explosión sobre cualquier punto del contorno visible de las cu
   assert.equal(conDanio, 4 * PUNTOS_POR_FAMILIA);
 });
 
-test("sil-2: dentro de la silueta el daño es el máximo del arma, y lejos de ella no hay daño", () => {
+test("sil-2: pegada al centro el daño es el de siempre, y lejos de la silueta no hay daño", () => {
   const efecto = ARMA.efecto;
   if (efecto.tipo !== "danio") throw new Error("el Pepinazo es un arma de daño");
   assert.equal(dispararContraNave(0, DETONACION.x, DETONACION.y).danioObjetivo, efecto.danioMaximo);
@@ -86,6 +86,24 @@ test("sil-2 (propiedad): la distancia a la silueta no es negativa ni supera la d
       assert.ok(distancia >= 0);
       assert.ok(distancia <= Math.hypot(x, y) + 1e-9, "la silueta contiene el centro: nunca está más lejos que él");
     }),
+    { numRuns: 300 },
+  );
+});
+
+test("sil-2 (propiedad): la distancia de daño nunca supera la del centro y es < radio si el área alcanza la silueta", () => {
+  fc.assert(
+    fc.property(
+      fc.integer({ min: 0, max: 3 }),
+      fc.double({ min: -300, max: 300, noNaN: true }),
+      fc.double({ min: -300, max: 300, noNaN: true }),
+      fc.double({ min: 30, max: 200, noNaN: true }),
+      (id, x, y, radio) => {
+        const nave = { id: id as IdNave, x: 0, y: 0 };
+        const efectiva = distanciaDeDanio(x, y, nave, radio);
+        assert.ok(efectiva <= Math.hypot(x, y) + 1e-9);
+        if (distanciaACasco(x, y, nave) < radio) assert.ok(efectiva < radio, "si el área alcanza el casco visible, hay daño");
+      },
+    ),
     { numRuns: 300 },
   );
 });

@@ -1,6 +1,6 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/armas/resolver";
-import { distanciaACasco } from "@/sim/naves/contacto";
+import { distanciaDeDanio } from "@/sim/naves/contacto";
 import { crearRobot, faseDeRobots, type EstadoRobot } from "@/sim/armas/minirobot";
 import { avanzarUniverso, factorDanio } from "@/sim/universo/efectos";
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
@@ -648,7 +648,7 @@ function danioATercerasNaves(
     if (id === tirador || id === objetivoId || nave.integridad <= 0) return;
     const y = nave.y ?? alturaSuperficie(estado.mascara, nave.x) ?? estado.mundo.alto - 1;
     const danio = resultado.puntosDeImpacto.reduce(
-      (total, punto) => total + danioPorDistancia(radio, efecto.danioMaximo, distanciaACasco(punto.x, punto.y, { id: id as IdNave, x: nave.x, y })),
+      (total, punto) => total + danioPorDistancia(radio, efecto.danioMaximo, distanciaDeDanio(punto.x, punto.y, { id: id as IdNave, x: nave.x, y }, radio)),
       0,
     );
     if (danio > 0) danios.set(id, danio);

@@ -6,7 +6,7 @@ import { dispersionPorPotenciaGrados } from "@/sim/balistica/dispersionPotencia"
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import type { Arma } from "@/sim/armas/tipos";
 import { radioEfectoEnMundo } from "@/sim/armas/radioEfecto";
-import { distanciaACasco } from "@/sim/naves/contacto";
+import { distanciaDeDanio } from "@/sim/naves/contacto";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { resolverCaida } from "@/sim/terreno/caida";
 import { esSolido, type Mascara } from "@/sim/terreno/mascara";
@@ -801,7 +801,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
         radioEfecto,
         efecto.danioMaximo,
         objetivoId !== undefined
-          ? distanciaACasco(punto.x, punto.y, { id: objetivoId, x: params.objetivoX, y: params.objetivoY })
+          ? distanciaDeDanio(punto.x, punto.y, { id: objetivoId, x: params.objetivoX, y: params.objetivoY }, radioEfecto)
           : Math.hypot(punto.x - params.objetivoX, punto.y - params.objetivoY),
       ),
     );
