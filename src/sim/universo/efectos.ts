@@ -8,6 +8,7 @@ import { idsNavesVivas, type EstadoNave, type EstadoPartida, type IdNave } from 
 import { PREMIO_LOTERIA } from "@/sim/economia/parametros";
 import type { Mascara } from "@/sim/terreno/mascara";
 import { programarSiguiente, sortearIndice, type ContextoSorteo } from "@/sim/universo/calendario";
+import { crearObjeto, MAX_OBJETOS_VIVOS } from "@/sim/universo/objetos";
 import { sortearEventoGratis } from "@/sim/universo/disparoGratis";
 import type { EfectoActivo, EstadoUniverso, EventoProgramado, FasePartida, TipoEfecto } from "@/sim/universo/tipos";
 
@@ -182,8 +183,14 @@ export function aplicarEvento(
   if (estado.naves[evento.afectado].integridad <= 0) {
     return { estado, eventos: [{ ...anuncio, perdido: true }] };
   }
+  if ((evento.tipo === "corazon" || evento.tipo === "tormenta") && (universo.objetos?.length ?? 0) >= MAX_OBJETOS_VIVOS) {
+    // Ya hay dos flotando: el sorteo se queda sin efecto y se anuncia como perdido.
+    return { estado, eventos: [{ ...anuncio, perdido: true }] };
+  }
   let siguiente: EstadoPartida = estado;
   let efectos = universo.efectos;
+  let objetos = universo.objetos;
+  let contadorObjetos = universo.contadorObjetos;
   let aleatorio = universo.aleatorio;
   const duracionGlobal = turnosDeRonda(estado);
   switch (evento.tipo) {
@@ -232,6 +239,14 @@ export function aplicarEvento(
       efectos = [...efectos.filter((efecto) => efecto.tipo !== "viento-solar"), { tipo: "viento-solar", turnosRestantes: duracionGlobal, derivaAnadida: suma }];
       break;
     }
+    case "corazon":
+    case "tormenta": {
+      const nuevo = crearObjeto(estado, evento.tipo, evento.afectado, aleatorio);
+      aleatorio = nuevo.aleatorio;
+      objetos = [...(objetos ?? []), nuevo.objeto];
+      contadorObjetos = (contadorObjetos ?? 0) + 1;
+      break;
+    }
     case "agujero-negro": {
       // Uno solo a la vez: el nuevo sustituye al anterior y reinicia su ronda.
       const limpio = sinAgujeroNegro(siguiente);
@@ -243,7 +258,7 @@ export function aplicarEvento(
       break;
     }
   }
-  return { estado: { ...siguiente, universo: { ...universo, aleatorio, efectos } }, eventos: [anuncio] };
+  return { estado: { ...siguiente, universo: { ...universo, aleatorio, efectos, ...(objetos !== undefined ? { objetos, contadorObjetos } : {}) } }, eventos: [anuncio] };
 }
 
 function deshacerEfecto(estado: EstadoPartida, efecto: EfectoActivo): EstadoPartida {

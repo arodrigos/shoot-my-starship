@@ -11,7 +11,9 @@ export type TipoEvento =
   | "gravedad-x2"
   | "gravedad-mitad"
   | "viento-solar"
-  | "agujero-negro";
+  | "agujero-negro"
+  | "corazon"
+  | "tormenta";
 
 // Tipos que dejan un efecto vivo en el estado. Los demás (lotería, reparación,
 // terremoto) son instantáneos y no se quedan.
@@ -23,6 +25,21 @@ export interface EventoProgramado {
   readonly enTurnos: number;
   readonly tipo: TipoEvento;
   readonly afectado: IdNave;
+}
+
+// Eventos con cuerpo: flotan bajo la misma gravedad que un proyectil y actúan
+// solo si su trayectoria toca un casco.
+export type TipoObjeto = "corazon" | "tormenta";
+
+export interface ObjetoEvento {
+  readonly id: number;
+  readonly tipo: TipoObjeto;
+  readonly x: number;
+  readonly y: number;
+  readonly vx: number;
+  readonly vy: number;
+  // Turnos del juego (no del dueño) que le quedan: 3 rondas al nacer.
+  readonly turnosRestantes: number;
 }
 
 export interface EfectoActivo {
@@ -41,6 +58,10 @@ export interface EstadoUniverso {
   readonly aleatorio: EstadoAleatorio;
   readonly proximo: EventoProgramado;
   readonly efectos: readonly EfectoActivo[];
+  // Ausentes (no vacíos) mientras no haya habido ninguno, para que las partidas
+  // sin objetos serialicen igual que antes.
+  readonly objetos?: readonly ObjetoEvento[];
+  readonly contadorObjetos?: number;
   // La reparación necesita saber qué píxeles de planeta existieron.
   readonly mascaraInicial: Mascara;
 }

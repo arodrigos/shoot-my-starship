@@ -37,6 +37,7 @@ import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { FantasmasHUD } from "@/juego/hud/FantasmasHUD";
+import { ObjetosHUD } from "@/juego/hud/ObjetosHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
 import { CartelEventoHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
 import { RoceHUD } from "@/juego/hud/RoceHUD";
@@ -740,6 +741,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
         <RoceHUD />
         <FantasmasHUD />
         <RobotsHUD />
+        <ObjetosHUD />
         <PronosticoHUD />
         <CartelEventoHUD />
         {avisoAccionImposible && (
