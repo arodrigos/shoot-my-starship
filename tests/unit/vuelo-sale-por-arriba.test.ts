@@ -50,5 +50,5 @@ test("la previsualización tampoco sigue el trazado más allá del techo del vue
     potencia: 100,
     comportamiento: ARMA.comportamiento,
   });
-  for (const punto of previa) assert.ok(punto.y >= -ALTO - 50, `el trazado no sigue más allá del techo: y=${punto.y}`);
+  for (const punto of previa) assert.ok(punto.y >= -3 * ALTO - 50, `el trazado no sigue más allá del techo: y=${punto.y}`);
 });

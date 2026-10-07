@@ -91,14 +91,15 @@ export function alturaSuperficie(mascara: Mascara, x: number): number | null {
 // implementaciones que "deberían" coincidir es como se cuela el desajuste
 // que el criterio quiere atrapar.
 //
-// El techo del vuelo es un mundo entero por encima del borde superior: un tiro
-// que se escapa hacia arriba (p. ej. con la gravedad a la mitad) ya no vuelve
-// a verse, y dejarlo agotar el presupuesto de pasos eran ~12 s simulados de
-// animación sin nada en pantalla. Todas las condiciones de parada comparten
-// este corte para que núcleo, trazado de la IA y animador sigan coincidiendo.
+// El techo del vuelo es tres mundos por encima del borde superior (con menos,
+// cambiaba el desenlace de lobs que sí vuelven). Un tiro que se escapa hacia
+// arriba, p. ej. con la gravedad a la mitad, ya no vuelve a verse, y dejarlo
+// agotar el presupuesto de pasos eran ~12 s simulados de animación sin nada
+// en pantalla. Todas las condiciones de parada comparten este corte para que
+// núcleo, trazado de la IA y animador sigan coincidiendo.
 export function detenerseEnSuelo(mascara: Mascara, ancho: number, alto: number) {
   return (p: EstadoProyectil): boolean => {
-    if (p.y >= alto || p.y < -alto || p.x < 0 || p.x >= ancho) {
+    if (p.y >= alto || p.y < -3 * alto || p.x < 0 || p.x >= ancho) {
       return true;
     }
     return esSolido(mascara, Math.round(p.x), Math.round(p.y));
@@ -123,7 +124,7 @@ function crearDetenerseConPenetracion(mascara: Mascara, ancho: number, alto: num
   let anteriorY: number | null = null;
 
   const detenerse = (p: EstadoProyectil): boolean => {
-    if (p.y >= alto || p.y < -alto || p.x < 0 || p.x >= ancho) {
+    if (p.y >= alto || p.y < -3 * alto || p.x < 0 || p.x >= ancho) {
       return true;
     }
     const solido = esSolido(mascara, Math.round(p.x), Math.round(p.y));
@@ -158,7 +159,7 @@ function crearDetenerseHaz(mascara: Mascara, ancho: number, alto: number, penetr
   let distanciaEnSolidoPx = 0;
   let anterior: EstadoProyectil | null = null;
   return (p: EstadoProyectil): boolean => {
-    if (p.y >= alto || p.y < -alto || p.x < 0 || p.x >= ancho) return true;
+    if (p.y >= alto || p.y < -3 * alto || p.x < 0 || p.x >= ancho) return true;
     // El paso de integración puede ser de decenas de píxeles: se recorre el
     // segmento de 1 en 1 para medir la roca realmente cruzada, no el paso.
     if (anterior !== null) {
