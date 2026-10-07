@@ -78,7 +78,7 @@ jobs:
   # lint-typecheck-build y el e2e esperaba sus ~16 min. El patrón de ficheros
   # es el mismo que el de `npm run test:unit` y se expande igual (shell sin
   # globstar), así que los shards juntos ejecutan exactamente los mismos
-  # ficheros que antes.
+  # ficheros que `npm run test:unit`.
   test-unit-shard:
     runs-on: ubuntu-latest
     needs: decidir-e2e
@@ -94,7 +94,10 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
-      - run: node --import tsx --test --test-concurrency=1 --test-shard=${{ matrix.shard }}/3 tests/unit/**/*.test.ts
+      # Dos patrones porque el shell no tiene globstar: `**` vale como `*` y
+      # solo bajaba un nivel, así que los tests sueltos en tests/unit/ no se
+      # ejecutaban nunca.
+      - run: node --import tsx --test --test-concurrency=1 --test-shard=${{ matrix.shard }}/3 tests/unit/*.test.ts tests/unit/**/*.test.ts
 
   # Un único check-run «test-unit», como «e2e»: decidir-e2e lo busca en la
   # cabeza del PR para saltarse el push del merge.
