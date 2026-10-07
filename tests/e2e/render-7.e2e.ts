@@ -40,7 +40,7 @@ async function capturarSecuenciaDePartida(page: Page, prefijo: string) {
   // contenedor, incluida la orientación de escritorio) y un vuelo puede
   // recorrer más distancia de mundo que antes, alargando la animación.
   // Mismo techo que usan control-1/gra-2 para el mismo tipo de espera.
-  await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 60000 });
+  await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
   await page.waitForTimeout(150);
   await page.screenshot({ path: `test-results/render-7/${prefijo}-03-post-explosion.png` });
 
@@ -58,9 +58,11 @@ async function capturarSecuenciaDePartida(page: Page, prefijo: string) {
 for (const viewport of VIEWPORTS) {
   test(`capturas de calidad visual en ${viewport.nombre} (${viewport.width}x${viewport.height})`, async ({ page }) => {
     // Secuencia completa animada en tiempo real (vuelo + explosión + hasta
-    // 12 turnos de desenlace forzado): el timeout por defecto de Playwright
+    // 12 turnos de desenlace forzado; en el runner de CI el vuelo de escritorio
+    // superó los 60 s de espera con la silueta como medida de daño, y la
+    // animación es en tiempo real): el timeout por defecto de Playwright
     // (30000ms) se queda corto, no es un test lento por accidente.
-    test.setTimeout(150000);
+    test.setTimeout(240000);
     await page.setViewportSize(viewport);
     await page.goto("/");
     await page.getByTestId("boton-jugar").click();
