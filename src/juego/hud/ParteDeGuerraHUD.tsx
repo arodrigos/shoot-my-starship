@@ -7,11 +7,12 @@ import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } fr
 // Pantalla final (humor-7): se superpone al tablero ya congelado (la
 // partida ha terminado, nadie va a disparar otra vez) mostrando la medalla y
 // los números reales que la sustentan -- nunca solo el nombre de la medalla,
-// que sería indistinguible de un remate fijo.
+// que sería indistinguible de un remate fijo. El ganador se nombra siempre,
+// también en 1 humano contra IA: sin él, la medalla sola no dice si has ganado.
 export function ParteDeGuerraHUD() {
   const { parte } = useSyncExternalStore(suscribirParteDeGuerra, obtenerParteDeGuerra, obtenerParteDeGuerra);
 
-  const { participantes, ganador } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
+  const { ganador } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
 
   if (!parte) return null;
 
@@ -33,11 +34,9 @@ export function ParteDeGuerraHUD() {
       }}
     >
       <div style={{ maxWidth: 360 }}>
-        {(participantes || ganador === null) && (
-          <h2 data-testid="ganador-nombre" style={{ margin: "0 0 8px", overflowWrap: "anywhere" }}>
-            {ganador === null ? "¡Empate!" : `Gana ${ganador}`}
-          </h2>
-        )}
+        <h2 data-testid="ganador-nombre" style={{ margin: "0 0 8px", overflowWrap: "anywhere" }}>
+          {ganador === null ? "¡Empate!" : `Gana ${ganador}`}
+        </h2>
         <h2 data-testid="parte-de-guerra-medalla" style={{ color: "#ffe08a", margin: "0 0 8px" }}>
           {parte.medalla}
         </h2>

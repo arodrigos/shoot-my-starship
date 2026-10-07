@@ -45,4 +45,7 @@ test("muerte súbita: con [5, 20] el drenaje solo mata a la primera y gana la se
   await gastarTurnoConEscudo(page);
   await page.waitForFunction(() => window.__debug.ganador !== undefined, undefined, { timeout: 90000 });
   expect(await page.evaluate(() => window.__debug.ganador)).toBe(1);
+  // La pantalla final debe nombrar a la IA ganadora, no solo mostrar la medalla.
+  const nombreIA = await page.evaluate(() => window.__debug.controladores![1].nombre);
+  await expect(page.getByTestId("ganador-nombre")).toHaveText(`Gana ${nombreIA}`);
 });
