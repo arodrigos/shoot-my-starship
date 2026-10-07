@@ -23,7 +23,7 @@ sana es [0.6; 1.6].
 | Pepinazo de Cortesía | 55 | 18 | 3.1 % | 60 | 8 % | 0.80 |
 | Mortero Lamentable | 65 | 24 | 3.3 % | 70 | 7 % | 0.95 |
 | Racimo de Tuppers | 85 | 20 | 6.6 % | 100 | 15 % | 1.22 |
-| Despedida | 120 | 55 | 4.5 % | 125 | 4 % | 1.62 |
+| Despedida | 125 | 55 | 4.5 % | 125 | 0 % | 1.55 |
 | Barrena Planetaria | 90 | 44 | 2.7 % | 90 | 0 % | 1.03 |
 | Rayo Láser | 115 | 46 | 1.2 % | 80 | 44 % | 0.38 |
 | Mosca Cojonera | 75 | 28 | 3.3 % | 75 | 0 % | 0.97 |
@@ -42,16 +42,27 @@ sana es [0.6; 1.6].
 | Medio (la de precio más cercano a M) | 10 |
 | Caro (la más cara asequible, Despedida una vez) | 7 |
 | Barato (la de pago más barata) | 15 |
-| Medio con dos escudos pagados | 8 |
+| Medio con dos escudos pagados | 7 |
 | Medio en una segunda partida con el arrastre máximo (1065 cr) | 12 |
 
-## Partidas de 3 IAs con la misma puntería (3 semillas)
+## Partidas de 3 IAs con la misma puntería (14 semillas)
 
 Cada perfil de gasto juega con la puntería de Almirante Bisagra, los asientos
 rotan por semilla y están activos el universo, la muerte súbita y el equipo.
 
 | Perfil | Victorias (partidas con ganador) | Turno propio medio en que no llega ni a la más barata | Sin saldo en su 8.º turno | Paga en la ronda 10 |
 | --- | --- | --- | --- | --- |
-| ahorrador | 0/3 (0 %) | 13.0 | 0/3 (0 %) | 3/3 (100 %) |
-| agresivo | 0/3 (0 %) | 10.0 | 0/3 (0 %) | 0/3 (0 %) |
-| mixto | 3/3 (100 %) | no se queda sin saldo | 0/3 (0 %) | 1/3 (33 %) |
+| ahorrador | 2/12 (17 %) | 13.0 | 0/14 (0 %) | 13/13 (100 %) |
+| agresivo | 2/12 (17 %) | 10.0 | 0/14 (0 %) | 1/14 (7 %) |
+| mixto | 8/12 (67 %) | no se queda sin saldo | 0/14 (0 %) | 7/13 (54 %) |
+
+### Bandas de cal-3 con estas semillas
+
+- FUERA DE BANDA: ahorrador: gana entre el 20 % y el 50 % de las partidas con ganador (17 %)
+- CUMPLE: ahorrador: dispara de pago en la ronda 10 en ≥ 70 % de las partidas que llegan (100 %)
+- FUERA DE BANDA: agresivo: gana entre el 20 % y el 50 % de las partidas con ganador (17 %)
+- FUERA DE BANDA: agresivo: sin saldo para la más barata en su 8.º turno propio en ≥ 80 % de las partidas que llegan (0 %)
+- FUERA DE BANDA: mixto: gana entre el 20 % y el 50 % de las partidas con ganador (67 %)
+
+Con pocas semillas el intervalo de cada tasa es ancho: la comprobación que
+manda es la de `PRUEBA_LARGA=1 npm run calibrar:economia -- --semillas 60`.

@@ -6,7 +6,6 @@ import fc from "fast-check";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import type { Arma } from "@/sim/armas/tipos";
 import { ARRASTRE_MAXIMO, PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
-import { costeArma } from "@/sim/partida/economia";
 import {
   BANDA_VALOR,
   calcularParametros,

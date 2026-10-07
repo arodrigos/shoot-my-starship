@@ -6,7 +6,7 @@ import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { FACILIDAD_MEDIDA_PCT } from "@/sim/armas/facilidadMedida";
 import { curvaPrecio } from "@/sim/armas/precio";
 import type { Arma } from "@/sim/armas/tipos";
-import { ARRASTRE_MAXIMO, PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
+import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { CATALOGO_EQUIPO } from "@/sim/equipo/catalogo";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { ALMIRANTE_BISAGRA, CHISPA, LA_CONTABLE } from "@/sim/ia/personalidades";
@@ -247,6 +247,26 @@ export function simularPerfiles(semillas: number): readonly ResultadoPerfil[] {
   });
 }
 
+// Las tres bandas de cal-3. Una sola definición para el script (que decide el
+// código de salida con PRUEBA_LARGA=1) y para el informe (que las enseña).
+export function evaluarBandas(resultados: readonly ResultadoPerfil[]): readonly { readonly texto: string; readonly cumple: boolean }[] {
+  const bandas: { texto: string; cumple: boolean }[] = [];
+  for (const r of resultados) {
+    const conGanador = r.partidas - r.empates;
+    const tasa = conGanador === 0 ? 0 : r.victorias / conGanador;
+    bandas.push({ texto: `${r.perfil}: gana entre el 20 % y el 50 % de las partidas con ganador (${(100 * tasa).toFixed(0)} %)`, cumple: tasa >= 0.2 && tasa <= 0.5 });
+    if (r.perfil === "agresivo") {
+      const parte = r.llegaronAlOctavo === 0 ? 0 : r.sinSaldoEnOctavo / r.llegaronAlOctavo;
+      bandas.push({ texto: `agresivo: sin saldo para la más barata en su 8.º turno propio en ≥ 80 % de las partidas que llegan (${(100 * parte).toFixed(0)} %)`, cumple: parte >= 0.8 });
+    }
+    if (r.perfil === "ahorrador") {
+      const parte = r.llegaronARonda10 === 0 ? 0 : r.pagoEnRonda10 / r.llegaronARonda10;
+      bandas.push({ texto: `ahorrador: dispara de pago en la ronda 10 en ≥ 70 % de las partidas que llegan (${(100 * parte).toFixed(0)} %)`, cumple: parte >= 0.7 });
+    }
+  }
+  return bandas;
+}
+
 function pct(parte: number, total: number): string {
   return total === 0 ? "n/a" : `${((100 * parte) / total).toFixed(0)} %`;
 }
@@ -317,7 +337,16 @@ rotan por semilla y están activos el universo, la muerte súbita y el equipo.
 
 | Perfil | Victorias (partidas con ganador) | Turno propio medio en que no llega ni a la más barata | Sin saldo en su 8.º turno | Paga en la ronda 10 |
 | --- | --- | --- | --- | --- |
-${lineasPerfil}`
+${lineasPerfil}
+
+### Bandas de cal-3 con estas semillas
+
+${evaluarBandas(resultados)
+  .map((b) => `- ${b.cumple ? "CUMPLE" : "FUERA DE BANDA"}: ${b.texto}`)
+  .join("\n")}
+
+Con pocas semillas el intervalo de cada tasa es ancho: la comprobación que
+manda es la de \`PRUEBA_LARGA=1 npm run calibrar:economia -- --semillas 60\`.`
     : "Se omite la simulación con `--sin-simulacion`."
 }
 `;
