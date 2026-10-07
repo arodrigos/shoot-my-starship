@@ -26,6 +26,10 @@ export interface Planeta {
   // un vuelo se queda CONGELADO (grav-4), nunca se toca dentro del bucle de
   // integración.
   readonly pixelesVivos: number;
+  // Pozo virtual (agujero negro errante): no ocupa píxeles de la máscara, así
+  // que su masa no puede salir del recuento. Con este campo la masa es
+  // explícita y recalcularRegistro la respeta en vez de dejarla a 0.
+  readonly masaFija?: number;
 }
 
 export type RegistroPlanetas = readonly Planeta[];
@@ -35,7 +39,7 @@ export type RegistroPlanetas = readonly Planeta[];
 // (2D es lo que la máscara sabe medir), lo que hace que el enlace entre
 // destruir y desviar sea exacto y no estimado (grav-3).
 export function masaPlaneta(planeta: Planeta): number {
-  return planeta.pixelesVivos * planeta.densidad;
+  return planeta.masaFija ?? planeta.pixelesVivos * planeta.densidad;
 }
 
 // Fuerza bruta, O(ancho*alto): la referencia contra la que grav-7 comprueba
@@ -64,5 +68,5 @@ export function recalcularRegistro(registro: RegistroPlanetas, mascara: Mascara)
 // barata para grav-4 (varias huellas durante un mismo vuelo, una sola
 // recalculada al final).
 export function registroDesdeContadores(registro: RegistroPlanetas, contadores: ReadonlyMap<number, number>): RegistroPlanetas {
-  return registro.map((planeta) => ({ ...planeta, pixelesVivos: contadores.get(planeta.id) ?? 0 }));
+  return registro.map((planeta) => (planeta.masaFija !== undefined ? planeta : { ...planeta, pixelesVivos: contadores.get(planeta.id) ?? 0 }));
 }

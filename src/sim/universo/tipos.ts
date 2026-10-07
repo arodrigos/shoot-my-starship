@@ -10,11 +10,12 @@ export type TipoEvento =
   | "terremoto"
   | "gravedad-x2"
   | "gravedad-mitad"
-  | "viento-solar";
+  | "viento-solar"
+  | "agujero-negro";
 
 // Tipos que dejan un efecto vivo en el estado. Los demás (lotería, reparación,
 // terremoto) son instantáneos y no se quedan.
-export type TipoEfecto = "vitaminas" | "virus" | "gravedad-x2" | "gravedad-mitad" | "viento-solar";
+export type TipoEfecto = "vitaminas" | "virus" | "gravedad-x2" | "gravedad-mitad" | "viento-solar" | "agujero-negro";
 
 // El evento ya sorteado: tipo y afectado se fijan al programarlo, no al
 // dispararlo, para que el pronóstico que ve el jugador nunca pueda mentir.

@@ -1,5 +1,5 @@
 import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
-import { recalcularRegistro } from "@/sim/gravedad/planetas";
+import { masaPlaneta, recalcularRegistro, type Planeta } from "@/sim/gravedad/planetas";
 import { octavoDelMundo } from "@/sim/naves/desplazamiento";
 import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 import { esPosicionValida, type PuntoNave } from "@/sim/naves/zonaValida";
@@ -19,6 +19,17 @@ export const FRACCION_REPARACION = 0.5;
 // van de -18 a 26); el signo se sortea.
 export const DERIVA_VIENTO_SOLAR = 20;
 const MAX_CANDIDATOS_TERREMOTO = 64;
+// Id fuera del rango de materiales de planeta de la máscara (1..12): el pozo no
+// tiene píxeles, así que ningún contador ni reparación puede confundirlo con uno.
+export const ID_AGUJERO_NEGRO = 200;
+// Radio de suavizado (eps de Aarseth) del pozo: pequeño, para que sea un tirón
+// concentrado y no un planeta más; no colisiona con nada porque no está en la máscara.
+export const RADIO_AGUJERO_NEGRO = 30;
+// Su masa es la de un planeta típico del sistema: lo bastante para torcer un tiro
+// que pase cerca, sin convertir la partida en un sumidero.
+const FACTOR_MASA_AGUJERO_NEGRO = 1;
+const MAX_CANDIDATOS_AGUJERO_NEGRO = 32;
+const SEPARACION_AGUJERO_NEGRO_U = 90;
 
 type EstadoSinUniverso = Omit<EstadoPartida, "universo">;
 
@@ -68,8 +79,37 @@ function conGravedad(estado: EstadoPartida, factor: number): EstadoPartida {
   return {
     ...estado,
     mundo: { ...estado.mundo, gravedad: estado.mundo.gravedad * factor },
-    planetas: estado.planetas?.map((planeta) => ({ ...planeta, densidad: planeta.densidad * factor })),
+    // El agujero negro tiene masa explícita y no se escala: si lo hiciera, al
+    // expirar la gravedad ×2 mientras él sigue vivo quedaría con la mitad.
+    planetas: estado.planetas?.map((planeta) => (planeta.masaFija !== undefined ? planeta : { ...planeta, densidad: planeta.densidad * factor })),
   };
+}
+
+// Coloca el pozo con el azar del universo, lejos de las naves vivas y dentro del
+// margen del mundo; si en 32 intentos no hay hueco, usa el último candidato.
+function crearAgujeroNegro(estado: EstadoPartida, aleatorioInicial: EstadoAleatorio): { planeta: Planeta | null; aleatorio: EstadoAleatorio } {
+  const planetas = estado.planetas;
+  if (planetas === undefined || planetas.length === 0) return { planeta: null, aleatorio: aleatorioInicial };
+  const masaMedia = planetas.filter((p) => p.masaFija === undefined).reduce((suma, p) => suma + masaPlaneta(p), 0) / Math.max(1, planetas.filter((p) => p.masaFija === undefined).length);
+  const margen = RADIO_AGUJERO_NEGRO * 2;
+  const vivas = estado.naves.filter((nave) => nave.integridad > 0 && nave.y !== undefined);
+  let aleatorio = aleatorioInicial;
+  let cx = estado.mundo.ancho / 2;
+  let cy = estado.mundo.alto / 2;
+  for (let candidato = 0; candidato < MAX_CANDIDATOS_AGUJERO_NEGRO; candidato++) {
+    const px = sortearIndice(aleatorio, 1001);
+    const py = sortearIndice(px.aleatorio, 1001);
+    aleatorio = py.aleatorio;
+    cx = margen + (px.indice / 1000) * (estado.mundo.ancho - 2 * margen);
+    cy = margen + (py.indice / 1000) * (estado.mundo.alto - 2 * margen);
+    if (vivas.every((nave) => Math.hypot(nave.x - cx, (nave.y as number) - cy) >= SEPARACION_AGUJERO_NEGRO_U)) break;
+  }
+  const planeta: Planeta = { id: ID_AGUJERO_NEGRO, cx, cy, radio: RADIO_AGUJERO_NEGRO, densidad: 1, pixelesVivos: 0, masaFija: masaMedia * FACTOR_MASA_AGUJERO_NEGRO };
+  return { planeta, aleatorio };
+}
+
+function sinAgujeroNegro(estado: EstadoPartida): EstadoPartida {
+  return { ...estado, planetas: estado.planetas?.filter((planeta) => planeta.id !== ID_AGUJERO_NEGRO) };
 }
 
 function conDeriva(estado: EstadoPartida, suma: number): EstadoPartida {
@@ -192,6 +232,16 @@ export function aplicarEvento(
       efectos = [...efectos.filter((efecto) => efecto.tipo !== "viento-solar"), { tipo: "viento-solar", turnosRestantes: duracionGlobal, derivaAnadida: suma }];
       break;
     }
+    case "agujero-negro": {
+      // Uno solo a la vez: el nuevo sustituye al anterior y reinicia su ronda.
+      const limpio = sinAgujeroNegro(siguiente);
+      const pozo = crearAgujeroNegro(limpio, aleatorio);
+      aleatorio = pozo.aleatorio;
+      if (pozo.planeta === null) break;
+      siguiente = { ...limpio, planetas: [...(limpio.planetas ?? []), pozo.planeta] };
+      efectos = [...efectos.filter((efecto) => efecto.tipo !== "agujero-negro"), { tipo: "agujero-negro", turnosRestantes: duracionGlobal }];
+      break;
+    }
   }
   return { estado: { ...siguiente, universo: { ...universo, aleatorio, efectos } }, eventos: [anuncio] };
 }
@@ -204,6 +254,8 @@ function deshacerEfecto(estado: EstadoPartida, efecto: EfectoActivo): EstadoPart
       return conGravedad(estado, 2);
     case "viento-solar":
       return conDeriva(estado, -(efecto.derivaAnadida ?? 0));
+    case "agujero-negro":
+      return sinAgujeroNegro(estado);
     default:
       return estado;
   }
