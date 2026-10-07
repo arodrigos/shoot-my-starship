@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
+import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
+import { arrastrarBarraHasta } from "./utilesControl";
 
 async function empezar(page: Page, parametros: string): Promise<void> {
   await page.setViewportSize({ width: 360, height: 640 });
@@ -74,4 +76,66 @@ test("armas gratis: la celda avisa de que puede provocar un evento", async ({ pa
   await empezar(page, "modo=presupuesto");
   await page.getByTestId("selector-arma-abrir").click();
   await expect(page.getByTestId("gratis-evento-petardo-de-feria")).toContainText("25 % de provocar un evento");
+});
+
+// Un turno propio con la solución balística exacta contra el rival: devuelve
+// lo que le bajó la integridad. El rival y el tirador se restauran antes para
+// que cada medida parta de 100 y el calendario no pueda matar a nadie.
+async function dispararYMedirDanio(page: Page): Promise<number> {
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
+  await page.evaluate(() => {
+    window.__debug.forzarIntegridad!(0, 100);
+    window.__debug.forzarIntegridad!(1, 100);
+  });
+  const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
+  expect(solucion).not.toBeNull();
+  await arrastrarBarraHasta(page, "barra-angulo", (solucion!.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
+  await arrastrarBarraHasta(page, "barra-potencia", (solucion!.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA));
+  const turnoAntes = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
+  await page.getByTestId("disparar").click();
+  // aplicarResultadoTurno ya corrió cuando el contador avanza: la integridad
+  // del rival es la de este disparo, antes de que responda la IA.
+  await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) >= n + 1, turnoAntes, { timeout: 120000 });
+  return 100 - (await page.evaluate(() => window.__debug.naves!.find((nave) => nave.id === 1)!.integridad));
+}
+
+// evt-1, límite del caso vitaminas-doblan-danio: el efecto dura exactamente 3
+// turnos de la nave 0 y después el daño vuelve a D. El calendario se fija en un
+// evento lejano para que ningún sorteo (gravedad, terremoto...) altere los
+// vuelos medidos, y el turno vuelve al humano tras cada respuesta de la IA.
+test("vitaminas: el efecto dura 3 turnos de la nave 0, dobla el daño en ellos y después vuelve a D", async ({ page }) => {
+  test.setTimeout(180000);
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.goto("/?eventos=1&mapa=calma-de-los-restos&modo=barra-libre");
+  await page.getByTestId("boton-jugar").click();
+  await page.waitForSelector("#game-container canvas");
+  await page.waitForFunction(
+    () => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.naves !== undefined && window.__debug.fijarProximoEvento !== undefined,
+  );
+  if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
+  await page.evaluate(() => window.__debug.fijarProximoEvento!({ enTurnos: 50, tipo: "virus", afectado: 1 }));
+
+  const danioBase = await dispararYMedirDanio(page);
+  expect(danioBase).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.__debug.efectos)).toEqual([]);
+
+  // El evento llega al cerrar este turno: el disparo en sí aún es de daño D.
+  await page.evaluate(() => window.__debug.fijarProximoEvento!({ enTurnos: 1, tipo: "vitaminas", afectado: 0 }));
+  const danioAlLlegar = await dispararYMedirDanio(page);
+  expect(Math.abs(danioAlLlegar - danioBase)).toBeLessThanOrEqual(2);
+  await page.evaluate(() => window.__debug.fijarProximoEvento!({ enTurnos: 50, tipo: "virus", afectado: 1 }));
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
+  expect(await page.evaluate(() => window.__debug.efectos)).toEqual([{ tipo: "vitaminas", nave: 0, turnosRestantes: 3 }]);
+
+  // Tres turnos con el efecto: daño 2·D y la cuenta baja 3 → 2 → 1 → desaparece.
+  for (const restantes of [2, 1, 0]) {
+    const danio = await dispararYMedirDanio(page);
+    expect(Math.abs(danio - 2 * danioBase)).toBeLessThanOrEqual(3);
+    await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
+    const efectos = await page.evaluate(() => window.__debug.efectos);
+    expect(efectos).toEqual(restantes === 0 ? [] : [{ tipo: "vitaminas", nave: 0, turnosRestantes: restantes }]);
+  }
+
+  const danioFinal = await dispararYMedirDanio(page);
+  expect(Math.abs(danioFinal - danioBase)).toBeLessThanOrEqual(2);
 });
