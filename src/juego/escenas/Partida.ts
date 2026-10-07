@@ -3,7 +3,8 @@ import { MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { generarMascara } from "@/sim/terreno/generador";
 import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
 import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPhaser";
-import { crearFondoEspacial } from "@/juego/fondo/FondoEspacial";
+import { crearFondoEspacial, rehornearFondoEspacial } from "@/juego/fondo/FondoEspacial";
+import { firmaDeHalos } from "@/juego/fondo/PozosGravedad";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { factorPlanetasParaArea } from "@/sim/sistema/generador";
@@ -280,6 +281,8 @@ function prefiereMovimientoReducido(): boolean {
 
 export class Partida extends Phaser.Scene {
   private estado!: EstadoPartida;
+  private semillaFondo: number | undefined;
+  private firmaHalos = "";
   private terreno!: ReturnType<typeof crearTerrenoPhaser>["terreno"];
   private rival: Personalidad = RIVAL_POR_DEFECTO;
   // multi-setup-partida: de un único rival a una memoria por cada nave de IA
@@ -617,6 +620,8 @@ export class Partida extends Phaser.Scene {
       // FondoEspacial.ts) -- `sistema.planetas` es el mismo registro que usa
       // la gravedad real, nunca una copia.
       crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", sistema.planetas);
+      this.semillaFondo = semillaSistema;
+      this.firmaHalos = firmaDeHalos(sistema.planetas);
       window.__debug.fondoEspacial = { bakes: 1 };
       this.selectorFrases = crearSelectorFrases(semillaSistema);
       this.selectorBromas = crearSelectorBromas(semillaSistema);
@@ -2125,6 +2130,7 @@ export class Partida extends Phaser.Scene {
   // eventos-universo: el pronóstico sale del calendario ya sorteado (nunca
   // miente) y el cartel de los eventos que acaba de devolver el núcleo.
   private refrescarUniverso(eventos: readonly EventoSimulacion[]): void {
+    this.refrescarHalos();
     const universo = this.estado.universo;
     window.__debug!.proximoEvento = universo ? { ...universo.proximo } : null;
     window.__debug!.efectos = universo ? universo.efectos.map((efecto) => ({ ...efecto })) : [];
@@ -2142,6 +2148,21 @@ export class Partida extends Phaser.Scene {
       const quien = definicion.alcance === "nave" ? ` · ${nombreDeNave(this.controladores, evento.nave)}` : "";
       publicarCartel(`${definicion.nombre}${quien}`);
     }
+  }
+
+  // Los halos de gravedad salen de la masa del registro: se vuelven a pintar
+  // solo cuando esa masa cambia (gravedad ×2/÷2, agujero negro que aparece o
+  // expira), no en cada turno. La textura es la misma, así que `bakes` sigue
+  // contando el horneado inicial y `rehornoHalos` cuenta los posteriores.
+  private refrescarHalos(): void {
+    const planetas = this.estado.planetas;
+    if (planetas === undefined || this.semillaFondo === undefined) return;
+    const firma = firmaDeHalos(planetas);
+    if (firma === this.firmaHalos) return;
+    this.firmaHalos = firma;
+    rehornearFondoEspacial(this, this.semillaFondo, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", planetas);
+    const depuracion = window.__debug?.fondoEspacial;
+    if (depuracion !== undefined) depuracion.rehornoHalos = (depuracion.rehornoHalos ?? 0) + 1;
   }
 
   private refrescarIndicadorDeriva(): void {

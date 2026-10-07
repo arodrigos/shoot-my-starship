@@ -36,6 +36,34 @@ export function crearFondoEspacial(
   claveTextura: string,
   planetas: RegistroPlanetas,
 ): FondoEspacial {
+  hornearFondo(escena, semilla, ancho, alto, claveTextura, planetas);
+  const imagen = escena.add.image(0, 0, claveTextura).setOrigin(0, 0).setDepth(-1);
+  return { imagen };
+}
+
+// Vuelve a pintar el fondo sobre la MISMA textura (Phaser dibuja encima del
+// canvas existente y el fondo es opaco): los halos de gravedad cambian con los
+// efectos del universo, y sin esto se quedarían como al crear la escena. Se
+// llama solo cuando cambia la masa del registro, nunca por fotograma.
+export function rehornearFondoEspacial(
+  escena: Phaser.Scene,
+  semilla: number,
+  ancho: number,
+  alto: number,
+  claveTextura: string,
+  planetas: RegistroPlanetas,
+): void {
+  hornearFondo(escena, semilla, ancho, alto, claveTextura, planetas);
+}
+
+function hornearFondo(
+  escena: Phaser.Scene,
+  semilla: number,
+  ancho: number,
+  alto: number,
+  claveTextura: string,
+  planetas: RegistroPlanetas,
+): void {
   const aleatorio = crearGeneradorAleatorio(semilla);
   const lienzo = escena.make.graphics({ x: 0, y: 0 });
 
@@ -75,7 +103,4 @@ export function crearFondoEspacial(
 
   lienzo.generateTexture(claveTextura, ancho, alto);
   lienzo.destroy();
-
-  const imagen = escena.add.image(0, 0, claveTextura).setOrigin(0, 0).setDepth(-1);
-  return { imagen };
 }

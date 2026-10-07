@@ -186,7 +186,7 @@ export interface DebugGlobal {
   // próximo evento sin esperar al sorteo (solo e2e).
   proximoEvento?: { readonly enTurnos: number; readonly tipo: string; readonly afectado: number } | null;
   efectos?: readonly { readonly tipo: string; readonly nave?: number; readonly turnosRestantes: number }[];
-  fijarProximoEvento?: (proximo: { enTurnos: number; tipo: "loteria" | "vitaminas" | "virus" | "reparacion" | "terremoto" | "gravedad-x2" | "gravedad-mitad" | "viento-solar"; afectado: number }) => void;
+  fijarProximoEvento?: (proximo: { enTurnos: number; tipo: "loteria" | "vitaminas" | "virus" | "reparacion" | "terremoto" | "gravedad-x2" | "gravedad-mitad" | "viento-solar" | "agujero-negro"; afectado: number }) => void;
   // render-2, render-5: juega N turnos reales (misma avanzar() que un
   // jugador) sin animación, para que el test pueda comprobar el estado
   // renderizado tras una partida guionizada sin depender de temporizadores.
@@ -311,7 +311,7 @@ export interface DebugGlobal {
   // fondo-y-pozos: la capa estelar cercana y los pozos de gravedad se
   // hornean fundidos en esta misma textura (ver FondoEspacial.ts), así que
   // comparten este único contador en vez de tener uno propio.
-  fondoEspacial?: { bakes: number };
+  fondoEspacial?: { bakes: number; rehornoHalos?: number };
   // esp-6: el resultado del turno que acaba de cerrarse -- incluye el caso
   // "proyectil perdido en órbita" con su propio texto (qué ha pasado y qué
   // hacer), no solo el genérico de impacto/fallo.

@@ -23,6 +23,7 @@ export const CATALOGO_EVENTOS: readonly DefinicionEvento[] = [
   { tipo: "gravedad-x2", nombre: "Gravedad ×2", bueno: false, alcance: "global", curativo: false, soloPresupuesto: false },
   { tipo: "gravedad-mitad", nombre: "Gravedad ÷2", bueno: false, alcance: "global", curativo: false, soloPresupuesto: false },
   { tipo: "viento-solar", nombre: "Viento solar", bueno: false, alcance: "global", curativo: false, soloPresupuesto: false },
+  { tipo: "agujero-negro", nombre: "Agujero negro errante", bueno: false, alcance: "global", curativo: false, soloPresupuesto: false },
 ];
 
 export function buscarEvento(tipo: TipoEvento): DefinicionEvento {

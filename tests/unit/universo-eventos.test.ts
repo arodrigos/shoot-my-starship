@@ -7,7 +7,8 @@ import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { crearProyectil } from "@/sim/fisica/proyectil";
 import { simularVuelo } from "@/sim/fisica/vuelo";
 import { ALTURA_CANON_PX, detenerseEnSuelo } from "@/sim/armas/resolver";
-import { masaPlaneta } from "@/sim/gravedad/planetas";
+import { masaPlaneta, recalcularRegistro, type Planeta } from "@/sim/gravedad/planetas";
+import { dibujarPozosGravedad, firmaDeHalos } from "@/juego/fondo/PozosGravedad";
 import { PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { avanzar } from "@/sim/partida/avanzar";
 import { colocarNaves } from "@/sim/naves/colocacion";
@@ -18,7 +19,7 @@ import type { EstadoPartida, ParametrosMundo } from "@/sim/partida/tipos";
 import { eventosDisponibles } from "@/sim/universo/catalogoEventos";
 import { INTERVALO_MAXIMO_TURNOS, INTERVALO_MINIMO_TURNOS } from "@/sim/universo/calendario";
 import { PROBABILIDAD_EVENTO_GRATIS } from "@/sim/universo/disparoGratis";
-import { aplicarEvento, avanzarUniverso, conUniverso, factorDanio, TURNOS_EFECTO_NAVE } from "@/sim/universo/efectos";
+import { aplicarEvento, avanzarUniverso, conUniverso, factorDanio, ID_AGUJERO_NEGRO, TURNOS_EFECTO_NAVE } from "@/sim/universo/efectos";
 import type { EventoProgramado, EstadoUniverso, TipoEvento } from "@/sim/universo/tipos";
 import { MUNDO_ALTO, MUNDO_ANCHO } from "../utils/sistemaGenerado";
 
@@ -230,7 +231,7 @@ test("evt-2: la previsualización coincide con el vuelo con cualquier efecto glo
   const sin = estadoBase(11, "barra-libre");
   const referencia = trayectoria(sin, 120);
   assert.ok(referencia.previa.length > 20);
-  const tipos: TipoEvento[] = ["gravedad-x2", "gravedad-mitad", "viento-solar"];
+  const tipos: TipoEvento[] = ["gravedad-x2", "gravedad-mitad", "viento-solar", "agujero-negro"];
   for (const tipo of tipos) {
     const con = aplicarEvento(conProximo(sin, { enTurnos: 99, tipo: "loteria", afectado: 0 }), { enTurnos: 0, tipo, afectado: 0 }, "calendario").estado;
     const { previa, real } = trayectoria(con, 120);
@@ -238,7 +239,8 @@ test("evt-2: la previsualización coincide con el vuelo con cualquier efecto glo
       assert.ok(Math.hypot(punto.x - real[indice].x, punto.y - real[indice].y) <= 0.5, `${tipo}: desvío en el paso ${indice}`);
     });
     const lejos = Math.hypot(previa[previa.length - 1].x - referencia.previa[referencia.previa.length - 1].x, previa[previa.length - 1].y - referencia.previa[referencia.previa.length - 1].y);
-    assert.ok(lejos > 1, `${tipo} no cambia la trayectoria`);
+    // Con ×2 el caso pide más de 20 u: un cambio de 1 u no demuestra que la gravedad se note.
+    assert.ok(lejos > (tipo === "gravedad-x2" ? 20 : 1), `${tipo} no cambia la trayectoria lo bastante (${lejos.toFixed(1)} u)`);
     // Una ronda de 4 naves vivas: tras 4 cierres, todo vuelve a la normalidad.
     let tras = con;
     for (let turno = 0; turno < 4; turno++) tras = cerrar(tras, turno, false).estado;
@@ -249,6 +251,56 @@ test("evt-2: la previsualización coincide con el vuelo con cualquier efecto glo
     const vuelta = trayectoria(tras, 120);
     vuelta.previa.forEach((punto, indice) => assert.ok(Math.hypot(punto.x - referencia.previa[indice].x, punto.y - referencia.previa[indice].y) <= 0.5));
   }
+});
+
+// evt-2/evt-3: el agujero negro es un pozo de masa explícita que sobrevive al
+// recálculo del registro y se retira al acabar su ronda.
+test("evt-3: el agujero negro añade un pozo con masa propia, recalcularRegistro la respeta y desaparece tras una ronda", () => {
+  const sin = estadoBase(11, "barra-libre");
+  const con = aplicarEvento(conProximo(sin, { enTurnos: 99, tipo: "loteria", afectado: 0 }), { enTurnos: 0, tipo: "agujero-negro", afectado: 0 }, "calendario").estado;
+  const pozo = con.planetas?.find((planeta) => planeta.id === ID_AGUJERO_NEGRO);
+  assert.ok(pozo !== undefined, "el pozo está en el registro");
+  assert.equal(con.planetas?.length, (sin.planetas?.length ?? 0) + 1);
+  assert.ok(masaPlaneta(pozo) > 0);
+  const recalculado = recalcularRegistro(con.planetas ?? [], con.mascara).find((planeta) => planeta.id === ID_AGUJERO_NEGRO);
+  assert.equal(masaPlaneta(recalculado as Planeta), masaPlaneta(pozo), "recalcularRegistro no anula la masa");
+  assert.ok(pozo.cx > 0 && pozo.cx < con.mundo.ancho && pozo.cy > 0 && pozo.cy < con.mundo.alto);
+  // Un segundo agujero negro sustituye al primero en vez de acumularse.
+  const doble = aplicarEvento(con, { enTurnos: 0, tipo: "agujero-negro", afectado: 0 }, "calendario").estado;
+  assert.equal(doble.planetas?.filter((planeta) => planeta.id === ID_AGUJERO_NEGRO).length, 1);
+  // Convive con la gravedad ×2 y su expiración no le toca la masa.
+  const x2 = aplicarEvento(con, { enTurnos: 0, tipo: "gravedad-x2", afectado: 0 }, "calendario").estado;
+  assert.equal(masaPlaneta(x2.planetas?.find((planeta) => planeta.id === ID_AGUJERO_NEGRO) as Planeta), masaPlaneta(pozo));
+  let tras = con;
+  for (let turno = 0; turno < 4; turno++) tras = cerrar(tras, turno, false).estado;
+  assert.equal(tras.planetas?.some((planeta) => planeta.id === ID_AGUJERO_NEGRO), false);
+  assert.deepEqual(tras.planetas, sin.planetas);
+});
+
+// evt-2: los halos de gravedad que se pintan salen de la física del registro,
+// así que con ×2 (o con el agujero negro) no pueden ser los mismos que sin evento.
+test("evt-2: los halos de los pozos cambian con gravedad ×2, ÷2 y agujero negro, y vuelven al expirar", () => {
+  const sin = estadoBase(11, "barra-libre");
+  const halos = (estado: EstadoPartida) => {
+    const radios: number[] = [];
+    const lienzo = { fillStyle: () => undefined, fillCircle: (_x: number, _y: number, radio: number) => void radios.push(radio) };
+    dibujarPozosGravedad(lienzo as unknown as Phaser.GameObjects.Graphics, estado.planetas ?? []);
+    return radios;
+  };
+  const base = halos(sin);
+  assert.ok(base.length > 0);
+  const con = (tipo: TipoEvento) => aplicarEvento(conProximo(sin, { enTurnos: 99, tipo: "loteria", afectado: 0 }), { enTurnos: 0, tipo, afectado: 0 }, "calendario").estado;
+  const x2 = halos(con("gravedad-x2"));
+  const mitad = halos(con("gravedad-mitad"));
+  assert.notDeepEqual(x2, base);
+  assert.notDeepEqual(mitad, base);
+  assert.ok(x2.reduce((a, b) => a + b, 0) > base.reduce((a, b) => a + b, 0), "×2 agranda los halos");
+  assert.ok(mitad.reduce((a, b) => a + b, 0) < base.reduce((a, b) => a + b, 0), "÷2 los encoge");
+  assert.ok(halos(con("agujero-negro")).length > base.length, "el agujero negro tiene su propio halo");
+  assert.notEqual(firmaDeHalos(con("gravedad-x2").planetas ?? []), firmaDeHalos(sin.planetas ?? []));
+  let tras = con("gravedad-x2");
+  for (let turno = 0; turno < 4; turno++) tras = cerrar(tras, turno, false).estado;
+  assert.deepEqual(halos(tras), base);
 });
 
 // evt-4: estadística de las armas gratis con el cierre real del universo.
