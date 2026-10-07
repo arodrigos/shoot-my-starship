@@ -41,6 +41,7 @@ import { ObjetosHUD } from "@/juego/hud/ObjetosHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
 import { CartelEventoHUD, MuerteSubitaHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
 import { RoceHUD } from "@/juego/hud/RoceHUD";
+import { contarMensajes } from "@/juego/control/broma";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import "@/debug/tipos";
 
@@ -160,6 +161,10 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pestana, setPestana] = useState<"armas" | "equipo">("armas");
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
+  useEffect(() => {
+    window.__debug = window.__debug ?? {};
+    window.__debug.historico = { abierto: historicoAbierto, mensajes: contarMensajes(obtenerBromas().historico) };
+  }, [historicoAbierto, bromas.historico]);
 
   useEffect(() => {
     window.__debug = window.__debug ?? {};
@@ -427,45 +432,10 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
           cursor: "pointer",
         }}
       >
-        Histórico{bromas.historico.length > 0 ? ` (${bromas.historico.length})` : ""}
+        Histórico{bromas.historico.length > 0 ? ` (${contarMensajes(bromas.historico)})` : ""}
       </button>
 
-      {historicoAbierto && (
-        <div
-          style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            top: 0,
-            height: "58%",
-            zIndex: 20,
-            display: "flex",
-            flexDirection: "column",
-            padding: 8,
-            background: "rgba(5,6,10,0.88)",
-          }}
-        >
-          <button
-            type="button"
-            data-testid="historico-bromas-cerrar"
-            aria-label="Cerrar histórico"
-            onClick={() => setHistoricoAbierto(false)}
-            style={{
-              alignSelf: "flex-end",
-              minWidth: TAMANO_MINIMO_BOTON_PX,
-              minHeight: TAMANO_MINIMO_BOTON_PX,
-              background: "transparent",
-              border: "none",
-              color: "#cfe8ff",
-              font: "16px system-ui, sans-serif",
-              cursor: "pointer",
-            }}
-          >
-            ✕
-          </button>
-          <HistoricoBromasHUD />
-        </div>
-      )}
+      {historicoAbierto && <HistoricoBromasHUD onCerrar={() => setHistoricoAbierto(false)} />}
 
       {/* control-angulo-potencia: dos controles independientes de verdad --
           cada uno en su propio elemento, con su propio gesto de arrastre

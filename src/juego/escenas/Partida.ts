@@ -74,7 +74,8 @@ import { contarHumanos, etiquetaMinirobot } from "@/juego/textosPartida";
 import { publicarGanador, publicarParticipantes, reiniciarParticipantes } from "@/juego/control/participantesStore";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
-import { obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
+import { colorDeAsiento } from "@/juego/naves/paletaNaves";
+import { inyectarHistorico, obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
 import { publicarFantasmas } from "@/juego/control/fantasmasStore";
 import { publicarObjetos } from "@/juego/control/objetosStore";
@@ -830,6 +831,7 @@ export class Partida extends Phaser.Scene {
     window.__debug.parteDeGuerra = null;
     window.__debug.ultimosEventos = [];
     window.__debug.historialBromas = [];
+    window.__debug.inyectarHistorico = inyectarHistorico;
     window.__debug.destellosNucleo = [];
     window.__debug.dispararReaccionHumor = (tipo) => this.reaccionarAHumor([crearEventoDePruebaHumor(tipo)]);
     window.__debug.forzarProyectilPerdido = () =>
@@ -1964,7 +1966,7 @@ export class Partida extends Phaser.Scene {
     if (arma?.bromaPropia) {
       textoImpacto = `${textoImpacto} ${this.selectorBromas.elegirImpactoArma(arma.id, arma.bromaPropia.impacto)}`;
     }
-    publicarBromaImpacto(numeroTurnoAntes, textoImpacto, categoria);
+    publicarBromaImpacto(numeroTurnoAntes, textoImpacto, categoria, tirador);
 
     // hum-1: un registro por turno, para que el test pueda comprobar "sin
     // excepción" a lo largo de varios turnos y cruzar la frase contra el
@@ -2100,6 +2102,7 @@ export class Partida extends Phaser.Scene {
       activa: this.naves[indice].estaActiva(),
       escudo: this.naves[indice].obtenerEscudoTurnos(),
       silueta: this.naves[indice].obtenerVariante(),
+      colorAsiento: colorDeAsiento(indice),
     }));
     // imp-11: el HUD (fuera del lienzo Phaser) necesita enterarse de la
     // integridad por el mismo canal pub/sub que ya usan resultado-turno y

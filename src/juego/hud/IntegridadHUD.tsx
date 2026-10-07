@@ -15,7 +15,7 @@ import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/pa
 // núcleo sigue teniendo solo dos naves hasta nucleo-n-naves, pero esta
 // función ya no asume que `id` no pueda ser 2 o 3 (el hallazgo del
 // gatekeeper era justo que una tercera nave no compilaba aquí).
-function etiquetaDeNave(id: number, nombreRival: string): string {
+export function etiquetaDeNave(id: number, nombreRival: string): string {
   if (id === 0) return "Tu nave";
   if (id === 1) return nombreRival;
   return `Nave ${id + 1}`;
