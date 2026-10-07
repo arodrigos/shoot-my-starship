@@ -13,6 +13,7 @@ import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
 import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { costeArma, saldoDeRonda } from "@/sim/partida/economia";
+import { direccionDeNave } from "@/sim/naves/contacto";
 import { idsNavesVivas, type EntradaDeTurno, type EstadoPartida, type IdNave, type ModoJuego, type ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } from "@/sim/armas/resolver";
@@ -654,7 +655,7 @@ export class Partida extends Phaser.Scene {
     // (el control lo sustituye en cuanto le toca a un humano).
     this.naves = this.estado.naves.map((nave, id) => {
       const y = alturaRenderNave(nave.y, alturaSuperficie(this.estado.mascara, nave.x) ?? MUNDO_ALTO - 1);
-      const haciaMasX = id % 2 === 0;
+      const haciaMasX = direccionDeNave(id as IdNave) === 1;
       return new Nave(this, id, nave.x, y, haciaMasX, haciaMasX ? 45 : 135);
     });
 

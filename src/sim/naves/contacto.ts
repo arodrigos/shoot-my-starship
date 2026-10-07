@@ -3,13 +3,11 @@ import type { IdNave } from "@/sim/partida/tipos";
 import { puntosCascoVariante, type PuntoCasco, type VarianteNave } from "@/sim/naves/geometriaCasco";
 import { RADIO_CASCO_NAVE_PX, type NavePosicion } from "@/sim/naves/impacto";
 
-// contacto-honesto (con-1): dirección de dibujo de cada nave, fija por id --
-// Partida.ts crea siempre la nave 0 con mirarHaciaMasX=true y la 1 con
-// false, así que el núcleo puede reproducir esa misma convención sin
-// depender de Phaser para saber qué mitad de la silueta (puntosCasco) le
-// toca comparar.
+// Única regla de hacia dónde mira cada nave: la cáscara (Partida.ts) la lee de
+// aquí en vez de repetirla, porque las dos copias ya se separaron una vez y el
+// asiento 2 se medía contra la silueta reflejada de la que se veía.
 export function direccionDeNave(id: IdNave): 1 | -1 {
-  return id === 0 ? 1 : -1;
+  return id % 2 === 0 ? 1 : -1;
 }
 
 // arte-siluetas-3: la variante de silueta por id -- hoy coincide con el id

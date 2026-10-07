@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { comprobarRocePaso, dentroDelPoligono, direccionDeNave } from "@/sim/naves/contacto";
+import { comprobarRocePaso, dentroDelPoligono } from "@/sim/naves/contacto";
 import { RADIO_CASCO_NAVE_PX, crearRastreadorImpactoNaves, type NavePosicion } from "@/sim/naves/impacto";
 import { puntosCascoVariante } from "@/sim/naves/geometriaCasco";
 
@@ -9,11 +9,15 @@ import { puntosCascoVariante } from "@/sim/naves/geometriaCasco";
 // para esta nave (la variante coincide con el asiento).
 const NAVE_OBJETIVO: NavePosicion = { id: 1, x: 500, y: 300 };
 
+// Orientación escrita a mano (la que se ve en pantalla), no sacada de
+// direccionDeNave: así el test no se compara con la implementación.
+const ORIENTACION_DIBUJADA = { 0: 1, 1: -1, 2: 1, 3: -1 } as const;
+
 // Un punto local de la silueta dibujada que queda fuera del casco de
 // colisión: se busca en la propia silueta de la nave, porque cada asiento
 // tiene una forma distinta y un punto fijo valdría solo para una.
 function puntoFueraDelCascoDentroDeLaSilueta(): { readonly x: number; readonly y: number } {
-  const dir = direccionDeNave(NAVE_OBJETIVO.id);
+  const dir = ORIENTACION_DIBUJADA[NAVE_OBJETIVO.id as 0 | 1 | 2 | 3];
   const silueta = puntosCascoVariante(NAVE_OBJETIVO.id as 0 | 1 | 2 | 3, dir);
   for (let distancia = RADIO_CASCO_NAVE_PX + 12; distancia < 120; distancia += 1) {
     const candidato = { x: dir * distancia, y: 0 };
@@ -82,5 +86,24 @@ test("con-1/con-5: el rastreador aditivo (comprobarRoce) no cambia el resultado 
     // para este paso porque avanzar()/vuelo.ts solo lo consulta cuando
     // comprobarPaso ya ha dicho que no hay impacto.
     assert.ok(impacto, `semilla ${semilla}: se esperaba impacto`);
+  }
+});
+
+test("con-1: el roce se mide contra la silueta dibujada en los cuatro asientos (el 2 mira a +x)", () => {
+  for (const id of [0, 1, 2, 3] as const) {
+    const nave: NavePosicion = { id, x: 500, y: 300 };
+    const silueta = puntosCascoVariante(id, ORIENTACION_DIBUJADA[id]);
+    // El punto más alejado del centro sobre el eje x dentro de la silueta
+    // dibujada: sale del casco de colisión, así que solo el roce puede verlo.
+    let candidato: { x: number; y: number } | null = null;
+    for (let distancia = 120; distancia > RADIO_CASCO_NAVE_PX + 12 && !candidato; distancia -= 1) {
+      const punto = { x: ORIENTACION_DIBUJADA[id] * distancia, y: 0 };
+      if (dentroDelPoligono(punto.x, punto.y, silueta)) candidato = punto;
+    }
+    assert.ok(candidato, `asiento ${id}: la silueta dibujada sale del casco`);
+    const x = nave.x + candidato!.x;
+    const roce = comprobarRocePaso({ x, y: nave.y - 1, vx: 0, vy: 100 }, { x, y: nave.y + 1, vx: 0, vy: 100 }, [nave]);
+    assert.ok(roce, `asiento ${id}: se esperaba roce`);
+    assert.equal(roce!.nave, id);
   }
 });
