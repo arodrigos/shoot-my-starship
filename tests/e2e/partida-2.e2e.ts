@@ -69,7 +69,7 @@ test("una partida completa no hace ninguna petición fuera del propio origen", a
 // "guardar el progreso" en algún sitio). SALDO_INICIAL duplicada a propósito
 // (convención de modo-1.e2e.ts): si el catálogo cambia el número de arranque
 // sin que este test se entere, el fallo tiene que ser ruidoso.
-const SALDO_INICIAL = 850;
+const SALDO_INICIAL = 600;
 // vertedero-portatil: danioMaximo 0 en el catálogo real -- la única arma de
 // pago que garantiza ingreso 0 SIEMPRE, sea acierto o fallo, así que el saldo
 // tras dispararla es aritméticamente exacto sin tener que apuntar a la nave

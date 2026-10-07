@@ -1,6 +1,6 @@
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import type { Arma } from "@/sim/armas/tipos";
-import { ARRASTRE_MAXIMO, FRACCION_DANIO_GRATIS, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
+import { FRACCION_DANIO_GRATIS } from "@/sim/economia/parametros";
 
 export function costeArma(arma: Arma): number {
   return arma.coste ?? 0;
@@ -35,11 +35,4 @@ export function danioMaximoGratis(catalogo: readonly Arma[] = CATALOGO_ARMAS): n
 export function armaEfectiva(arma: Arma, presupuesto: boolean, catalogo: readonly Arma[] = CATALOGO_ARMAS): Arma {
   if (!presupuesto || costeArma(arma) > 0 || arma.efecto.tipo !== "danio") return arma;
   return { ...arma, efecto: { ...arma.efecto, danioMaximo: danioMaximoGratis(catalogo) } };
-}
-
-// Un sobrante corrupto (NaN, negativo, infinito) vale 0: el arrastre nunca
-// puede romper la calibración por un dato malo guardado.
-export function saldoDeRonda(saldoNoGastado: number): number {
-  const sobrante = Number.isFinite(saldoNoGastado) ? Math.max(0, saldoNoGastado) : 0;
-  return PRESUPUESTO_BASE + Math.min(sobrante, ARRASTRE_MAXIMO);
 }

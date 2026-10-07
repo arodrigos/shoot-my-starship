@@ -67,14 +67,14 @@ test("compra-al-usar: en barra libre no hay saldo y ninguna celda está deshabil
   await expect(page.locator('[data-testid^="faltan-"]')).toHaveCount(0);
 });
 
-// eco-6 de punta a punta: «Otra partida» arranca con la base más lo no gastado
-// recortado a ARRASTRE_MAXIMO (215), no a dos presupuestos.
-test("compra-al-usar: lo no gastado se arrastra a «Otra partida» con el tope de un cuarto de la base", async ({ page }) => {
+// sdo-1 de punta a punta: «Otra partida» arranca siempre con la base fija,
+// sin sumar lo que sobró.
+test("compra-al-usar: «Otra partida» arranca con 600 cr, sin arrastre", async ({ page }) => {
   test.setTimeout(240000);
   await empezarPresupuesto(page);
   await page.evaluate(() => window.__debug.forzarFinDePartida!());
   await expect(page.getByTestId("parte-de-guerra")).toBeVisible({ timeout: 60000 });
   await page.getByTestId("otra-partida").click();
   await page.waitForFunction(() => window.__debug.saldo !== undefined && window.__debug.saldo !== null, undefined, { timeout: 30000 });
-  expect(await page.evaluate(() => window.__debug.saldo)).toBe(1065);
+  expect(await page.evaluate(() => window.__debug.saldo)).toBe(600);
 });

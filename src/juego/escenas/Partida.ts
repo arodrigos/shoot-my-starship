@@ -12,7 +12,7 @@ import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
 import { avanzar } from "@/sim/partida/avanzar";
 import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
-import { costeArma, saldoDeRonda } from "@/sim/partida/economia";
+import { costeArma } from "@/sim/partida/economia";
 import { direccionDeNave } from "@/sim/naves/contacto";
 import { idsNavesVivas, type EntradaDeTurno, type EstadoPartida, type IdNave, type ModoJuego, type ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
@@ -58,7 +58,7 @@ import {
 } from "@/juego/control/store";
 import { anguloDesdeDedo, potenciaDesdeDistancia } from "@/juego/control/apuntado";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
-import { limpiarParteDeGuerra, publicarParteDeGuerra, publicarSaldosFinales } from "@/juego/control/parteDeGuerraStore";
+import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { crearSelectorBromas, type SelectorBromas } from "@/contenido/selectorBromas";
 import { vozDeNave } from "@/contenido/bancoBromas";
@@ -1665,12 +1665,8 @@ export class Partida extends Phaser.Scene {
   // pagan cada arma de pago al usarla: no hay pantalla previa de compra.
   private economiaInicial(saldoInicial: number): Pick<EstadoPartida, "saldos"> {
     return {
-      // Un asiento con saldo arrastrado de la partida anterior manda sobre
-      // el inicial (también sobre ?saldo=, que solo fija la primera partida).
-      saldos: this.controladores.map((_controlador, id) => {
-        const arrastrado = this.datosEscena.saldosNoGastados?.[id];
-        return arrastrado === undefined ? saldoInicial : saldoDeRonda(arrastrado);
-      }),
+      // Sin arrastre: cada partida y cada asiento parten del mismo saldo.
+      saldos: this.controladores.map(() => saldoInicial),
     };
   }
 
@@ -1868,7 +1864,6 @@ export class Partida extends Phaser.Scene {
         const estadisticasGanador = this.estadisticas[idGanador ?? tirador];
         const parte = generarParteDeGuerra(estadisticasGanador);
         publicarParteDeGuerra(parte, estadisticasGanador);
-        publicarSaldosFinales(estadoDespues.saldos);
         window.__debug!.parteDeGuerra = { ...parte, estadisticas: estadisticasGanador };
         // partida-5: intento de guardado best-effort -- si localStorage no
         // está disponible, guardarUltimaPartida se degrada en silencio (ver
