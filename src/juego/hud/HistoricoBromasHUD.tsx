@@ -90,7 +90,9 @@ export function HistoricoBromasHUD({ onCerrar }: Props) {
           gap: 8,
           background: "rgba(14,16,24,0.97)",
           borderRadius: 12,
-          color: "var(--color-cromado-texto)",
+          // Fijo, no la variable de esquema: el fondo del panel es siempre oscuro
+          // y en esquema claro la variable da texto casi negro (axe color-contrast).
+          color: "#e8eaf0",
           font: "15px/1.4 system-ui, sans-serif",
         }}
       >
