@@ -152,7 +152,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     },
     fiabilidad: 1,
     usosMaximos: 1,
-    coste: 120,
+    coste: 125,
     rol: "la más cara y la más dañina: un solo uso, con autodaño real de por medio",
   },
   // armas-nuevas: las tres armas que ejercitan los ejes nuevos de verdad
@@ -207,7 +207,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // medida es de las más bajas del catálogo (sale recta, pero exige
     // precisión real) -- el precio se mantiene cerca del máximo porque paga
     // además la inmunidad a la gravedad, un eje que la curva no modela.
-    // Coste 115 (no 120, el techo de Despedida): con 120 empataría a
+    // Coste 115 (no 125, el techo de Despedida): con 125 empataría a
     // Despedida en coste y, al tener menos daño y menos facilidad, quedaría
     // dominada por ella en el sentido del criterio 3 -- 115 rompe esa
     // comparación sin cambiar el papel de "la más cara tras Despedida".

@@ -18,7 +18,7 @@ export const DANIO_MAXIMO_CATALOGO = 55; // Despedida
 export const FACILIDAD_MAXIMA_CATALOGO = 0.076; // Andanada de Flechas
 
 // Escala para que Despedida (daño y facilidad máximos relativos del
-// catálogo con daño real) quede en 120, el techo de precio de este bloque.
+// catálogo con daño real) quede en 125, el techo de precio de este bloque.
 const ESCALA_PRECIO = 160;
 
 function redondearA5(valor: number): number {

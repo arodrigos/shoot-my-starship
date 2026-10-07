@@ -110,10 +110,10 @@ test("economia-rectificada-2/3 (propiedad): el saldo nunca es negativo, cada arm
   );
 });
 
-test("economia-rectificada-4: Despedida con 100 cr se rechaza («cuesta 120») y el estado serializado queda idéntico", () => {
+test("economia-rectificada-4: Despedida con 100 cr se rechaza («cuesta 125») y el estado serializado queda idéntico", () => {
   const estado = estadoConSaldos([100, 100]);
   const antes = serializarEstado(estado);
-  assert.throws(() => disparo(estado, "despedida"), /cuesta 120 cr/);
+  assert.throws(() => disparo(estado, "despedida"), /cuesta 125 cr/);
   assert.equal(serializarEstado(estado), antes);
 });
 
@@ -133,8 +133,8 @@ test("economia-rectificada-3: en barra libre ningún disparo toca saldos y el pe
 
 // eco-6 / invariante 5
 test("economia-rectificada-5 (propiedad): el saldo inicial de ronda está en [base, base + arrastre máximo] con cualquier valor guardado", () => {
-  assert.equal(ARRASTRE_MAXIMO, 250);
-  assert.equal(PREMIO_LOTERIA, 250);
+  assert.equal(ARRASTRE_MAXIMO, 215);
+  assert.equal(PREMIO_LOTERIA, 215);
   fc.assert(
     fc.property(fc.oneof(fc.double({ noNaN: false }), fc.integer({ min: -5000, max: 5000 })), (sobrante) => {
       const saldo = saldoDeRonda(sobrante);

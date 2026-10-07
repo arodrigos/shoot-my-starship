@@ -5,7 +5,7 @@
 // Presupuesto por ronda, igual para todos los asientos: sin ingreso por daño,
 // porque premiar el daño con crédito en una partida de cuatro es una bola de
 // nieve para quien ya va ganando.
-export const PRESUPUESTO_BASE = 1000;
+export const PRESUPUESTO_BASE = 850;
 
 // Redondeo a múltiplos de 5 para que ningún tope salga con decimales raros
 // cuando la base se recalibre.
