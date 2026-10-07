@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { abrirSelector, dispararConSolucionExacta, empezarPresupuesto, esperarJugable, MAPA_SEMBRADO } from "./utilesCompra";
 
 // eco-2 / eco-3: de punta a punta por la UI real, a 360x640. Precios de dev:
-// Pepinazo 55, Mortero 65, Despedida 120.
+// Pepinazo 55, Mortero 65, Despedida 125.
 test("compra-al-usar: todo está en el selector, el arma de pago se cobra al disparar y las gratis no cobran", async ({ page }) => {
   test.setTimeout(240000);
   await empezarPresupuesto(page, { saldo: 100 });
@@ -14,7 +14,7 @@ test("compra-al-usar: todo está en el selector, el arma de pago se cobra al dis
   await abrirSelector(page);
   await expect(page.locator('[data-testid^="arma-"]')).toHaveCount(15);
   await expect(page.getByTestId("arma-despedida")).toBeDisabled();
-  await expect(page.getByTestId("faltan-despedida")).toContainText("Te faltan 20 cr");
+  await expect(page.getByTestId("faltan-despedida")).toContainText("Te faltan 25 cr");
   // eco-3: el selector avisa del daño reducido de cada gratis.
   await expect(page.getByTestId("gratis-reducida-petardo-de-feria")).toContainText("Gratis · daño reducido al 25 %");
 
@@ -68,7 +68,7 @@ test("compra-al-usar: en barra libre no hay saldo y ninguna celda está deshabil
 });
 
 // eco-6 de punta a punta: «Otra partida» arranca con la base más lo no gastado
-// recortado a ARRASTRE_MAXIMO (250), no a dos presupuestos.
+// recortado a ARRASTRE_MAXIMO (215), no a dos presupuestos.
 test("compra-al-usar: lo no gastado se arrastra a «Otra partida» con el tope de un cuarto de la base", async ({ page }) => {
   test.setTimeout(240000);
   await empezarPresupuesto(page);
@@ -76,5 +76,5 @@ test("compra-al-usar: lo no gastado se arrastra a «Otra partida» con el tope d
   await expect(page.getByTestId("parte-de-guerra")).toBeVisible({ timeout: 60000 });
   await page.getByTestId("otra-partida").click();
   await page.waitForFunction(() => window.__debug.saldo !== undefined && window.__debug.saldo !== null, undefined, { timeout: 30000 });
-  expect(await page.evaluate(() => window.__debug.saldo)).toBe(1250);
+  expect(await page.evaluate(() => window.__debug.saldo)).toBe(1065);
 });

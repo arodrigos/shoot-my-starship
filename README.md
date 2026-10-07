@@ -34,7 +34,7 @@ trayectorias extremas de esa banda y no miente.
 - **Barra libre**: las quince armas están disponibles desde el primer
   turno, sin coste.
 - **Con presupuesto** (economía por ronda): todos los asientos, también las
-  IAs, parten del mismo presupuesto (`PRESUPUESTO_BASE` = 1000 créditos,
+  IAs, parten del mismo presupuesto (`PRESUPUESTO_BASE` = 850 créditos,
   `src/sim/economia/parametros.ts`). No hay pantalla previa de compra: todas
   las armas están siempre en el selector y cada una de pago se cobra al
   disparar (seleccionar o cambiar de arma no cobra). Una arma que el saldo no
@@ -73,7 +73,7 @@ de Chatarra**) son el fondo de armario.
 | Petardo de Feria | 0 | gratis, de daño bajo, difícil y además una de cada cuatro falla del todo |
 | La Pelota de Chatarra | 0 | gratis, de daño bajo: rueda hasta un agujero, pero no garantiza cuál |
 | Gravitón de Segunda Mano | 45 | utilitaria: reposiciona, precio por magnitud del desplazamiento, no por daño |
-| Despedida | 120 | la más cara y la más dañina: un solo uso, con autodaño real de por medio |
+| Despedida | 125 | la más cara y la más dañina: un solo uso, con autodaño real de por medio |
 | Barrena Planetaria | 90 | atraviesa terreno y pega fuerte: cara y de las de más daño |
 | Rayo Láser | 115 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
 | Mosca Cojonera | 75 | trayectoria errática: difícil de planear, castiga bien si llega |

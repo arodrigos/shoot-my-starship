@@ -51,7 +51,7 @@ test("modo-1: el saldo baja el precio exacto al disparar y el daño no ingresa",
     await page.getByTestId("ayuda-cerrar").click();
   }
 
-  expect(await page.evaluate(() => window.__debug.saldo)).toBe(1000);
+  expect(await page.evaluate(() => window.__debug.saldo)).toBe(850);
 
   await page.getByTestId("selector-arma-abrir").click();
   await page.getByTestId(`arma-${ARMA_ID}`).click();
@@ -63,5 +63,5 @@ test("modo-1: el saldo baja el precio exacto al disparar y el daño no ingresa",
     eventos1: window.__debug.ultimosEventos,
   }));
   expect(danioAlObjetivo(eventos1), "el disparo tiene que causar daño real para probar que no ingresa").toBeGreaterThan(0);
-  expect(saldoTrasDisparo1).toBe(1000 - COSTE_ARMA);
+  expect(saldoTrasDisparo1).toBe(850 - COSTE_ARMA);
 });
