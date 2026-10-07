@@ -99,6 +99,17 @@ async function dispararYMedirDanio(page: Page): Promise<number> {
   return 100 - (await page.evaluate(() => window.__debug.naves!.find((nave) => nave.id === 1)!.integridad));
 }
 
+// El efecto se aplica al cerrar la ronda, tras la respuesta de la IA, y
+// puedeDisparar puede valer true un instante antes: se espera al estado real
+// de los efectos en vez de suponer que ya está cuando vuelve el control.
+async function esperarEfectos(page: Page, esperados: { tipo: string; nave: number; turnosRestantes: number }[]): Promise<void> {
+  await page.waitForFunction(
+    (json) => JSON.stringify(window.__debug.efectos) === json && window.__debug.animacionEnCurso === false && window.__debug.control!.puedeDisparar === true,
+    JSON.stringify(esperados),
+    { timeout: 120000 },
+  );
+}
+
 // evt-1, límite del caso vitaminas-doblan-danio: el efecto dura exactamente 3
 // turnos de la nave 0 y después el daño vuelve a D. El calendario se fija en un
 // evento lejano para que ningún sorteo (gravedad, terremoto...) altere los
@@ -132,18 +143,16 @@ test("vitaminas: el efecto dura 3 turnos de la nave 0, dobla el daño en ellos y
   const danioBase = (danioBase0 + danioBase1) / 2;
   const umbral = 1.5 * danioBase;
   expect(danioBase1, `medidas ${medidas.join(", ")}`).toBeLessThan(umbral);
+  // Reprogramar antes de que llegue el evento lo pisaría: primero se espera al efecto.
+  await esperarEfectos(page, [{ tipo: "vitaminas", nave: 0, turnosRestantes: 3 }]);
   await page.evaluate(() => window.__debug.fijarProximoEvento!({ enTurnos: 50, tipo: "virus", afectado: 1 }));
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
-  expect(await page.evaluate(() => window.__debug.efectos)).toEqual([{ tipo: "vitaminas", nave: 0, turnosRestantes: 3 }]);
 
   // Tres turnos con el efecto: daño ≈ 2·D y la cuenta baja 3 → 2 → 1 → desaparece.
   for (const restantes of [2, 1, 0]) {
     const danio = await dispararYMedirDanio(page);
     medidas.push(danio);
     expect(danio, `medidas ${medidas.join(", ")}`).toBeGreaterThan(umbral);
-    await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
-    const efectos = await page.evaluate(() => window.__debug.efectos);
-    expect(efectos).toEqual(restantes === 0 ? [] : [{ tipo: "vitaminas", nave: 0, turnosRestantes: restantes }]);
+    await esperarEfectos(page, restantes === 0 ? [] : [{ tipo: "vitaminas", nave: 0, turnosRestantes: restantes }]);
   }
 
   const danioFinal = await dispararYMedirDanio(page);
