@@ -80,9 +80,10 @@ import { publicarObjetos } from "@/juego/control/objetosStore";
 import { publicarRobots } from "@/juego/control/robotsStore";
 import { dibujarObjetoEvento } from "@/juego/efectos/dibujarObjetoEvento";
 import { RONDAS_DE_VIDA_OBJETO, rutaPrevistaObjeto } from "@/sim/universo/objetos";
-import { publicarCartel, publicarPronostico, reiniciarUniverso } from "@/juego/control/universoStore";
+import { publicarCartel, publicarMuerteSubita, publicarPronostico, reiniciarUniverso } from "@/juego/control/universoStore";
 import { buscarEvento } from "@/sim/universo/catalogoEventos";
 import { conUniverso } from "@/sim/universo/efectos";
+import { conMuerteSubita, drenajeDeRonda, RONDA_MUERTE_SUBITA } from "@/sim/partida/muerteSubita";
 import { MAX_SALTOS_ROBOT } from "@/sim/armas/minirobot";
 import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
@@ -653,6 +654,18 @@ export class Partida extends Phaser.Scene {
     // lo desactiva, y `eventos=1` fuerza encenderlo.
     reiniciarUniverso();
     if (this.eventosActivados(parametrosUrl)) this.estado = conUniverso(this.estado);
+    // muerte-subita: activa por defecto; `muerte=0` en la URL o la clave
+    // guardada «muerte-subita:activada» a «0» (como el e2e la apaga en bloque)
+    // la desactiva, y `muerte=1` fuerza encenderla.
+    if (this.muerteSubitaActivada(parametrosUrl)) this.estado = conMuerteSubita(this.estado);
+    window.__debug.fijarMuerteSubita = ({ ronda, integridades }) => {
+      this.estado = {
+        ...conMuerteSubita(this.estado, ronda),
+        ...(integridades ? { naves: this.estado.naves.map((nave, id) => ({ ...nave, integridad: integridades[id] ?? nave.integridad })) } : {}),
+      };
+      this.refrescarNaves();
+      this.refrescarUniverso([]);
+    };
     window.__debug.fijarObjetos = (objetos) => {
       const universo = this.estado.universo;
       if (universo === undefined) return;
@@ -2179,6 +2192,17 @@ export class Partida extends Phaser.Scene {
     );
   }
 
+  private muerteSubitaActivada(parametrosUrl: URLSearchParams): boolean {
+    const parametro = parametrosUrl.get("muerte");
+    if (parametro === "1") return true;
+    if (parametro === "0") return false;
+    try {
+      return window.localStorage.getItem("muerte-subita:activada") !== "0";
+    } catch {
+      return true;
+    }
+  }
+
   private eventosActivados(parametrosUrl: URLSearchParams): boolean {
     const parametro = parametrosUrl.get("eventos");
     if (parametro === "1") return true;
@@ -2194,6 +2218,21 @@ export class Partida extends Phaser.Scene {
   // miente) y el cartel de los eventos que acaba de devolver el núcleo.
   private refrescarUniverso(eventos: readonly EventoSimulacion[]): void {
     this.refrescarHalos();
+    const ronda = this.estado.ronda;
+    window.__debug!.ronda = ronda;
+    const drenaje = ronda === undefined ? 0 : drenajeDeRonda(ronda);
+    publicarMuerteSubita(
+      ronda === undefined || this.estado.resultado.tipo === "terminada"
+        ? null
+        : drenaje > 0
+          ? `Muerte súbita: −${drenaje} de vida por ronda`
+          : ronda === RONDA_MUERTE_SUBITA - 1
+            ? "Muerte súbita en 1 ronda"
+            : null,
+    );
+    for (const evento of eventos) {
+      if (evento.tipo === "muerte-subita" && evento.fase === "drenaje") publicarCartel(`Muerte súbita: −${evento.danio} de vida a todas`);
+    }
     const universo = this.estado.universo;
     window.__debug!.proximoEvento = universo ? { ...universo.proximo } : null;
     window.__debug!.efectos = universo ? universo.efectos.map((efecto) => ({ ...efecto })) : [];

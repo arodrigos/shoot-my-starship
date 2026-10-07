@@ -151,6 +151,9 @@ export type EventoSimulacion =
   // eventos-objetos: un corazón o una tormenta ha tocado el casco de `nave`.
   // `cambio` es la vida realmente ganada (+) o perdida (-), ya con el tope.
   | { readonly tipo: "objeto-alcanza"; readonly objeto: "corazon" | "tormenta"; readonly nave: IdNave; readonly cambio: number }
+  // muerte-subita: aviso una ronda antes y drenaje al empezar cada ronda desde
+  // la décima (`danio` es lo que pierde cada nave viva).
+  | { readonly tipo: "muerte-subita"; readonly fase: "aviso" | "drenaje"; readonly ronda: number; readonly danio: number }
   | { readonly tipo: "turno-fin"; readonly siguienteTurno: IdNave }
   // nucleo-n-naves: ganador nullable -- empate real cuando un disparo de
   // área deja sin vida a las dos últimas naves en pie a la vez.

@@ -10,9 +10,12 @@ export interface CartelEvento {
 export interface EstadoUniversoVisible {
   readonly pronostico: string | null;
   readonly cartel: CartelEvento | null;
+  // muerte-subita: el aviso de la ronda previa y el drenaje en curso; vive aquí
+  // y no en el pronóstico porque debe verse también sin eventos del universo.
+  readonly muerteSubita: string | null;
 }
 
-let estado: EstadoUniversoVisible = { pronostico: null, cartel: null };
+let estado: EstadoUniversoVisible = { pronostico: null, cartel: null, muerteSubita: null };
 const escuchas = new Set<() => void>();
 
 export function obtenerUniverso(): EstadoUniversoVisible {
@@ -34,10 +37,15 @@ export function publicarPronostico(pronostico: string | null): void {
   emitir({ ...estado, pronostico });
 }
 
+export function publicarMuerteSubita(texto: string | null): void {
+  if (texto === estado.muerteSubita) return;
+  emitir({ ...estado, muerteSubita: texto });
+}
+
 export function publicarCartel(texto: string): void {
   emitir({ ...estado, cartel: { clave: (estado.cartel?.clave ?? 0) + 1, texto } });
 }
 
 export function reiniciarUniverso(): void {
-  emitir({ pronostico: null, cartel: null });
+  emitir({ pronostico: null, cartel: null, muerteSubita: null });
 }

@@ -5,6 +5,7 @@
 // bloque para que el cambio sea comparable.
 import { ALMIRANTE_BISAGRA, CHISPA, LA_CONTABLE } from "@/sim/ia/personalidades";
 import { medirCompraIA } from "../tests/utils/medirCompraIA";
+import { medirTerminacion } from "../tests/utils/medirTerminacion";
 import { medirPersonalidad, NUM_PARTIDAS_MEDICION_IA, SEMILLA_MAESTRA_MEDICION_IA } from "../tests/utils/medirIA";
 
 // Medida una sola vez contra el commit c63de318d62d15873648bd129af30fe41eb64f1d
@@ -38,6 +39,20 @@ if (argumento("modo") === "presupuesto") {
   console.log(`  turnos con saldo para el arma de pago más barata: ${informe.turnosConSaldo}`);
   console.log(`  disparos de pago en esos turnos:                  ${informe.turnosDePago} (${informe.porcentajeDePago.toFixed(1)}%) [${marca}, umbral ${UMBRAL_PAGO_PCT}%]`);
   process.exit(informe.porcentajeDePago >= UMBRAL_PAGO_PCT ? 0 : 1);
+}
+
+// ms-1: `--naves N --semillas S [--modo-juego presupuesto]` mide que todas las
+// partidas solo de IAs terminen dentro de la cota de la muerte súbita.
+if (argumento("naves") !== undefined && argumento("modo") === undefined) {
+  const naves = Number(argumento("naves"));
+  const semillas = Number(argumento("semillas") ?? "10");
+  const modoJuego = argumento("modo-juego") === "presupuesto" ? "presupuesto" : "barra-libre";
+  const informe = medirTerminacion(naves, semillas, modoJuego);
+  const dentroDeCota = informe.terminadas === informe.partidas && informe.turnoMaximo <= informe.cotaTurnos;
+  console.log(`\nCierre de partida (${naves} IAs, ${semillas} semillas, ${modoJuego})`);
+  console.log(`  terminadas: ${informe.terminadas}/${informe.partidas} (${((100 * informe.terminadas) / informe.partidas).toFixed(0)}%), empates: ${informe.empates}`);
+  console.log(`  turno medio ${informe.turnoMedio.toFixed(1)}, turno máximo ${informe.turnoMaximo} [${dentroDeCota ? "OK" : "FUERA DE COTA"}, cota ${informe.cotaTurnos}]`);
+  process.exit(dentroDeCota ? 0 : 1);
 }
 
 for (const personalidad of [LA_CONTABLE, ALMIRANTE_BISAGRA, CHISPA]) {

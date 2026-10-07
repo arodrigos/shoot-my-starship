@@ -39,7 +39,7 @@ import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { FantasmasHUD } from "@/juego/hud/FantasmasHUD";
 import { ObjetosHUD } from "@/juego/hud/ObjetosHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
-import { CartelEventoHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
+import { CartelEventoHUD, MuerteSubitaHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
 import { RoceHUD } from "@/juego/hud/RoceHUD";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import "@/debug/tipos";
@@ -742,6 +742,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
         <FantasmasHUD />
         <RobotsHUD />
         <ObjetosHUD />
+        <MuerteSubitaHUD />
         <PronosticoHUD />
         <CartelEventoHUD />
         {avisoAccionImposible && (

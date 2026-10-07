@@ -7,7 +7,8 @@ import type { EventoSimulacion } from "@/sim/partida/eventos";
 import { idsNavesVivas, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
 import { PREMIO_LOTERIA } from "@/sim/economia/parametros";
 import type { Mascara } from "@/sim/terreno/mascara";
-import { programarSiguiente, sortearIndice, type ContextoSorteo } from "@/sim/universo/calendario";
+import { buscarEvento } from "@/sim/universo/catalogoEventos";
+import { programarSiguiente, sortearEvento, sortearIndice, type ContextoSorteo } from "@/sim/universo/calendario";
 import { crearObjeto, MAX_OBJETOS_VIVOS } from "@/sim/universo/objetos";
 import { sortearEventoGratis } from "@/sim/universo/disparoGratis";
 import type { EfectoActivo, EstadoUniverso, EventoProgramado, FasePartida, TipoEfecto } from "@/sim/universo/tipos";
@@ -46,6 +47,24 @@ export function conUniverso(estado: EstadoPartida): EstadoPartida {
     mascaraInicial: { ...estado.mascara, datos: estado.mascara.datos.slice() },
   };
   return { ...estado, universo };
+}
+
+// Al empezar la muerte súbita los corazones vivos se disuelven y, si el próximo
+// evento del calendario era curativo, se vuelve a sortear conservando su
+// cuenta atrás: el pronóstico no puede anunciar una cura que ya no llegará.
+export function entrarEnMuerteSubita(estado: EstadoPartida): { universo: EstadoUniverso | undefined } {
+  const universo = estado.universo;
+  if (universo === undefined) return { universo };
+  const objetos = universo.objetos?.filter((objeto) => objeto.tipo !== "corazon");
+  const curativo = buscarEvento(universo.proximo.tipo).curativo;
+  const resorteo = curativo ? sortearEvento(universo.aleatorio, contextoDe({ ...estado, muerteSubita: true }), universo.proximo.enTurnos) : undefined;
+  return {
+    universo: {
+      ...universo,
+      ...(resorteo ? { aleatorio: resorteo.aleatorio, proximo: resorteo.evento } : {}),
+      ...(objetos !== undefined ? { objetos } : {}),
+    },
+  };
 }
 
 export function faseDe(estado: EstadoPartida): FasePartida {
@@ -181,6 +200,10 @@ export function aplicarEvento(
   const universo = estado.universo as EstadoUniverso;
   const anuncio = { tipo: "evento-universo" as const, evento: evento.tipo, nave: evento.afectado, origen };
   if (estado.naves[evento.afectado].integridad <= 0) {
+    return { estado, eventos: [{ ...anuncio, perdido: true }] };
+  }
+  // Red de seguridad de ms-3: nada curativo cae en muerte súbita, venga de donde venga.
+  if (estado.muerteSubita === true && buscarEvento(evento.tipo).curativo) {
     return { estado, eventos: [{ ...anuncio, perdido: true }] };
   }
   if ((evento.tipo === "corazon" || evento.tipo === "tormenta") && (universo.objetos?.length ?? 0) >= MAX_OBJETOS_VIVOS) {

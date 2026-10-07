@@ -33,9 +33,9 @@ export function ParteDeGuerraHUD() {
       }}
     >
       <div style={{ maxWidth: 360 }}>
-        {participantes && (
+        {(participantes || ganador === null) && (
           <h2 data-testid="ganador-nombre" style={{ margin: "0 0 8px", overflowWrap: "anywhere" }}>
-            {ganador === null ? "Empate: nadie queda en pie" : `Gana ${ganador}`}
+            {ganador === null ? "¡Empate!" : `Gana ${ganador}`}
           </h2>
         )}
         <h2 data-testid="parte-de-guerra-medalla" style={{ color: "#ffe08a", margin: "0 0 8px" }}>
