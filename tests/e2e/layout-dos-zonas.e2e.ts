@@ -61,7 +61,7 @@ const TESTIDS_HUD = [
 // obsoleto por diseño -- el lienzo ocupa ya el viewport entero y la consola es
 // una capa encima. Lo que se sigue exigiendo es que ningún control se salga de
 // la consola y que esta no pase del 45 % del alto.
-test("lay-1: en 360x640 el lienzo ocupa el viewport y todo el HUD cabe dentro de la consola superpuesta (≤ 45 % del alto)", async ({
+test("lay-1: en 360x640 el lienzo ocupa el viewport y todo el HUD cabe dentro de la consola superpuesta (≤ 40 % del alto)", async ({
   page,
 }) => {
   await irAPartida(page, VIEWPORT_MOVIL);
@@ -71,9 +71,12 @@ test("lay-1: en 360x640 el lienzo ocupa el viewport y todo el HUD cabe dentro de
   expect(zonaJuego.width).toBeGreaterThanOrEqual(VIEWPORT_MOVIL.width - 1);
 
   const consola = (await page.getByTestId("consola").boundingBox())!;
-  expect(consola.height / VIEWPORT_MOVIL.height).toBeLessThanOrEqual(0.45 + 0.002);
+  expect(consola.height / VIEWPORT_MOVIL.height).toBeLessThanOrEqual(0.4 + 0.002);
 
   for (const testId of TESTIDS_HUD) {
+    // consola-compacta: las bromas y el aviso de roce flotan sobre el borde
+    // superior de la consola, ya no viven dentro de su caja.
+    if (testId === "panel-bromas" || testId === "panel-roce") continue;
     const locator = page.getByTestId(testId);
     if (!(await locator.isVisible().catch(() => false))) continue;
     const caja = (await locator.boundingBox())!;

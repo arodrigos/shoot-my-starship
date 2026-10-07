@@ -238,6 +238,8 @@ export interface DebugGlobal {
   mundo?: { ancho: number; alto: number };
   // pantalla-completa (pan-1): cuenta los "resize" de Phaser.Scale desde que arranca la partida.
   contadorResize?: number;
+  // consola-compacta: estado y anclaje vigentes de la consola (con-1).
+  consola?: { estado: "desplegada" | "minima" | "oculta"; anclaje: "abajo-centro" | "abajo-izquierda" | "abajo-derecha" };
   // humor-1: la sacudida de cámara es una transformación de la matriz de
   // render (Camera.shakeEffect), no un desplazamiento de worldView/scroll --
   // no hay forma de detectarla comparando el rectángulo de cámara entre dos
