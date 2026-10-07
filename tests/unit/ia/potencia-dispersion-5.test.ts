@@ -44,11 +44,13 @@ test("potencia-dispersion-5: propiedad -- el elegido nunca es peor que el actual
 
 // Integración con el buscador real: en el lote de sistemas generados hay
 // casos donde el reordenamiento cambia el tiro de mejor caso, y el turno
-// nunca pasa del techo de vuelos de ia-punteria-2.
+// nunca pasa del techo de vuelos de ia-punteria-2. El reordenamiento es raro
+// (unos 4 sistemas de cada 120 desde que el daño se mide contra la silueta
+// visible), así que el lote es de 90 para que el caso aparezca con margen.
 test("potencia-dispersion-5: en sistemas reales el reordenamiento por valor esperado se aplica y respeta el techo de 192 vuelos", () => {
   const armaBase = buscarArma("pepinazo-cortesia");
   let reordenados = 0;
-  const lote = generarLoteDeSistemas(30);
+  const lote = generarLoteDeSistemas(90);
   for (const { semilla, sistema, naveA, naveB, aleatorio } of lote) {
     const resultado = buscarSolucionRival({
       mascara: sistema.mascara,
@@ -67,5 +69,5 @@ test("potencia-dispersion-5: en sistemas reales el reordenamiento por valor espe
     assert.ok(resultado.vuelosSimulados <= PRESUPUESTO_VUELOS_RIVAL_TURNO, `semilla ${semilla}: ${resultado.vuelosSimulados} vuelos`);
     if (resultado.reordenadoPorValorEsperado) reordenados++;
   }
-  assert.ok(reordenados > 0, "en 30 sistemas el valor esperado nunca cambió el tiro de mejor caso: el reordenamiento no hace nada");
+  assert.ok(reordenados > 0, "en 90 sistemas el valor esperado nunca cambió el tiro de mejor caso: el reordenamiento no hace nada");
 });
