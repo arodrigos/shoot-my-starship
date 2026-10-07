@@ -90,3 +90,27 @@ export function comprobarRocePaso(
   }
   return null;
 }
+
+function distanciaPuntoSegmento(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const largo2 = dx * dx + dy * dy;
+  const t = largo2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / largo2));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+// Distancia de una detonación a la silueta que se DIBUJA (0 si cae dentro):
+// es la medida del daño por área. Con el casco a escala 3 el contorno llega a
+// ~100 u del centro, y medir al centro hacía que una explosión pegada al casco
+// visible no contara como impacto (sil-2: lo que se ve como impacto, cuenta).
+export function distanciaACasco(x: number, y: number, nave: NavePosicion): number {
+  const puntos = puntosCascoVariante(varianteDeNave(nave.id), direccionDeNave(nave.id));
+  const localX = x - nave.x;
+  const localY = y - nave.y;
+  if (dentroDelPoligono(localX, localY, puntos)) return 0;
+  let minima = Infinity;
+  for (let i = 0, j = puntos.length - 1; i < puntos.length; j = i++) {
+    minima = Math.min(minima, distanciaPuntoSegmento(localX, localY, puntos[j].x, puntos[j].y, puntos[i].x, puntos[i].y));
+  }
+  return minima;
+}

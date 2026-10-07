@@ -43,8 +43,11 @@ const NAVE_B_PLANA = { id: 1 as const, x: 1400, y: 900 };
 // 0.78, sin escalado 0.65). Reelegida otra vez en pantalla-completa: el margen
 // de borde y la franja inferior mueven las colocaciones sembradas y 164 pasó
 // a dar 10,43 con escalado; la 27 sale del mismo barrido de las 70 primeras
-// semillas (razón con escalado 1,03, sin escalado 2,48).
-const SEMILLA_SISTEMA_SENSIBLE = 27;
+// semillas (razón con escalado 1,03, sin escalado 2,48). Reelegida otra vez en
+// siluetas-por-asiento: medir el daño contra la silueta visible cambia la
+// solución que encuentra la búsqueda de la IA; 58 sale del barrido de las 80
+// primeras semillas (razón con escalado 1,02, sin escalado 2,81).
+const SEMILLA_SISTEMA_SENSIBLE = 58;
 
 interface Escenario {
   readonly mascara: Mascara;

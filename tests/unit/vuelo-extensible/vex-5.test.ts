@@ -16,7 +16,9 @@ import { jugarLote, hashDeLote } from "../../utils/loteAleatorio";
 // Hash actualizado en armas-reprecio-roles: ese bloque SÍ mueve el balance a
 // propósito (daño y radio del catálogo), así que el hash nuevo es el que
 // fija ese bloque, no una regresión de este.
-const HASH_LOTE_PREVIO_A_VUELO_EXTENSIBLE = "416fef064786d38b5cb4d990a57239816ce1fde414757ed4a2db41fa5e5deb2d";
+// Hash actualizado en siluetas-por-asiento (sil-2): el daño se mide contra la
+// silueta visible y no contra el centro, lo que mueve el balance a propósito.
+const HASH_LOTE_PREVIO_A_VUELO_EXTENSIBLE = "b84a253506480b822b6587d02bd64cea401cb7e2fa17e54a54bcd363128f1574";
 
 test("vex-5: 200 partidas dan exactamente el mismo resultado que antes de vuelo-extensible", () => {
   const lote = jugarLote(20260929, 200);
