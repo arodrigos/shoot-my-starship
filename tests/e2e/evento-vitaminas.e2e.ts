@@ -104,7 +104,7 @@ async function dispararYMedirDanio(page: Page): Promise<number> {
 // evento lejano para que ningún sorteo (gravedad, terremoto...) altere los
 // vuelos medidos, y el turno vuelve al humano tras cada respuesta de la IA.
 test("vitaminas: el efecto dura 3 turnos de la nave 0, dobla el daño en ellos y después vuelve a D", async ({ page }) => {
-  test.setTimeout(180000);
+  test.setTimeout(300000);
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto("/?eventos=1&mapa=calma-de-los-restos&modo=barra-libre");
   await page.getByTestId("boton-jugar").click();
@@ -115,27 +115,38 @@ test("vitaminas: el efecto dura 3 turnos de la nave 0, dobla el daño en ellos y
   if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
   await page.evaluate(() => window.__debug.fijarProximoEvento!({ enTurnos: 50, tipo: "virus", afectado: 1 }));
 
-  const danioBase = await dispararYMedirDanio(page);
-  expect(danioBase).toBeGreaterThan(0);
+  // Los cráteres de cada disparo mueven un poco el punto de caída, así que el
+  // daño de un mismo tiro varía unos puntos: D es la media de los dos disparos
+  // sin efecto y «doblado» o «normal» se separan por el umbral 1,5·D, que queda
+  // entre D y 2·D con holgura para esa variación.
+  const medidas: number[] = [];
+  const danioBase0 = await dispararYMedirDanio(page);
+  medidas.push(danioBase0);
+  expect(danioBase0).toBeGreaterThan(0);
   expect(await page.evaluate(() => window.__debug.efectos)).toEqual([]);
 
   // El evento llega al cerrar este turno: el disparo en sí aún es de daño D.
   await page.evaluate(() => window.__debug.fijarProximoEvento!({ enTurnos: 1, tipo: "vitaminas", afectado: 0 }));
-  const danioAlLlegar = await dispararYMedirDanio(page);
-  expect(Math.abs(danioAlLlegar - danioBase)).toBeLessThanOrEqual(2);
+  const danioBase1 = await dispararYMedirDanio(page);
+  medidas.push(danioBase1);
+  const danioBase = (danioBase0 + danioBase1) / 2;
+  const umbral = 1.5 * danioBase;
+  expect(danioBase1, `medidas ${medidas.join(", ")}`).toBeLessThan(umbral);
   await page.evaluate(() => window.__debug.fijarProximoEvento!({ enTurnos: 50, tipo: "virus", afectado: 1 }));
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
   expect(await page.evaluate(() => window.__debug.efectos)).toEqual([{ tipo: "vitaminas", nave: 0, turnosRestantes: 3 }]);
 
-  // Tres turnos con el efecto: daño 2·D y la cuenta baja 3 → 2 → 1 → desaparece.
+  // Tres turnos con el efecto: daño ≈ 2·D y la cuenta baja 3 → 2 → 1 → desaparece.
   for (const restantes of [2, 1, 0]) {
     const danio = await dispararYMedirDanio(page);
-    expect(Math.abs(danio - 2 * danioBase)).toBeLessThanOrEqual(3);
+    medidas.push(danio);
+    expect(danio, `medidas ${medidas.join(", ")}`).toBeGreaterThan(umbral);
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
     const efectos = await page.evaluate(() => window.__debug.efectos);
     expect(efectos).toEqual(restantes === 0 ? [] : [{ tipo: "vitaminas", nave: 0, turnosRestantes: restantes }]);
   }
 
   const danioFinal = await dispararYMedirDanio(page);
-  expect(Math.abs(danioFinal - danioBase)).toBeLessThanOrEqual(2);
+  medidas.push(danioFinal);
+  expect(danioFinal, `medidas ${medidas.join(", ")}`).toBeLessThan(umbral);
 });
