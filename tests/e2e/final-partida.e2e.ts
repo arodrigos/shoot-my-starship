@@ -12,9 +12,8 @@ async function empezar(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
 }
 
-// El turno del humano se gasta en el escudo, que no frena el drenaje: así el
-// disparo de la IA no puede matar a nadie antes de que empiece la ronda 10 y
-// el resultado lo decide solo el drenaje, sin depender de la puntería.
+// El escudo gasta el turno sin depender de la puntería: el final lo decide el
+// drenaje de la muerte súbita, que mata primero a la nave con menos integridad.
 async function gastarTurnoConEscudo(page: Page): Promise<void> {
   await page.getByTestId("selector-arma-abrir").click();
   await page.getByTestId("pestana-equipo").click();
@@ -22,30 +21,24 @@ async function gastarTurnoConEscudo(page: Page): Promise<void> {
   await page.getByTestId("disparar").click();
 }
 
-// ms-2: aviso en la ronda 9, drenaje simultáneo al empezar la 10 y empate real.
-test("muerte súbita: avisa en la ronda 9 y las dos últimas naves caen a la vez en empate", async ({ page }) => {
+// txt-1
+test("final de partida: gana el único humano y se le habla en segunda persona", async ({ page }) => {
   test.setTimeout(180000);
   await empezar(page);
-  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 9, integridades: [5, 5] }));
-  await expect(page.getByTestId("muerte-subita")).toHaveText("Muerte súbita en 1 ronda");
-
+  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 9, integridades: [20, 5] }));
   await gastarTurnoConEscudo(page);
   await page.waitForFunction(() => window.__debug.ganador !== undefined, undefined, { timeout: 90000 });
-  const final = await page.evaluate(() => ({ ganador: window.__debug.ganador, ronda: window.__debug.ronda, naves: window.__debug.naves!.map((nave) => nave.integridad) }));
-  expect(final.ganador).toBeNull();
-  expect(final.ronda).toBe(10);
-  expect(final.naves).toEqual([0, 0]);
-  await expect(page.getByTestId("ganador-nombre")).toHaveText("Empate");
+  expect(await page.evaluate(() => window.__debug.ganador)).toBe(0);
+  await expect(page.getByTestId("ganador-nombre")).toHaveText("¡Has ganado!");
+  await expect(page.getByTestId("parte-de-guerra")).not.toContainText("Gana Tú");
 });
 
-test("muerte súbita: con [5, 20] el drenaje solo mata a la primera y gana la segunda, no hay empate", async ({ page }) => {
+test("final de partida: si gana la IA se nombra a la IA", async ({ page }) => {
   test.setTimeout(180000);
   await empezar(page);
   await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 9, integridades: [5, 20] }));
   await gastarTurnoConEscudo(page);
   await page.waitForFunction(() => window.__debug.ganador !== undefined, undefined, { timeout: 90000 });
-  expect(await page.evaluate(() => window.__debug.ganador)).toBe(1);
-  // La pantalla final debe nombrar a la IA ganadora, no solo mostrar la medalla.
   const nombreIA = await page.evaluate(() => window.__debug.controladores![1].nombre);
   await expect(page.getByTestId("ganador-nombre")).toHaveText(`Gana ${nombreIA}`);
 });

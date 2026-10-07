@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { textoGanador } from "@/juego/textosPartida";
 import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
 import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 
@@ -12,7 +13,7 @@ import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } fr
 export function ParteDeGuerraHUD() {
   const { parte } = useSyncExternalStore(suscribirParteDeGuerra, obtenerParteDeGuerra, obtenerParteDeGuerra);
 
-  const { ganador } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
+  const { ganador, ganadorEsHumano, humanos } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
 
   if (!parte) return null;
 
@@ -35,7 +36,7 @@ export function ParteDeGuerraHUD() {
     >
       <div style={{ maxWidth: 360 }}>
         <h2 data-testid="ganador-nombre" style={{ margin: "0 0 8px", overflowWrap: "anywhere" }}>
-          {ganador === null ? "¡Empate!" : `Gana ${ganador}`}
+          {textoGanador({ ganador, ganadorEsHumano, humanos })}
         </h2>
         <h2 data-testid="parte-de-guerra-medalla" style={{ color: "#ffe08a", margin: "0 0 8px" }}>
           {parte.medalla}

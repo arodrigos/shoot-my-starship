@@ -58,8 +58,8 @@ test("vitaminas: llega en el turno programado, se anuncia y deja el efecto con 3
   const registro = await page.evaluate(() => (window as unknown as { __cartelRegistro: { texto: string; alto: number; desde: number; hasta: number } }).__cartelRegistro);
   expect(registro.texto).toContain("Vitaminas artificiales");
   expect(registro.alto).toBeLessThanOrEqual(56);
-  expect(registro.hasta - registro.desde).toBeGreaterThanOrEqual(2000);
-  expect(registro.hasta - registro.desde).toBeLessThanOrEqual(3500);
+  expect(registro.hasta - registro.desde).toBeGreaterThanOrEqual(2200);
+  expect(registro.hasta - registro.desde).toBeLessThanOrEqual(2800);
 
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 60000 });
   const efectos = await page.evaluate(() => window.__debug.efectos);

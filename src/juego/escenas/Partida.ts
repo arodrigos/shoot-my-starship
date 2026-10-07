@@ -70,6 +70,7 @@ import {
   type JugadorConfig,
   type MemoriaIA,
 } from "@/juego/jugadores";
+import { contarHumanos, etiquetaMinirobot } from "@/juego/textosPartida";
 import { publicarGanador, publicarParticipantes, reiniciarParticipantes } from "@/juego/control/participantesStore";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
@@ -1859,7 +1860,10 @@ export class Partida extends Phaser.Scene {
         // ganador ya puede ser cualquiera; para el parte de guerra se usa la
         // estadística de quien dispara en el último turno si no hay ganador.
         const idGanador = estadoDespues.resultado.ganador;
-        publicarGanador(idGanador === null ? null : nombreDeNave(this.controladores, idGanador));
+        publicarGanador(
+          idGanador === null ? null : nombreDeNave(this.controladores, idGanador),
+          idGanador !== null && this.controladores[idGanador]?.tipo === "humano",
+        );
         window.__debug!.ganador = idGanador;
         const estadisticasGanador = this.estadisticas[idGanador ?? tirador];
         const parte = generarParteDeGuerra(estadisticasGanador);
@@ -2153,7 +2157,7 @@ export class Partida extends Phaser.Scene {
         dueno: robot.dueno,
         saltos: robot.saltos,
         maxSaltos: MAX_SALTOS_ROBOT,
-        texto: `Minirobot de ${nombreDeNave(this.controladores, robot.dueno)}: salto ${robot.saltos}/${MAX_SALTOS_ROBOT}`,
+        texto: `${etiquetaMinirobot(nombreDeNave(this.controladores, robot.dueno), this.controladores[robot.dueno]?.tipo === "humano", contarHumanos(this.controladores))}: salto ${robot.saltos}/${MAX_SALTOS_ROBOT}`,
       })),
     );
   }
