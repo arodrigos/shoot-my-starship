@@ -16,7 +16,9 @@ import { jugarLote, hashDeLote } from "../../utils/loteAleatorio";
 // Hash actualizado en armas-reprecio-roles: ese bloque SÍ mueve el balance a
 // propósito (daño y radio del catálogo), así que el hash nuevo es el que
 // fija ese bloque, no una regresión de este.
-const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "416fef064786d38b5cb4d990a57239816ce1fde414757ed4a2db41fa5e5deb2d";
+// Hash actualizado en siluetas-por-asiento (sil-2): el daño se mide contra la
+// silueta visible (suelo del 20 % de daño al tocarla) en vez de al centro, lo que mueve el balance a propósito.
+const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "2d01e241b9f4d5a0d087b4030fb3028049afbb3de8362edcfaae77908d63c565";
 
 test("esc-4: 200 partidas dan exactamente el mismo resultado que antes de escala-legible (el balance no se movió)", () => {
   const lote = jugarLote(20260929, 200);

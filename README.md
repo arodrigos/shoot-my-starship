@@ -100,6 +100,10 @@ una explosión cae con la distancia 2D real entre el punto donde estalla el
 proyectil y el casco de la nave, hasta el radio de daño de esa arma
 concreta -- por eso un tiro que roza el borde del radio de daño hace poco
 daño, y uno que revienta pegado al casco hace el máximo declarado del arma.
+El casco se dibuja a escala 3, mucho más grande que ese círculo de colisión:
+lo que se ve como impacto cuenta, así que una explosión cuya área alcanza la
+silueta dibujada (`distanciaDeDanio`, `src/sim/naves/contacto.ts`) hace al
+menos el 20 % del daño máximo del arma, aunque estalle lejos del centro.
 Entender esto es la clave para leer por qué un disparo "que parecía bueno"
 no hizo apenas nada: probablemente pasó cerca, no dentro.
 

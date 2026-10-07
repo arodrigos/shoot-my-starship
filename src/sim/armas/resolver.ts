@@ -6,6 +6,7 @@ import { dispersionPorPotenciaGrados } from "@/sim/balistica/dispersionPotencia"
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import type { Arma } from "@/sim/armas/tipos";
 import { radioEfectoEnMundo } from "@/sim/armas/radioEfecto";
+import { distanciaDeDanio } from "@/sim/naves/contacto";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { resolverCaida } from "@/sim/terreno/caida";
 import { esSolido, type Mascara } from "@/sim/terreno/mascara";
@@ -645,6 +646,10 @@ export interface ParametrosResolverDisparo {
   // valor por defecto razonable: un llamante que la omita mediría mal a
   // propósito.
   readonly objetivoY: number;
+  // Nave objetivo, para medir el daño contra su silueta visible y no contra
+  // su centro. Si falta, se busca en `naves` la que está en (objetivoX,
+  // objetivoY); sin ninguna de las dos, se mide al centro como siempre.
+  readonly objetivoId?: IdNave;
   readonly ancho: number;
   readonly alto: number;
   readonly planetas?: RegistroPlanetas;
@@ -790,8 +795,15 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     // X, que es como se medía antes de este bloque (herencia del suelo
     // plano, donde toda nave estaba a la misma altura y la X ya bastaba).
     const radioEfecto = radioEfectoEnMundo(arma, params.ancho, params.alto);
+    const objetivoId = params.objetivoId ?? params.naves?.find((nave) => nave.x === params.objetivoX && nave.y === params.objetivoY)?.id;
     danioPorPunto = puntosDeImpacto.map((punto) =>
-      danioPorDistancia(radioEfecto, efecto.danioMaximo, Math.hypot(punto.x - params.objetivoX, punto.y - params.objetivoY)),
+      danioPorDistancia(
+        radioEfecto,
+        efecto.danioMaximo,
+        objetivoId !== undefined
+          ? distanciaDeDanio(punto.x, punto.y, { id: objetivoId, x: params.objetivoX, y: params.objetivoY }, radioEfecto)
+          : Math.hypot(punto.x - params.objetivoX, punto.y - params.objetivoY),
+      ),
     );
     if (efecto.tipo === "danio-y-autodanio") {
       danioPropio = efecto.autoDanioMaximo;
