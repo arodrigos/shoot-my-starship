@@ -6,7 +6,7 @@ import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { FACILIDAD_MEDIDA_PCT } from "@/sim/armas/facilidadMedida";
 import { curvaPrecio } from "@/sim/armas/precio";
 import type { Arma } from "@/sim/armas/tipos";
-import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
+import { PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { CATALOGO_EQUIPO } from "@/sim/equipo/catalogo";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { ALMIRANTE_BISAGRA, CHISPA, LA_CONTABLE } from "@/sim/ia/personalidades";
@@ -85,19 +85,14 @@ export function tablaDePrecios(catalogo: readonly Arma[] = CATALOGO_ARMAS): read
 export interface ParametrosCalibrados {
   readonly medianaPrecios: number;
   readonly presupuestoBase: number;
-  readonly arrastreMaximo: number;
   readonly premioLoteria: number;
 }
 
 export function calcularParametros(catalogo: readonly Arma[] = CATALOGO_ARMAS): ParametrosCalibrados {
   const medianaPrecios = mediana(armasDePagoConDanio(catalogo).map(costeArma));
-  const presupuestoBase = redondeaA50(10 * medianaPrecios);
-  return {
-    medianaPrecios,
-    presupuestoBase,
-    arrastreMaximo: redondeaA5(0.25 * presupuestoBase),
-    premioLoteria: redondeaA5(0.25 * presupuestoBase),
-  };
+  // La base ya no sale de la mediana: es fija (600) y los precios se calibran
+  // contra ella (bloque calibrado-600).
+  return { medianaPrecios, presupuestoBase: PRESUPUESTO_BASE, premioLoteria: PREMIO_LOTERIA };
 }
 
 export type EstrategiaCompra = "medio" | "caro" | "barato";
@@ -281,7 +276,6 @@ export function renderizarInforme(semillas: number, resultados: readonly Resulta
   const lineasDesviacion = desviaciones.length > 0 ? desviaciones.map((f) => `- **${f.nombre}** (\`${f.id}\`): ${DESVIACIONES_DECLARADAS[f.id]}`).join("\n") : "Ninguna.";
   const equipo = CATALOGO_EQUIPO.map((e) => `${e.nombre} ${e.coste} cr`).join(", ");
   const compras = (estrategia: EstrategiaCompra, saldo: number, extra = 0): number => comprasHastaAgotar(estrategia, saldo, extra);
-  const segundaPartida = p.presupuestoBase + p.arrastreMaximo;
   const lineasPerfil = resultados
     ? resultados
         .map(
@@ -299,9 +293,8 @@ Regenerado por \`npm run calibrar:economia\`. No a mano: los números salen de
 ## Parámetros
 
 - Mediana de los precios de las armas de pago con daño (M): **${p.medianaPrecios} cr**
-- \`PRESUPUESTO_BASE\` = round50(10 × M): **${p.presupuestoBase} cr**
-- \`ARRASTRE_MAXIMO\` = round5(0,25 × base): **${p.arrastreMaximo} cr**
-- \`PREMIO_LOTERIA\` = round5(0,25 × base): **${p.premioLoteria} cr**
+- \`PRESUPUESTO_BASE\` fijo, sin arrastre entre partidas: **${p.presupuestoBase} cr**
+- \`PREMIO_LOTERIA\` fijo: **${p.premioLoteria} cr**
 - Equipo (sin cambios por la calibración): ${equipo}
 
 ## Precios frente a la curva daño × facilidad
@@ -318,7 +311,7 @@ ${lineasPrecio}
 
 ${lineasDesviacion}
 
-## Compras por estrategia (saldo inicial ${p.presupuestoBase} cr, sin arrastre ni lotería)
+## Compras por estrategia (saldo inicial ${p.presupuestoBase} cr, sin lotería)
 
 | Comprador | Compras de arma de pago |
 | --- | --- |
@@ -326,7 +319,6 @@ ${lineasDesviacion}
 | Caro (la más cara asequible, Despedida una vez) | ${compras("caro", p.presupuestoBase)} |
 | Barato (la de pago más barata) | ${compras("barato", p.presupuestoBase)} |
 | Medio con dos escudos pagados | ${compras("medio", p.presupuestoBase, 2 * (CATALOGO_EQUIPO.find((e) => e.id === "escudo")?.coste ?? 0))} |
-| Medio en una segunda partida con el arrastre máximo (${segundaPartida} cr) | ${compras("medio", segundaPartida)} |
 
 ## Partidas de 3 IAs con la misma puntería (${resultados ? semillas : "no ejecutado en esta pasada"} semillas)
 

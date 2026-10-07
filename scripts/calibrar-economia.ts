@@ -5,7 +5,7 @@
 // informe); la validación completa de bandas va con PRUEBA_LARGA=1.
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ARRASTRE_MAXIMO, PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
+import { PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { calcularParametros, evaluarBandas, renderizarInforme, simularPerfiles, type ResultadoPerfil } from "../tests/utils/calibrarEconomia";
 
 function argumento(nombre: string): string | undefined {
@@ -20,7 +20,6 @@ const fallos: string[] = [];
 
 const p = calcularParametros();
 if (p.presupuestoBase !== PRESUPUESTO_BASE) fallos.push(`PRESUPUESTO_BASE es ${PRESUPUESTO_BASE} y la medición da ${p.presupuestoBase}`);
-if (p.arrastreMaximo !== ARRASTRE_MAXIMO) fallos.push(`ARRASTRE_MAXIMO es ${ARRASTRE_MAXIMO} y la medición da ${p.arrastreMaximo}`);
 if (p.premioLoteria !== PREMIO_LOTERIA) fallos.push(`PREMIO_LOTERIA es ${PREMIO_LOTERIA} y la medición da ${p.premioLoteria}`);
 
 const resultados: readonly ResultadoPerfil[] | null = simular ? simularPerfiles(semillas) : null;

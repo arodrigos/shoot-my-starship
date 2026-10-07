@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { JuegoLienzo } from "@/juego/JuegoLienzo";
 import { PantallaInicio } from "@/juego/PantallaInicio";
 import { elegirMapaDistinto, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
-import { obtenerSaldosFinales, suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
+import { suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import type { JugadorConfig } from "@/juego/jugadores";
 
@@ -26,9 +26,6 @@ interface Partida {
   readonly jugadores?: readonly JugadorConfig[];
   // relevo-turno: sin relevo entre humanos, para partidas rápidas.
   readonly todosVemosTodo?: boolean;
-  // economia-loadout-1: una partida es una ronda; lo que no se gastó en ella
-  // se arrastra (con tope) a la siguiente con los mismos asientos.
-  readonly saldosNoGastados?: readonly (number | undefined)[];
 }
 
 // Rango del generador con semilla del propio juego (crearGeneradorAleatorio
@@ -101,10 +98,6 @@ export function Aplicacion() {
         modo: actual.modo,
         jugadores: actual.jugadores,
         todosVemosTodo: actual.todosVemosTodo,
-        // Se fía del saldo que publicó la escena al terminar (undefined en barra
-        // libre) y no de `actual.modo`: ?modo=presupuesto manda sobre el modo
-        // elegido en la portada, así que ambos pueden discrepar.
-        saldosNoGastados: obtenerSaldosFinales() ?? undefined,
       }));
     });
   }, []);
@@ -113,7 +106,7 @@ export function Aplicacion() {
     return (
       <PantallaInicio
         onJugar={(rivalId, modo, jugadores, todosVemosTodo) => {
-          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo, saldosNoGastados: undefined }));
+          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo }));
           setFase("jugando");
         }}
       />
@@ -130,7 +123,6 @@ export function Aplicacion() {
         modo: partida.modo,
         jugadores: partida.jugadores,
         todosVemosTodo: partida.todosVemosTodo,
-        saldosNoGastados: partida.saldosNoGastados,
       }}
     />
   );

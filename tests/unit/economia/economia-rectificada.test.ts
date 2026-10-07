@@ -4,9 +4,8 @@ import fc from "fast-check";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import type { Arma } from "@/sim/armas/tipos";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
-import { ARRASTRE_MAXIMO, PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { avanzar } from "@/sim/partida/avanzar";
-import { armaEfectiva, armasGratis, costeArma, danioMaximoGratis, saldoDeRonda } from "@/sim/partida/economia";
+import { armaEfectiva, armasGratis, costeArma, danioMaximoGratis } from "@/sim/partida/economia";
 import { crearPartidaInicial } from "@/sim/partida/motor";
 import { serializarEstado } from "@/sim/partida/serializacion";
 import type { EstadoPartida } from "@/sim/partida/tipos";
@@ -129,22 +128,4 @@ test("economia-rectificada-3: en barra libre ningún disparo toca saldos y el pe
   const barra = crearPartidaInicial(MUNDO, mascara, [200, 1700], 11);
   const tras = disparo(barra, "despedida").estado;
   assert.equal(tras.saldos, undefined);
-});
-
-// eco-6 / invariante 5
-test("economia-rectificada-5 (propiedad): el saldo inicial de ronda está en [base, base + arrastre máximo] con cualquier valor guardado", () => {
-  assert.equal(ARRASTRE_MAXIMO, 215);
-  assert.equal(PREMIO_LOTERIA, 215);
-  fc.assert(
-    fc.property(fc.oneof(fc.double({ noNaN: false }), fc.integer({ min: -5000, max: 5000 })), (sobrante) => {
-      const saldo = saldoDeRonda(sobrante);
-      assert.ok(saldo >= PRESUPUESTO_BASE && saldo <= PRESUPUESTO_BASE + ARRASTRE_MAXIMO, `${sobrante} -> ${saldo}`);
-    }),
-    { numRuns: 300 },
-  );
-  assert.equal(saldoDeRonda(0), PRESUPUESTO_BASE);
-  assert.equal(saldoDeRonda(100), PRESUPUESTO_BASE + 100);
-  assert.equal(saldoDeRonda(900), PRESUPUESTO_BASE + ARRASTRE_MAXIMO);
-  assert.equal(saldoDeRonda(-50), PRESUPUESTO_BASE);
-  assert.equal(saldoDeRonda(Number.NaN), PRESUPUESTO_BASE);
 });
