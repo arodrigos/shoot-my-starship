@@ -51,9 +51,8 @@ export interface ParametrosMundo {
 // ganador nullable (nucleo-n-naves): con más de dos naves, un disparo de
 // area puede dejar a la vez sin vida a las dos últimas que quedaban en pie
 // -- empate real, no un literal de conveniencia. Con dos naves el camino de
-// siempre (desempate por integridad, y si hay igualdad exacta gana el
-// objetivo) sigue produciendo siempre un ganador, así que esto no cambia el
-// comportamiento de ninguna partida de 2 ya probada (nucleo-n-naves-4).
+// siempre sigue produciendo ganador salvo que ambas caigan a la vez: entonces
+// es empate real también con dos naves (muerte-subita), sin desempate.
 export type ResultadoPartida =
   | { readonly tipo: "en-curso" }
   | { readonly tipo: "terminada"; readonly ganador: IdNave | null };
@@ -110,8 +109,10 @@ export interface EstadoPartida {
   // eventos-universo: calendario y efectos vivos. Ausente = partida sin eventos
   // (toda la simulación masiva), que serializa exactamente igual que antes.
   readonly universo?: EstadoUniverso;
-  // Lo activa el bloque de muerte súbita; aquí solo lo lee la disponibilidad
-  // de eventos curativos.
+  // muerte-subita: ronda en curso (1 al empezar). Ausente = partida sin cierre
+  // forzoso. `muerteSubita` pasa a true al empezar RONDA_MUERTE_SUBITA y es lo
+  // que lee la disponibilidad de eventos curativos.
+  readonly ronda?: number;
   readonly muerteSubita?: boolean;
 }
 

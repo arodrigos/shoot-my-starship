@@ -198,6 +198,9 @@ export interface DebugGlobal {
   }[];
   // Solo e2e: coloca objetos exactos (posición y velocidad) para fijar un escenario.
   fijarObjetos?: (objetos: readonly { tipo: "corazon" | "tormenta"; x: number; y: number; vx: number; vy: number }[]) => void;
+  // Solo e2e: sitúa la partida en una ronda y con unas integridades exactas.
+  fijarMuerteSubita?: (escenario: { ronda: number; integridades?: readonly number[] }) => void;
+  ronda?: number;
   fijarProximoEvento?: (proximo: { enTurnos: number; tipo: "loteria" | "vitaminas" | "virus" | "reparacion" | "terremoto" | "gravedad-x2" | "gravedad-mitad" | "viento-solar" | "agujero-negro" | "corazon" | "tormenta"; afectado: number }) => void;
   // render-2, render-5: juega N turnos reales (misma avanzar() que un
   // jugador) sin animación, para que el test pueda comprobar el estado

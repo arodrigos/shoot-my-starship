@@ -124,6 +124,50 @@ Al jugar unas partidas, lo que de verdad hay que evaluar es:
   personalidad, `src/contenido/bancoBromas.ts`) siguen sonando frescas
   turno tras turno o cansan antes de que termine la partida.
 
+## Presupuesto y precios
+
+En el modo «Con presupuesto» cada arma de pago, el escudo y los propulsores
+se cobran al usarlos, no al seleccionarlos. El precio de cada arma sale de su
+daño y de lo fácil que es acertar con ella (`src/sim/armas/precio.ts`); el
+saldo de partida y su arrastre están en `src/sim/economia/parametros.ts`. La
+lotería galáctica solo existe en este modo. Las tres armas gratis nunca se
+agotan, pero hacen un 25 % del daño de la de pago más floja y cada disparo
+tiene un 25 % de provocar un evento al azar sobre cualquier nave viva.
+
+## Escudos y propulsores
+
+Son equipo, en la pestaña «Equipo» del selector, y usarlos gasta el turno:
+o disparas, o te proteges, o te mueves. El **escudo** (90 cr en presupuesto)
+bloquea el daño y el empuje de los disparos ajenos durante 2 turnos tuyos; no
+frena los objetos de evento ni el drenaje de la muerte súbita. Los
+**propulsores** (60 cr) lanzan la nave con la misma gravedad que un proyectil
+y la cortan al llegar al círculo marcado, de área un cuarto de la pantalla. La
+previsualización dibuja el recorrido. Tras recibir daño, una nave se recoloca
+dentro de un octavo de la diagonal, de modo que repetir el disparo sin volver
+a apuntar no acierta.
+
+## Eventos del universo
+
+Cada 2 a 5 turnos ocurre un evento, ya sorteado y anunciado en el
+pronóstico («Próximo evento en N turnos», y un turno antes cuál es y a quién
+cae). Pueden ser buenos o malos: lotería galáctica, vitaminas (doble daño 3
+turnos), virus (mitad de daño 3 turnos), reparación de planetas, terremoto
+galáctico, gravedad ×2 o ÷2, viento solar, agujero negro errante, y dos
+objetos que flotan bajo la gravedad y actúan si chocan con una nave: el
+corazón galáctico (+50 % de vida) y la tormenta solar (−25 %). Se apagan con
+`?eventos=0` en la URL.
+
+## Muerte súbita
+
+Para que ninguna partida se alargue sin fin, desde la ronda 10 todas las
+naves vivas pierden vida a la vez al empezar cada ronda: 5, 10, 15, 20…
+El escudo no lo frena. Una ronda antes aparece «Muerte súbita en 1 ronda».
+Durante la muerte súbita no hay curas: los corazones flotantes se disuelven y
+no se programan ni corazones ni reparaciones (tampoco los que provocan las
+armas gratis). Si las últimas naves caen en el mismo paso, es un empate real
+(«¡Empate!»), también con dos naves. Toda partida acaba antes de empezar la
+ronda 16 (`src/sim/partida/muerteSubita.ts`). Se apaga con `?muerte=0`.
+
 ## Música y sonido
 
 Todo el audio se genera con Web Audio, sin ficheros. Hay dos controles

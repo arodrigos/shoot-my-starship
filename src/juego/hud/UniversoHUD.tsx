@@ -35,6 +35,35 @@ export function PronosticoHUD() {
   );
 }
 
+// ms-2: «Muerte súbita en 1 ronda» la ronda anterior y el drenaje después.
+export function MuerteSubitaHUD() {
+  const { muerteSubita } = useSyncExternalStore(suscribirUniverso, obtenerUniverso, obtenerUniverso);
+  if (muerteSubita === null) return null;
+  return (
+    <div
+      data-testid="muerte-subita"
+      role="status"
+      style={{
+        width: "100%",
+        boxSizing: "border-box",
+        background: "rgba(120,20,30,0.85)",
+        border: "1px solid #ff8a8a",
+        borderRadius: 10,
+        padding: "4px 10px",
+        color: "#fff",
+        font: "bold 12px system-ui, sans-serif",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        pointerEvents: "none",
+        flexShrink: 0,
+      }}
+    >
+      {muerteSubita}
+    </div>
+  );
+}
+
 // evt-6: arriba, ≤ 56 px de alto, sin capturar toques, y se va solo.
 export function CartelEventoHUD() {
   const { cartel } = useSyncExternalStore(suscribirUniverso, obtenerUniverso, obtenerUniverso);

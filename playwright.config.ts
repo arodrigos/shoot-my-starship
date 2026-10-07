@@ -41,10 +41,11 @@ export default defineConfig({
     // eventos-universo: los eventos de calendario (terremoto, gravedad...)
     // cambian posiciones y trayectorias a mitad de partida, y los specs que
     // miden posiciones exactas no cuentan con ellos. Se apagan en bloque por
-    // aquí; los specs de eventos los encienden con `?eventos=1`.
+    // aquí; los specs de eventos los encienden con `?eventos=1`. Igual con el
+    // drenaje de la muerte súbita (`?muerte=1`): recortaría partidas largas.
     storageState: {
       cookies: [],
-      origins: [{ origin: "http://127.0.0.1:3000", localStorage: [{ name: "universo:eventos", value: "0" }] }],
+      origins: [{ origin: "http://127.0.0.1:3000", localStorage: [{ name: "universo:eventos", value: "0" }, { name: "muerte-subita:activada", value: "0" }] }],
     },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],

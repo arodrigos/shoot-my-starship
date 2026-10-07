@@ -19,6 +19,8 @@ import {
 } from "@/sim/partida/eventosHumor";
 import { existeTiroViable, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
 import { recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
+import { avanzarRonda, drenajeDeRonda, empiezaRonda } from "@/sim/partida/muerteSubita";
+import { entrarEnMuerteSubita } from "@/sim/universo/efectos";
 import { buscarEquipo, TURNOS_ESCUDO } from "@/sim/equipo/catalogo";
 import { volarConPropulsores } from "@/sim/equipo/propulsores";
 import { siguienteTurno, type AccionDeTurno, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
@@ -423,13 +425,12 @@ export function avanzar(
 
   // nucleo-n-naves: "último en pie" sobre TODAS las naves, no solo tirador y
   // objetivo: con daño de área cualquiera puede caer en este turno. Si no
-  // queda nadie en pie (Despedida contra rivales ya muy dañados) gana el
-  // objetivo, porque quien dispara asumió el riesgo del autodaño: es el mismo
-  // desempate de siempre, que mantiene idénticas las partidas de dos naves.
+  // queda nadie en pie (Despedida contra rivales ya muy dañados) es empate
+  // real: ya no hay desempate a favor del objetivo.
   const robotsTrasDisparo = [...(estado.robots ?? []), ...(robotNuevo ? [robotNuevo] : [])];
   const vivos = naves.flatMap((nave, id) => (nave.integridad > 0 ? [id as IdNave] : []));
   if (vivos.length <= 1) {
-    const ganador: IdNave | null = vivos.length === 1 ? vivos[0] : objetivoId;
+    const ganador: IdNave | null = vivos.length === 1 ? vivos[0] : null;
     eventos.push({ tipo: "partida-fin", ganador });
     return {
       estado: {
@@ -612,6 +613,45 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
 
   const proximoTurno = siguienteTurno({ ...estado, naves: navesFinal }, tirador);
   eventos.push({ tipo: "turno-fin", siguienteTurno: proximoTurno });
+
+  // muerte-subita: al empezar una ronda nueva todas las vivas pagan el drenaje
+  // a la vez, sin que el escudo lo pare. Si las últimas caen juntas, empate.
+  let rondaFinal = estado.ronda;
+  let universoTrasRonda = universoFinal;
+  let faseMuerteSubita = estado.muerteSubita;
+  if (estado.ronda !== undefined && empiezaRonda(estado, tirador, proximoTurno)) {
+    const fase = avanzarRonda(estado, navesFinal);
+    rondaFinal = fase.ronda;
+    navesFinal = fase.naves;
+    eventos.push(...fase.eventos);
+    const vivasTrasDrenaje = navesFinal.flatMap((nave, id) => (nave.integridad > 0 ? [id as IdNave] : []));
+    if (vivasTrasDrenaje.length <= 1) {
+      const ganador: IdNave | null = vivasTrasDrenaje.length === 1 ? vivasTrasDrenaje[0] : null;
+      eventos.push({ tipo: "partida-fin", ganador });
+      return {
+        estado: {
+          ...sinRobots(estado),
+          mascara: mascaraFinal,
+          naves: navesFinal,
+          aleatorio: aleatorioFinal,
+          resultado: { tipo: "terminada", ganador },
+          planetas: planetasFinal,
+          saldos,
+          universo: universoFinal,
+          ronda: rondaFinal,
+          muerteSubita: true,
+          ...conRobots([]),
+        },
+        eventos,
+        categoriaBroma,
+        detonaciones: detonacionesFinal,
+      };
+    }
+    if (faseMuerteSubita !== true && drenajeDeRonda(rondaFinal) > 0) {
+      faseMuerteSubita = true;
+      universoTrasRonda = entrarEnMuerteSubita({ ...estado, naves: navesFinal, universo: universoFinal }).universo;
+    }
+  }
   const universo = avanzarUniverso(
     {
       ...sinRobots(estado),
@@ -622,7 +662,9 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
       numeroTurno: estado.numeroTurno + 1,
       planetas: planetasFinal,
       saldos,
-      universo: universoFinal,
+      universo: universoTrasRonda,
+      ...(rondaFinal !== undefined ? { ronda: rondaFinal } : {}),
+      ...(faseMuerteSubita === true ? { muerteSubita: true } : {}),
       ...conRobots(robotsFinal),
     },
     { tirador, armaGratis },
