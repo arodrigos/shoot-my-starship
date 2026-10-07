@@ -70,11 +70,14 @@ export function CartelEventoHUD() {
   // Se guarda qué cartel ya se retiró, no cuál se ve: así el efecto solo
   // actualiza estado desde el temporizador y un cartel nuevo se ve de inmediato.
   const [retiradoClave, setRetiradoClave] = useState<number | null>(null);
+  // La dependencia es la clave y no el objeto: el almacén emite un objeto
+  // nuevo con cualquier cambio (p. ej. el pronóstico) y eso reiniciaba el reloj.
+  const claveCartel = cartel?.clave ?? null;
   useEffect(() => {
-    if (cartel === null) return;
-    const temporizador = window.setTimeout(() => setRetiradoClave(cartel.clave), DURACION_CARTEL_MS);
+    if (claveCartel === null) return;
+    const temporizador = window.setTimeout(() => setRetiradoClave(claveCartel), DURACION_CARTEL_MS);
     return () => window.clearTimeout(temporizador);
-  }, [cartel]);
+  }, [claveCartel]);
   if (cartel === null || retiradoClave === cartel.clave) return null;
   return (
     <div

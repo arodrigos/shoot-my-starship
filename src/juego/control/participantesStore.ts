@@ -13,9 +13,12 @@ export interface EstadoParticipantes {
   readonly participantes: readonly Participante[] | null;
   // Nombre de quien ganó; null = empate o partida en curso.
   readonly ganador: string | null;
+  readonly ganadorEsHumano: boolean;
+  // Cuántos humanos hay en la partida: decide si el final habla en segunda persona.
+  readonly humanos: number;
 }
 
-const ESTADO_INICIAL: EstadoParticipantes = { participantes: null, ganador: null };
+const ESTADO_INICIAL: EstadoParticipantes = { participantes: null, ganador: null, ganadorEsHumano: false, humanos: 1 };
 
 let estado: EstadoParticipantes = ESTADO_INICIAL;
 const escuchas = new Set<() => void>();
@@ -35,11 +38,11 @@ export function suscribirParticipantes(escucha: () => void): () => void {
 }
 
 export function publicarParticipantes(participantes: readonly Participante[] | null): void {
-  fijar({ participantes, ganador: null });
+  fijar({ participantes, ganador: null, ganadorEsHumano: false, humanos: participantes?.filter((p) => p.esHumano).length ?? 1 });
 }
 
-export function publicarGanador(nombre: string | null): void {
-  fijar({ ganador: nombre });
+export function publicarGanador(nombre: string | null, esHumano = false): void {
+  fijar({ ganador: nombre, ganadorEsHumano: esHumano });
 }
 
 export function reiniciarParticipantes(): void {

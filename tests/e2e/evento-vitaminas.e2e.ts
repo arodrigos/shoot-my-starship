@@ -40,7 +40,7 @@ test("vitaminas: llega en el turno programado, se anuncia y deja el efecto con 3
   // El cartel dura 2,5 s: se observa dentro de la página, con su propio reloj,
   // para que la latencia de Playwright entre llamadas no falsee la medida.
   await page.evaluate(() => {
-    const registro: { texto: string; alto: number; desde: number; hasta: number | null } = { texto: "", alto: 0, desde: 0, hasta: null };
+    const registro: { texto: string; alto: number; desde: number; hasta: number | null; sonda: number | null } = { texto: "", alto: 0, desde: 0, hasta: null, sonda: null };
     (window as unknown as { __cartelRegistro: typeof registro }).__cartelRegistro = registro;
     new MutationObserver(() => {
       const nodo = document.querySelector('[data-testid="cartel-evento"]');
@@ -48,6 +48,10 @@ test("vitaminas: llega en el turno programado, se anuncia y deja el efecto con 3
         registro.desde = performance.now();
         registro.texto = nodo.textContent ?? "";
         registro.alto = nodo.getBoundingClientRect().height;
+        // Sonda de 2,5 s armada a la vez que el cartel: en el CI el hilo
+        // principal va cargado y todo temporizador llega tarde, así que se
+        // mide cuánto después de la sonda se va el cartel, no el reloj de pared.
+        window.setTimeout(() => { registro.sonda = performance.now(); }, 2500);
       } else if (nodo === null && registro.desde !== 0 && registro.hasta === null) {
         registro.hasta = performance.now();
       }
@@ -55,11 +59,14 @@ test("vitaminas: llega en el turno programado, se anuncia y deja el efecto con 3
   });
   await page.getByTestId("disparar").click();
   await page.waitForFunction(() => (window as unknown as { __cartelRegistro: { hasta: number | null } }).__cartelRegistro.hasta !== null, undefined, { timeout: 90000 });
-  const registro = await page.evaluate(() => (window as unknown as { __cartelRegistro: { texto: string; alto: number; desde: number; hasta: number } }).__cartelRegistro);
+  const registro = await page.evaluate(() => (window as unknown as { __cartelRegistro: { texto: string; alto: number; desde: number; hasta: number; sonda: number | null } }).__cartelRegistro);
   expect(registro.texto).toContain("Vitaminas artificiales");
   expect(registro.alto).toBeLessThanOrEqual(56);
-  expect(registro.hasta - registro.desde).toBeGreaterThanOrEqual(2000);
-  expect(registro.hasta - registro.desde).toBeLessThanOrEqual(3500);
+  expect(registro.hasta - registro.desde).toBeGreaterThanOrEqual(2200);
+  // Un temporizador reiniciado por un cambio de identidad del cartel añadiría
+  // segundos enteros tras la sonda; el retraso de la carga no.
+  expect(registro.sonda).not.toBeNull();
+  expect(registro.hasta - (registro.sonda ?? 0)).toBeLessThanOrEqual(300);
 
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 60000 });
   const efectos = await page.evaluate(() => window.__debug.efectos);

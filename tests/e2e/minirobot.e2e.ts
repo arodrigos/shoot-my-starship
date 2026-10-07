@@ -52,7 +52,7 @@ test("minirobot: tras dispararlo se ve el robot con su contador y el selector ex
   if ((await botonConsola.getAttribute("aria-expanded")) !== "true") await botonConsola.click();
   const robot = page.getByTestId("robot-0");
   await expect(robot).toBeVisible();
-  await expect(robot).toHaveText(/^Minirobot de .+: salto [0-4]\/4$/);
+  await expect(robot).toHaveText(/^(Tu minirobot|Minirobot de .+): salto [0-4]\/4$/);
   if (process.env.RUTA_CAPTURA) {
     await page.waitForTimeout(500);
     await page.screenshot({ path: process.env.RUTA_CAPTURA });
