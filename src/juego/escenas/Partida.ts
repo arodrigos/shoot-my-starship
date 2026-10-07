@@ -75,6 +75,9 @@ import { obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBro
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
 import { publicarFantasmas } from "@/juego/control/fantasmasStore";
 import { publicarRobots } from "@/juego/control/robotsStore";
+import { publicarCartel, publicarPronostico, reiniciarUniverso } from "@/juego/control/universoStore";
+import { buscarEvento } from "@/sim/universo/catalogoEventos";
+import { conUniverso } from "@/sim/universo/efectos";
 import { MAX_SALTOS_ROBOT } from "@/sim/armas/minirobot";
 import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
@@ -622,6 +625,19 @@ export class Partida extends Phaser.Scene {
     const texturaCanvas = this.textures.get("terreno-partida") as Phaser.Textures.CanvasTexture;
     exponerDepuracionDeTerreno(this.terreno, texturaCanvas);
     window.__debug.terreno!.listo = true;
+
+    // eventos-universo: activo por defecto; `eventos=0` en la URL (o la clave
+    // guardada «universo:eventos» a «0», que es como el e2e lo apaga en bloque)
+    // lo desactiva, y `eventos=1` fuerza encenderlo.
+    reiniciarUniverso();
+    if (this.eventosActivados(parametrosUrl)) this.estado = conUniverso(this.estado);
+    window.__debug.fijarProximoEvento = (proximo) => {
+      const universo = this.estado.universo;
+      if (universo === undefined) return;
+      this.estado = { ...this.estado, universo: { ...universo, proximo } };
+      this.refrescarUniverso([]);
+    };
+    this.refrescarUniverso([]);
 
     // Universal desde colocacion-naves (nav-1): con nave.y presente (modo
     // espacial) se usa tal cual -- no hay ninguna columna de terreno bajo
@@ -1781,6 +1797,7 @@ export class Partida extends Phaser.Scene {
       this.animarDesplazamientos(eventos);
       this.refrescarEconomia();
       this.refrescarRobots();
+      this.refrescarUniverso(eventos);
       window.__debug!.turno = this.estado.turno;
       window.__debug!.numeroTurno = this.estado.numeroTurno;
       publicarTurno(this.estado.turno);
@@ -2092,6 +2109,39 @@ export class Partida extends Phaser.Scene {
         texto: `Minirobot de ${nombreDeNave(this.controladores, robot.dueno)}: salto ${robot.saltos}/${MAX_SALTOS_ROBOT}`,
       })),
     );
+  }
+
+  private eventosActivados(parametrosUrl: URLSearchParams): boolean {
+    const parametro = parametrosUrl.get("eventos");
+    if (parametro === "1") return true;
+    if (parametro === "0") return false;
+    try {
+      return window.localStorage.getItem("universo:eventos") !== "0";
+    } catch {
+      return true;
+    }
+  }
+
+  // eventos-universo: el pronóstico sale del calendario ya sorteado (nunca
+  // miente) y el cartel de los eventos que acaba de devolver el núcleo.
+  private refrescarUniverso(eventos: readonly EventoSimulacion[]): void {
+    const universo = this.estado.universo;
+    window.__debug!.proximoEvento = universo ? { ...universo.proximo } : null;
+    window.__debug!.efectos = universo ? universo.efectos.map((efecto) => ({ ...efecto })) : [];
+    if (universo === undefined || this.estado.resultado.tipo === "terminada") {
+      publicarPronostico(null);
+    } else {
+      const { enTurnos, tipo, afectado } = universo.proximo;
+      const definicion = buscarEvento(tipo);
+      const quien = definicion.alcance === "nave" ? ` · ${nombreDeNave(this.controladores, afectado)}` : "";
+      publicarPronostico(enTurnos > 1 ? `Próximo evento en ${enTurnos} turnos` : `Próximo evento en 1 turno: ${definicion.nombre}${quien}`);
+    }
+    for (const evento of eventos) {
+      if (evento.tipo !== "evento-universo" || evento.perdido === true) continue;
+      const definicion = buscarEvento(evento.evento);
+      const quien = definicion.alcance === "nave" ? ` · ${nombreDeNave(this.controladores, evento.nave)}` : "";
+      publicarCartel(`${definicion.nombre}${quien}`);
+    }
   }
 
   private refrescarIndicadorDeriva(): void {

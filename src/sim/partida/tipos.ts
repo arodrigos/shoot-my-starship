@@ -2,6 +2,7 @@ import type { EstadoAleatorio } from "@/sim/aleatorio";
 import type { EstadoRobot } from "@/sim/armas/minirobot";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { Mascara } from "@/sim/terreno/mascara";
+import type { EstadoUniverso } from "@/sim/universo/tipos";
 
 // nucleo-n-naves: de 2 a 4 naves (hot-seat de hasta 4 jugadores, ver brief).
 // Un entero no negativo, índice dentro de `naves`/`ordenTurno` -- ya no hay
@@ -106,6 +107,12 @@ export interface EstadoPartida {
   // de su dueño. Ausente (no vacío) mientras no haya ninguno, para que las
   // partidas sin robots serialicen exactamente igual que antes.
   readonly robots?: readonly EstadoRobot[];
+  // eventos-universo: calendario y efectos vivos. Ausente = partida sin eventos
+  // (toda la simulación masiva), que serializa exactamente igual que antes.
+  readonly universo?: EstadoUniverso;
+  // Lo activa el bloque de muerte súbita; aquí solo lo lee la disponibilidad
+  // de eventos curativos.
+  readonly muerteSubita?: boolean;
 }
 
 // El arma es un identificador de texto y nada más: el catálogo declarativo
