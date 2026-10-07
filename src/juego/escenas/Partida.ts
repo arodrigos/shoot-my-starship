@@ -76,7 +76,10 @@ import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/cont
 import { obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
 import { publicarFantasmas } from "@/juego/control/fantasmasStore";
+import { publicarObjetos } from "@/juego/control/objetosStore";
 import { publicarRobots } from "@/juego/control/robotsStore";
+import { dibujarObjetoEvento } from "@/juego/efectos/dibujarObjetoEvento";
+import { RONDAS_DE_VIDA_OBJETO, rutaPrevistaObjeto } from "@/sim/universo/objetos";
 import { publicarCartel, publicarPronostico, reiniciarUniverso } from "@/juego/control/universoStore";
 import { buscarEvento } from "@/sim/universo/catalogoEventos";
 import { conUniverso } from "@/sim/universo/efectos";
@@ -107,11 +110,23 @@ const DURACION_DESLIZAMIENTO_MS = 450;
 const RADIO_MARCA_FANTASMA_U = 22;
 const TAMANO_TEXTO_FANTASMA_PX = 34;
 const RADIO_ROBOT_U = 14;
+const RADIO_OBJETO_U = 18;
+// Un punto de cada tantos pasos en la ruta punteada: legible y barato de dibujar.
+const SALTO_PUNTEADO_OBJETO = 6;
 
 // render-espacio (esp-6): el texto del panel "resultado del turno" -- un
 // mensaje propio para "proyectil perdido en órbita" (grav-6), porque ese
 // turno no tiene ni impacto ni fallo que describir con el resto de casos.
 function resumenTurno(eventos: readonly EventoSimulacion[]): string {
+  const base = resumenBase(eventos);
+  const objetos = eventos.flatMap((evento) => {
+    if (evento.tipo !== "objeto-alcanza") return [];
+    return evento.objeto === "corazon" ? [`¡Corazón galáctico! +${evento.cambio} de vida.`] : [`¡Tormenta solar! ${evento.cambio} de vida.`];
+  });
+  return [...objetos, base].join(" ");
+}
+
+function resumenBase(eventos: readonly EventoSimulacion[]): string {
   const escudoActivado = eventos.find((evento) => evento.tipo === "escudo-activado");
   if (escudoActivado) return "Escudo activado: los disparos ajenos no te harán daño durante 2 turnos tuyos.";
   const vuelo = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "propulsores" }> => evento.tipo === "propulsores");
@@ -332,6 +347,7 @@ export class Partida extends Phaser.Scene {
   // destruyen al resolver el turno siguiente.
   private marcasFantasma: Phaser.GameObjects.GameObject[] = [];
   private marcasRobot: Phaser.GameObjects.GameObject[] = [];
+  private marcasObjeto: Phaser.GameObjects.GameObject[] = [];
   private indicadorDeriva!: IndicadorDeriva;
   private animador!: AnimadorProyectil;
   // realce-impacto (rlc-1): avance de turno retrasado mientras dura la
@@ -637,6 +653,16 @@ export class Partida extends Phaser.Scene {
     // lo desactiva, y `eventos=1` fuerza encenderlo.
     reiniciarUniverso();
     if (this.eventosActivados(parametrosUrl)) this.estado = conUniverso(this.estado);
+    window.__debug.fijarObjetos = (objetos) => {
+      const universo = this.estado.universo;
+      if (universo === undefined) return;
+      const vida = RONDAS_DE_VIDA_OBJETO * Math.max(1, idsNavesVivas(this.estado).length);
+      this.estado = {
+        ...this.estado,
+        universo: { ...universo, objetos: objetos.map((objeto, id) => ({ ...objeto, id, turnosRestantes: vida })), contadorObjetos: objetos.length },
+      };
+      this.refrescarObjetos();
+    };
     window.__debug.fijarProximoEvento = (proximo) => {
       const universo = this.estado.universo;
       if (universo === undefined) return;
@@ -870,6 +896,7 @@ export class Partida extends Phaser.Scene {
     window.__debug.numeroTurno = this.estado.numeroTurno;
     this.refrescarEconomia();
     this.refrescarRobots();
+    this.refrescarObjetos();
     publicarJugable(this.puedeJugarAhora());
     publicarPreparando(false);
   }
@@ -1803,6 +1830,7 @@ export class Partida extends Phaser.Scene {
       this.animarDesplazamientos(eventos);
       this.refrescarEconomia();
       this.refrescarRobots();
+      this.refrescarObjetos();
       this.refrescarUniverso(eventos);
       window.__debug!.turno = this.estado.turno;
       window.__debug!.numeroTurno = this.estado.numeroTurno;
@@ -2113,6 +2141,40 @@ export class Partida extends Phaser.Scene {
         saltos: robot.saltos,
         maxSaltos: MAX_SALTOS_ROBOT,
         texto: `Minirobot de ${nombreDeNave(this.controladores, robot.dueno)}: salto ${robot.saltos}/${MAX_SALTOS_ROBOT}`,
+      })),
+    );
+  }
+
+  // eventos-objetos: corazón y tormenta se dibujan con su ruta punteada del
+  // turno siguiente. Se redibujan enteros tras cada turno: como mucho 2, y el
+  // núcleo es la única fuente de verdad (también de la ruta).
+  private refrescarObjetos(): void {
+    for (const marca of this.marcasObjeto) marca.destroy();
+    this.marcasObjeto = [];
+    const objetos = this.estado.universo?.objetos ?? [];
+    const visibles = objetos.map((objeto) => ({ objeto, ruta: rutaPrevistaObjeto(this.estado, objeto) }));
+    for (const { objeto, ruta } of visibles) {
+      const color = objeto.tipo === "corazon" ? 0xff4d79 : 0x8a7bd8;
+      const puntos = this.add.graphics().setDepth(27);
+      puntos.fillStyle(color, 0.8);
+      for (let i = SALTO_PUNTEADO_OBJETO; i < ruta.length; i += SALTO_PUNTEADO_OBJETO) puntos.fillCircle(ruta[i].x, ruta[i].y, 3);
+      const cuerpo = this.add.graphics().setDepth(29).setPosition(objeto.x, objeto.y);
+      dibujarObjetoEvento(cuerpo, objeto.tipo, RADIO_OBJETO_U);
+      this.marcasObjeto.push(puntos, cuerpo);
+    }
+    window.__debug!.objetos = visibles.map(({ objeto, ruta }) => ({
+      id: objeto.id,
+      tipo: objeto.tipo,
+      x: objeto.x,
+      y: objeto.y,
+      turnosRestantes: objeto.turnosRestantes,
+      rutaPrevista: ruta.map((punto) => ({ x: punto.x, y: punto.y })),
+    }));
+    publicarObjetos(
+      objetos.map((objeto) => ({
+        id: objeto.id,
+        tipo: objeto.tipo,
+        texto: objeto.tipo === "corazon" ? "Corazón galáctico: +50 de vida si toca tu nave" : "Tormenta solar: −25 de vida si toca tu nave",
       })),
     );
   }

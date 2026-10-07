@@ -148,6 +148,9 @@ export type EventoSimulacion =
       readonly y: number;
       readonly motivo: "alcance" | "obstaculo" | "tiempo";
     }
+  // eventos-objetos: un corazón o una tormenta ha tocado el casco de `nave`.
+  // `cambio` es la vida realmente ganada (+) o perdida (-), ya con el tope.
+  | { readonly tipo: "objeto-alcanza"; readonly objeto: "corazon" | "tormenta"; readonly nave: IdNave; readonly cambio: number }
   | { readonly tipo: "turno-fin"; readonly siguienteTurno: IdNave }
   // nucleo-n-naves: ganador nullable -- empate real cuando un disparo de
   // área deja sin vida a las dos últimas naves en pie a la vez.

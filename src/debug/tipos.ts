@@ -186,7 +186,19 @@ export interface DebugGlobal {
   // próximo evento sin esperar al sorteo (solo e2e).
   proximoEvento?: { readonly enTurnos: number; readonly tipo: string; readonly afectado: number } | null;
   efectos?: readonly { readonly tipo: string; readonly nave?: number; readonly turnosRestantes: number }[];
-  fijarProximoEvento?: (proximo: { enTurnos: number; tipo: "loteria" | "vitaminas" | "virus" | "reparacion" | "terremoto" | "gravedad-x2" | "gravedad-mitad" | "viento-solar" | "agujero-negro"; afectado: number }) => void;
+  // eventos-objetos: corazones y tormentas vivos, con la ruta que recorrerán al
+  // cerrar el turno actual (la misma función que los mueve).
+  objetos?: readonly {
+    readonly id: number;
+    readonly tipo: string;
+    readonly x: number;
+    readonly y: number;
+    readonly turnosRestantes: number;
+    readonly rutaPrevista: readonly { readonly x: number; readonly y: number }[];
+  }[];
+  // Solo e2e: coloca objetos exactos (posición y velocidad) para fijar un escenario.
+  fijarObjetos?: (objetos: readonly { tipo: "corazon" | "tormenta"; x: number; y: number; vx: number; vy: number }[]) => void;
+  fijarProximoEvento?: (proximo: { enTurnos: number; tipo: "loteria" | "vitaminas" | "virus" | "reparacion" | "terremoto" | "gravedad-x2" | "gravedad-mitad" | "viento-solar" | "agujero-negro" | "corazon" | "tormenta"; afectado: number }) => void;
   // render-2, render-5: juega N turnos reales (misma avanzar() que un
   // jugador) sin animación, para que el test pueda comprobar el estado
   // renderizado tras una partida guionizada sin depender de temporizadores.

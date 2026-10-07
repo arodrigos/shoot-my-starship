@@ -2,6 +2,7 @@ import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/armas/resolver";
 import { distanciaDeDanio } from "@/sim/naves/contacto";
 import { crearRobot, faseDeRobots, type EstadoRobot } from "@/sim/armas/minirobot";
+import { avanzarObjetos } from "@/sim/universo/objetos";
 import { avanzarUniverso, factorDanio } from "@/sim/universo/efectos";
 import { recalcularRegistro } from "@/sim/gravedad/planetas";
 import { armaEfectiva, costeArma } from "@/sim/partida/economia";
@@ -574,6 +575,17 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
     }
   }
 
+  // eventos-objetos: se mueven antes de comprobar quién sigue vivo (una
+  // tormenta puede matar) y antes de que el universo cambie la gravedad, para
+  // que el vuelo coincida con la ruta que el pronóstico dibujó este turno.
+  let universoFinal = estado.universo;
+  if (estado.universo !== undefined) {
+    const fase = avanzarObjetos({ ...estado, naves: navesFinal, mascara: mascaraFinal, planetas: planetasFinal }, navesFinal);
+    navesFinal = fase.naves;
+    universoFinal = fase.universo;
+    eventos.push(...fase.eventos);
+  }
+
   const vivosFinal = navesFinal.flatMap((nave, id) => (nave.integridad > 0 ? [id as IdNave] : []));
   if (vivosFinal.length <= 1) {
     // Un robot puede matar a los dos últimos a la vez: empate real, sin
@@ -589,6 +601,7 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
         resultado: { tipo: "terminada", ganador },
         planetas: planetasFinal,
         saldos,
+        universo: universoFinal,
         ...conRobots([]),
       },
       eventos,
@@ -609,6 +622,7 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
       numeroTurno: estado.numeroTurno + 1,
       planetas: planetasFinal,
       saldos,
+      universo: universoFinal,
       ...conRobots(robotsFinal),
     },
     { tirador, armaGratis },
