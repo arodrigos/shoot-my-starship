@@ -117,6 +117,8 @@ const DURACION_DESLIZAMIENTO_MS = 450;
 const RADIO_MARCA_FANTASMA_U = 22;
 const TAMANO_TEXTO_FANTASMA_PX = 34;
 const RADIO_ROBOT_U = 14;
+// salida-pantalla: cuánto se queda el aviso «¡Perdido!» en pantalla.
+const DURACION_AVISO_PERDIDO_MS = 1200;
 const RADIO_OBJETO_U = 18;
 // Un punto de cada tantos pasos en la ruta punteada: legible y barato de dibujar.
 const SALTO_PUNTEADO_OBJETO = 6;
@@ -148,6 +150,9 @@ function resumenBase(eventos: readonly EventoSimulacion[]): string {
   }
   if (perdido?.tipo === "proyectil-perdido" && perdido.arma !== undefined && buscarArma(perdido.arma).comportamiento.tipo === "minirobot") {
     return "¡Perdido! El minirobot se ha ido por el borde y no explota. El turno pasa igual.";
+  }
+  if (perdido?.tipo === "proyectil-perdido" && perdido.salida) {
+    return "¡Perdido! Tu disparo ha salido de la pantalla. El turno pasa igual.";
   }
   if (perdido) {
     return "Tu disparo se ha quedado atrapado en órbita, sin caer nunca. El turno pasa igual.";
@@ -1539,6 +1544,7 @@ export class Partida extends Phaser.Scene {
       pasosHastaDetonarTrasAdherencia,
     };
 
+    this.animador.fijarEncuadre({ ancho: estadoAntes.mundo.ancho, alto: estadoAntes.mundo.alto });
     this.animador.iniciar(
       inicial,
       estadoAntes.mundo.gravedad,
@@ -1731,6 +1737,27 @@ export class Partida extends Phaser.Scene {
     return { tipo: "haz-laser", duracionMs: DURACION_HAZ_MS, desde: { x: origen.x, y: origen.y }, x: final.x, y: final.y, radioOnda: 0, particulas: 0, escala: 0, sobre: final.sobre };
   }
 
+  // salida-pantalla: el aviso «¡Perdido!» pegado al borde por el que salió el
+  // tiro, 1,2 s. Con movimiento reducido no hay destello ni fundido, solo el
+  // texto. El rectángulo se publica en __debug porque el texto vive en el
+  // lienzo y ningún selector de DOM lo ve.
+  private mostrarAvisoPerdido(salida: { borde: string; x: number; y: number }, movimientoReducido: boolean): void {
+    const { ancho, alto } = this.estado.mundo;
+    const escala = 1 / this.scale.displayScale.x;
+    const texto = this.add
+      .text(0, 0, "¡Perdido!", { fontFamily: "sans-serif", fontSize: `${Math.round(22 * escala)}px`, fontStyle: "bold", color: "#ffd166", stroke: "#000000", strokeThickness: Math.round(4 * escala) })
+      .setDepth(2000);
+    const margen = 8 * escala;
+    const x = Math.min(ancho - texto.width - margen, Math.max(margen, salida.x - texto.width / 2));
+    const y = Math.min(alto - texto.height - margen, Math.max(margen, salida.y - texto.height / 2));
+    texto.setPosition(salida.borde === "derecha" ? ancho - texto.width - margen : salida.borde === "izquierda" ? margen : x, salida.borde === "arriba" ? margen : salida.borde === "abajo" ? alto - texto.height - margen : y);
+    window.__debug!.avisoPerdido = { borde: salida.borde, x: texto.x, y: texto.y, ancho: texto.width, alto: texto.height };
+    if (!movimientoReducido) {
+      this.cameras.main.flash(120, 255, 209, 102, false);
+    }
+    this.time.delayedCall(DURACION_AVISO_PERDIDO_MS, () => texto.destroy());
+  }
+
   private manejarEventosVisuales(eventos: readonly EventoSimulacion[], detonaciones: readonly Detonacion[]): number {
     let esperaSacudidaMs = 0;
     const movimientoReducido = prefiereMovimientoReducido();
@@ -1758,6 +1785,9 @@ export class Partida extends Phaser.Scene {
     const haz = this.dibujarHazLaser(detonaciones);
     window.__debug!.efectosVisibles = haz ? [haz, ...explosiones] : explosiones;
     for (const evento of eventos) {
+      if (evento.tipo === "proyectil-perdido" && evento.salida) {
+        this.mostrarAvisoPerdido(evento.salida, movimientoReducido);
+      }
       if (evento.tipo === "impacto") {
         // sonido-procedimental (snd-2): distinto de "roce" de abajo -- el
         // mismo contraste que ya hace contacto-honesto a nivel visual, ahora
@@ -2051,6 +2081,7 @@ export class Partida extends Phaser.Scene {
     // repetición anterior.
     const rastreadorNaves = navesParaRastreador ? crearRastreadorImpactoNaves(navesParaRastreador, tiradorId) : undefined;
     window.__debug!.impactoRepeticion = null;
+    this.animadorRepeticion.fijarEncuadre({ ancho: this.estado.mundo.ancho, alto: this.estado.mundo.alto });
     this.animadorRepeticion.iniciar(
       inicial,
       gravedad,
@@ -2497,13 +2528,26 @@ export class Partida extends Phaser.Scene {
         this.estado = { ...this.estado, saldos: saldos.map((saldo, nave) => (nave === this.estado.turno ? precioDesenlace : saldo)) };
       }
 
+      const objetivoId = this.objetivoDe(this.estado.turno);
+      // salida-pantalla: la solución balística de suelo llano ignora los pozos
+      // del modo espacial, y un tiro que sale del encuadre se pierde sin
+      // detonar (sin autodaño), así que el bucle ya no acotaba la partida.
+      // Se prueba la solución y después una rejilla hasta dar con un tiro que
+      // detone; avanzar() es puro, descartar el intento no deja rastro.
       const solucion = this.calcularSolucionBalistica(this.estado) ?? { anguloGrados: 45, potencia: 70 };
-      const { estado, eventos, categoriaBroma, detonaciones } = avanzar(this.estado, {
-        arma: ARMA_DESENLACE,
-        anguloGrados: solucion.anguloGrados,
-        potencia: solucion.potencia,
-        objetivoId: this.objetivoDe(this.estado.turno),
-      });
+      const candidatos = [solucion];
+      for (const potencia of [30, 50, 70, 100]) {
+        for (let anguloGrados = 0; anguloGrados <= 180; anguloGrados += 5) {
+          candidatos.push({ anguloGrados, potencia });
+        }
+      }
+      let resultado: ReturnType<typeof avanzar> | null = null;
+      for (const candidato of candidatos) {
+        const intento = avanzar(this.estado, { arma: ARMA_DESENLACE, anguloGrados: candidato.anguloGrados, potencia: candidato.potencia, objetivoId });
+        resultado = intento;
+        if (!intento.eventos.some((evento) => evento.tipo === "proyectil-perdido")) break;
+      }
+      const { estado, eventos, categoriaBroma, detonaciones } = resultado!;
       this.aplicarResultadoTurno(estado, eventos, categoriaBroma, ARMA_DESENLACE, { detonaciones });
     }
   }

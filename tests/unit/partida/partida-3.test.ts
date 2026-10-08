@@ -22,7 +22,10 @@ const TURNOS_MAXIMOS = 40;
 // terminaría nunca), muy por encima del objetivo de diseño de 40 -- igual
 // que LIMITE_TURNOS_LOTE en loteAleatorio.ts, nunca un desenlace esperado.
 const LIMITE_TURNOS_SEGURIDAD = 800;
-const TECHO_PROPORCION_PROYECTIL_PERDIDO = 0.15;
+// salida-pantalla: un tiro que sale del encuadre se pierde sin detonar (antes
+// detonaba en el borde y contaba como impacto), así que el techo sube del 15 %
+// al 20 %. El tiro perdido sigue siendo la excepción, no la regla.
+const TECHO_PROPORCION_PROYECTIL_PERDIDO = 0.2;
 
 // ia-multipozo/ia-n7 (DESVIACIÓN, ver entregable): Partida.ts arma el modo
 // espacial real con gravedad:0 (sin ambiental, solo la de los planetas),
@@ -86,6 +89,10 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
   let disparos = 0;
   let proyectilesPerdidos = 0;
 
+  // Como Partida.ts: la IA recibe cuántas veces ha disparado cada arma. Sin
+  // esto reelige Despedida (un solo uso) en cada turno, y desde que un tiro
+  // fuera de la pantalla se pierde sin detonar ya no se inmola: la partida no acaba.
+  const usosPorArma: [Record<string, number>, Record<string, number>] = [{}, {}];
   while (estado.resultado.tipo === "en-curso") {
     assert.equal(
       estado.numeroTurno < LIMITE_TURNOS_SEGURIDAD,
@@ -96,14 +103,19 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
     const tirador = estado.turno;
     const objetivoId = rivalDe(tirador);
     const objetivoAntes = estado.naves[objetivoId];
+    const tiradorAntes = estado.naves[tirador];
     const objetivoYAntes = objetivoAntes.y as number;
 
     const fuentes: [FuenteDeTurno, FuenteDeTurno] = [
-      crearFuenteIA(personalidades[0], ultimoIntento[0]),
-      crearFuenteIA(personalidades[1], ultimoIntento[1]),
+      crearFuenteIA(personalidades[0], ultimoIntento[0], usosPorArma[0]),
+      crearFuenteIA(personalidades[1], ultimoIntento[1], usosPorArma[1]),
     ];
     const { estado: estadoDespues, eventos } = jugarTurno(estado, fuentes);
     estado = estadoDespues;
+    const disparado = eventos.find((evento) => evento.tipo === "disparo");
+    if (disparado && disparado.tipo === "disparo") {
+      usosPorArma[tirador][disparado.arma] = (usosPorArma[tirador][disparado.arma] ?? 0) + 1;
+    }
     disparos++;
 
     if (eventos.some((evento) => evento.tipo === "proyectil-perdido")) {
@@ -111,7 +123,11 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
     }
 
     const eventoImpacto = eventos.find((evento): evento is Extract<(typeof eventos)[number], { tipo: "impacto" }> => evento.tipo === "impacto");
-    const puntoDeCaida = eventoImpacto ?? { x: objetivoAntes.x, y: objetivoYAntes };
+    // salida-pantalla: un tiro perdido no deja impacto. Como Partida.ts, la
+    // distancia se mide desde el origen del disparo (lejos del objetivo), no
+    // desde el propio objetivo: con 0 la IA creería haber acertado y repetiría
+    // el mismo tiro perdido hasta el final de los tiempos.
+    const puntoDeCaida = eventoImpacto ?? { x: tiradorAntes.x, y: tiradorAntes.y as number };
     const distancia = Math.hypot(puntoDeCaida.x - objetivoAntes.x, puntoDeCaida.y - objetivoYAntes);
     fallosConsecutivos[tirador] = distancia > UMBRAL_FALLO_PX ? fallosConsecutivos[tirador] + 1 : fallosConsecutivos[tirador];
 
