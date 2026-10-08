@@ -418,7 +418,10 @@ export interface DebugGlobal {
   // escena ni leyendo píxeles.
   estela?: { vivas: number; tope: number };
   // paron-explosion: instantánea del medidor de frames (getter vivo).
-  rendimiento?: import("@/juego/rendimiento/medidorFrames").InstantaneaRendimiento;
+  rendimiento?: import("@/juego/rendimiento/medidorFrames").InstantaneaRendimiento &
+    import("@/juego/rendimiento/medidorRespuesta").InstantaneaRespuesta;
+  // respuesta-200ms: cómo se resuelve la simulación ("trabajador" o "en-linea").
+  motor?: { modo: import("@/juego/motor/clienteSim").ModoMotor; motivo: string | null };
   // proy-4: el máximo de partículas vivas observado en cualquier fotograma
   // desde que arrancó la escena -- una ráfaga de disparos sucede en un único
   // page.evaluate síncrono (ver dispararRafagaTurbo), así que el test no

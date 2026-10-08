@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { memo, useEffect, useRef, useSyncExternalStore } from "react";
 import { contarMensajes, obtenerBromas, suscribirBromas, type EntradaHistoricoBroma } from "@/juego/control/broma";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
@@ -17,7 +17,7 @@ interface Props {
 // his-1..his-3: hoja inferior legible en vez de la tira de 48 px con scroll.
 // En el móvil ocupa el ancho menos 16 px; en pantallas anchas se queda en
 // 560 px centrada, que es lo que se lee cómodo con el pulgar y sin saltos.
-export function HistoricoBromasHUD({ onCerrar }: Props) {
+function HistoricoBromasHUDSinMemo({ onCerrar }: Props) {
   const estado = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
   const control = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const { participantes } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
@@ -155,3 +155,7 @@ export function HistoricoBromasHUD({ onCerrar }: Props) {
 function mensajesDe(entrada: EntradaHistoricoBroma): string[] {
   return entrada.disparo ? [entrada.disparo, entrada.impacto] : [entrada.impacto];
 }
+
+// respuesta-200ms: se suscribe por su cuenta a las bromas, así que no necesita
+// repintarse cada vez que el ángulo o la potencia hacen renderizar ControlHUD.
+export const HistoricoBromasHUD = memo(HistoricoBromasHUDSinMemo);
