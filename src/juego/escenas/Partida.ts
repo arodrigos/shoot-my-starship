@@ -81,9 +81,10 @@ import { contarHumanos, etiquetaMinirobot } from "@/juego/textosPartida";
 import { publicarGanador, publicarParticipantes, reiniciarParticipantes } from "@/juego/control/participantesStore";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
-import { colorDeAsiento } from "@/juego/naves/paletaNaves";
+import { COLORES_NAVE, colorDeAsiento } from "@/juego/naves/paletaNaves";
 import { inyectarHistorico, obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
+import { FantasmaNave } from "@/juego/naves/FantasmaNave";
 import { publicarFantasmas } from "@/juego/control/fantasmasStore";
 import { publicarObjetos } from "@/juego/control/objetosStore";
 import { publicarRobots } from "@/juego/control/robotsStore";
@@ -381,6 +382,8 @@ export class Partida extends Phaser.Scene {
   // desplazamiento-tras-impacto: marcas «Estaba aquí» del turno anterior; se
   // destruyen al resolver el turno siguiente.
   private marcasFantasma: Phaser.GameObjects.GameObject[] = [];
+  // fantasma: una entrada por nave muerta, hasta el final de la partida.
+  private fantasmasNave = new Map<number, FantasmaNave>();
   private marcasRobot: Phaser.GameObjects.GameObject[] = [];
   private marcasObjeto: Phaser.GameObjects.GameObject[] = [];
   private indicadorDeriva!: IndicadorDeriva;
@@ -744,6 +747,9 @@ export class Partida extends Phaser.Scene {
     // multi-setup-partida: las naves pares miran a +x y las impares a -x,
     // como las dos de siempre; con 3-4 el ángulo inicial es solo cosmético
     // (el control lo sustituye en cuanto le toca a un humano).
+    // La escena se reutiliza al reiniciar: los fantasmas de la partida anterior
+    // ya no existen en pantalla y no deben contarse en esta.
+    this.fantasmasNave = new Map();
     this.naves = this.estado.naves.map((nave, id) => {
       const y = alturaRenderNave(nave.y, alturaSuperficie(this.estado.mascara, nave.x) ?? MUNDO_ALTO - 1);
       const haciaMasX = direccionDeNave(id as IdNave) === 1;
@@ -2268,7 +2274,50 @@ export class Partida extends Phaser.Scene {
       // en cada refresco para que nunca quede marcada la nave equivocada
       // tras un cambio de turno.
       this.naves[indice].marcarActiva(indice === this.estado.turno);
+      this.sincronizarFantasma(indice, naveEstado.integridad, y);
     }
+    this.publicarFantasmasNave();
+  }
+
+  // fan-1: al llegar a 0 la nave deja paso a su fantasma (refrescarNaves se
+  // llama al terminar la explosión, no antes). Es solo dibujo: el núcleo ya
+  // excluye las naves muertas de la colisión (fan-2).
+  private sincronizarFantasma(indice: number, integridad: number, y: number): void {
+    const existente = this.fantasmasNave.get(indice);
+    if (integridad > 0) {
+      if (existente) {
+        existente.destruir();
+        this.fantasmasNave.delete(indice);
+      }
+      this.naves[indice].mostrar(true);
+      return;
+    }
+    this.naves[indice].mostrar(false);
+    if (existente) return;
+    this.fantasmasNave.set(
+      indice,
+      new FantasmaNave(this, {
+        idNave: indice,
+        nombre: nombreDeNave(this.controladores, indice),
+        color: COLORES_NAVE[indice] ?? COLORES_NAVE[0],
+        puntos: this.naves[indice].obtenerPuntosSilueta(),
+        x: this.estado.naves[indice].x,
+        y,
+        movimientoReducido: prefiereMovimientoReducido(),
+      }),
+    );
+  }
+
+  private publicarFantasmasNave(): void {
+    window.__debug!.fantasmasNave = [...this.fantasmasNave.entries()].map(([nave, f]) => ({
+      nave,
+      nombre: f.nombre,
+      alfa: f.obtenerAlfa(),
+      x: f.obtenerPosicion().x,
+      y: f.obtenerPosicion().y,
+      yVisible: f.obtenerYVisible(),
+      texturaValida: f.texturaValida(),
+    }));
   }
 
   private refrescarDebugNaves(): void {
