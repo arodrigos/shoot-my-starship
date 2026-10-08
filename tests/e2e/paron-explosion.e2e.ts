@@ -68,9 +68,9 @@ for (const caso of CASOS) {
       return { separacion: explosion.t - impacto.t, max: Math.max(0, ...ventana), frames: ventana.length, grandes };
     });
     console.log(`[par-1] ${caso.nombre}: max ${medida.max.toFixed(1)} ms en ${medida.frames} frames; grandes (desde el impacto): ${medida.grandes.join(" ")}`);
-    expect(medida.separacion).toBeLessThanOrEqual(100);
+    expect(medida.separacion, `separacion ${medida.separacion.toFixed(0)}`).toBeLessThanOrEqual(100);
     expect(medida.frames).toBeGreaterThan(0);
-    expect(medida.max).toBeLessThanOrEqual(150);
+    expect(medida.max, medida.grandes.slice(0, 5).join(" ")).toBeLessThanOrEqual(150);
   });
 }
 
