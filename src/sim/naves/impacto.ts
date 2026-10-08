@@ -1,6 +1,6 @@
 import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { IdNave } from "@/sim/partida/tipos";
-import { comprobarRocePaso, type RoceNave } from "@/sim/naves/contacto";
+import { comprobarRocePaso, distanciaACasco, type RoceNave } from "@/sim/naves/contacto";
 
 export type { RoceNave } from "@/sim/naves/contacto";
 
@@ -10,8 +10,10 @@ export type { RoceNave } from "@/sim/naves/contacto";
 // resulta satisfactorio o imposible (ver descripción del bloque en el diseño).
 export const RADIO_CASCO_NAVE_PX = 22;
 // Gracia del casco propio: el proyectil recién salido del cañón ignora el
-// casco de quien dispara hasta haber estado, al menos una vez, más allá de
-// RADIO_CASCO_NAVE_PX + esta holgura -- sin gracia, todo disparo detona en la
+// casco de quien dispara hasta haber salido entero de su silueta dibujada y
+// estar a esta holgura de ella. Medirla contra el círculo de 22 u la cerraba
+// con el proyectil aún dentro de la silueta (que llega ~76 u hacia el morro) y
+// el tirador se «rozaba» a sí mismo -- sin gracia, todo disparo detona en la
 // cara del tirador; sin la reopacificación posterior, el autoimpacto por
 // curva de gravedad (el chiste característico del género) sería imposible.
 export const GRACIA_CASCO_PROPIO_PX = 6;
@@ -91,10 +93,15 @@ export interface RastreadorImpactoNaves {
 // cuerpo de colisión (imp-1: "nave viva colisionable").
 export function crearRastreadorImpactoNaves(naves: readonly NavePosicion[], propiaId: IdNave): RastreadorImpactoNaves {
   let graciaCascoPropioActiva = true;
+  // El paso que cierra la gracia sale de la silueta propia: su punto anterior
+  // aún está dentro, así que el roce de ese mismo paso se juzga con la gracia
+  // tal y como estaba al empezarlo, no con la ya cerrada.
+  let graciaAlEmpezarElPaso = true;
   const propia = naves.find((nave) => nave.id === propiaId) ?? null;
 
   return {
     comprobarPaso(anterior, actual) {
+      graciaAlEmpezarElPaso = graciaCascoPropioActiva;
       for (const nave of naves) {
         if (nave.id === propiaId && graciaCascoPropioActiva) {
           continue;
@@ -106,8 +113,7 @@ export function crearRastreadorImpactoNaves(naves: readonly NavePosicion[], prop
       }
 
       if (graciaCascoPropioActiva && propia) {
-        const distancia = Math.hypot(actual.x - propia.x, actual.y - propia.y);
-        if (distancia > RADIO_CASCO_NAVE_PX + GRACIA_CASCO_PROPIO_PX) {
+        if (distanciaACasco(actual.x, actual.y, propia) >= GRACIA_CASCO_PROPIO_PX) {
           graciaCascoPropioActiva = false;
         }
       }
@@ -116,7 +122,7 @@ export function crearRastreadorImpactoNaves(naves: readonly NavePosicion[], prop
     },
 
     comprobarRoce(anterior, actual) {
-      const navesElegibles = naves.filter((nave) => !(nave.id === propiaId && graciaCascoPropioActiva));
+      const navesElegibles = naves.filter((nave) => !(nave.id === propiaId && graciaAlEmpezarElPaso));
       return comprobarRocePaso(anterior, actual, navesElegibles);
     },
   };
