@@ -2490,13 +2490,26 @@ export class Partida extends Phaser.Scene {
         this.estado = { ...this.estado, saldos: saldos.map((saldo, nave) => (nave === this.estado.turno ? precioDesenlace : saldo)) };
       }
 
+      const objetivoId = this.objetivoDe(this.estado.turno);
+      // salida-pantalla: la solución balística de suelo llano ignora los pozos
+      // del modo espacial, y un tiro que sale del encuadre se pierde sin
+      // detonar (sin autodaño), así que el bucle ya no acotaba la partida.
+      // Se prueba la solución y después una rejilla hasta dar con un tiro que
+      // detone; avanzar() es puro, descartar el intento no deja rastro.
       const solucion = this.calcularSolucionBalistica(this.estado) ?? { anguloGrados: 45, potencia: 70 };
-      const { estado, eventos, categoriaBroma, detonaciones } = avanzar(this.estado, {
-        arma: ARMA_DESENLACE,
-        anguloGrados: solucion.anguloGrados,
-        potencia: solucion.potencia,
-        objetivoId: this.objetivoDe(this.estado.turno),
-      });
+      const candidatos = [solucion];
+      for (const potencia of [70, 100, 50]) {
+        for (let anguloGrados = 20; anguloGrados <= 160; anguloGrados += 10) {
+          candidatos.push({ anguloGrados, potencia });
+        }
+      }
+      let resultado: ReturnType<typeof avanzar> | null = null;
+      for (const candidato of candidatos) {
+        const intento = avanzar(this.estado, { arma: ARMA_DESENLACE, anguloGrados: candidato.anguloGrados, potencia: candidato.potencia, objetivoId });
+        resultado = intento;
+        if (!intento.eventos.some((evento) => evento.tipo === "proyectil-perdido")) break;
+      }
+      const { estado, eventos, categoriaBroma, detonaciones } = resultado!;
       this.aplicarResultadoTurno(estado, eventos, categoriaBroma, ARMA_DESENLACE, { detonaciones });
     }
   }

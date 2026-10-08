@@ -19,16 +19,16 @@ sana es [0.6; 1.6].
 
 | Arma | Coste | Daño máx. | Facilidad | Curva | Desviación | Valor |
 | --- | --- | --- | --- | --- | --- | --- |
-| Pepinazo de Cortesía | 55 | 18 | 3.1 % | 60 | 8 % | 0.80 |
-| Mortero Lamentable | 65 | 24 | 3.3 % | 70 | 7 % | 0.95 |
-| Racimo de Tuppers | 85 | 20 | 6.6 % | 100 | 15 % | 1.22 |
-| Despedida | 125 | 55 | 4.5 % | 125 | 0 % | 1.55 |
-| Barrena Planetaria | 90 | 44 | 2.7 % | 90 | 0 % | 1.03 |
-| Rayo Láser | 115 | 46 | 1.2 % | 80 | 44 % | 0.38 |
-| Mosca Cojonera | 75 | 28 | 3.3 % | 75 | 0 % | 0.97 |
-| Granada de Espoleta | 80 | 34 | 3.2 % | 85 | 6 % | 1.07 |
-| Gancho Pegajoso | 115 | 24 | 8.5 % | 125 | 8 % | 1.39 |
-| Minirobot Saltaplanetas | 85 | 40 | 2.6 % | 85 | 0 % | 0.96 |
+| Pepinazo de Cortesía | 55 | 18 | 3.2 % | 60 | 8 % | 0.78 |
+| Mortero Lamentable | 65 | 24 | 3.4 % | 70 | 7 % | 0.94 |
+| Racimo de Tuppers | 85 | 20 | 6.6 % | 100 | 15 % | 1.16 |
+| Despedida | 125 | 55 | 4.4 % | 125 | 0 % | 1.45 |
+| Barrena Planetaria | 90 | 44 | 2.8 % | 95 | 5 % | 1.02 |
+| Rayo Láser | 115 | 46 | 1.3 % | 80 | 44 % | 0.39 |
+| Mosca Cojonera | 75 | 28 | 3.5 % | 80 | 6 % | 0.98 |
+| Granada de Espoleta | 80 | 34 | 3.3 % | 85 | 6 % | 1.05 |
+| Gancho Pegajoso | 115 | 24 | 9.0 % | 130 | 12 % | 1.40 |
+| Minirobot Saltaplanetas | 85 | 40 | 2.7 % | 85 | 0 % | 0.95 |
 
 ### Desviaciones declaradas
 
@@ -43,6 +43,24 @@ sana es [0.6; 1.6].
 | Barato (la de pago más barata) | 10 |
 | Medio con dos escudos pagados | 4 |
 
-## Partidas de 3 IAs con la misma puntería (no ejecutado en esta pasada semillas)
+## Partidas de 3 IAs con la misma puntería (10 semillas)
 
-Se omite la simulación con `--sin-simulacion`.
+Cada perfil de gasto juega con la puntería de Almirante Bisagra, los asientos
+rotan por semilla y están activos el universo, la muerte súbita y el equipo.
+
+| Perfil | Victorias (partidas con ganador) | Turno propio medio en que no llega ni a la más barata | Sin saldo en su 8.º turno | Paga en la ronda 10 |
+| --- | --- | --- | --- | --- |
+| ahorrador | 2/5 (40 %) | 13.0 | 0/10 (0 %) | 9/10 (90 %) |
+| agresivo | 2/5 (40 %) | 7.4 | 8/10 (80 %) | 1/10 (10 %) |
+| mixto | 1/5 (20 %) | 12.0 | 0/10 (0 %) | 4/9 (44 %) |
+
+### Bandas de cal-3 con estas semillas
+
+- CUMPLE: ahorrador: gana entre el 20 % y el 50 % de las partidas con ganador (40 %)
+- CUMPLE: ahorrador: dispara de pago en la ronda 10 en ≥ 70 % de las partidas que llegan (90 %)
+- CUMPLE: agresivo: gana entre el 20 % y el 50 % de las partidas con ganador (40 %)
+- CUMPLE: agresivo: sin saldo para la más barata en su 8.º turno propio en ≥ 80 % de las partidas que llegan (80 %)
+- CUMPLE: mixto: gana entre el 20 % y el 50 % de las partidas con ganador (20 %)
+
+Con pocas semillas el intervalo de cada tasa es ancho: la comprobación que
+manda es la de `PRUEBA_LARGA=1 npm run calibrar:economia -- --semillas 60`.
