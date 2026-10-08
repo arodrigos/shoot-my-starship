@@ -168,7 +168,7 @@ test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en ord
   // mismo, no una fila permanente (lay-5 no deja presupuesto de alto para
   // una fila más en 360x640).
   await page.getByTestId("historico-bromas-toggle").click();
-  await expect(page.getByTestId("historico-bromas-vacio")).toHaveText("Aún no hay mensajes en esta partida");
+  await expect(page.getByTestId("historico-bromas-vacio")).toHaveText("Aún no hay mensajes: aquí aparecerán las bromas y avisos de la partida.");
   await page.getByTestId("historico-bromas-cerrar").click();
 
   await dispararTurnoReal(page);

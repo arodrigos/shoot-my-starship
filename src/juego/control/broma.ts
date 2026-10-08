@@ -20,6 +20,8 @@ export interface EstadoBromas {
 
 export interface EntradaHistoricoBroma {
   readonly numeroTurno: number;
+  // Asiento que habla: el histórico pinta su nombre con el color de su nave.
+  readonly emisor: number;
   readonly disparo: string | null;
   readonly impacto: string;
   readonly categoriaImpacto: CategoriaBroma;
@@ -55,10 +57,10 @@ export function publicarBromaDisparo(numeroTurno: number, texto: string): void {
   fijar({ disparo: texto });
 }
 
-export function publicarBromaImpacto(numeroTurno: number, texto: string, categoria: CategoriaBroma): void {
+export function publicarBromaImpacto(numeroTurno: number, texto: string, categoria: CategoriaBroma, emisor: number): void {
   const disparo = pendienteDeTurno && pendienteDeTurno.numeroTurno === numeroTurno ? pendienteDeTurno.disparo : null;
   pendienteDeTurno = null;
-  const entrada: EntradaHistoricoBroma = { numeroTurno, disparo, impacto: texto, categoriaImpacto: categoria };
+  const entrada: EntradaHistoricoBroma = { numeroTurno, emisor, disparo, impacto: texto, categoriaImpacto: categoria };
   fijar({ impacto: texto, categoriaImpacto: categoria, historico: [...estado.historico, entrada] });
 }
 
@@ -66,4 +68,16 @@ export function reiniciarBromas(): void {
   pendienteDeTurno = null;
   estado = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0, historico: [] };
   for (const escucha of escuchas) escucha();
+}
+
+// Solo para el gancho de depuración: los e2e necesitan un histórico largo sin
+// jugar decenas de turnos reales. No toca la broma visible ni el audio.
+export function inyectarHistorico(entradas: readonly EntradaHistoricoBroma[]): void {
+  fijar({ historico: [...entradas] });
+}
+
+// Cuenta de mensajes sueltos (disparo e impacto), que es lo que enseña el
+// botón «Histórico (N)»: el jugador lee mensajes, no turnos.
+export function contarMensajes(historico: readonly EntradaHistoricoBroma[]): number {
+  return historico.reduce((total, entrada) => total + (entrada.disparo ? 2 : 1), 0);
 }

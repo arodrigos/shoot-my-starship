@@ -9,3 +9,13 @@ export const COLORES_NAVE: readonly [number, number, number, number] = [
   0x7ee081, // nave 2 (reservada para nucleo-n-naves)
   0xd98cff, // nave 3 (reservada para nucleo-n-naves)
 ];
+
+// Color de asiento en CSS: la cáscara React lo usa para pintar nombres y el
+// e2e lo compara contra __debug.naves, así que sale de la misma paleta.
+export function colorCss(color: number): string {
+  return `#${color.toString(16).padStart(6, "0")}`;
+}
+
+export function colorDeAsiento(id: number): string {
+  return colorCss(COLORES_NAVE[id] ?? COLORES_NAVE[0]);
+}
