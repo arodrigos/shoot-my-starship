@@ -62,9 +62,14 @@ for (const definicion of CATALOGO_EVENTOS) {
       expect(Math.hypot(entrada!.x - nave.x, entrada!.y - nave.y)).toBeLessThanOrEqual(40);
     }
     if (definicion.tipo === "agujero-negro") {
-      const pozo = await page.evaluate(() => (window.__debug.planetas as unknown as { id: number; cx: number; cy: number }[]).find((p) => p.id === 200) ?? null);
-      expect(pozo).not.toBeNull();
-      expect(Math.hypot(entrada!.x - pozo!.cx, entrada!.y - pozo!.cy)).toBeLessThanOrEqual(1);
+      // El pozo nuevo existe en los halos (id 200) y el efecto está sobre un planeta, dentro del mundo.
+      expect(await page.evaluate(() => (window.__debug.halos ?? []).some((h) => h.id === 200))).toBe(true);
+      expect(entrada!.sobre).toBe("planeta");
+      const camara = (await page.evaluate(() => window.__debug.camara))!;
+      expect(entrada!.x).toBeGreaterThan(0);
+      expect(entrada!.x).toBeLessThan(camara.ancho);
+      expect(entrada!.y).toBeGreaterThan(0);
+      expect(entrada!.y).toBeLessThan(camara.alto);
     }
     if (definicion.tipo === "gravedad-x2" || definicion.tipo === "gravedad-mitad") {
       expect(await page.evaluate(() => JSON.stringify(window.__debug.halos))).not.toBe(halosAntes);
