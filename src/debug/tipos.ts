@@ -333,6 +333,11 @@ export interface DebugGlobal {
   // hornean fundidos en esta misma textura (ver FondoEspacial.ts), así que
   // comparten este único contador en vez de tener uno propio.
   fondoEspacial?: { bakes: number; rehornoHalos?: number };
+  // halos-gravedad: anillos de cada pozo tal y como se pintaron (radio, nivel
+  // y aceleración objetivo), y la aceleración real del pozo a una distancia
+  // para que el e2e compruebe que son coherentes con la física.
+  halos?: Array<{ id: number; anillos: Array<{ nivel: number; r: number; aceleracion: number; opacidad: number }> }>;
+  aceleracionPozo?: (id: number, r: number) => number | undefined;
   // esp-6: el resultado del turno que acaba de cerrarse -- incluye el caso
   // "proyectil perdido en órbita" con su propio texto (qué ha pasado y qué
   // hacer), no solo el genérico de impacto/fallo.

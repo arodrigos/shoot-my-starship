@@ -283,10 +283,16 @@ test("evt-2: los halos de los pozos cambian con gravedad ×2, ÷2 y agujero negr
   const sin = estadoBase(11, "barra-libre");
   const halos = (estado: EstadoPartida) => {
     const radios: number[] = [];
-    const lienzo = { fillStyle: () => undefined, fillCircle: (_x: number, _y: number, radio: number) => void radios.push(radio) };
-    dibujarPozosGravedad(lienzo as unknown as Phaser.GameObjects.Graphics, estado.planetas ?? []);
+    // Cada banda es un strokeCircle de grosor `ancho`: su borde exterior es el radio del anillo.
+    let ancho = 0;
+    const lienzo = {
+      lineStyle: (grosor: number) => void (ancho = grosor),
+      strokeCircle: (_x: number, _y: number, radio: number) => void radios.push(radio + ancho / 2),
+    };
+    dibujarPozosGravedad(lienzo as unknown as Phaser.GameObjects.Graphics, estado.planetas ?? [], referencias, 1920, 1080);
     return radios;
   };
+  const referencias = new Map((sin.planetas ?? []).map((planeta) => [planeta.id, masaPlaneta(planeta)]));
   const base = halos(sin);
   assert.ok(base.length > 0);
   const con = (tipo: TipoEvento) => aplicarEvento(conProximo(sin, { enTurnos: 99, tipo: "loteria", afectado: 0 }), { enTurnos: 0, tipo, afectado: 0 }, "calendario").estado;
