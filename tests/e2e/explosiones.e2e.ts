@@ -45,7 +45,8 @@ test("exp-1: cada detonación del turno tiene su explosión, en su sitio y con l
 
   const { detonaciones, efectos } = await page.evaluate(() => ({
     detonaciones: window.__debug.detonaciones!,
-    efectos: window.__debug.efectosVisibles!,
+    // vida-color: el número de daño flotante también vive en efectosVisibles; aquí solo cuentan explosiones y haz.
+    efectos: window.__debug.efectosVisibles!.filter((efecto) => efecto.tipo !== "numero-danio"),
   }));
   expect(detonaciones.length).toBeGreaterThan(0);
   expect(efectos).toHaveLength(detonaciones.length);
@@ -75,7 +76,8 @@ test("exp-4: con prefers-reduced-motion la explosión no emite partículas ni sa
 
   const { detonaciones, efectos, sacudidas } = await page.evaluate(() => ({
     detonaciones: window.__debug.detonaciones!,
-    efectos: window.__debug.efectosVisibles!,
+    // vida-color: el número de daño flotante también vive en efectosVisibles; aquí solo cuentan explosiones y haz.
+    efectos: window.__debug.efectosVisibles!.filter((efecto) => efecto.tipo !== "numero-danio"),
     sacudidas: window.__debug.sacudidasCamara ?? 0,
   }));
   expect(efectos).toHaveLength(detonaciones.length);

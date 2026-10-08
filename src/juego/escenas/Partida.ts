@@ -122,6 +122,8 @@ const TAMANO_TEXTO_FANTASMA_PX = 34;
 const RADIO_ROBOT_U = 14;
 // salida-pantalla: cuánto se queda el aviso «¡Perdido!» en pantalla.
 const DURACION_AVISO_PERDIDO_MS = 1200;
+// vida-color: el número de daño sube y se funde en este tiempo.
+const DURACION_NUMERO_DANIO_MS = 900;
 const RADIO_OBJETO_U = 18;
 // Un punto de cada tantos pasos en la ruta punteada: legible y barato de dibujar.
 const SALTO_PUNTEADO_OBJETO = 6;
@@ -434,6 +436,9 @@ export class Partida extends Phaser.Scene {
   // coordinado, así que no tiene sentido repetir aquí su construcción campo
   // a campo.
   private explosionPorCapas!: ExplosionPorCapas;
+  // vida-color: efectos del turno (explosiones, haz) y números de daño aún vivos.
+  private efectosDelTurno: readonly DebugEfectoVisible[] = [];
+  private numerosDanioVivos: DebugEfectoVisible[] = [];
   // paron-explosion: medición permanente de frames, de solo lectura.
   private readonly medidorFrames = new MedidorFrames();
   private readonly medidorRespuesta = new MedidorRespuesta();
@@ -1817,7 +1822,37 @@ export class Partida extends Phaser.Scene {
     this.time.delayedCall(DURACION_AVISO_PERDIDO_MS, () => texto.destroy());
   }
 
-  private manejarEventosVisuales(eventos: readonly EventoSimulacion[], detonaciones: readonly Detonacion[]): number {
+  // vida-color: daño recibido como número flotante en el color del atacante.
+  // Sin movimiento reducido no se llama. Se publica en efectosVisibles mientras
+  // vive, porque el texto está en el lienzo y ningún selector de DOM lo ve.
+  private mostrarNumeroDanio(x: number, y: number, danio: number, atacante: number): void {
+    const escala = 1 / this.scale.displayScale.x;
+    const color = colorDeAsiento(atacante);
+    const texto = this.add
+      .text(x, y, `-${danio}`, { fontFamily: "sans-serif", fontSize: `${Math.round(18 * escala)}px`, fontStyle: "bold", color, stroke: "#000000", strokeThickness: Math.round(3 * escala) })
+      .setOrigin(0.5, 1)
+      .setDepth(2000);
+    const efecto: DebugEfectoVisible = { tipo: "numero-danio", valor: danio, color, duracionMs: DURACION_NUMERO_DANIO_MS, x, y, radioOnda: 0, particulas: 0, escala: 0, sobre: "nave" };
+    this.numerosDanioVivos.push(efecto);
+    this.tweens.add({
+      targets: texto,
+      y: y - 36 * escala,
+      alpha: 0,
+      duration: DURACION_NUMERO_DANIO_MS,
+      ease: "Quad.easeOut",
+      onComplete: () => {
+        texto.destroy();
+        this.numerosDanioVivos = this.numerosDanioVivos.filter((e) => e !== efecto);
+        this.publicarEfectosVisibles();
+      },
+    });
+  }
+
+  private publicarEfectosVisibles(): void {
+    window.__debug!.efectosVisibles = [...this.efectosDelTurno, ...this.numerosDanioVivos];
+  }
+
+  private manejarEventosVisuales(eventos: readonly EventoSimulacion[], detonaciones: readonly Detonacion[], tirador: number = this.estado.turno): number {
     let esperaSacudidaMs = 0;
     const movimientoReducido = prefiereMovimientoReducido();
     window.__debug!.detonaciones = detonaciones;
@@ -1842,7 +1877,8 @@ export class Partida extends Phaser.Scene {
       sobre: datos.sobre,
     }));
     const haz = this.dibujarHazLaser(detonaciones);
-    window.__debug!.efectosVisibles = haz ? [haz, ...explosiones] : explosiones;
+    this.efectosDelTurno = haz ? [haz, ...explosiones] : explosiones;
+    this.publicarEfectosVisibles();
     for (const evento of eventos) {
       if (evento.tipo === "proyectil-perdido" && evento.salida) {
         this.mostrarAvisoPerdido(evento.salida, movimientoReducido);
@@ -1858,6 +1894,8 @@ export class Partida extends Phaser.Scene {
         // el destello de ExplosionPorCapas ya informan del impacto.
         if (evento.danio > 0) {
           if (!movimientoReducido) {
+            this.mostrarNumeroDanio(evento.x, evento.y, evento.danio, tirador);
+            this.publicarEfectosVisibles();
             comprobarCantidadDentroDelTecho("explosion-con-danio", CANTIDAD_PARTICULAS_EXPLOSION);
             this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
           }
@@ -1928,7 +1966,7 @@ export class Partida extends Phaser.Scene {
 
     this.terreno.sincronizarDesde(estadoDespues.mascara);
 
-    const esperaSacudidaMs = this.manejarEventosVisuales(eventos, opciones?.detonaciones ?? []);
+    const esperaSacudidaMs = this.manejarEventosVisuales(eventos, opciones?.detonaciones ?? [], tirador);
     // mrb-1: el robot que detona se retira en el mismo instante que su
     // explosión; si esperara a avanzarTurno (retrasado por la sacudida), se
     // vería el robot vivo junto a su propia explosión.

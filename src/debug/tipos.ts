@@ -155,7 +155,11 @@ export interface DebugBromaEntry {
 export interface DebugEfectoVisible {
   // cat-2: "haz-laser" es el rayo instantáneo (un único segmento nave → punto
   // de impacto, que dura duracionMs); "explosion" es lo de siempre.
-  readonly tipo?: "explosion" | "haz-laser";
+  readonly tipo?: "explosion" | "haz-laser" | "numero-danio";
+  // vida-color: solo "numero-danio" -- el daño mostrado y el color del
+  // asiento de quien disparó.
+  readonly valor?: number;
+  readonly color?: string;
   readonly duracionMs?: number;
   readonly desde?: { readonly x: number; readonly y: number };
   readonly x: number;
@@ -369,6 +373,9 @@ export interface DebugGlobal {
   // (misma longitud y mismo orden). Se sustituyen en cada turno.
   detonaciones?: readonly Detonacion[];
   efectosVisibles?: readonly DebugEfectoVisible[];
+  // vida-color: lo que pinta la barra de vida de cada nave viva (una nave a
+  // 0 no tiene barra y no aparece).
+  hud?: { vidas: readonly { id: number; colorRelleno: string; etiqueta: string; valor: number }[] };
   // Cuántas veces se ha sacudido la cámara en la partida: con movimiento
   // reducido tiene que quedarse como estaba.
   sacudidasCamara?: number;
