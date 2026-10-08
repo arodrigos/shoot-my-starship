@@ -26,6 +26,10 @@ import { volarConPropulsores } from "@/sim/equipo/propulsores";
 import { siguienteTurno, type AccionDeTurno, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
 
 const PRESUPUESTO_VIABILIDAD_DESTINO = 120;
+// Con el arma base y no con la que se acaba de disparar: el rival puede haber
+// usado una de área grande con la que casi siempre hay tiro, y el destino
+// dejaba al otro bando, con su arma de siempre, sin ninguno.
+const ARMA_VIABILIDAD_ID = "pepinazo-cortesia";
 
 function estaProtegida(nave: EstadoNave): boolean {
   return (nave.escudoTurnosRestantes ?? 0) > 0;
@@ -397,7 +401,7 @@ export function avanzar(
       gravedad: estado.mundo.gravedad,
       deriva: estado.mundo.deriva,
       aleatorio: estado.aleatorio,
-      arma,
+      arma: buscarArma(ARMA_VIABILIDAD_ID),
       naves,
       rangoAngulos: RANGO_ANGULOS_ORACULO,
       presupuestoIntentos: PRESUPUESTO_VIABILIDAD_DESTINO,
