@@ -72,11 +72,11 @@ test("sal-1: un tiro horizontal a la izquierda desde el borde sale por la izquie
   assert.equal(resultado.salida?.borde, "izquierda");
 });
 
-test("sal-1: sin suelo bajo el tiro, cae por debajo del encuadre y se pierde por 'abajo'", () => {
+test("sal-1: sin suelo bajo el tiro, el fondo del mundo sigue siendo suelo y detona ahí", () => {
   const resultado = disparo({ gravedad: 1, origenX: 1000, angulo: -80, potencia: 60, sueloY: ALTO + 500 });
-  assert.equal(resultado.proyectilPerdido, true);
-  assert.equal(resultado.salida?.borde, "abajo");
-  assert.equal(resultado.danioObjetivo, 0);
+  assert.equal(resultado.proyectilPerdido, false);
+  assert.equal(resultado.salida, null);
+  assert.ok(resultado.puntosDeImpacto.length > 0);
 });
 
 test("sal-1: un tiro que sube un poco por encima del borde (dentro del techo) y vuelve NO se pierde", () => {

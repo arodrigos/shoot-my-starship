@@ -50,7 +50,9 @@ export const MARGEN_SALIDA_U = 24;
 // potencia máxima asoma varios mundos de alto y vuelve a caer sobre el
 // objetivo, y la IA y la mitad de la balística de las armas cuentan con eso.
 // Se mantiene el techo de siempre (3 alturas) en vez del margen de los otros
-// bordes; ver `desviaciones` del entregable.
+// bordes; ver `desviaciones` del entregable. Por abajo el fondo del mundo
+// sigue siendo suelo: el tiro que cae por un hueco del terreno detona contra él
+// (detenerseEnSuelo), y no se pierde.
 export function techoU(alto: number): number {
   return 3 * alto;
 }

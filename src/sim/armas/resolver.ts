@@ -110,7 +110,7 @@ export function alturaSuperficie(mascara: Mascara, x: number): number | null {
 // núcleo, trazado de la IA y animador sigan coincidiendo.
 export function detenerseEnSuelo(mascara: Mascara, ancho: number, alto: number) {
   return (p: EstadoProyectil): boolean => {
-    if (p.y > alto + MARGEN_SALIDA_U || p.y < -techoU(alto) || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
+    if (p.y >= alto || p.y < -techoU(alto) || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
       return true;
     }
     return esSolido(mascara, Math.round(p.x), Math.round(p.y));
@@ -135,7 +135,7 @@ function crearDetenerseConPenetracion(mascara: Mascara, ancho: number, alto: num
   let anteriorY: number | null = null;
 
   const detenerse = (p: EstadoProyectil): boolean => {
-    if (p.y > alto + MARGEN_SALIDA_U || p.y < -techoU(alto) || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
+    if (p.y >= alto || p.y < -techoU(alto) || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
       return true;
     }
     const solido = esSolido(mascara, Math.round(p.x), Math.round(p.y));
@@ -170,7 +170,7 @@ function crearDetenerseHaz(mascara: Mascara, ancho: number, alto: number, penetr
   let distanciaEnSolidoPx = 0;
   let anterior: EstadoProyectil | null = null;
   return (p: EstadoProyectil): boolean => {
-    if (p.y > alto + MARGEN_SALIDA_U || p.y < -techoU(alto) || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) return true;
+    if (p.y >= alto || p.y < -techoU(alto) || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) return true;
     // El paso de integración puede ser de decenas de píxeles: se recorre el
     // segmento de 1 en 1 para medir la roca realmente cruzada, no el paso.
     if (anterior !== null) {
