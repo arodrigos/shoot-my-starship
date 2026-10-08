@@ -39,7 +39,7 @@ for (const vp of VIEWPORTS) {
     // Turno del humano: el ángulo y el histórico responden.
     await page.getByTestId("paso-angulo-mas").click();
     await page.getByRole("button", { name: /Histórico/ }).click();
-    await page.getByRole("button", { name: "Cerrar" }).click();
+    await page.getByTestId("historico-bromas-cerrar").click();
 
     const antes = await page.evaluate(() => window.__debug.resultadoTurno);
     await page.getByTestId("disparar").click();
