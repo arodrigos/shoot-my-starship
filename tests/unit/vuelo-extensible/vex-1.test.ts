@@ -97,5 +97,5 @@ test("vex-1: esComportamientoAdherente distingue adherente-con-mecha del resto d
   assert.equal(esComportamientoAdherente({ tipo: "impacto-simple" }), false);
   assert.equal(esComportamientoAdherente({ tipo: "instantaneo" }), false);
   assert.equal(esComportamientoAdherente({ tipo: "rodante", distanciaMaximaPx: 10, pasoPx: 2 }), false);
-  assert.equal(esComportamientoAdherente({ tipo: "submuniciones", cantidad: 3, dispersionPxS: 10 }), false);
+  assert.equal(esComportamientoAdherente({ tipo: "submuniciones", cantidad: 3 }), false);
 });

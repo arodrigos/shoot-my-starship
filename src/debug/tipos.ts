@@ -441,6 +441,9 @@ export interface DebugGlobal {
   // de vuelo) -- para comprobar visibilidad/solapo con el HUD sin leer
   // píxeles de pantalla.
   proyectilEnVuelo?: { x: number; y: number; armaId: string } | null;
+  // racimo-perdigones: perdigones dibujados ahora (1 el portador entero, 5 el
+  // Racimo en los últimos 40 u; 0 sin vuelo) y el máximo del último vuelo.
+  proyectil?: { perdigones: number; perdigonesMaximo: number };
   // proy-4 (desviación, ver entregable): dispara y resuelve N turnos reales
   // en ráfaga -- misma dispararEntrada/animación que un turno jugado a mano,
   // pero sin esperar el reloj real entre pasos, para que un test de pool

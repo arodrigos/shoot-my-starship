@@ -11,8 +11,12 @@ const PARTIDAS_POR_PERSONALIDAD = NUM_PARTIDAS_MEDICION_IA;
 // naves-silueta: con las naves a la mitad (zona de impacto = polígono) es más
 // difícil acertar y La Contable pasa de ~80 % a ~68 % (medido con 200 partidas);
 // las tres siguen ordenadas.
+// racimo-perdigones: el Racimo estalla agrupado en el impacto y con tope de
+// daño combinado, así que el área que aprovechaba Almirante Bisagra ya no
+// compensa su puntería media y baja de ~58 % a ~38 % (200 partidas). Sigue
+// entre Chispa y La Contable, por lo que se desplaza su banda.
 const BANDA_LA_CONTABLE = [0.6, 0.9] as const;
-const BANDA_ALMIRANTE_BISAGRA = [0.45, 0.65] as const;
+const BANDA_ALMIRANTE_BISAGRA = [0.3, 0.5] as const;
 const BANDA_CHISPA = [0.2, 0.4] as const;
 
 // ia-punteria (recalibrado): el gauge original de ia-3 (fuenteAleatoria

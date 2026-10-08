@@ -83,13 +83,13 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     id: "racimo-de-tuppers",
     verbo: "esparcir",
     nombre: "Racimo de Tuppers",
-    descripcion: "Se abre a media altura y reparte. Nadie ha conseguido saber qué había dentro y nadie quiere.",
-    comportamiento: { tipo: "submuniciones", cantidad: 5, dispersionPxS: 220 },
+    descripcion: "Cinco perdigones que estallan juntos en el punto de impacto. Nadie ha conseguido saber qué había dentro y nadie quiere.",
+    comportamiento: { tipo: "submuniciones", cantidad: 5 },
     huella: { tipo: "circular", radio: 17, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 62, danioMaximo: 20 },
     fiabilidad: 1,
-    coste: 85,
-    rol: "cinco proyectiles dispersos: área grande repartida en vez de concentrada",
+    coste: 60,
+    rol: "cinco perdigones que estallan juntos en el punto de impacto: área media con daño combinado limitado",
   },
   {
     id: "petardo-de-feria",
@@ -289,7 +289,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // explotar con tanta área ya no es "difícil". Se baja el daño máximo (cae
     // linealmente con la distancia) y se sube el precio para que no domine al
     // Racimo de Tuppers (dominancia de armas-metrica).
-    coste: 115,
+    coste: 118,
     notaAyuda: "La cuenta empieza al pegarse, no al disparar: solo se agarra a un planeta o a una nave (nunca al borde) y su onda daña menos cuanto más lejos.",
     bromaPropia: {
       disparo: ["Ahí va, a buscar dónde agarrarse."],

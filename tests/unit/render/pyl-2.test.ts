@@ -35,7 +35,7 @@ test("pyl-2: la familia visual se deriva de los ejes de comportamiento/huella/ef
       esperada: "flecha",
     },
     { ejes: { huella: { tipo: "ninguna" } }, esperada: "orbe" },
-    { ejes: { comportamiento: { tipo: "submuniciones", cantidad: 3, dispersionPxS: 10 } }, esperada: "racimo" },
+    { ejes: { comportamiento: { tipo: "submuniciones", cantidad: 3 } }, esperada: "racimo" },
     { ejes: { comportamiento: { tipo: "rodante", distanciaMaximaPx: 100, pasoPx: 10 } }, esperada: "chatarra" },
     { ejes: { huella: { tipo: "capsula", medioLargoPx: 40, radio: 10, signo: "restar" } }, esperada: "capsula" },
     { ejes: {}, esperada: "bomba" },

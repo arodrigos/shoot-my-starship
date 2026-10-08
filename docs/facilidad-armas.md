@@ -20,7 +20,7 @@ aparte que mantener sincronizada con el resolutor.
 | Mortero Lamentable | 24 | 70 | 1.27s | 2.5% | 65 |
 | Zanjadora Manolita | 4 | 56 | 1.32s | 2.0% | 0 |
 | Vertedero Portátil | 0 | 0 | n/a | 0.0% | 15 |
-| Racimo de Tuppers | 20 | 62 | 0.83s | 6.6% | 85 |
+| Racimo de Tuppers | 20 | 62 | 1.27s | 2.5% | 60 |
 | Petardo de Feria | 13 | 62 | 1.40s | 1.5% | 0 |
 | La Pelota de Chatarra | 8 | 30 | 1.26s | 1.8% | 0 |
 | Gravitón de Segunda Mano | 0 | 0 | n/a | 0.0% | 45 |
@@ -29,7 +29,7 @@ aparte que mantener sincronizada con el resolutor.
 | Rayo Láser | 46 | 80 | 0.49s | 0.9% | 115 |
 | Mosca Cojonera | 28 | 50 | 1.25s | 2.8% | 75 |
 | Granada de Espoleta | 34 | 62 | 1.30s | 2.4% | 80 |
-| Gancho Pegajoso | 24 | 38 | 1.09s | 7.9% | 115 |
+| Gancho Pegajoso | 24 | 38 | 1.09s | 7.9% | 118 |
 | Minirobot Saltaplanetas | 40 | 50 | 1.29s | 2.2% | 85 |
 
 ## Dominancia

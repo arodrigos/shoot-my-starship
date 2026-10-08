@@ -262,17 +262,58 @@ function resolverRodadura(mascara: Mascara, xInicial: number, yInicial: number, 
   return { x: xActual, y: yActual };
 }
 
-// El Racimo de Tuppers (comportamiento "submuniciones"): vuela como
-// cualquier otro disparo hasta el ápice (vy cruza a >= 0) y desde ahí se
-// reparte en `cantidad` sub-proyectiles con dispersión simétrica en vx,
-// cada uno resuelto con la MISMA simularVuelo que el disparo real -- nunca
-// una física de submunición aparte.
+// El Racimo de Tuppers (comportamiento "submuniciones"): vuela como cualquier
+// otro disparo hasta su punto de impacto P y ahí estallan juntos los cinco
+// perdigones, como una escopeta. Antes se repartían desde el ápice y caían
+// dispersos por toda la pantalla, sin una lógica que se entendiera.
 // `planetas`, igual que en simularVuelo, es opcional y aditivo (nucleo-
-// gravedad): las submuniciones son "la MISMA simularVuelo que el disparo
-// real" también en esto, así que el ápice y cada sub-proyectil vuelan con
-// el mismo tirón de N cuerpos que el disparo que los generó -- nunca una
-// gravedad distinta a mitad de vuelo (grav-4, congelada hasta que el turno
-// cierra en avanzar()).
+// gravedad): el portador vuela con el mismo tirón de N cuerpos que cualquier
+// disparo (grav-4, congelada hasta que el turno cierra en avanzar()).
+
+// Radio del cráter de cada perdigón (huella del Racimo en el catálogo).
+export const RADIO_SUBMUNICION = 17;
+// Distancia del centro a cada perdigón de la cruz, y variación máxima por
+// perdigón: ambas relativas al radio, de modo que ninguno queda a más de
+// 0,75 × RADIO_SUBMUNICION de P.
+export const FRACCION_CRUZ_SUBMUNICION = 0.6;
+export const FRACCION_VARIACION_SUBMUNICION = 0.15;
+// Tope del daño que las cinco detonaciones pueden sumar sobre una misma nave:
+// agrupadas casi en el mismo punto, sin tope harían cinco veces el daño de una
+// sola explosión (Pocket Tanks limita igual a sus escopetas).
+export const DANIO_MAXIMO_RACIMO_COMBINADO = 40;
+
+// Variación determinista a partir de la posición y del índice, sin consumir
+// EstadoAleatorio: el mismo disparo da siempre las mismas cinco posiciones.
+function variacionPerdigon(x: number, y: number, indice: number, eje: number): number {
+  const semilla = Math.sin(x * 12.9898 + y * 78.233 + indice * 37.719 + eje * 4.1414) * 43758.5453;
+  return (semilla - Math.floor(semilla)) * 2 - 1;
+}
+
+// Centro más cruz orientada con el rumbo del portador al detonar.
+export function patronPerdigones(p: EstadoProyectil, cantidad: number): readonly { readonly x: number; readonly y: number }[] {
+  const rumbo = Math.atan2(p.vy, p.vx);
+  const brazos = Math.max(1, cantidad - 1);
+  const alcance = RADIO_SUBMUNICION * FRACCION_CRUZ_SUBMUNICION;
+  const variacion = RADIO_SUBMUNICION * FRACCION_VARIACION_SUBMUNICION;
+  return Array.from({ length: cantidad }, (_, i) => {
+    const angulo = rumbo + ((i - 1) * 2 * Math.PI) / brazos;
+    const base = i === 0 ? { x: 0, y: 0 } : { x: Math.cos(angulo) * alcance, y: Math.sin(angulo) * alcance };
+    // La variación se reparte en un cuadrado de lado variacion / √2 por eje
+    // para que su módulo no pase de `variacion`.
+    const k = variacion / Math.SQRT2;
+    return { x: p.x + base.x + variacionPerdigon(p.x, p.y, i, 0) * k, y: p.y + base.y + variacionPerdigon(p.x, p.y, i, 1) * k };
+  });
+}
+
+// Reparte el daño de las detonaciones sobre una misma nave sin pasar del tope
+// del Racimo. Para el resto de armas devuelve la lista tal cual.
+export function limitarDanioCombinado(arma: Arma, danios: readonly number[]): number[] {
+  if (arma.comportamiento.tipo !== "submuniciones") return [...danios];
+  const total = danios.reduce((suma, danio) => suma + danio, 0);
+  if (total <= DANIO_MAXIMO_RACIMO_COMBINADO) return [...danios];
+  return danios.map((danio) => Math.floor((danio * DANIO_MAXIMO_RACIMO_COMBINADO) / total));
+}
+
 interface ResultadoPuntosDeImpacto {
   readonly puntos: readonly PuntoDeImpacto[];
   readonly perdido: boolean;
@@ -303,61 +344,30 @@ function resolverSubmuniciones(
   ancho: number,
   alto: number,
   cantidad: number,
-  dispersionPxS: number,
   planetas?: RegistroPlanetas,
   rastreadorNaves?: RastreadorImpactoNaves,
 ): Omit<ResultadoPuntosDeImpacto, "aleatorio"> {
   const detenerse = detenerseEnSuelo(mascara, ancho, alto);
-  const {
-    proyectil: apice,
-    pasos,
-    perdido: apicePerdido,
-    bordeSalida: apiceBorde,
-    puntoSalida: apicePunto,
-    impactoNave: impactoNaveApice,
-  } = simularVuelo(inicial, gravedad, deriva, (p) => p.vy >= 0 || detenerse(p), { planetas, rastreadorNaves, encuadre: { ancho, alto } });
-
-  const apiceSalida: SalidaDePantalla | undefined = apiceBorde && apicePunto ? { borde: apiceBorde, ...apicePunto } : undefined;
-  // grav-6: el propio ápice se ha perdido en órbita antes de cruzar vy>=0 --
-  // no hay desde dónde repartir submuniciones.
-  if (apicePerdido) {
-    return { puntos: [], perdido: true, pasos, salida: apiceSalida };
+  const { proyectil, pasos, perdido, bordeSalida, puntoSalida, impactoNave } = simularVuelo(inicial, gravedad, deriva, detenerse, {
+    planetas,
+    rastreadorNaves,
+    encuadre: { ancho, alto },
+  });
+  // Un portador perdido (fuera de pantalla u órbita sin fin) no detona: ni
+  // perdigones ni daño.
+  if (perdido) {
+    return { puntos: [], perdido: true, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
   }
-
-  // impacto-naves: un casco cortado de camino al ápice detona ahí mismo --
-  // el casco siempre gana, nunca se reparte en submuniciones a partir de un
-  // punto que ya era un impacto.
-  if (pasos === 0 || detenerse(apice) || impactoNaveApice) {
-    // El disparo tocó tierra (o una nave) antes de alcanzar el ápice (ángulo
-    // casi horizontal apuntando cuesta abajo): no hay altura para repartir,
-    // así que se resuelve como un impacto único en vez de partir en el vacío.
-    return {
-      puntos: [{ x: apice.x, y: apice.y, impactoNave: impactoNaveApice?.nave, vx: apice.vx, vy: apice.vy }],
-      perdido: false,
-      pasos,
-    };
-  }
-
-  const puntos: PuntoDeImpacto[] = [];
-  let salida: SalidaDePantalla | undefined;
-  for (let i = 0; i < cantidad; i++) {
-    const offset = (i - (cantidad - 1) / 2) * (dispersionPxS / Math.max(1, cantidad - 1));
-    const subInicial: EstadoProyectil = { x: apice.x, y: apice.y, vx: apice.vx + offset, vy: apice.vy };
-    const { proyectil, perdido, impactoNave, bordeSalida, puntoSalida } = simularVuelo(subInicial, gravedad, deriva, detenerse, {
-      planetas,
-      rastreadorNaves,
-      encuadre: { ancho, alto },
-    });
-    if (perdido && bordeSalida && puntoSalida && !salida) salida = { borde: bordeSalida, ...puntoSalida };
-    // Una submunición individual perdida en órbita simplemente no aporta
-    // punto de impacto -- el resto de la andanada, si aterriza, sigue
-    // contando (grav-6 no exige que TODAS se pierdan para declarar el
-    // disparo entero perdido).
-    if (!perdido) {
-      puntos.push({ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave, vx: proyectil.vx, vy: proyectil.vy });
-    }
-  }
-  return { puntos, perdido: puntos.length === 0, pasos, salida: puntos.length === 0 ? salida : undefined };
+  // Todos los perdigones llevan la velocidad del portador (empuje) y el
+  // casco que detuvo el vuelo, si lo hubo.
+  const puntos = patronPerdigones(proyectil, cantidad).map((posicion) => ({
+    x: posicion.x,
+    y: posicion.y,
+    impactoNave: impactoNave?.nave,
+    vx: proyectil.vx,
+    vy: proyectil.vy,
+  }));
+  return { puntos, perdido: false, pasos };
 }
 
 // Un punto está "anclado" si cae dentro del mundo y toca roca en su entorno
@@ -406,7 +416,6 @@ function resolverUnDisparo(
       ancho,
       alto,
       arma.comportamiento.cantidad,
-      arma.comportamiento.dispersionPxS,
       planetas,
       rastreadorNaves,
     );
@@ -806,7 +815,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     // plano, donde toda nave estaba a la misma altura y la X ya bastaba).
     const radioEfecto = radioEfectoEnMundo(arma, params.ancho, params.alto);
     const objetivoId = params.objetivoId ?? params.naves?.find((nave) => nave.x === params.objetivoX && nave.y === params.objetivoY)?.id;
-    danioPorPunto = puntosDeImpacto.map((punto) =>
+    danioPorPunto = limitarDanioCombinado(arma, puntosDeImpacto.map((punto) =>
       danioPorDistancia(
         radioEfecto,
         efecto.danioMaximo,
@@ -819,7 +828,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
             })
           : Math.hypot(punto.x - params.objetivoX, punto.y - params.objetivoY),
       ),
-    );
+    ));
     if (efecto.tipo === "danio-y-autodanio") {
       danioPropio = efecto.autoDanioMaximo;
       aplicarHuellaCircular(mascara, params.origenX, origenY, efecto.radioAutoHuellaPx, "restar");

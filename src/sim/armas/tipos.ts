@@ -28,7 +28,7 @@ export type SignoHuella = "restar" | "sumar";
 // dejar un turno sin resultado (min-1) -- ver resolver.ts.
 export type ComportamientoDeVuelo =
   | { readonly tipo: "impacto-simple" }
-  | { readonly tipo: "submuniciones"; readonly cantidad: number; readonly dispersionPxS: number }
+  | { readonly tipo: "submuniciones"; readonly cantidad: number }
   | { readonly tipo: "rodante"; readonly distanciaMaximaPx: number; readonly pasoPx: number }
   | { readonly tipo: "instantaneo" }
   | { readonly tipo: "erratico"; readonly magnitudPxS2: number }
