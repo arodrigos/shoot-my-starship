@@ -3,7 +3,7 @@ import { GRAVEDAD_REFERENCIA_PX_S2, integrarPasoProyectil, type EstadoProyectil 
 import { calcularAceleracionGravitatoria } from "@/sim/gravedad/nCuerpos";
 import { siguientePerturbacionErratica } from "@/sim/fisica/comportamientoExtendido";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
-import type { ImpactoNave, RastreadorImpactoNaves, RoceNave } from "@/sim/naves/impacto";
+import type { ImpactoNave, RastreadorImpactoNaves } from "@/sim/naves/impacto";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
 
 // Cota defensiva, no una regla de diseño: a la gravedad y velocidades de
@@ -49,13 +49,6 @@ export interface ResultadoVuelo {
   // este bloque pasa un rastreador, así que para ellos este campo es
   // siempre null.
   readonly impactoNave: ImpactoNave | null;
-  // contacto-honesto (con-1): la primera nave (si alguna) cuya silueta
-  // DIBUJADA -- no su casco de colisión -- ha rozado este vuelo en algún
-  // paso, sin llegar nunca a cortar RADIO_CASCO_NAVE_PX. Aditivo, igual que
-  // impactoNave: null en cualquier llamante sin rastreadorNaves, y siempre
-  // null cuando impactoNave no lo es (el casco real, si corta, gana y el
-  // vuelo termina ahí antes de poder comprobar el roce de ese mismo paso).
-  readonly roceNave: RoceNave | null;
   // true solo cuando, en modo multipozo, se agota el presupuesto de vuelo
   // sin que `detenerse` se cumpliera nunca: un proyectil en órbita estable
   // (grav-6). En el modo de un único mapa (sin planetas) es siempre false.
@@ -139,7 +132,6 @@ export function simularVuelo(
   let velocidadLateralYPxS = 0;
   let proyectil = inicial;
   let pasos = 0;
-  let roceNave: RoceNave | null = null;
   const trayectoria: EstadoProyectil[] | null = opciones?.grabarTrayectoria ? [inicial] : null;
 
   // vex-3: aplica (si la hay) la perturbación errática de este paso sobre
@@ -177,24 +169,20 @@ export function simularVuelo(
           proyectil: { ...siguiente, x: impactoNave.x, y: impactoNave.y },
           pasos,
           impactoNave,
-          roceNave: null,
           perdido: false,
           aleatorioFinal: aleatorioPerturbacion,
           trayectoria,
         };
       }
-      if (!roceNave) {
-        roceNave = rastreadorNaves?.comprobarRoce(proyectil, siguiente) ?? null;
-      }
       proyectil = siguiente;
     }
-    return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion, trayectoria };
+    return { proyectil, pasos, impactoNave: null, perdido: false, aleatorioFinal: aleatorioPerturbacion, trayectoria };
   }
 
   const presupuesto = opciones?.presupuestoPasos ?? PRESUPUESTO_VUELO_MULTIPOZO_PASOS;
   while (!detenerse(proyectil)) {
     if (pasos >= presupuesto) {
-      return { proyectil, pasos, impactoNave: null, roceNave, perdido: true, aleatorioFinal: aleatorioPerturbacion, trayectoria };
+      return { proyectil, pasos, impactoNave: null, perdido: true, aleatorioFinal: aleatorioPerturbacion, trayectoria };
     }
     const aceleracion = calcularAceleracionGravitatoria(planetas, proyectil.x, proyectil.y);
     const { gravedad: gravedadPaso, deriva: derivaPaso } = conPerturbacion(
@@ -210,16 +198,12 @@ export function simularVuelo(
         proyectil: { ...siguiente, x: impactoNave.x, y: impactoNave.y },
         pasos,
         impactoNave,
-        roceNave: null,
         perdido: false,
         aleatorioFinal: aleatorioPerturbacion,
         trayectoria,
       };
     }
-    if (!roceNave) {
-      roceNave = rastreadorNaves?.comprobarRoce(proyectil, siguiente) ?? null;
-    }
     proyectil = siguiente;
   }
-  return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion, trayectoria };
+  return { proyectil, pasos, impactoNave: null, perdido: false, aleatorioFinal: aleatorioPerturbacion, trayectoria };
 }

@@ -290,21 +290,11 @@ export interface DebugGlobal {
   // reaccionarAHumor que usa avanzar() en una partida normal, así que prueba
   // el camino de producción, no un doble de pruebas.
   dispararReaccionHumor?: (tipo: TipoEventoHumor) => void;
-  // contacto-honesto: reproduce el mismo camino de presentación
-  // (manejarEventosVisuales) que un roce/impacto real resuelto en juego, para
-  // que el e2e compruebe el efecto en pantalla sin depender de apuntar a mano
-  // una banda de pocos píxeles.
-  dispararEventoRoce?: (nave: IdNave, x: number, y: number) => void;
   // realce-impacto (rlc-2): danio es opcional (por defecto 0, el mismo
   // comportamiento que con-2/con-3 ya probaban) -- un e2e que quiera un
   // impacto CON daño real para ejercer la sacudida/destello nuevos lo pasa
   // explícito, sin tocar los tests existentes que llaman con 3 argumentos.
   dispararEventoImpactoReal?: (nave: IdNave, x: number, y: number, danio?: number) => void;
-  // con-2: un registro por destello real del núcleo (nunca se resetea a []
-  // salvo en create(), igual que historialBromas) -- así el e2e comprueba que
-  // el punto de contacto quedó centrado en la resolución real sin leer
-  // píxeles del canvas.
-  destellosNucleo?: readonly { nave: IdNave; x: number; y: number }[];
   // partida-1: la huella determinista del mundo actual -- la semilla de
   // terreno determina el relieve de forma unívoca (generarMascara), así que
   // comparar esta tupla entre dos partidas equivale a comparar el hash del
@@ -384,11 +374,6 @@ export interface DebugGlobal {
   // nada de la escena: es la misma función que usa el juego para decidir qué
   // dibujar, expuesta para que el test no tenga que adivinar un sleep.
   fasesActivasExplosion?: (elapsedMs: number) => readonly NombreFaseExplosion[];
-  // contacto-honesto (con-4): qué nave lleva el anillo de realce del núcleo
-  // en este fotograma -- null fuera de modo de apuntado. Así el test
-  // comprueba "se realza al entrar en modo de apuntado" leyendo un valor, no
-  // píxeles del canvas.
-  nucleoRealzado?: IdNave | null;
   // prevision-real (pvr-1, pvr-2, pvr-3): los puntos de mundo que dibuja la
   // mira este fotograma -- null cuando está oculta (fuera de turno, en
   // vuelo, o el tiro se corta antes del primer punto útil). Así el test

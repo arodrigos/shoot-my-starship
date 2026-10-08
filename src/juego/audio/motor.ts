@@ -247,12 +247,11 @@ export function reproducirTono(tipo: TonoReaccion): void {
 // nivel visual, y las dos cuentas atrás (mecha/mina) deben distinguirse
 // entre sí para que un jugador que lleve las dos armas a la vez sepa cuál
 // está a punto de explotar sin mirar la pantalla.
-export type IdEfectoSonoro = "disparo" | "impacto" | "roce" | "tictac-mecha" | "tictac-mina";
+export type IdEfectoSonoro = "disparo" | "impacto" | "tictac-mecha" | "tictac-mina";
 
 const PERFIL_POR_EFECTO: Readonly<Record<IdEfectoSonoro, PerfilTono>> = {
   disparo: { frecuenciaHz: 520, duracionS: 0.06, tipo: "square" },
   impacto: { frecuenciaHz: 130, duracionS: 0.22, tipo: "sawtooth" },
-  roce: { frecuenciaHz: 900, duracionS: 0.05, tipo: "sine" },
   "tictac-mecha": { frecuenciaHz: 1100, duracionS: 0.04, tipo: "square" },
   "tictac-mina": { frecuenciaHz: 700, duracionS: 0.04, tipo: "triangle" },
 };

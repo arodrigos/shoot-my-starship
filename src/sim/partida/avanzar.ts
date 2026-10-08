@@ -1,6 +1,6 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, danioPorDistancia, resolverDisparo } from "@/sim/armas/resolver";
-import { distanciaDeDanio } from "@/sim/naves/contacto";
+import { distanciaACasco } from "@/sim/naves/contacto";
 import { crearRobot, faseDeRobots, type EstadoRobot } from "@/sim/armas/minirobot";
 import { avanzarObjetos } from "@/sim/universo/objetos";
 import { avanzarUniverso, factorDanio } from "@/sim/universo/efectos";
@@ -126,7 +126,7 @@ export function avanzar(
     ? estado.naves
         .map((nave, id) => ({ id: id as IdNave, nave }))
         .filter(({ nave }) => nave.integridad > 0)
-        .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }))
+        .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
     : undefined;
 
   const resultado = resolverDisparo({
@@ -207,13 +207,6 @@ export function avanzar(
       ...(punto.impactoNave !== undefined ? { impactoNave: punto.impactoNave } : {}),
     });
   });
-
-  // contacto-honesto (con-3): el roce se anuncia SIN tocar la integridad --
-  // por eso el evento se emite aquí, antes de que objetivoTrasImpacto o
-  // tiradorTrasDisparo se calculen, y ninguno de los dos lo lee.
-  if (resultado.roce) {
-    eventos.push({ tipo: "roce", nave: resultado.roce.nave, x: resultado.roce.x, y: resultado.roce.y });
-  }
 
   let objetivoTrasImpacto = conIntegridad(naveObjetivo, naveObjetivo.integridad - resultado.danioObjetivo);
   if (resultado.desplazamientoObjetivoPx !== 0) {
@@ -704,7 +697,7 @@ function danioATercerasNaves(
     if (id === tirador || id === objetivoId || nave.integridad <= 0) return;
     const y = nave.y ?? alturaSuperficie(estado.mascara, nave.x) ?? estado.mundo.alto - 1;
     const danio = resultado.puntosDeImpacto.reduce(
-      (total, punto) => total + danioPorDistancia(radio, efecto.danioMaximo, distanciaDeDanio(punto.x, punto.y, { id: id as IdNave, x: nave.x, y }, radio)),
+      (total, punto) => total + danioPorDistancia(radio, efecto.danioMaximo, distanciaACasco(punto.x, punto.y, { id: id as IdNave, x: nave.x, y, integridad: nave.integridad })),
       0,
     );
     if (danio > 0) danios.set(id, danio);

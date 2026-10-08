@@ -57,7 +57,7 @@ export type EventoSimulacion =
       // positivo hacia +x. Opcional para no romper los eventos ya emitidos
       // por armas sin efecto de empuje.
       readonly desplazamientoPx?: number;
-      // contacto-honesto (con-2): la nave cuyo casco REAL (RADIO_CASCO_NAVE_PX)
+      // contacto-honesto (con-2): la nave cuya silueta
       // ha detenido el vuelo en este punto, paralelo a PuntoDeImpacto.impactoNave
       // -- undefined cuando el punto es una detonación normal contra el
       // terreno, sin tocar ningún núcleo. Opcional para no romper los eventos
@@ -96,12 +96,6 @@ export type EventoSimulacion =
   // arma: qué arma se perdió, para que el texto del turno distinga el gancho
   // que no encuentra a qué agarrarse de un disparo atrapado en órbita.
   | { readonly tipo: "proyectil-perdido"; readonly nave: IdNave; readonly arma?: string }
-  // contacto-honesto (con-1, con-3): el vuelo ha entrado en la silueta
-  // DIBUJADA de una nave (esc-1) sin cortar su casco de colisión real -- se
-  // anuncia en pantalla con su propio mensaje, pero no es un evento de humor
-  // (no está en TIPOS_EVENTO_HUMOR: no dispara sacudida de cámara ni frase
-  // de personalidad) y nunca cambia la integridad de nadie.
-  | { readonly tipo: "roce"; readonly nave: IdNave; readonly x: number; readonly y: number }
   // nucleo-n-naves-2: una tercera nave que el área del disparo alcanza sin
   // ser el objetivo declarado. Evento propio y no un "impacto" más porque la
   // presentación pinta una explosión por cada "impacto" y aquí el punto ya
