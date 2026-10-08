@@ -1,5 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 
+// naves-silueta: la ruta acaba donde toca el polígono del casco, que ya no es
+// un círculo de 22 u; el morro queda a unas 38 u del centro.
+const RADIO_ENVOLVENTE_TOPE = 44;
+
 async function empezar(page: Page): Promise<void> {
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto("/?eventos=1&modo=barra-libre");
@@ -36,7 +40,7 @@ test("corazón: ruta punteada, choca con la nave 0 y le devuelve 50 de vida", as
         window.__debug.fijarObjetos!([{ tipo: "corazon", x: 40, y: (mundo.alto * fila) / 8, vx: velocidad, vy: 0 }]);
         const nueva = window.__debug.objetos![0].rutaPrevista;
         const ultimo = nueva[nueva.length - 1];
-        if (nueva.length >= 10 && Math.hypot(ultimo.x - punto.x, ultimo.y - punto.y) <= 22) return { puntos: nueva.length };
+        if (nueva.length >= 10 && Math.hypot(ultimo.x - punto.x, ultimo.y - punto.y) <= RADIO_ENVOLVENTE_TOPE) return { puntos: nueva.length };
       }
     }
     return null;
