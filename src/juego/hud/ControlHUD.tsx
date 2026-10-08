@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { IconoArmaGracioso, IconoEquipoGracioso } from "@/juego/hud/iconos/iconosArmas";
 import { buscarEquipo, CATALOGO_EQUIPO } from "@/sim/equipo/catalogo";
@@ -162,6 +162,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pestana, setPestana] = useState<"armas" | "equipo">("armas");
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
+  const cerrarHistorico = useCallback(() => setHistoricoAbierto(false), []);
   useEffect(() => {
     window.__debug = window.__debug ?? {};
     window.__debug.historico = { abierto: historicoAbierto, mensajes: contarMensajes(obtenerBromas().historico) };
@@ -471,7 +472,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
         Histórico{bromas.historico.length > 0 ? ` (${contarMensajes(bromas.historico)})` : ""}
       </button>
 
-      {historicoAbierto && <HistoricoBromasHUD onCerrar={() => setHistoricoAbierto(false)} />}
+      {historicoAbierto && <HistoricoBromasHUD onCerrar={cerrarHistorico} />}
 
       {/* control-angulo-potencia: dos controles independientes de verdad --
           cada uno en su propio elemento, con su propio gesto de arrastre

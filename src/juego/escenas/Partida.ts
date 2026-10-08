@@ -42,6 +42,10 @@ import type { Personalidad } from "@/sim/ia/tipos";
 import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
 import { MedidorFrames } from "@/juego/rendimiento/medidorFrames";
+import { MedidorRespuesta } from "@/juego/rendimiento/medidorRespuesta";
+import { ClienteSim } from "@/juego/motor/clienteSim";
+import { crearTrabajadorSim } from "@/juego/motor/crearTrabajador";
+import { mostrarApuntandoIA, ocultarApuntandoIA } from "@/juego/hud/indicadorApuntandoIA";
 import { montarHudRendimiento } from "@/juego/rendimiento/hudRendimiento";
 import {
   fijarModo,
@@ -102,7 +106,7 @@ import { reproducirDetonaciones } from "@/juego/efectos/reproductorDetonaciones"
 import type { Detonacion } from "@/sim/partida/detonaciones";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
-import { calcularBandaPrevisualizacion, superaPresupuestoComputo } from "@/sim/armas/previsualizacion";
+import { superaPresupuestoComputo, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
 import type { DebugEfectoVisible } from "@/debug/tipos";
@@ -432,6 +436,17 @@ export class Partida extends Phaser.Scene {
   private explosionPorCapas!: ExplosionPorCapas;
   // paron-explosion: medición permanente de frames, de solo lectura.
   private readonly medidorFrames = new MedidorFrames();
+  private readonly medidorRespuesta = new MedidorRespuesta();
+  // respuesta-200ms: la simulación pesada vive fuera del hilo principal.
+  private readonly motor = new ClienteSim(crearTrabajadorSim());
+  // Hay una petición al motor cuyo resultado aún no se ha aplicado: el turno no
+  // es jugable y no se admite otro disparo hasta que vuelva.
+  private solicitudEnCurso = false;
+  private previsEnCurso = false;
+  private previsClave = "";
+  private previsEstadoPedido: EstadoPartida | null = null;
+  private previsPendiente: { peticion: Parameters<ClienteSim["previsualizar"]>[0]; estado: EstadoPartida } | null = null;
+  private previsVigente: { estado: EstadoPartida; banda: BandaPrevisualizacion; duracionMs: number } | null = null;
   // proy-4: estela de pool ACOTADO -- maxParticles en la config del emisor
   // (no un contador propio) es lo que garantiza el tope, así que
   // getAliveParticleCount() nunca puede superarlo, también con varios vuelos
@@ -766,12 +781,29 @@ export class Partida extends Phaser.Scene {
     Object.defineProperty(window.__debug, "rendimiento", {
       configurable: true,
       enumerable: true,
-      get: () => this.medidorFrames.instantanea(),
+      get: () => ({ ...this.medidorFrames.instantanea(), ...this.medidorRespuesta.instantanea() }),
     });
+    Object.defineProperty(window.__debug, "motor", {
+      configurable: true,
+      enumerable: true,
+      get: () => ({ modo: this.motor.modo, motivo: this.motor.motivoEnLinea }),
+    });
+    window.__debug.bloquearHilo = (ms: number) => this.medidorRespuesta.bloquearHilo(ms);
+    // Lo que cuesta pintar el lienzo se mide aparte: en el CI lo hace la CPU.
+    const alInicioRender = (): void => this.medidorRespuesta.marcarInicioRender();
+    const alFinRender = (): void => this.medidorRespuesta.marcarFinRender();
+    this.game.events.on(Phaser.Core.Events.PRE_RENDER, alInicioRender);
+    this.game.events.on(Phaser.Core.Events.POST_RENDER, alFinRender);
     const dejarDeObservar = this.medidorFrames.observarFramesLargos();
-    const quitarHud = new URLSearchParams(window.location.search).get("rendimiento") === "1" ? montarHudRendimiento(this.medidorFrames) : null;
+    const dejarDeMedirRespuesta = this.medidorRespuesta.observar();
+    const quitarHud = new URLSearchParams(window.location.search).get("rendimiento") === "1" ? montarHudRendimiento(this.medidorFrames, this.medidorRespuesta) : null;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       dejarDeObservar();
+      dejarDeMedirRespuesta();
+      this.game.events.off(Phaser.Core.Events.PRE_RENDER, alInicioRender);
+      this.game.events.off(Phaser.Core.Events.POST_RENDER, alFinRender);
+      this.motor.terminar();
+      ocultarApuntandoIA();
       quitarHud?.();
     });
 
@@ -986,7 +1018,6 @@ export class Partida extends Phaser.Scene {
       return;
     }
     window.__debug!.previsualizacionPropulsores = null;
-    const arma = buscarArma(armaId);
 
     // impacto-naves: mismo criterio que dispararEntrada -- el casco solo
     // existe como cuerpo de colisión en modo espacial, con naves vivas.
@@ -997,26 +1028,34 @@ export class Partida extends Phaser.Scene {
           .filter(({ nave }) => nave.integridad > 0)
           .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
       : undefined;
-    const rastreadorNaves = navesVivas ? crearRastreadorImpactoNaves(navesVivas, tirador) : undefined;
-
-    const inicioComputo = performance.now();
-    const banda = calcularBandaPrevisualizacion({
+    // respuesta-200ms: la mira se calcula en el trabajador, "la última gana".
+    // Mientras llega la nueva se sigue dibujando la anterior del MISMO estado:
+    // un parpadeo por frame sin mira sería peor que un cuadro de retraso.
+    this.pedirPrevisualizacion({
+      tipo: "previsualizar",
       mascara: estado.mascara,
       gravedad: estado.mundo.gravedad,
       deriva: estado.mundo.deriva,
       ancho: estado.mundo.ancho,
       alto: estado.mundo.alto,
       planetas: estado.planetas,
-      rastreadorNaves,
+      navesVivas,
+      tirador,
       origenX,
       origenY,
       anguloGrados,
       potencia,
-      comportamiento: arma.comportamiento,
+      armaId,
       aleatorio: estado.aleatorio,
-    });
+    }, estado);
+    const vigente = this.previsVigente;
+    if (!vigente || vigente.estado !== estado) {
+      window.__debug!.previsualizacion = null;
+      window.__debug!.bandaDispersion = null;
+      return;
+    }
+    const { banda, duracionMs: duracionComputoMs } = vigente;
     const puntos = banda.centro;
-    const duracionComputoMs = performance.now() - inicioComputo;
 
     // gravedad-visible (grav-vis-5): la promesa es que el preview no
     // miente -- si no cabe en su presupuesto de cómputo, se oculta antes
@@ -1067,6 +1106,29 @@ export class Partida extends Phaser.Scene {
       extremoMayor: banda.extremoMayor.map((p) => ({ x: p.x, y: p.y })),
       amplitudGrados: banda.amplitudGrados,
     };
+  }
+
+  // Una sola petición de mira en vuelo; si mientras tanto cambia el ajuste, se
+  // guarda solo la más reciente y se envía al volver la anterior.
+  private pedirPrevisualizacion(peticion: Parameters<ClienteSim["previsualizar"]>[0], estado: EstadoPartida): void {
+    const clave = JSON.stringify([peticion.tirador, peticion.origenX, peticion.origenY, peticion.anguloGrados, peticion.potencia, peticion.armaId]);
+    if (this.previsClave === clave && this.previsEstadoPedido === estado) return;
+    this.previsClave = clave;
+    this.previsEstadoPedido = estado;
+    this.previsPendiente = { peticion, estado };
+    this.enviarPrevisualizacion();
+  }
+
+  private enviarPrevisualizacion(): void {
+    if (this.previsEnCurso || !this.previsPendiente) return;
+    const { peticion, estado } = this.previsPendiente;
+    this.previsPendiente = null;
+    this.previsEnCurso = true;
+    void this.motor.previsualizar(peticion).then((resultado) => {
+      this.previsEnCurso = false;
+      if (resultado) this.previsVigente = { estado, banda: resultado.banda, duracionMs: resultado.duracionMs };
+      this.enviarPrevisualizacion();
+    });
   }
 
   // esc-2: con los propulsores elegidos la mira no es un disparo sino el círculo
@@ -1193,7 +1255,7 @@ export class Partida extends Phaser.Scene {
   // que cada vez que la partida termina dentro de la ráfaga se repone la
   // integridad de ambas naves (y el turno, siempre de vuelta al jugador) y
   // se continúa disparando en el mismo mundo, en vez de cortar la ráfaga.
-  private dispararRafagaTurbo(numeroDeDisparos: number): void {
+  private async dispararRafagaTurbo(numeroDeDisparos: number): Promise<void> {
     const PASO_TURBO_MS = 32;
     const objetivoTurno = this.estado.numeroTurno + numeroDeDisparos;
     let guardia = 0;
@@ -1211,6 +1273,11 @@ export class Partida extends Phaser.Scene {
           naves: this.estado.naves.map((actual) => ({ ...actual, integridad: 100 })),
         };
         this.refrescarDebugNaves();
+      } else if (this.solicitudEnCurso) {
+        // respuesta-200ms: la decisión de la IA y la resolución del disparo
+        // viven en el trabajador; se cede el hilo para que su respuesta
+        // llegue en vez de salir de la ráfaga con un solo turno jugado.
+        await new Promise<void>((resolver) => setTimeout(resolver, 0));
       } else if (this.puedeJugarAhora()) {
         const solucion = this.calcularSolucionBalistica(this.estado);
         const ajuste = solucion ?? { anguloGrados: 45, potencia: 55 };
@@ -1221,6 +1288,7 @@ export class Partida extends Phaser.Scene {
             potencia: ajuste.potencia,
             objetivoId: this.objetivoDe(this.estado.turno),
           },
+          true,
           true,
         );
       } else if (this.animador.enVuelo() || this.animadorRepeticion.enVuelo() || this.avanceTurnoPendiente) {
@@ -1250,7 +1318,8 @@ export class Partida extends Phaser.Scene {
       // "sigue siendo tu turno, sin animación", y el botón de disparar se
       // reactivaría antes de que el turno real haya pasado.
       !this.avanceTurnoPendiente &&
-      !this.relevoPendiente
+      !this.relevoPendiente &&
+      !this.solicitudEnCurso
     );
   }
 
@@ -1336,7 +1405,8 @@ export class Partida extends Phaser.Scene {
   // cálculo, no una aproximación (ver AnimadorProyectil). esJugador
   // distingue el disparo que hay que recordar como "último disparo del
   // jugador" (control-5) del disparo automático de la máquina.
-  private dispararEntrada(entrada: EntradaDeTurno, esJugador: boolean): void {
+  private dispararEntrada(entrada: EntradaDeTurno, esJugador: boolean, sincrono = false): void {
+    if (this.solicitudEnCurso) return;
     const estadoAntes = this.estado;
     if (estadoAntes.resultado.tipo === "terminada" || this.animador.enVuelo()) {
       return;
@@ -1358,204 +1428,222 @@ export class Partida extends Phaser.Scene {
     const origenX = naveTiradora.x;
     const origenY = naveTiradora.y ?? alturaSuperficie(estadoAntes.mascara, origenX) ?? estadoAntes.mundo.alto - 1;
 
-    const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = avanzar(estadoAntes, entrada);
+    const continuar = (resultadoAvance: ReturnType<typeof avanzar>): void => {
+      const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = resultadoAvance;
 
-    const eventoImpacto = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto");
+      const eventoImpacto = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto");
 
-    // ia-5: se mide AQUÍ (jugarTurno/avanzar ya ha resuelto el disparo real
-    // de la máquina), no dentro de crearFuenteIA -- esa fuente no puede ver
-    // el resultado de su propio tiro (ver fuente.ts). Se guarda para el
-    // siguiente turno de la máquina, cuando el objetivo sigue siendo el
-    // jugador (el único emparejamiento posible en esta partida real).
-    if (!esJugador) {
-      // multi-setup-partida: el objetivo REAL de la IA (el que eligió
-      // elegirObjetivo en fuente.ts), no el rival más cercano en 2D de los
-      // humanos -- los dos criterios pueden discrepar con 3+ naves.
-      const objetivoId = entrada.objetivoId;
-      const memoria = this.memoriaDe(tirador);
-      const naveObjetivoAntes = estadoAntes.naves[objetivoId];
-      const objetivoX = naveObjetivoAntes.x;
-      const objetivoY = naveObjetivoAntes.y ?? alturaSuperficie(estadoAntes.mascara, objetivoX) ?? estadoAntes.mundo.alto - 1;
-      const puntoDeCaida = eventoImpacto ?? { x: origenX, y: origenY };
-      // impacto-naves/ia-multipozo: distancia 2D euclídea al objetivo
-      // (imp-3), nunca solo en X -- en modo espacial (naves a distinta
-      // altura) la distancia en X por sí sola subestima un disparo que pasó
-      // muy por encima o por debajo.
-      const distancia = Math.hypot(puntoDeCaida.x - objetivoX, puntoDeCaida.y - objetivoY);
-      if (distancia > UMBRAL_FALLO_PX) memoria.fallosConsecutivos += 1;
+      // ia-5: se mide AQUÍ (jugarTurno/avanzar ya ha resuelto el disparo real
+      // de la máquina), no dentro de crearFuenteIA -- esa fuente no puede ver
+      // el resultado de su propio tiro (ver fuente.ts). Se guarda para el
+      // siguiente turno de la máquina, cuando el objetivo sigue siendo el
+      // jugador (el único emparejamiento posible en esta partida real).
+      if (!esJugador) {
+        // multi-setup-partida: el objetivo REAL de la IA (el que eligió
+        // elegirObjetivo en fuente.ts), no el rival más cercano en 2D de los
+        // humanos -- los dos criterios pueden discrepar con 3+ naves.
+        const objetivoId = entrada.objetivoId;
+        const memoria = this.memoriaDe(tirador);
+        const naveObjetivoAntes = estadoAntes.naves[objetivoId];
+        const objetivoX = naveObjetivoAntes.x;
+        const objetivoY = naveObjetivoAntes.y ?? alturaSuperficie(estadoAntes.mascara, objetivoX) ?? estadoAntes.mundo.alto - 1;
+        const puntoDeCaida = eventoImpacto ?? { x: origenX, y: origenY };
+        // impacto-naves/ia-multipozo: distancia 2D euclídea al objetivo
+        // (imp-3), nunca solo en X -- en modo espacial (naves a distinta
+        // altura) la distancia en X por sí sola subestima un disparo que pasó
+        // muy por encima o por debajo.
+        const distancia = Math.hypot(puntoDeCaida.x - objetivoX, puntoDeCaida.y - objetivoY);
+        if (distancia > UMBRAL_FALLO_PX) memoria.fallosConsecutivos += 1;
 
-      // ia-n8: cuenta SOLO el daño real que este disparo causó al jugador
-      // (nunca autodaño ni el daño propio de Despedida) -- decidirTurnoIA
-      // fuerza un arma con daño > 0 tras dos turnos seguidos en 0, y esto se
-      // mide sobre el daño REAL de avanzar(), nunca sobre lo que predijo la
-      // búsqueda antes de que el error de personalidad se inyectara.
-      const danioCausado = eventos
-        .filter(
-          (evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> =>
-            evento.tipo === "impacto" && evento.objetivo === objetivoId,
-        )
-        .reduce((total, evento) => total + evento.danio, 0);
-      memoria.turnosSeguidosSinDanio = danioCausado > 0 ? 0 : memoria.turnosSeguidosSinDanio + 1;
+        // ia-n8: cuenta SOLO el daño real que este disparo causó al jugador
+        // (nunca autodaño ni el daño propio de Despedida) -- decidirTurnoIA
+        // fuerza un arma con daño > 0 tras dos turnos seguidos en 0, y esto se
+        // mide sobre el daño REAL de avanzar(), nunca sobre lo que predijo la
+        // búsqueda antes de que el error de personalidad se inyectara.
+        const danioCausado = eventos
+          .filter(
+            (evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> =>
+              evento.tipo === "impacto" && evento.objetivo === objetivoId,
+          )
+          .reduce((total, evento) => total + evento.danio, 0);
+        memoria.turnosSeguidosSinDanio = danioCausado > 0 ? 0 : memoria.turnosSeguidosSinDanio + 1;
 
-      // ia-n7: nunca baja, igual que fallosConsecutivos -- ver el comentario
-      // del campo en la clase.
-      if (danioCausado < UMBRAL_DANIO_SUFICIENTE_POR_TURNO) {
-        memoria.turnosSeguidosDanioInsuficiente += 1;
+        // ia-n7: nunca baja, igual que fallosConsecutivos -- ver el comentario
+        // del campo en la clase.
+        if (danioCausado < UMBRAL_DANIO_SUFICIENTE_POR_TURNO) {
+          memoria.turnosSeguidosDanioInsuficiente += 1;
+        }
+
+        memoria.ultimoIntento = {
+          distanciaAlObjetivoPx: distancia,
+          fallosConsecutivos: memoria.fallosConsecutivos,
+          turnosSeguidosSinDanio: memoria.turnosSeguidosSinDanio,
+          turnosSeguidosDanioInsuficiente: memoria.turnosSeguidosDanioInsuficiente,
+        };
       }
 
-      memoria.ultimoIntento = {
-        distanciaAlObjetivoPx: distancia,
-        fallosConsecutivos: memoria.fallosConsecutivos,
-        turnosSeguidosSinDanio: memoria.turnosSeguidosSinDanio,
-        turnosSeguidosDanioInsuficiente: memoria.turnosSeguidosDanioInsuficiente,
+      window.__debug!.ultimoDisparo = {
+        anguloGrados: entrada.anguloGrados,
+        potencia: entrada.potencia,
+        impacto: eventoImpacto ? { x: eventoImpacto.x, y: eventoImpacto.y } : { x: origenX, y: origenY },
       };
-    }
+      if (esJugador) {
+        publicarDisparoJugadorResuelto({ anguloGrados: entrada.anguloGrados, potencia: entrada.potencia, armaId: entrada.arma });
+      }
+      publicarJugable(false);
 
-    window.__debug!.ultimoDisparo = {
-      anguloGrados: entrada.anguloGrados,
-      potencia: entrada.potencia,
-      impacto: eventoImpacto ? { x: eventoImpacto.x, y: eventoImpacto.y } : { x: origenX, y: origenY },
-    };
-    if (esJugador) {
-      publicarDisparoJugadorResuelto({ anguloGrados: entrada.anguloGrados, potencia: entrada.potencia, armaId: entrada.arma });
-    }
-    publicarJugable(false);
+      const rad = (entrada.anguloGrados * Math.PI) / 180;
+      const v = velocidadDesdePotencia(entrada.potencia);
+      const inicial: EstadoProyectil = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
+      const detenerse = detenerseEnSuelo(estadoAntes.mascara, estadoAntes.mundo.ancho, estadoAntes.mundo.alto);
+      this.origenUltimoDisparo = { x: inicial.x, y: inicial.y };
 
-    const rad = (entrada.anguloGrados * Math.PI) / 180;
-    const v = velocidadDesdePotencia(entrada.potencia);
-    const inicial: EstadoProyectil = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
-    const detenerse = detenerseEnSuelo(estadoAntes.mascara, estadoAntes.mundo.ancho, estadoAntes.mundo.alto);
-    this.origenUltimoDisparo = { x: inicial.x, y: inicial.y };
-
-    // impacto-naves: mismo criterio que avanzar.ts para decidir si hay
-    // cuerpo de colisión de casco -- modo espacial (las dos naves con `y`) y
-    // solo naves vivas. Sin este rastreador, la vista no sabía que un casco
-    // podía terminar el vuelo antes que el suelo o el presupuesto (ver
-    // AnimadorProyectil.ts).
-    const naveObjetivoAntes = estadoAntes.naves[this.objetivoDe(tirador)];
-    const modoEspacial = naveTiradora.y !== undefined && naveObjetivoAntes.y !== undefined;
-    const navesVivas = modoEspacial
-      ? estadoAntes.naves
-          .map((nave, id) => ({ id: id as IdNave, nave }))
-          .filter(({ nave }) => nave.integridad > 0)
-          .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
-      : undefined;
-    const rastreadorNaves = navesVivas ? crearRastreadorImpactoNaves(navesVivas, tirador) : undefined;
-
-    // humor-6: se guarda de CUALQUIER disparo (jugador o IA) el mismo objeto
-    // `inicial` que se le pasa al animador real -- integrarPasoProyectil
-    // devuelve estados nuevos en cada paso (nunca muta el que recibe), así
-    // que esta referencia sigue intacta cuando se pida la repetición.
-    const armaDisparada = buscarArma(entrada.arma);
-    // arma-mosca (mos-3): mismo aleatorio hilvanado que resolverDisparo usó
-    // como semilla de la perturbación -- válido porque la mosca declara
-    // fiabilidad 1 y ninguna dispersionGrados (ningún eje anterior a la
-    // resolución de vuelo consume tirada), así que estadoAntes.aleatorio es
-    // EXACTAMENTE lo que vio simularVuelo. Un arma futura "erratico" que sí
-    // declare esos ejes necesitaría hilvanar aquí lo mismo que resolver.ts.
-    const perturbacion = insumoPerturbacionErratica(armaDisparada.comportamiento, estadoAntes.aleatorio);
-    // arma-granada-espoleta (gra-1, gra-4): mismos pasos que ya usó
-    // resolverDisparo (resolver.ts) para resolver este mismo disparo --
-    // pasosDeMecha() es la única conversión segundos->pasos, consumida aquí
-    // y en el núcleo, nunca reimplementada aparte en el cliente.
-    const pasosHastaDetonarMecha =
-      armaDisparada.comportamiento.tipo === "mecha"
-        ? this.fusibleMechaForzadoPasos ?? pasosDeMecha(armaDisparada.comportamiento.segundosHastaDetonar)
+      // impacto-naves: mismo criterio que avanzar.ts para decidir si hay
+      // cuerpo de colisión de casco -- modo espacial (las dos naves con `y`) y
+      // solo naves vivas. Sin este rastreador, la vista no sabía que un casco
+      // podía terminar el vuelo antes que el suelo o el presupuesto (ver
+      // AnimadorProyectil.ts).
+      const naveObjetivoAntes = estadoAntes.naves[this.objetivoDe(tirador)];
+      const modoEspacial = naveTiradora.y !== undefined && naveObjetivoAntes.y !== undefined;
+      const navesVivas = modoEspacial
+        ? estadoAntes.naves
+            .map((nave, id) => ({ id: id as IdNave, nave }))
+            .filter(({ nave }) => nave.integridad > 0)
+            .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
         : undefined;
-    this.fusibleMechaForzadoPasos = null;
-    // arma-mina-adherente (min-1, min-4): mismo cálculo que el núcleo
-    // (resolverDisparo, vía resolver.ts) para la mecha DE LA ADHERENCIA --
-    // esComportamientoAdherente() es la misma condición de datos que ya
-    // consumía el núcleo, nunca una comparación de arma.id aparte.
-    const pasosHastaDetonarTrasAdherencia =
-      esComportamientoAdherente(armaDisparada.comportamiento) && armaDisparada.comportamiento.tipo === "adherente-con-mecha"
-        ? this.fusibleAdherenciaForzadoPasos ?? pasosDeMecha(armaDisparada.comportamiento.segundosHastaDetonar)
-        : undefined;
-    this.fusibleAdherenciaForzadoPasos = null;
-    // mos-3: insumos completos del vuelo -- el e2e reconstruye la trayectoria
-    // RESUELTA llamando a simularVuelo en Node con estos mismos valores, sin
-    // depender de que el núcleo la exponga en ningún estado serializable.
-    window.__debug!.ultimoDisparo = {
-      ...window.__debug!.ultimoDisparo!,
-      armaId: entrada.arma,
-      inicial,
-      gravedad: estadoAntes.mundo.gravedad,
-      deriva: estadoAntes.mundo.deriva,
-      aleatorioAntes: estadoAntes.aleatorio,
-      planetas: estadoAntes.planetas,
-    };
+      const rastreadorNaves = navesVivas ? crearRastreadorImpactoNaves(navesVivas, tirador) : undefined;
 
-    this.ultimoVueloParaRepetir = {
-      inicial,
-      gravedad: estadoAntes.mundo.gravedad,
-      deriva: estadoAntes.mundo.deriva,
-      detenerse,
-      planetas: estadoAntes.planetas,
-      navesParaRastreador: navesVivas,
-      tiradorId: tirador,
-      arma: armaDisparada,
-      perturbacion,
-      pasosHastaDetonarMecha,
-      pasosHastaDetonarTrasAdherencia,
-    };
+      // humor-6: se guarda de CUALQUIER disparo (jugador o IA) el mismo objeto
+      // `inicial` que se le pasa al animador real -- integrarPasoProyectil
+      // devuelve estados nuevos en cada paso (nunca muta el que recibe), así
+      // que esta referencia sigue intacta cuando se pida la repetición.
+      const armaDisparada = buscarArma(entrada.arma);
+      // arma-mosca (mos-3): mismo aleatorio hilvanado que resolverDisparo usó
+      // como semilla de la perturbación -- válido porque la mosca declara
+      // fiabilidad 1 y ninguna dispersionGrados (ningún eje anterior a la
+      // resolución de vuelo consume tirada), así que estadoAntes.aleatorio es
+      // EXACTAMENTE lo que vio simularVuelo. Un arma futura "erratico" que sí
+      // declare esos ejes necesitaría hilvanar aquí lo mismo que resolver.ts.
+      const perturbacion = insumoPerturbacionErratica(armaDisparada.comportamiento, estadoAntes.aleatorio);
+      // arma-granada-espoleta (gra-1, gra-4): mismos pasos que ya usó
+      // resolverDisparo (resolver.ts) para resolver este mismo disparo --
+      // pasosDeMecha() es la única conversión segundos->pasos, consumida aquí
+      // y en el núcleo, nunca reimplementada aparte en el cliente.
+      const pasosHastaDetonarMecha =
+        armaDisparada.comportamiento.tipo === "mecha"
+          ? this.fusibleMechaForzadoPasos ?? pasosDeMecha(armaDisparada.comportamiento.segundosHastaDetonar)
+          : undefined;
+      this.fusibleMechaForzadoPasos = null;
+      // arma-mina-adherente (min-1, min-4): mismo cálculo que el núcleo
+      // (resolverDisparo, vía resolver.ts) para la mecha DE LA ADHERENCIA --
+      // esComportamientoAdherente() es la misma condición de datos que ya
+      // consumía el núcleo, nunca una comparación de arma.id aparte.
+      const pasosHastaDetonarTrasAdherencia =
+        esComportamientoAdherente(armaDisparada.comportamiento) && armaDisparada.comportamiento.tipo === "adherente-con-mecha"
+          ? this.fusibleAdherenciaForzadoPasos ?? pasosDeMecha(armaDisparada.comportamiento.segundosHastaDetonar)
+          : undefined;
+      this.fusibleAdherenciaForzadoPasos = null;
+      // mos-3: insumos completos del vuelo -- el e2e reconstruye la trayectoria
+      // RESUELTA llamando a simularVuelo en Node con estos mismos valores, sin
+      // depender de que el núcleo la exponga en ningún estado serializable.
+      window.__debug!.ultimoDisparo = {
+        ...window.__debug!.ultimoDisparo!,
+        armaId: entrada.arma,
+        inicial,
+        gravedad: estadoAntes.mundo.gravedad,
+        deriva: estadoAntes.mundo.deriva,
+        aleatorioAntes: estadoAntes.aleatorio,
+        planetas: estadoAntes.planetas,
+      };
 
-    this.animador.fijarEncuadre({ ancho: estadoAntes.mundo.ancho, alto: estadoAntes.mundo.alto });
-    this.animador.iniciar(
-      inicial,
-      estadoAntes.mundo.gravedad,
-      estadoAntes.mundo.deriva,
-      detenerse,
-      (final) => {
-      // humor-6: el punto donde la animación se detiene DE VERDAD puede no
-      // coincidir píxel a píxel con eventoImpacto (la máscara que ve el
-      // cliente ya lleva el cráter de este disparo tallado antes de que la
-      // animación arranque) -- se guarda aparte para que la repetición se
-      // compare contra lo que de verdad se vio, no contra el valor teórico.
-      window.__debug!.ultimoDisparo = { ...window.__debug!.ultimoDisparo!, impactoReal: { x: final.x, y: final.y } };
-      // arma-mosca (mos-3): la trayectoria animada de ESTE vuelo, expuesta
-      // tras terminar -- el e2e la compara paso a paso contra
-      // ResultadoVuelo.trayectoria del mismo disparo, resuelto de nuevo en
-      // Node con el mismo aleatorio/magnitud (ver comentario de perturbacion
-      // más arriba).
-      window.__debug!.trayectoriaAnimadaUltimoVuelo = this.animador.obtenerTrayectoria();
-      // arma-granada-espoleta (gra-2, gra-3): la cuenta atrás termina junto
-      // con el vuelo -- limpiarla aquí (y no solo esperar al siguiente
-      // disparo) evita que el "0" se quede pegado en pantalla durante el
-      // resto del turno mientras se resuelve el impacto.
-      limpiarCuentaAtras();
-      window.__debug!.cuentaAtrasMecha = null;
-      // arma-mina-adherente (min-2, min-3): mismo motivo que la granada --
-      // el contador de mundo no debe quedarse pegado en pantalla mientras
-      // se resuelve el impacto y responde la máquina.
-      window.__debug!.cuentaAtrasAdherencia = null;
-      this.contadorAdherencia.actualizar(null, null);
-      // realce-impacto (rlc-1): alAvanzarTurno encadena la respuesta de la
-      // IA DESPUÉS de que el turno haya avanzado de verdad (inmediato, o
-      // retrasado hasta que la sacudida vuelva a reposo) -- mismo motivo que
-      // ya explicaba este comentario antes de este bloque: evita que
-      // jugarTurnosGuionizados/forzarFinDePartida, que también llaman a
-      // aplicarResultadoTurno pero con su propio guion de fuentes y SIN
-      // estas opciones, disparen un turno extra no contado por su bucle.
-      this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma, {
-        detonaciones,
-        retrasarSiHaySacudida: true,
-        alAvanzarTurno: () => {
-          if (this.esHumano(tirador)) this.ultimoHumano = tirador;
-          if (this.estado.resultado.tipo !== "terminada" && !this.esHumano(this.estado.turno)) {
-            this.dispararTurnoIA();
-          } else if (this.estado.resultado.tipo !== "terminada") {
-            this.abrirRelevoSiHaceFalta(estadoAntes, estadoDespues, entrada.arma);
-          }
+      this.ultimoVueloParaRepetir = {
+        inicial,
+        gravedad: estadoAntes.mundo.gravedad,
+        deriva: estadoAntes.mundo.deriva,
+        detenerse,
+        planetas: estadoAntes.planetas,
+        navesParaRastreador: navesVivas,
+        tiradorId: tirador,
+        arma: armaDisparada,
+        perturbacion,
+        pasosHastaDetonarMecha,
+        pasosHastaDetonarTrasAdherencia,
+      };
+
+      this.animador.fijarEncuadre({ ancho: estadoAntes.mundo.ancho, alto: estadoAntes.mundo.alto });
+      this.animador.iniciar(
+        inicial,
+        estadoAntes.mundo.gravedad,
+        estadoAntes.mundo.deriva,
+        detenerse,
+        (final) => {
+        // humor-6: el punto donde la animación se detiene DE VERDAD puede no
+        // coincidir píxel a píxel con eventoImpacto (la máscara que ve el
+        // cliente ya lleva el cráter de este disparo tallado antes de que la
+        // animación arranque) -- se guarda aparte para que la repetición se
+        // compare contra lo que de verdad se vio, no contra el valor teórico.
+        window.__debug!.ultimoDisparo = { ...window.__debug!.ultimoDisparo!, impactoReal: { x: final.x, y: final.y } };
+        // arma-mosca (mos-3): la trayectoria animada de ESTE vuelo, expuesta
+        // tras terminar -- el e2e la compara paso a paso contra
+        // ResultadoVuelo.trayectoria del mismo disparo, resuelto de nuevo en
+        // Node con el mismo aleatorio/magnitud (ver comentario de perturbacion
+        // más arriba).
+        window.__debug!.trayectoriaAnimadaUltimoVuelo = this.animador.obtenerTrayectoria();
+        // arma-granada-espoleta (gra-2, gra-3): la cuenta atrás termina junto
+        // con el vuelo -- limpiarla aquí (y no solo esperar al siguiente
+        // disparo) evita que el "0" se quede pegado en pantalla durante el
+        // resto del turno mientras se resuelve el impacto.
+        limpiarCuentaAtras();
+        window.__debug!.cuentaAtrasMecha = null;
+        // arma-mina-adherente (min-2, min-3): mismo motivo que la granada --
+        // el contador de mundo no debe quedarse pegado en pantalla mientras
+        // se resuelve el impacto y responde la máquina.
+        window.__debug!.cuentaAtrasAdherencia = null;
+        this.contadorAdherencia.actualizar(null, null);
+        // realce-impacto (rlc-1): alAvanzarTurno encadena la respuesta de la
+        // IA DESPUÉS de que el turno haya avanzado de verdad (inmediato, o
+        // retrasado hasta que la sacudida vuelva a reposo) -- mismo motivo que
+        // ya explicaba este comentario antes de este bloque: evita que
+        // jugarTurnosGuionizados/forzarFinDePartida, que también llaman a
+        // aplicarResultadoTurno pero con su propio guion de fuentes y SIN
+        // estas opciones, disparen un turno extra no contado por su bucle.
+        this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma, {
+          detonaciones,
+          retrasarSiHaySacudida: true,
+          alAvanzarTurno: () => {
+            if (this.esHumano(tirador)) this.ultimoHumano = tirador;
+            if (this.estado.resultado.tipo !== "terminada" && !this.esHumano(this.estado.turno)) {
+              this.dispararTurnoIA();
+            } else if (this.estado.resultado.tipo !== "terminada") {
+              this.abrirRelevoSiHaceFalta(estadoAntes, estadoDespues, entrada.arma);
+            }
+          },
+        });
         },
-      });
-      },
-      estadoAntes.planetas,
-      rastreadorNaves,
-      armaDisparada,
-      perturbacion,
-      pasosHastaDetonarMecha,
-      pasosHastaDetonarTrasAdherencia,
-    );
+        estadoAntes.planetas,
+        rastreadorNaves,
+        armaDisparada,
+        perturbacion,
+        pasosHastaDetonarMecha,
+        pasosHastaDetonarTrasAdherencia,
+      );
+    };
+    // respuesta-200ms: los hooks de prueba que encadenan turnos a mano piden el
+    // camino síncrono; el juego real resuelve en el trabajador.
+    if (sincrono) {
+      continuar(avanzar(estadoAntes, entrada));
+      return;
+    }
+    this.solicitudEnCurso = true;
+    publicarJugable(false);
+    void this.motor.resolverDisparo({ tipo: "resolverDisparo", estado: estadoAntes, entrada }).then((resultadoAvance) => {
+      this.solicitudEnCurso = false;
+      if (resultadoAvance === null) {
+        publicarJugable(this.puedeJugarAhora());
+        return;
+      }
+      continuar(resultadoAvance);
+    });
   }
 
   // escudo-y-propulsores: el turno entero se gasta en equipo, sin vuelo de
@@ -1591,15 +1679,32 @@ export class Partida extends Phaser.Scene {
     const tirador = this.estado.turno;
     const memoria = this.memoriaDe(tirador);
     const personalidad = this.controladores[tirador]?.personalidad ?? this.rival;
-    const { entrada, estado } = crearFuenteIA(personalidad, memoria.ultimoIntento, memoria.usosPorArma, memoria.danioRecibidoDesdeSuTurno)(this.estado);
-    this.estado = estado;
-    memoria.danioRecibidoDesdeSuTurno = false;
-    if (entrada.accion !== undefined && entrada.accion !== "disparo") {
-      this.usarEquipoEntrada(entrada, false);
-      return;
-    }
-    memoria.usosPorArma = { ...memoria.usosPorArma, [entrada.arma]: (memoria.usosPorArma[entrada.arma] ?? 0) + 1 };
-    this.dispararEntrada(entrada, false);
+    this.solicitudEnCurso = true;
+    publicarJugable(false);
+    mostrarApuntandoIA(nombreDeNave(this.controladores, tirador));
+    void this.motor
+      .decidirIA({
+        tipo: "decidirIA",
+        estado: this.estado,
+        personalidad,
+        ultimoIntento: memoria.ultimoIntento,
+        usosPorArma: memoria.usosPorArma,
+        danioRecibidoDesdeSuTurno: memoria.danioRecibidoDesdeSuTurno,
+      })
+      .then((decision) => {
+        this.solicitudEnCurso = false;
+        ocultarApuntandoIA();
+        if (decision === null) return;
+        const { entrada, estado } = decision;
+        this.estado = estado;
+        memoria.danioRecibidoDesdeSuTurno = false;
+        if (entrada.accion !== undefined && entrada.accion !== "disparo") {
+          this.usarEquipoEntrada(entrada, false);
+          return;
+        }
+        memoria.usosPorArma = { ...memoria.usosPorArma, [entrada.arma]: (memoria.usosPorArma[entrada.arma] ?? 0) + 1 };
+        this.dispararEntrada(entrada, false);
+      });
   }
 
   // relevo-turno: solo entre dos humanos distintos y solo si la partida no

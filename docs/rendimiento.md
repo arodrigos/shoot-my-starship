@@ -37,3 +37,42 @@ Lo que sí hay medido es el criterio: `tests/e2e/paron-explosion.e2e.ts` falla
 si algún frame entre el impacto y un segundo después de la explosión supera
 150 ms, o si `impacto` y `explosion` se separan más de 100 ms. Las cifras de
 cada ejecución salen en el log del CI (`[par-1] ...`).
+
+## Respuesta al toque
+
+Objetivo: todo toque (puntero, clic, tecla) pinta su resultado en ≤ 200 ms, también mientras la IA piensa y en la explosión.
+
+- La previsualización, la resolución del disparo y la decisión de la IA se calculan en un Web Worker (`src/juego/motor`). Si no hay Worker, falla o tarda más de 10 s, se calcula en línea con el mismo manejador, de modo que el resultado es idéntico.
+- Cada petición lleva `idPeticion` e `idPartida`; la última gana por tipo y las respuestas de otra partida se descartan.
+- Mientras la IA decide se muestra «<nombre> está apuntando…».
+- `__debug.rendimiento` expone ahora `interacciones` e `inp`, y el HUD de rendimiento una línea «INP».
+
+Antes: el cálculo de la banda y de la IA bloqueaba el hilo principal en cada cambio de ángulo y en cada turno. Después: el hilo principal solo pinta; en la medición con CPU ×4 en CI los fotogramas se mantienen en p95 de 17 a 52 ms.
+
+### Qué mide el CI y qué mide el dispositivo
+
+El runner de CI no tiene GPU: Chromium rasteriza el lienzo WebGL por software y
+cada fotograma cuesta 250-430 ms aunque la partida esté quieta (el perfil lo
+coloca en `(program)`, no en el JS). Eso no es coste del juego, así que el CI no
+lo juzga. Juzga `trabajoApp`:
+
+- el JS de la app en la ventana del toque (scripts de las entradas Long
+  Animation Frame), sin el paso de render de Phaser (`PRE_RENDER`-`POST_RENDER`);
+- más el estilo y la maquetación del DOM que exceden de `baseMaquetacion`, la
+  mediana de ese tramo en los fotogramas sin interacción. En el CI ese tramo
+  también recoge el pintado del lienzo; restarlo deja dentro lo que provoca la
+  app (un render de React que maqueta de más).
+
+`tests/e2e/respuesta.e2e.ts` exige `trabajoApp` ≤ 200 ms con CPU ×4, y en cada
+ejecución dos controles: `__debug.bloquearHilo(300)` tiene que dar ≥ 280 ms (la
+medida caza un bloqueo real) y un toque sin acción ≤ 100 ms (el rasterizador no
+se cuela). `duracion`, `retrasoEntrada`, `inp`, `renderLienzo` y
+`baseMaquetacion` se guardan como información en `test-results/respuesta/`.
+
+La respuesta completa, con el pintado real, se mide en el dispositivo: abre el
+juego con `?rendimiento=1`. El recuadro muestra p95, max, INP, el máximo de
+duración y de retraso de entrada de la sesión y un veredicto («Respuesta ≤ 200 ms»
+en verde o «Supera 200 ms» en rojo).
+
+No se reduce la resolución del lienzo en este bloque; queda como refinamiento si
+el recuadro en el móvil o el iPad enseña que lo lento es el render.
