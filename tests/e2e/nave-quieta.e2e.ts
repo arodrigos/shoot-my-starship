@@ -24,9 +24,10 @@ for (const angulo of [170, 135, 45]) {
 
     const eventos = (await page.evaluate(() => window.__debug.ultimosEventos)) ?? [];
     const leAlcanzo = eventos.some((e) => (e.tipo === "autoimpacto" && e.nave === 0) || (e.tipo === "impacto" && e.objetivo === 0));
-    test.skip(leAlcanzo, "el tiro volvió y alcanzó al tirador: autoimpacto legítimo");
-
     expect(eventos.some((e) => e.tipo === "roce" && e.nave === 0)).toBe(false);
+    // Un autoimpacto por gravedad es legítimo y sí mueve o daña al tirador: ahí
+    // solo se exige que no haya roce propio.
+    if (leAlcanzo) return;
     expect(eventos.some((e) => e.tipo === "desplazamiento" && e.nave === 0)).toBe(false);
     const despues = (await page.evaluate(() => window.__debug.naves))!.find((n) => n.id === 0)!;
     expect(despues.x).toBe(antes.x);
