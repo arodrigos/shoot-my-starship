@@ -49,4 +49,30 @@ Objetivo: todo toque (puntero, clic, tecla) pinta su resultado en ≤ 200 ms, ta
 
 Antes: el cálculo de la banda y de la IA bloqueaba el hilo principal en cada cambio de ángulo y en cada turno. Después: el hilo principal solo pinta; en la medición con CPU ×4 en CI los fotogramas se mantienen en p95 de 17 a 52 ms.
 
-Limitación conocida: en el runner de CI (WebGL por software y CPU ×4) el retraso de entrada de Playwright llega a 350–550 ms aunque los fotogramas van bien, por lo que `tests/e2e/respuesta.e2e.ts` res-1 puede salir rojo ahí. Se midió con el umbral de 200 ms intacto; no se relajó.
+### Qué mide el CI y qué mide el dispositivo
+
+El runner de CI no tiene GPU: Chromium rasteriza el lienzo WebGL por software y
+cada fotograma cuesta 250-430 ms aunque la partida esté quieta (el perfil lo
+coloca en `(program)`, no en el JS). Eso no es coste del juego, así que el CI no
+lo juzga. Juzga `trabajoApp`:
+
+- el JS de la app en la ventana del toque (scripts de las entradas Long
+  Animation Frame), sin el paso de render de Phaser (`PRE_RENDER`-`POST_RENDER`);
+- más el estilo y la maquetación del DOM que exceden de `baseMaquetacion`, la
+  mediana de ese tramo en los fotogramas sin interacción. En el CI ese tramo
+  también recoge el pintado del lienzo; restarlo deja dentro lo que provoca la
+  app (un render de React que maqueta de más).
+
+`tests/e2e/respuesta.e2e.ts` exige `trabajoApp` ≤ 200 ms con CPU ×4, y en cada
+ejecución dos controles: `__debug.bloquearHilo(300)` tiene que dar ≥ 280 ms (la
+medida caza un bloqueo real) y un toque sin acción ≤ 100 ms (el rasterizador no
+se cuela). `duracion`, `retrasoEntrada`, `inp`, `renderLienzo` y
+`baseMaquetacion` se guardan como información en `test-results/respuesta/`.
+
+La respuesta completa, con el pintado real, se mide en el dispositivo: abre el
+juego con `?rendimiento=1`. El recuadro muestra p95, max, INP, el máximo de
+duración y de retraso de entrada de la sesión y un veredicto («Respuesta ≤ 200 ms»
+en verde o «Supera 200 ms» en rojo).
+
+No se reduce la resolución del lienzo en este bloque; queda como refinamiento si
+el recuadro en el móvil o el iPad enseña que lo lento es el render.

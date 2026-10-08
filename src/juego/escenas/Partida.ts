@@ -788,12 +788,20 @@ export class Partida extends Phaser.Scene {
       enumerable: true,
       get: () => ({ modo: this.motor.modo, motivo: this.motor.motivoEnLinea }),
     });
+    window.__debug.bloquearHilo = (ms: number) => this.medidorRespuesta.bloquearHilo(ms);
+    // Lo que cuesta pintar el lienzo se mide aparte: en el CI lo hace la CPU.
+    const alInicioRender = (): void => this.medidorRespuesta.marcarInicioRender();
+    const alFinRender = (): void => this.medidorRespuesta.marcarFinRender();
+    this.game.events.on(Phaser.Core.Events.PRE_RENDER, alInicioRender);
+    this.game.events.on(Phaser.Core.Events.POST_RENDER, alFinRender);
     const dejarDeObservar = this.medidorFrames.observarFramesLargos();
     const dejarDeMedirRespuesta = this.medidorRespuesta.observar();
     const quitarHud = new URLSearchParams(window.location.search).get("rendimiento") === "1" ? montarHudRendimiento(this.medidorFrames, this.medidorRespuesta) : null;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       dejarDeObservar();
       dejarDeMedirRespuesta();
+      this.game.events.off(Phaser.Core.Events.PRE_RENDER, alInicioRender);
+      this.game.events.off(Phaser.Core.Events.POST_RENDER, alFinRender);
       this.motor.terminar();
       ocultarApuntandoIA();
       quitarHud?.();

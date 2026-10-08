@@ -405,6 +405,9 @@ export interface DebugGlobal {
   // paron-explosion: instantánea del medidor de frames (getter vivo).
   rendimiento?: import("@/juego/rendimiento/medidorFrames").InstantaneaRendimiento &
     import("@/juego/rendimiento/medidorRespuesta").InstantaneaRespuesta;
+  // respuesta-200ms: centinela de la medida. El siguiente toque bloquea el hilo
+  // `ms` (tope 1000) dentro de su manejador.
+  bloquearHilo?: (ms: number) => void;
   // respuesta-200ms: cómo se resuelve la simulación ("trabajador" o "en-linea").
   motor?: { modo: import("@/juego/motor/clienteSim").ModoMotor; motivo: string | null };
   // proy-4: el máximo de partículas vivas observado en cualquier fotograma
