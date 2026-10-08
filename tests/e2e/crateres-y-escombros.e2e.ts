@@ -18,8 +18,8 @@ async function entrarAPartidaEspacial(page: import("@playwright/test").Page): Pr
   // pantalla-completa: con el mundo ×1,5 la semilla 4 ya no genera cinturón;
   // la 3 sí lo conserva a 360x640 (comprobado con colocarNaves fuera de test).
   // naves-silueta: con las naves a escala 1,5 la colocación cambia y la 3 ya no
-  // genera cinturón; la 5 sí (escombro > 0 y un planeta de radio 109).
-  await page.goto("/?semilla=5");
+  // genera cinturón; la 10 sí (comprobado con colocarNaves a 360x640: 17.071 px de escombro y un planeta de radio 105).
+  await page.goto("/?semilla=10");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.modoEspacial === true);
