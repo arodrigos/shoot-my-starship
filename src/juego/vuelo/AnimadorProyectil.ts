@@ -10,11 +10,18 @@ import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { puntosSilueta } from "@/juego/proyectiles/geometriaProyectil";
 import { siguientePerturbacionErratica } from "@/sim/fisica/comportamientoExtendido";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
+import { FRACCION_CRUZ_SUBMUNICION, RADIO_SUBMUNICION } from "@/sim/armas/resolver";
 
 const PASO_FIJO_S = PASO_FIJO_MS / 1000;
 
 const COLOR_PROYECTIL = 0xffe08a;
 const COLOR_SOMBRA_PROYECTIL = 0x2a1c00;
+
+// Distancia al punto de impacto a la que el Racimo se abre en sus cinco
+// perdigones: lo bastante corta para que se lea como una escopeta y no como
+// cinco disparos distintos.
+export const DISTANCIA_APERTURA_PERDIGONES_U = 40;
+const RADIO_PERDIGON_PX = 3;
 
 // Reproduce en el cliente EXACTAMENTE el mismo paso fijo que ya resolvió el
 // disparo en el núcleo (integrarPasoProyectil, avanzarConAcumulador): no es
@@ -101,9 +108,64 @@ export class AnimadorProyectil {
   // Partida.ts) para que el e2e compare, paso a paso, contra
   // ResultadoVuelo.trayectoria del mismo disparo resuelto por el núcleo.
   private trayectoria: EstadoProyectil[] = [];
+  // racimo-perdigones: punto donde el portador detona (lo resolvió el
+  // núcleo) y nº de perdigones; null en cualquier otra arma. Los perdigones
+  // son solo dibujo: la colisión y el daño ya los decidió el núcleo.
+  private racimo: { readonly destino: { readonly x: number; readonly y: number }; readonly cantidad: number } | null = null;
+  private perdigonesVisibles = 1;
+  // Máximo de perdigones de este vuelo, medido en cada paso fijo y no por
+  // fotograma: con render por software un fotograma recorre más de 40 u y se
+  // saltaría la ventana de apertura, aunque en el vuelo sí se haya abierto.
+  private perdigonesMaximo = 1;
+  private readonly graficoPerdigones: Phaser.GameObjects.Graphics;
 
   constructor(escena: Phaser.Scene) {
     this.punto = escena.add.graphics().setVisible(false).setDepth(50);
+    this.graficoPerdigones = escena.add.graphics().setVisible(false).setDepth(50);
+  }
+
+  // Debe llamarse antes de iniciar(); iniciar() no lo borra para que la
+  // repetición (que reutiliza el vuelo) también se vea abrirse.
+  fijarRacimo(racimo: { readonly destino: { readonly x: number; readonly y: number }; readonly cantidad: number } | null): void {
+    this.racimo = racimo;
+  }
+
+  // 1 mientras el portador vuela entero; la cantidad del Racimo cuando quedan
+  // <= DISTANCIA_APERTURA_PERDIGONES_U al impacto.
+  obtenerPerdigones(): number {
+    return this.proyectil ? this.perdigonesVisibles : 0;
+  }
+
+  obtenerPerdigonesMaximo(): number {
+    return this.perdigonesMaximo;
+  }
+
+  private actualizarPerdigones(): void {
+    const p = this.proyectil;
+    if (!this.racimo || !p) {
+      this.perdigonesVisibles = 1;
+      this.graficoPerdigones.setVisible(false);
+      return;
+    }
+    const restante = Math.hypot(p.x - this.racimo.destino.x, p.y - this.racimo.destino.y);
+    if (restante > DISTANCIA_APERTURA_PERDIGONES_U) {
+      this.perdigonesVisibles = 1;
+      this.graficoPerdigones.setVisible(false);
+      return;
+    }
+    this.perdigonesVisibles = this.racimo.cantidad;
+    // La cruz se abre de 0 a su alcance final a medida que se acerca: la misma
+    // forma (centro más cruz con el rumbo) que detonará en el núcleo.
+    const apertura = (1 - restante / DISTANCIA_APERTURA_PERDIGONES_U) * RADIO_SUBMUNICION * FRACCION_CRUZ_SUBMUNICION;
+    const rumbo = Math.atan2(p.vy, p.vx);
+    const brazos = Math.max(1, this.racimo.cantidad - 1);
+    this.punto.setVisible(false);
+    this.graficoPerdigones.clear().setVisible(true).fillStyle(COLOR_PROYECTIL, 1);
+    for (let i = 0; i < this.racimo.cantidad; i++) {
+      const angulo = rumbo + ((i - 1) * 2 * Math.PI) / brazos;
+      const d = i === 0 ? 0 : apertura;
+      this.graficoPerdigones.fillCircle(p.x + Math.cos(angulo) * d, p.y + Math.sin(angulo) * d, RADIO_PERDIGON_PX);
+    }
   }
 
   obtenerTrayectoria(): readonly EstadoProyectil[] {
@@ -225,6 +287,9 @@ export class AnimadorProyectil {
     this.acumulador = acumuladorInicial();
     this.anguloActualRad = Math.atan2(inicial.vy, inicial.vx);
     this.dibujarSilueta(arma);
+    this.perdigonesVisibles = 1;
+    this.perdigonesMaximo = 1;
+    this.graficoPerdigones.setVisible(false);
     this.punto.setPosition(inicial.x, inicial.y).setRotation(this.anguloActualRad).setVisible(true);
   }
 
@@ -336,6 +401,12 @@ export class AnimadorProyectil {
       }
       const siguiente = integrarPasoProyectil(p, gravedadPaso, derivaPaso, PASO_FIJO_S);
       this.trayectoria.push(siguiente);
+      if (
+        this.racimo &&
+        Math.hypot(siguiente.x - this.racimo.destino.x, siguiente.y - this.racimo.destino.y) <= DISTANCIA_APERTURA_PERDIGONES_U
+      ) {
+        this.perdigonesMaximo = this.racimo.cantidad;
+      }
       if (planetas) this.pasos++;
       // Misma regla que simularVuelo: un vuelo que sale del encuadre se pierde
       // sin detonar, así que la animación termina en el mismo punto.
@@ -389,6 +460,7 @@ export class AnimadorProyectil {
     this.acumulador = resultado.acumulador;
     this.anguloActualRad = Math.atan2(this.proyectil.vy, this.proyectil.vx);
     this.punto.setPosition(this.proyectil.x, this.proyectil.y).setRotation(this.anguloActualRad);
+    this.actualizarPerdigones();
 
     // arma-mina-adherente (min-1, min-2): mientras se está contando la
     // adherencia, el catch-all final de abajo (this.detenerse(this.proyectil))
@@ -405,6 +477,8 @@ export class AnimadorProyectil {
       this.detenerse = null;
       this.alTerminar = null;
       this.punto.setVisible(false);
+      this.graficoPerdigones.setVisible(false);
+      this.perdigonesVisibles = 1;
       callback?.(final);
     }
   }

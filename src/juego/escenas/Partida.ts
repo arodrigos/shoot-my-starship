@@ -1252,6 +1252,7 @@ export class Partida extends Phaser.Scene {
       window.__debug!.proyectilEnVuelo = null;
     }
     const vivas = this.emisorEstela.getAliveParticleCount();
+    window.__debug!.proyectil = { perdigones: this.animador.obtenerPerdigones(), perdigonesMaximo: this.animador.obtenerPerdigonesMaximo() };
     window.__debug!.estela = { vivas, tope: TOPE_PARTICULAS_ESTELA };
     window.__debug!.estelaMaxVivas = Math.max(window.__debug!.estelaMaxVivas ?? 0, vivas);
   }
@@ -1592,6 +1593,11 @@ export class Partida extends Phaser.Scene {
       };
 
       this.animador.fijarEncuadre({ ancho: estadoAntes.mundo.ancho, alto: estadoAntes.mundo.alto });
+      this.animador.fijarRacimo(
+        armaDisparada.comportamiento.tipo === "submuniciones" && eventoImpacto
+          ? { destino: { x: eventoImpacto.x, y: eventoImpacto.y }, cantidad: armaDisparada.comportamiento.cantidad }
+          : null,
+      );
       this.animador.iniciar(
         inicial,
         estadoAntes.mundo.gravedad,
