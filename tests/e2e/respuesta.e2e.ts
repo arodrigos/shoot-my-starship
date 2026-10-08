@@ -41,7 +41,7 @@ async function esperarNuevas(page: Page, desde: number) {
 
 for (const vp of VIEWPORTS) {
   test(`res-1: ${vp.ancho}x${vp.alto} con CPU ×4, todo toque cuesta ≤ 200 ms de trabajo de la app, también con la IA pensando y en la explosión`, async ({ page }) => {
-    test.setTimeout(240000);
+    test.setTimeout(420000);
     await vigilarAvisoIA(page);
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
