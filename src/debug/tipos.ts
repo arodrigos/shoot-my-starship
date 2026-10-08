@@ -407,6 +407,8 @@ export interface DebugGlobal {
   // el test comprueba el límite leyendo un contador, no contando objetos de
   // escena ni leyendo píxeles.
   estela?: { vivas: number; tope: number };
+  // paron-explosion: instantánea del medidor de frames (getter vivo).
+  rendimiento?: import("@/juego/rendimiento/medidorFrames").InstantaneaRendimiento;
   // proy-4: el máximo de partículas vivas observado en cualquier fotograma
   // desde que arrancó la escena -- una ráfaga de disparos sucede en un único
   // page.evaluate síncrono (ver dispararRafagaTurbo), así que el test no

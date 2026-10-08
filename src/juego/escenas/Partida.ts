@@ -40,6 +40,8 @@ import { LA_CONTABLE, ALMIRANTE_BISAGRA, buscarPersonalidad } from "@/sim/ia/per
 import type { Personalidad } from "@/sim/ia/tipos";
 import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
+import { MedidorFrames } from "@/juego/rendimiento/medidorFrames";
+import { montarHudRendimiento } from "@/juego/rendimiento/hudRendimiento";
 import {
   fijarModo,
   fijarModoEspacial,
@@ -424,6 +426,8 @@ export class Partida extends Phaser.Scene {
   // coordinado, así que no tiene sentido repetir aquí su construcción campo
   // a campo.
   private explosionPorCapas!: ExplosionPorCapas;
+  // paron-explosion: medición permanente de frames, de solo lectura.
+  private readonly medidorFrames = new MedidorFrames();
   // proy-4: estela de pool ACOTADO -- maxParticles en la config del emisor
   // (no un contador propio) es lo que garantiza el tope, así que
   // getAliveParticleCount() nunca puede superarlo, también con varios vuelos
@@ -764,6 +768,20 @@ export class Partida extends Phaser.Scene {
 
     this.explosionPorCapas = new ExplosionPorCapas(this);
 
+    // paron-explosion: __debug.rendimiento es una instantánea viva (getter)
+    // y el HUD solo aparece con ?rendimiento=1.
+    Object.defineProperty(window.__debug, "rendimiento", {
+      configurable: true,
+      enumerable: true,
+      get: () => this.medidorFrames.instantanea(),
+    });
+    const dejarDeObservar = this.medidorFrames.observarFramesLargos();
+    const quitarHud = new URLSearchParams(window.location.search).get("rendimiento") === "1" ? montarHudRendimiento(this.medidorFrames) : null;
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      dejarDeObservar();
+      quitarHud?.();
+    });
+
     // proy-4: partícula quieta que solo se desvanece (speed 0) -- es un
     // punto de estela, no una chispa de explosión, así que no debe salir
     // disparada del punto donde se emite.
@@ -918,6 +936,7 @@ export class Partida extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    this.medidorFrames.registrarFrame(delta);
     this.animador.actualizar(delta);
     this.animadorRepeticion.actualizar(delta);
     window.__debug!.animacionEnCurso = this.animador.enVuelo();
@@ -962,6 +981,9 @@ export class Partida extends Phaser.Scene {
     window.__debug!.nucleoRealzado = jugable ? objetivoApuntado : null;
 
     this.actualizarPrevisualizacion(jugable);
+    // paron-explosion: la subida del terreno a la GPU, una vez por frame y
+    // después de lanzar las explosiones del frame (el destello va primero).
+    this.terreno.vaciarCola();
   }
 
   // prevision-real (pvr-1, pvr-2, pvr-3): recalcula y redibuja la mira cada
@@ -1699,6 +1721,8 @@ export class Partida extends Phaser.Scene {
     let esperaSacudidaMs = 0;
     const movimientoReducido = prefiereMovimientoReducido();
     window.__debug!.detonaciones = detonaciones;
+    if (detonaciones.length > 0) this.medidorFrames.marcar("impacto");
+    if (eventos.some((evento) => evento.tipo === "proyectil-perdido")) this.medidorFrames.marcar("salida");
     const explosiones = detonaciones.map((detonacion) => {
       const datos = this.explosionPorCapas.reproducir(detonacion, 1 / this.scale.displayScale.x, movimientoReducido);
       window.__debug!.ultimaExplosionPorCapas = datos;
@@ -1712,6 +1736,7 @@ export class Partida extends Phaser.Scene {
         sobre: datos.sobre,
       };
     });
+    if (detonaciones.length > 0) this.medidorFrames.marcar("explosion");
     const haz = this.dibujarHazLaser(detonaciones);
     window.__debug!.efectosVisibles = haz ? [haz, ...explosiones] : explosiones;
     for (const evento of eventos) {
