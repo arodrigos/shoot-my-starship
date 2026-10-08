@@ -7,6 +7,7 @@ import { generarLoteDeSistemas, MUNDO_MULTIPOZO } from "../../utils/loteMultipoz
 import { muestra } from "../../utils/muestra";
 
 const NUM_SISTEMAS = muestra(200);
+const PRESUPUESTO_SIN_TECHO = 100_000;
 
 // ia-n10: cierra explícitamente el fallo que costó la iteración 1 de este
 // run -- dos definiciones de "hay tiro" conviviendo, cada una pasando sus
@@ -36,7 +37,11 @@ test(`ia-n10: colocación y rival nunca discrepan sobre si hay tiro, en ${NUM_SI
     };
 
     const viable = existeTiroViable(parametrosComunes);
-    const resultado = buscarSolucionRival(parametrosComunes);
+    // Sin techo de vuelos: el único tiro viable de un sistema puede caer en
+    // la fila de potencia 85 %, fuera del presupuesto de un turno normal
+    // (192). Ese techo lo vigila ia-n3; aquí se comprueba que los dos
+    // oráculos comparten criterio, no cuánto cómputo se le da al rival.
+    const resultado = buscarSolucionRival({ ...parametrosComunes, presupuestoVuelosMax: PRESUPUESTO_SIN_TECHO });
     const rivalEncuentraDanio = resultado.danioObjetivo > 0;
 
     if (viable !== rivalEncuentraDanio) discrepancias.push(semilla);
