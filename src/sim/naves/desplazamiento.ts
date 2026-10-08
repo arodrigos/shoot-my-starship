@@ -13,6 +13,10 @@ export const PASO_EMPUJE_U = 4;
 // Separación entre los destinos que se prueban contra «Repetir no acierta»
 // cuando el destino natural lo falla.
 export const TRAMO_PROLONGACION_U = 8;
+// Un desvío lateral pegado al impacto acierta a veces con otra dispersión de potencia; el margen lo evita.
+const DESVIO_LATERAL_MINIMO_U = 40;
+const BASES_LATERALES_CADA_PASOS = 8;
+const MAX_COMPROBACIONES_LATERALES = 160;
 // Cada comprobación de descartar simula un disparo entero; el tope mantiene
 // acotado el coste de cerrar el turno aunque el Worker lo haga fuera del hilo.
 export const MAX_COMPROBACIONES_DESCARTAR = 64;
@@ -22,9 +26,11 @@ export const MAX_COMPROBACIONES_DESCARTAR = 64;
 export const K_CURVA_EMPUJE = 0.00002;
 
 // «ninguna» = el destino natural (o uno de su prolongación) cumple el
-// descartar; «mas-lejano» = ninguno lo cumplía y se usa el más lejano del
-// recorrido; «se-queda» = ni siquiera hay un primer paso válido.
-export type ReservaDesplazamiento = "ninguna" | "mas-lejano" | "se-queda";
+// descartar; «lateral» = ningún punto del recorrido lo cumplía (el mismo tiro
+// sigue pasando por la trayectoria) y la nave se aparta de ella; «mas-lejano» =
+// tampoco había salida lateral y se usa el más lejano del recorrido;
+// «se-queda» = ni siquiera hay un primer paso válido.
+export type ReservaDesplazamiento = "ninguna" | "lateral" | "mas-lejano" | "se-queda";
 export type MotivoParadaEmpuje = "longitud" | "planeta" | "nave" | "esquina";
 
 export interface ResultadoDesplazamiento {
@@ -185,7 +191,8 @@ export function recolocarTrasImpacto(parametros: ParametrosRecolocacion): Result
   const motivoDe = (puntos: readonly PuntoNave[]): MotivoParadaEmpuje => (puntos.length === camino.puntos.length ? (camino.parada ?? "longitud") : "longitud");
 
   const natural = recortarHasta(camino, longitud);
-  if (natural.puntos.length === 1) {
+  // Sin primer paso válido la nave se queda, salvo que «Repetir» exija apartarla.
+  if (natural.puntos.length === 1 && descartar === undefined) {
     return { x: desde.x, y: desde.y, reserva: "se-queda", puntos: natural.puntos, motivoParada: camino.parada ?? "longitud" };
   }
   const destino = natural.puntos[natural.puntos.length - 1];
@@ -198,12 +205,39 @@ export function recolocarTrasImpacto(parametros: ParametrosRecolocacion): Result
   const alcance = camino.distancias[camino.distancias.length - 1];
   let comprobaciones = 1;
   let masLejos = natural;
-  for (let distancia = natural.recorrido + TRAMO_PROLONGACION_U; distancia <= alcance + 1e-9 && comprobaciones < MAX_COMPROBACIONES_DESCARTAR; distancia += TRAMO_PROLONGACION_U) {
+  // El último candidato es siempre el alcance entero, aunque no caiga en la rejilla de tramos.
+  for (let candidata = natural.recorrido + TRAMO_PROLONGACION_U; natural.recorrido < alcance - 1e-9 && masLejos.recorrido < alcance - 1e-9 && comprobaciones < MAX_COMPROBACIONES_DESCARTAR; candidata += TRAMO_PROLONGACION_U) {
+    const distancia = Math.min(candidata, alcance);
     const tramo = recortarHasta(camino, distancia);
     const punto = tramo.puntos[tramo.puntos.length - 1];
     masLejos = tramo;
     comprobaciones++;
     if (!descartar(punto)) return { x: punto.x, y: punto.y, reserva: "ninguna", puntos: tramo.puntos, motivoParada: motivoDe(tramo.puntos) };
+  }
+  // «Repetir no acierta» manda sobre la dirección exacta: una nave empujada
+  // por la línea del tiro sigue en la línea del tiro, así que como último
+  // recurso se aparta de ella, a un lado y a otro del destino natural.
+  const largoDireccion = Math.hypot(parametros.direccion.x, parametros.direccion.y);
+  const normal = largoDireccion > 0 ? { x: -parametros.direccion.y / largoDireccion, y: parametros.direccion.x / largoDireccion } : { x: 1, y: 0 };
+  // Bases: el destino natural y puntos anteriores del recorrido, por si a su
+  // lado no hay sitio válido. Un candidato exige margen a ambos lados porque
+  // el disparo repetido tiene otra dispersión de potencia.
+  const bases: PuntoNave[] = [];
+  for (let i = natural.puntos.length - 1; i >= 0; i -= BASES_LATERALES_CADA_PASOS) bases.push(natural.puntos[i]);
+  const libre = (punto: PuntoNave): boolean => !descartar(punto);
+  for (let desvio = DESVIO_LATERAL_MINIMO_U; desvio <= octavo && comprobaciones < MAX_COMPROBACIONES_LATERALES; desvio += TRAMO_PROLONGACION_U) {
+    for (const base of bases) {
+      for (const lado of [1, -1]) {
+        if (comprobaciones >= MAX_COMPROBACIONES_LATERALES) break;
+        const punto = { x: base.x + lado * desvio * normal.x, y: base.y + lado * desvio * normal.y };
+        if (!esPosicionValida(punto, mundo, parametros.mascara, parametros.otras)) continue;
+        comprobaciones++;
+        const vecino = { x: punto.x + lado * TRAMO_PROLONGACION_U * normal.x, y: punto.y + lado * TRAMO_PROLONGACION_U * normal.y };
+        if (libre(punto) && (!esPosicionValida(vecino, mundo, parametros.mascara, parametros.otras) || libre(vecino))) {
+          return { x: punto.x, y: punto.y, reserva: "lateral", puntos: [...natural.puntos, punto], motivoParada: "longitud" };
+        }
+      }
+    }
   }
   const final = masLejos.puntos[masLejos.puntos.length - 1];
   return { x: final.x, y: final.y, reserva: "mas-lejano", puntos: masLejos.puntos, motivoParada: motivoDe(masLejos.puntos) };

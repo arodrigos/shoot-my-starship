@@ -58,6 +58,9 @@ test("emp-1: tras un impacto real, el primer tramo del recorrido sigue la veloci
     const turno = avanzar(inicial, entrada);
     const evento = turno.eventos.find((e) => e.tipo === "desplazamiento" && e.nave === 1);
     if (evento?.tipo !== "desplazamiento" || evento.puntos.length < 2) continue;
+    // Sin primer paso válido por la línea del tiro (planeta pegado), la única
+    // salida es el desvío lateral y su primer tramo no sigue la velocidad.
+    if (evento.reserva === "lateral" && evento.puntos.length === 2) continue;
 
     const vuelo = resolverDisparo({
       mascara: inicial.mascara,
