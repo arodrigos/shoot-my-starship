@@ -40,11 +40,10 @@ const BARRA_ESTILO: React.CSSProperties = {
 // en 360x640 (338 de 344px, lay-5) -- resaltar la nave de quien juega y
 // sustituir la etiqueta genérica por estado.nombreRival cuesta cero alto y
 // cero ancho nuevos, a diferencia de una fila de turnos aparte.
-// vida-color: el relleno de la barra y el nombre llevan el color del asiento
-// (el mismo que la nave dibujada y el histórico), así se asocia cada barra
-// con su nave sin leer el nombre. La sombra oscura mantiene el contraste del
-// texto sobre cualquier fondo de la fila.
-const SOMBRA_ETIQUETA = "0 1px 2px #000, 0 0 3px #000";
+// vida-color: el relleno de la barra lleva el color del asiento (el mismo
+// que la nave dibujada y el histórico). El nombre NO: los colores de asiento
+// no alcanzan 4,5:1 sobre el fondo claro del esquema claro (axe lo marcó) y
+// axe no cuenta la sombra del texto.
 const BORDE_BARRA = "1px solid #0b0f1a";
 const DURACION_BAJADA_MS = 300;
 
@@ -109,7 +108,7 @@ export function IntegridadHUD() {
           >
             <div
               data-testid={`integridad-etiqueta-${nave.id}`}
-              style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: colorDeAsiento(nave.id), fontWeight: 600, textShadow: SOMBRA_ETIQUETA }}
+              style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}
             >
               {/* Con varios jugadores el estado va DELANTE del nombre: con cuatro
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
