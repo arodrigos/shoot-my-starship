@@ -3,7 +3,7 @@ import { CATALOGO_EVENTOS } from "@/sim/universo/catalogoEventos";
 
 async function empezar(page: Page, extra = ""): Promise<void> {
   await page.setViewportSize({ width: 1180, height: 820 });
-  await page.goto(`/?eventos=1&muerte=0&modo=barra-libre&${extra}`);
+  await page.goto(`/?mapa=calma-de-los-restos&eventos=1&muerte=0&modo=barra-libre&${extra}`);
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(
@@ -117,7 +117,9 @@ test("evv-1: con Sacudida apagada el terremoto no mueve la cámara pero enseña 
 
 // evv-2: las vitaminas del asiento 0 se ven mientras dura el efecto y se van el
 // turno en que turnosRestantes llega a 0. Basta disparar con el ajuste por
-// defecto: el turno se gasta acierte o no.
+// defecto: el turno se gasta acierte o no. Con el mapa sembrado la partida es la
+// misma en cada ejecución; sin él, en el CI una IA podía tumbar al asiento 0 y
+// puedeDisparar no volvía nunca.
 test("evv-2: vitaminas se ven en los turnos siguientes y desaparecen al expirar", async ({ page }) => {
   test.setTimeout(240000);
   await empezar(page);
