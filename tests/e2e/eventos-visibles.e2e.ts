@@ -3,7 +3,7 @@ import { CATALOGO_EVENTOS } from "@/sim/universo/catalogoEventos";
 
 async function empezar(page: Page, extra = ""): Promise<void> {
   await page.setViewportSize({ width: 1180, height: 820 });
-  await page.goto(`/?mapa=calma-de-los-restos&eventos=1&muerte=0&modo=barra-libre&${extra}`);
+  await page.goto(`/?eventos=1&muerte=0&modo=barra-libre&${extra}`);
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(
@@ -122,7 +122,7 @@ test("evv-1: con Sacudida apagada el terremoto no mueve la cámara pero enseña 
 // puedeDisparar no volvía nunca.
 test("evv-2: vitaminas se ven en los turnos siguientes y desaparecen al expirar", async ({ page }) => {
   test.setTimeout(240000);
-  await empezar(page);
+  await empezar(page, "mapa=calma-de-los-restos");
   await page.evaluate(() => window.__debug.forzarEvento!("vitaminas", 0));
   const visible = () => page.evaluate(() => (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === "evento-vitaminas").length);
   const restantes = () => page.evaluate(() => window.__debug.efectos?.find((e) => e.tipo === "vitaminas")?.turnosRestantes ?? 0);
