@@ -1,46 +1,34 @@
 import Phaser from "phaser";
-import { ALTO_CASCO, ANCHO_CASCO, LARGO_CANON } from "@/sim/naves/geometriaCasco";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
-import { OPACIDAD_NUCLEO, TECHO_OPACIDAD_FUERA_NUCLEO } from "@/juego/naves/opacidadCasco";
+import { ALTO_CASCO, ANCHO_CASCO, LARGO_CANON, RADIO_ENVOLVENTE_NAVE_PX, SEMIALTO_MAXIMO_NAVE_PX } from "@/sim/naves/geometriaCasco";
+import { ALTURA_CANON_PX } from "@/sim/armas/resolver";
 import { anclaTobera, hashPuntos, nivelDanio, puntosCascoConDanio, type NivelDanio } from "@/juego/naves/formaCasco";
 import { DURACION_DESTELLO_DANIO_MS } from "@/juego/efectos/realceImpacto";
-import { puntosSenaNave } from "@/juego/naves/senaNave";
 import type { VarianteNave } from "@/sim/naves/geometriaCasco";
 import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
 import type { IdNave } from "@/sim/partida/tipos";
 
 const COLOR_CASCO_SOMBRA = 0x1c1e24;
-const COLOR_PATAS = 0x3a3d46;
 const COLOR_CANON = 0xd9dbe0;
 const COLOR_CABINA = 0xd6f4ff;
 const COLOR_TOBERA_SANA = 0xffb347;
 const COLOR_TOBERA_CRITICA = 0x8a4a2c;
 const COLOR_CICATRIZ = 0x0c0d10;
-// arte-siluetas-4: blanco sobre el fuselaje coloreado -- el contraste de
-// luminosidad (no de tono) es lo que hace que la seña siga leyéndose en
-// escala de grises, donde dos colores saturados distintos pueden caer en
-// el mismo gris.
-const COLOR_SENA = 0xffffff;
 // arte-siluetas-3: amarillo de aviso, igual en las cuatro naves -- el
 // indicador dice "a quién le toca", no "de quién es", así que no compite
 // con el color propio de cada nave ni con la seña de forma.
 const COLOR_INDICADOR_ACTIVA = 0xffd23f;
 // realce-impacto (rlc-2): rojo, sobre TODA la silueta -- claramente distinto
-// del destello blanco de contacto honesto (solo el núcleo, intensidad fija)
-// y del chispazo naranja del roce (partículas en el punto de contacto, no
-// sobre la nave), para que la diferencia entre "tocó y dolió" y cualquier
-// otro contacto se perciba sin leer ningún texto.
+// del destello blanco de contacto honesto (intensidad fija), para que la
+// diferencia entre "tocó y dolió" y cualquier otro contacto se perciba sin
+// leer ningún texto.
 const COLOR_DESTELLO_DANIO = 0xff3b30;
 
 // nve-1: opacidad de la tobera por tramo de daño -- la llama se apaga
-// visiblemente a medida que la nave pierde integridad, sin superar nunca el
-// techo de opacidad de fuera del núcleo (esc-5): es luz de motor, no
-// blindaje, pero se respeta el mismo límite para no abrir una segunda
-// forma de "parecer más sólida de lo que es".
+// visiblemente a medida que la nave pierde integridad.
 const OPACIDAD_TOBERA: Readonly<Record<NivelDanio, number>> = {
-  alta: TECHO_OPACIDAD_FUERA_NUCLEO,
-  media: TECHO_OPACIDAD_FUERA_NUCLEO * 0.6,
-  baja: TECHO_OPACIDAD_FUERA_NUCLEO * 0.25,
+  alta: 1,
+  media: 0.6,
+  baja: 0.25,
 };
 
 // Nave varada vectorial (silueta, patas y cañón torcido): nada de sprites
@@ -48,9 +36,8 @@ const OPACIDAD_TOBERA: Readonly<Record<NivelDanio, number>> = {
 // encargar arte. El "torcido" es la forma del cañón (dos tramos con un
 // quiebro), no su puntería -- eso lo decide anguloGrados.
 const COLOR_ESCUDO = 0x7fd7ff;
-// Por encima del casco dibujado (≈ 66 u de diámetro mayor) para que el anillo
-// no tape la silueta.
-const RADIO_ESCUDO_U = 50;
+// Por encima de la silueta más grande para que el anillo no la tape.
+const RADIO_ESCUDO_U = RADIO_ENVOLVENTE_NAVE_PX + 6;
 
 export class Nave {
   private readonly contenedor: Phaser.GameObjects.Container;
@@ -62,11 +49,6 @@ export class Nave {
   private readonly direccion: 1 | -1;
   private readonly variante: VarianteNave;
   private activa = false;
-  // con-4: si el núcleo real (RADIO_CASCO_NAVE_PX) lleva su anillo de
-  // realce encima -- lo activa ControlHUD mientras el jugador apunta a
-  // esta nave, para que la mentira visual de escala-legible no esconda
-  // dónde colisiona de verdad justo cuando más importa saberlo.
-  private nucleoRealzado = false;
   // nve-1: tramo de daño actual y hash de la silueta que le corresponde --
   // se recalculan solo cuando actualizarIntegridad cruza de tramo, nunca en
   // cada fotograma, porque dibujarCasco no es gratis.
@@ -92,20 +74,8 @@ export class Nave {
     this.colorCasco = COLORES_NAVE[idNave];
     this.direccion = mirarHaciaMasX ? 1 : -1;
     // La variante (forma) coincide con el asiento: de 0 a 3, las cuatro que
-    // ya existen en senaNave.ts. El núcleo acota a 4 naves.
+    // ya existen en geometriaCasco.ts. El núcleo acota a 4 naves.
     this.variante = idNave as VarianteNave;
-
-    // Patas: dos apoyos asimétricos, como si la nave hubiese aterrizado mal
-    // -- "varada", no aparcada. Nacen en el borde inferior real del casco
-    // (0.32 * ALTO_CASCO, ver geometriaCasco.puntosCasco), no en el origen
-    // del contenedor -- desde impacto-naves el origen es el CENTRO del
-    // casco, no sus patas.
-    const yBordeInferiorCasco = 0.32 * ALTO_CASCO;
-    const patas = escena.add.graphics();
-    patas.lineStyle(4, COLOR_PATAS, 1);
-    patas.lineBetween(-ANCHO_CASCO * 0.3, yBordeInferiorCasco, -ANCHO_CASCO * 0.4, yBordeInferiorCasco + 10);
-    patas.lineBetween(ANCHO_CASCO * 0.25, yBordeInferiorCasco, ANCHO_CASCO * 0.15, yBordeInferiorCasco + 12);
-    this.contenedor.add(patas);
 
     // Casco: silueta poligonal simple (fuselaje + aleta), con una sombra
     // desplazada para que se lea como volumen sin usar ninguna textura.
@@ -124,7 +94,7 @@ export class Nave {
     // muestra u oculta, así que no compite con el presupuesto de render.
     this.indicadorActiva = escena.add.graphics();
     this.indicadorActiva.fillStyle(COLOR_INDICADOR_ACTIVA, 1);
-    const yIndicador = -ALTO_CASCO * 0.72;
+    const yIndicador = -SEMIALTO_MAXIMO_NAVE_PX - 4;
     this.indicadorActiva.fillTriangle(
       -ANCHO_CASCO * 0.1,
       yIndicador - ALTO_CASCO * 0.18,
@@ -166,107 +136,52 @@ export class Nave {
     return this.escudoTurnos;
   }
 
-  // esc-5: el dibujo miente (opción B) y esto lo hace honesto en la
-  // jerarquía visual -- la silueta grande se pinta por debajo del techo de
-  // opacidad declarado (TECHO_OPACIDAD_FUERA_NUCLEO) para que no se lea
-  // como blindaje, y el núcleo de casco (el círculo de RADIO_CASCO_NAVE_PX
-  // que de verdad colisiona) se pinta siempre opaco, encima de todo.
-  //
-  // nve-1: la silueta fuera del núcleo ahora depende de nivelDanioActual --
-  // puntosCascoConDanio inserta abolladuras deterministas por tramo, así
-  // que "alta"/"media"/"baja" no son solo tres alfas distintas, son tres
-  // polígonos distintos (comprobable por hash, ver hashSiluetaActual).
+  // naves-silueta: lo que se dibuja es exactamente la zona de impacto, así
+  // que el polígono se pinta opaco y sin nada que sobresalga de él (ni patas,
+  // ni círculo núcleo, ni seña). El tramo de daño inserta abolladuras
+  // deterministas (puntosCascoConDanio): tres polígonos distintos, no tres
+  // alfas, comprobables por hash.
   private dibujarCasco(): void {
     this.casco.clear();
     const puntosDanio = puntosCascoConDanio(this.direccion, this.nivelDanioActual, this.variante);
     this.hashSiluetaActual = hashPuntos(puntosDanio);
     const puntos = puntosDanio.map((p) => new Phaser.Math.Vector2(p.x, p.y));
 
-    // Tobera: se dibuja ANTES que el fuselaje para que el fuselaje la tape
-    // parcialmente, como un motor semi-embutido en la chapa, no una llama
-    // suelta detrás de la nave.
+    this.casco.fillStyle(this.colorCasco, 1);
+    this.casco.fillPoints(puntos, true);
+    // Contorno hacia dentro: el borde dibujado no se sale del polígono, así
+    // que no ensancha la zona que el jugador ve como "mía".
+    this.casco.lineStyle(2, COLOR_CASCO_SOMBRA, 1);
+    this.casco.strokePoints(puntos, true, true);
+
     const tobera = anclaTobera(this.direccion);
     const colorTobera = this.nivelDanioActual === "baja" ? COLOR_TOBERA_CRITICA : COLOR_TOBERA_SANA;
     this.casco.fillStyle(colorTobera, OPACIDAD_TOBERA[this.nivelDanioActual]);
-    this.casco.fillEllipse(tobera.x, tobera.y, ANCHO_CASCO * 0.16, ALTO_CASCO * 0.22);
+    this.casco.fillEllipse(tobera.x, tobera.y, ANCHO_CASCO * 0.08, ALTO_CASCO * 0.06);
 
-    this.casco.fillStyle(COLOR_CASCO_SOMBRA, TECHO_OPACIDAD_FUERA_NUCLEO);
-    this.casco.fillPoints(
-      puntos.map((p) => new Phaser.Math.Vector2(p.x + 2, p.y + 2)),
-      true,
-    );
-    this.casco.fillStyle(this.colorCasco, TECHO_OPACIDAD_FUERA_NUCLEO);
-    this.casco.fillPoints(puntos, true);
+    this.casco.fillStyle(COLOR_CABINA, 1);
+    this.casco.fillEllipse(0.1 * ANCHO_CASCO * this.direccion, 0, ANCHO_CASCO * 0.14, Math.min(ALTO_CASCO * 0.07, 6));
 
-    // Cabina: un cristal distinguible por color (nunca por más opacidad que
-    // el resto del fuselaje, para no prometer blindaje donde no lo hay).
-    this.casco.fillStyle(COLOR_CABINA, TECHO_OPACIDAD_FUERA_NUCLEO);
-    this.casco.fillEllipse(0.05 * ANCHO_CASCO * this.direccion, -0.18 * ALTO_CASCO, ANCHO_CASCO * 0.14, ALTO_CASCO * 0.14);
-
-    // Cicatriz de la abolladura de cola: solo en el tramo crítico, marca
-    // oscura sobre el punto de la segunda abolladura -- "deterioro visible"
+    // Cicatriz de la segunda abolladura: marca oscura en el tramo crítico,
     // además del cambio de silueta, no en su lugar.
     if (this.nivelDanioActual === "baja") {
       const puntoCicatriz = puntosDanio[puntosDanio.length - 2];
-      this.casco.fillStyle(COLOR_CICATRIZ, TECHO_OPACIDAD_FUERA_NUCLEO * 0.8);
-      this.casco.fillCircle(puntoCicatriz.x, puntoCicatriz.y, ANCHO_CASCO * 0.06);
+      this.casco.fillStyle(COLOR_CICATRIZ, 0.8);
+      this.casco.fillCircle(puntoCicatriz.x, puntoCicatriz.y, 2);
     }
-
-    // arte-siluetas-3/4: insignia de FORMA (no solo color) sobre el lomo
-    // del fuselaje -- es lo que distingue a las naves cuando el color no
-    // sirve (escala de grises, daltonismo).
-    const sena = puntosSenaNave(this.variante, this.direccion, ANCHO_CASCO, ALTO_CASCO).map(
-      (p) => new Phaser.Math.Vector2(p.x, p.y),
-    );
-    this.casco.fillStyle(COLOR_SENA, TECHO_OPACIDAD_FUERA_NUCLEO);
-    this.casco.fillPoints(sena, true);
-
-    this.casco.fillStyle(this.colorCasco, OPACIDAD_NUCLEO);
-    this.casco.fillCircle(0, 0, RADIO_CASCO_NAVE_PX);
-    if (this.nucleoRealzado) {
-      this.casco.lineStyle(3, 0xffffff, 0.9);
-      this.casco.strokeCircle(0, 0, RADIO_CASCO_NAVE_PX + 3);
-    }
-  }
-
-  // con-4: activa/desactiva el anillo de realce sobre el núcleo real --
-  // idempotente y sin efecto visible si ya estaba en ese estado, para que
-  // ControlHUD pueda llamarlo en cada fotograma de apuntado sin coste.
-  realzarNucleo(activo: boolean): void {
-    if (this.nucleoRealzado === activo) return;
-    this.nucleoRealzado = activo;
-    this.dibujarCasco();
-  }
-
-  // con-2: el destello del impacto real -- un círculo blanco superpuesto al
-  // núcleo (no un efecto de partículas: registroEfectos.ts es para
-  // partículas, esto es geometría, así que no compite por su techo) que se
-  // desvanece en un tween corto. Objeto transitorio propio, no toca
-  // this.casco, para no interferir con actualizarIntegridad (que sí anima
-  // su alfa).
-  destellarNucleo(): void {
-    const destello = this.escena.add.graphics();
-    destello.fillStyle(0xffffff, 0.85);
-    destello.fillCircle(0, 0, RADIO_CASCO_NAVE_PX);
-    this.contenedor.add(destello);
-    this.escena.tweens.add({
-      targets: destello,
-      alpha: 0,
-      duration: 180,
-      onComplete: () => destello.destroy(),
-    });
   }
 
   // realce-impacto (rlc-1, rlc-2): destello de daño proporcional, sobre toda
-  // la silueta dibujada (no solo el núcleo, a diferencia de destellarNucleo)
-  // -- geometría transitoria propia, igual que destellarNucleo, así que
-  // tampoco compite por el techo de partículas de registroEfectos.ts.
+  // la silueta dibujada -- geometría transitoria propia, así que no compite por el techo de partículas de registroEfectos.ts.
   // intensidad ya viene acotada por intensidadDestelloDanio: aquí solo se
   // consume.
   destellarDanio(intensidad: number): void {
     const destello = this.escena.add.graphics();
     destello.fillStyle(COLOR_DESTELLO_DANIO, intensidad);
-    destello.fillCircle(0, 0, Math.max(ANCHO_CASCO, ALTO_CASCO) * 0.6);
+    destello.fillPoints(
+      puntosCascoConDanio(this.direccion, this.nivelDanioActual, this.variante).map((p) => new Phaser.Math.Vector2(p.x, p.y)),
+      true,
+    );
     this.contenedor.add(destello);
     this.escena.tweens.add({
       targets: destello,
@@ -290,7 +205,7 @@ export class Nave {
     // mitad al doblarse ALTO_CASCO): mismo punto de montaje absoluto del
     // cañón respecto al casco, ahora que el origen del contenedor es su
     // centro y no su base.
-    const origenY = -ALTO_CASCO * 0.3;
+    const origenY = -ALTURA_CANON_PX;
     const quiebroX = origenX + dx * LARGO_CANON * 0.55;
     const quiebroY = origenY + dy * LARGO_CANON * 0.55;
     // El quiebro se desplaza perpendicular al eje del cañón, siempre el
@@ -319,7 +234,7 @@ export class Nave {
   // animación arranque exactamente donde arranca la física real.
   obtenerPosicionCanon(): { x: number; y: number } {
     const rad = (this.anguloActualGrados * Math.PI) / 180;
-    const origenY = -ALTO_CASCO * 0.3;
+    const origenY = -ALTURA_CANON_PX;
     return {
       x: this.contenedor.x + Math.cos(rad) * LARGO_CANON,
       y: this.contenedor.y + origenY - Math.sin(rad) * LARGO_CANON,

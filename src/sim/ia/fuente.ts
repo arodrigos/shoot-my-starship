@@ -37,7 +37,7 @@ function elegirObjetivo(tirador: IdNave, estado: EstadoPartida): EleccionObjetiv
   const navesVivas: readonly NavePosicion[] = estado.naves
     .map((nave, id) => ({ id: id as IdNave, nave }))
     .filter(({ nave }) => nave.integridad > 0)
-    .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }));
+    .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }));
   const porRival = Math.floor(PRESUPUESTO_ELECCION_OBJETIVO / rivales.length);
   const valores = rivales.map((id) => ({
     id,
@@ -108,7 +108,7 @@ export function crearFuenteIA(
       ? estado.naves
           .map((nave, id) => ({ id: id as IdNave, nave }))
           .filter(({ nave }) => nave.integridad > 0)
-          .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }))
+          .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
       : undefined;
 
     // economia-rectificada: con saldo, la IA decide su compra antes de apuntar

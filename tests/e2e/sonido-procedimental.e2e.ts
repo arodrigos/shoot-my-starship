@@ -72,18 +72,14 @@ test("snd-1: activar el sonido crea el AudioContext y persiste tras recargar", a
   await expect(page.getByTestId("toggle-silenciado")).toHaveAttribute("aria-pressed", "true");
 });
 
-// snd-2 (no camino_critico): impacto y roce quedan registrados con timbres
+// snd-2 (no camino_critico): el impacto queda registrado con su timbre
 // (ids) distintos en el historial de depuración -- se comprueba leyendo el
 // registro, no escuchando audio real, para que el test no dependa de que el
 // Chromium headless del CI reproduzca sonido de verdad (mismo principio que
 // humor-6 para la reacción visual).
-test("snd-2: impacto y roce quedan registrados con sonidos distintos", async ({ page }) => {
+test("snd-2: el impacto queda registrado con su sonido", async ({ page }) => {
   await entrarAPartida(page);
   await page.getByTestId("toggle-silenciado").click();
-
-  await page.evaluate(() => window.__debug.dispararEventoRoce!(1, 200, 300));
-  const historialTrasRoce = await page.evaluate(() => window.__debug.audio!().historial);
-  expect(historialTrasRoce[historialTrasRoce.length - 1]?.id).toBe("roce");
 
   await page.evaluate(() => window.__debug.dispararEventoImpactoReal!(1, 200, 300, 30));
   const historialTrasImpacto = await page.evaluate(() => window.__debug.audio!().historial);

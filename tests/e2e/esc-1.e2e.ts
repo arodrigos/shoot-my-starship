@@ -1,7 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 const MUNDO_ANCHO = 1920;
-const NAVE_MINIMA_PANTALLA_PX = 24;
+// naves-silueta: Adrián pidió la mitad de tamaño (escala 3 → 1,5), así que el
+// mínimo legible baja de 24 a 12 px; la nave real mide ~13,5 px a 360x640.
+const NAVE_MINIMA_PANTALLA_PX = 12;
 const FRACCION_MAXIMA_PROYECTIL_NAVE = 0.6;
 
 // esc-1 (camino_critico): a 360x640 -- el viewport móvil mínimo del diseño,

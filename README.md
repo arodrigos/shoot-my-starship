@@ -94,18 +94,18 @@ de trayectoria empezaría a mentir en cuanto el terreno deja de ser simétrico.
 
 ### Qué cuenta como impacto
 
-Cada nave tiene un casco con tamaño: un radio de colisión fijo de 22px
-(`RADIO_CASCO_NAVE_PX`, `src/sim/naves/impacto.ts`), no un punto. El daño de
-una explosión cae con la distancia 2D real entre el punto donde estalla el
-proyectil y el casco de la nave, hasta el radio de daño de esa arma
-concreta -- por eso un tiro que roza el borde del radio de daño hace poco
-daño, y uno que revienta pegado al casco hace el máximo declarado del arma.
-El casco se dibuja a escala 3, mucho más grande que ese círculo de colisión:
-lo que se ve como impacto cuenta, así que una explosión cuya área alcanza la
-silueta dibujada (`distanciaDeDanio`, `src/sim/naves/contacto.ts`) hace al
-menos el 20 % del daño máximo del arma, aunque estalle lejos del centro.
-Entender esto es la clave para leer por qué un disparo "que parecía bueno"
-no hizo apenas nada: probablemente pasó cerca, no dentro.
+La zona de impacto de cada nave es exactamente su silueta dibujada: un
+polígono de 10 a 16 vértices por asiento (`src/sim/naves/geometriaCasco.ts`),
+sin ningún círculo de colisión aparte. Un proyectil impacta en el primer punto
+en que su trayectoria corta ese contorno (aunque avance 60 u en un solo paso);
+si pasa fuera, aunque sea a una unidad, sigue de largo. El daño de una
+explosión cae con la distancia 2D real entre el punto donde estalla y el borde
+de la silueta (`distanciaACasco`, `src/sim/naves/contacto.ts`), hasta el radio
+de daño de esa arma: dentro de la silueta es el máximo declarado, y un tiro
+que roza el borde del radio hace poco daño. Con el deterioro, la silueta se
+abolla y la zona de impacto se abolla con ella. Entender esto es la clave para
+leer por qué un disparo "que parecía bueno" no hizo apenas nada: probablemente
+pasó cerca, no dentro.
 
 ### Qué juzgar al jugar
 

@@ -15,7 +15,7 @@ export const SEPARACION_MINIMA_NAVES_PX = 350;
 // marco o bajo el pulgar. El margen de 44 u lo confirmó Adrián y se mide hasta
 // el CASCO, no hasta el centro: el centro va a 44 + 22 (radio de colisión).
 export const MARGEN_BORDE_U = 44;
-const RADIO_CASCO_COLOCACION_U = 22;
+export const RADIO_CASCO_COLOCACION_U = 22;
 export const MARGEN_MUNDO_NAVE_PX = MARGEN_BORDE_U + RADIO_CASCO_COLOCACION_U;
 
 // pantalla-completa (pan-4): la barra mínima de la consola tapa la parte baja

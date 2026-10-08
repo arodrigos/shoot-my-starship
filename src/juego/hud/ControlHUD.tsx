@@ -40,7 +40,6 @@ import { FantasmasHUD } from "@/juego/hud/FantasmasHUD";
 import { ObjetosHUD } from "@/juego/hud/ObjetosHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
 import { CartelEventoHUD, MuerteSubitaHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
-import { RoceHUD } from "@/juego/hud/RoceHUD";
 import { contarMensajes } from "@/juego/control/broma";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import "@/debug/tipos";
@@ -754,7 +753,6 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           pointerEvents: "none",
         }}
       >
-        <RoceHUD />
         <FantasmasHUD />
         <RobotsHUD />
         <ObjetosHUD />

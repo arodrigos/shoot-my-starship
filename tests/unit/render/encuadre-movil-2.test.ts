@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { configurarTamanoMundo, MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { calcularTamanoContenedorJuego } from "@/juego/layoutContenedor";
 import { DIMENSION_MINIMA_PX } from "@/juego/proyectiles/geometriaProyectil";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { RADIO_ENVOLVENTE_NAVE_PX } from "@/sim/naves/geometriaCasco";
 
 // Mundo histórico (dev, antes de este bloque): Phaser.Scale.FIT elige el
 // menor de los dos cocientes contenedor/mundo para no desbordar ningún eje
@@ -17,7 +17,9 @@ function escalaFit(anchoContenedor: number, altoContenedor: number, anchoMundo: 
 
 const VIEWPORT_360x640 = { width: 360, height: 640 };
 const UMBRAL_ESCALA = 1.6;
-const UMBRAL_PROYECTIL_PX = 12;
+// naves-silueta: las naves miden la mitad y el proyectil se deriva de su lado
+// mayor (esc-1, camino crítico), así que el suelo baja de 12 a 8 px de pantalla.
+const UMBRAL_PROYECTIL_PX = 8;
 
 test("encuadre-movil-2: a 360x640 la nave se ve al menos 1.6x más grande que en dev", () => {
   const contenedor = calcularTamanoContenedorJuego(VIEWPORT_360x640.width, VIEWPORT_360x640.height);
@@ -41,8 +43,8 @@ test("encuadre-movil-2: a 360x640 la nave se ve al menos 1.6x más grande que en
     `escala nueva ${escalaNueva} no llega a ${UMBRAL_ESCALA}x la escala de dev ${escalaDev}`,
   );
 
-  const naveEnPantallaPx = escalaNueva * RADIO_CASCO_NAVE_PX;
-  const naveEnPantallaPxDev = escalaDev * RADIO_CASCO_NAVE_PX;
+  const naveEnPantallaPx = escalaNueva * RADIO_ENVOLVENTE_NAVE_PX;
+  const naveEnPantallaPxDev = escalaDev * RADIO_ENVOLVENTE_NAVE_PX;
   assert.ok(
     naveEnPantallaPx >= UMBRAL_ESCALA * naveEnPantallaPxDev,
     `nave en pantalla ${naveEnPantallaPx}px no llega a ${UMBRAL_ESCALA}x los ${naveEnPantallaPxDev}px de dev`,

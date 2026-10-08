@@ -39,14 +39,6 @@ export const REGISTRO_EFECTOS = {
     techoObjetosVivos: 40,
     reutilizaPool: true,
   },
-  "roce-chispazo": {
-    id: "roce-chispazo",
-    descripcion:
-      "contacto-honesto (con-3): el roce no detona (no hay huella ni cráter) -- una chispa breve y mínima, distinta de las dos explosiones, para que no se lea como un impacto que no ha ocurrido.",
-    techoParticulas: 4,
-    techoObjetosVivos: 4,
-    reutilizaPool: false,
-  },
   // explosiones-por-capas (exl-1..exl-5): destello y onda son `graphics`
   // (Arc), no emisores de partículas -- su techoParticulas es 0 a propósito,
   // pero se dan de alta igual que las demás porque pre-1 exige que TODO

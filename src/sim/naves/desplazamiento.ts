@@ -1,5 +1,5 @@
 import { siguienteAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { RADIO_ENVOLVENTE_NAVE_PX } from "@/sim/naves/geometriaCasco";
 import { esPosicionValida, type PuntoNave } from "@/sim/naves/zonaValida";
 import type { ParametrosMundo } from "@/sim/partida/tipos";
 import type { Mascara } from "@/sim/terreno/mascara";
@@ -33,7 +33,7 @@ export function octavoDelMundo(mundo: ParametrosMundo): number {
 // d_min deja la nave fuera del área del arma que acaba de golpearla; si el
 // área es mayor que el octavo, el máximo posible es el propio octavo.
 export function distanciaMinimaDesplazamiento(mundo: ParametrosMundo, radioEfectoU: number): number {
-  return Math.min(octavoDelMundo(mundo), RADIO_CASCO_NAVE_PX + radioEfectoU + RESPIRO_FUERA_DEL_AREA_U);
+  return Math.min(octavoDelMundo(mundo), RADIO_ENVOLVENTE_NAVE_PX + radioEfectoU + RESPIRO_FUERA_DEL_AREA_U);
 }
 
 export interface ParametrosDesplazamiento {

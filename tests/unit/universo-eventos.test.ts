@@ -13,7 +13,7 @@ import { PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { avanzar } from "@/sim/partida/avanzar";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { octavoDelMundo } from "@/sim/naves/desplazamiento";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { RADIO_ENVOLVENTE_NAVE_PX } from "@/sim/naves/geometriaCasco";
 import { esPosicionValida } from "@/sim/naves/zonaValida";
 import type { EstadoPartida, ParametrosMundo } from "@/sim/partida/tipos";
 import { eventosDisponibles } from "@/sim/universo/catalogoEventos";
@@ -187,7 +187,7 @@ test("evt-3: la reparación devuelve ~50 % de los píxeles destruidos sin pisar 
     if (material === roto.mascara.datos[indice]) return;
     const x = indice % ancho;
     const y = Math.floor(indice / ancho);
-    estado.naves.forEach((nave) => assert.ok(Math.hypot(nave.x - x, (nave.y as number) - y) > RADIO_CASCO_NAVE_PX, "píxel restaurado bajo un casco"));
+    estado.naves.forEach((nave) => assert.ok(Math.hypot(nave.x - x, (nave.y as number) - y) > RADIO_ENVOLVENTE_NAVE_PX, "píxel restaurado bajo un casco"));
   });
 });
 

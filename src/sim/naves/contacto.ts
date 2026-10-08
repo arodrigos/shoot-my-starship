@@ -1,7 +1,19 @@
-import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { IdNave } from "@/sim/partida/tipos";
-import { puntosCascoVariante, type PuntoCasco, type VarianteNave } from "@/sim/naves/geometriaCasco";
-import { RADIO_CASCO_NAVE_PX, type NavePosicion } from "@/sim/naves/impacto";
+import {
+  nivelDanio,
+  puntosCascoConDanio,
+  type PuntoCasco,
+  type VarianteNave,
+} from "@/sim/naves/geometriaCasco";
+
+export interface NavePosicion {
+  readonly id: IdNave;
+  readonly x: number;
+  readonly y: number;
+  // Con la integridad la silueta lleva sus abolladuras (y colisiona con ellas);
+  // sin dato se toma la nave intacta.
+  readonly integridad?: number;
+}
 
 // Única regla de hacia dónde mira cada nave: la cáscara (Partida.ts) la lee de
 // aquí en vez de repetirla, porque las dos copias ya se separaron una vez y el
@@ -10,19 +22,15 @@ export function direccionDeNave(id: IdNave): 1 | -1 {
   return id % 2 === 0 ? 1 : -1;
 }
 
-// arte-siluetas-3: la variante de silueta por id -- hoy coincide con el id
-// porque el núcleo sigue siendo 0 | 1 (nucleo-n-naves generaliza esto),
-// pero vive aquí y no en Nave.ts para que el roce (comprobarRocePaso, más
-// abajo) compare siempre contra la MISMA silueta que se dibuja, nunca
-// contra la de la variante 0 por defecto.
+// La variante de silueta por id: vive aquí y no en Nave.ts para que la zona de
+// impacto compare siempre contra la MISMA silueta que se dibuja.
 export function varianteDeNave(id: IdNave): VarianteNave {
   return id as VarianteNave;
 }
 
 // Ray casting estándar (par/impar de cruces con los lados del polígono):
-// única implementación, compartida con src/juego/naves/opacidadCasco.ts
-// (esc-5), para que "qué cae dentro de la silueta dibujada" no tenga dos
-// respuestas posibles según quién pregunte.
+// única implementación, compartida con la cáscara y con verificar:siluetas,
+// para que «qué cae dentro de la silueta dibujada» no tenga dos respuestas.
 export function dentroDelPoligono(x: number, y: number, puntos: readonly PuntoCasco[]): boolean {
   let dentro = false;
   for (let i = 0, j = puntos.length - 1; i < puntos.length; j = i++) {
@@ -34,59 +42,9 @@ export function dentroDelPoligono(x: number, y: number, puntos: readonly PuntoCa
   return dentro;
 }
 
-// con-1: el punto del segmento [x0,y0]-[x1,y1] más cercano a (cx, cy) --
-// la proyección clampada a [0,1], no el punto final del paso, porque un
-// vuelo rápido puede pasar de largo por delante de la nave en un único
-// paso de integración sin que ninguno de sus dos extremos sea el punto de
-// aproximación mínima real.
-function puntoMasCercanoDelSegmento(
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number,
-  cx: number,
-  cy: number,
-): { readonly x: number; readonly y: number } {
-  const dx = x1 - x0;
-  const dy = y1 - y0;
-  const largo2 = dx * dx + dy * dy;
-  if (largo2 === 0) {
-    return { x: x0, y: y0 };
-  }
-  const t = Math.max(0, Math.min(1, ((cx - x0) * dx + (cy - y0) * dy) / largo2));
-  return { x: x0 + t * dx, y: y0 + t * dy };
-}
-
-export interface RoceNave {
-  readonly nave: IdNave;
-  readonly x: number;
-  readonly y: number;
-}
-
-// con-1: el núcleo de la clasificación impacto/roce/fallo -- pura y
-// determinista (mismos argumentos, mismo resultado, siempre). "Roce" es el
-// paso cuya aproximación mínima a una nave queda FUERA de RADIO_CASCO_NAVE_PX
-// (eso ya lo decide RastreadorImpactoNaves.comprobarPaso, que sigue exacto)
-// pero DENTRO de la silueta dibujada (puntosCasco, esc-1) -- la mentira
-// visual de la opción B hecha honesta en el resultado del turno, sin tocar
-// nunca la integridad (con-3).
-export function comprobarRocePaso(
-  anterior: EstadoProyectil,
-  actual: EstadoProyectil,
-  naves: readonly NavePosicion[],
-): RoceNave | null {
-  for (const nave of naves) {
-    const cercano = puntoMasCercanoDelSegmento(anterior.x, anterior.y, actual.x, actual.y, nave.x, nave.y);
-    const localX = cercano.x - nave.x;
-    const localY = cercano.y - nave.y;
-    if (Math.hypot(localX, localY) <= RADIO_CASCO_NAVE_PX) {
-      continue; // eso es impacto (o gracia de casco propio), no roce
-    }
-    if (dentroDelPoligono(localX, localY, puntosCascoVariante(varianteDeNave(nave.id), direccionDeNave(nave.id)))) {
-      return { nave: nave.id, x: cercano.x, y: cercano.y };
-    }
-  }
-  return null;
+// El polígono (en coordenadas locales de la nave) que se dibuja y que colisiona.
+export function poligonoDeNave(nave: NavePosicion): readonly PuntoCasco[] {
+  return puntosCascoConDanio(direccionDeNave(nave.id), nivelDanio(nave.integridad ?? 100), varianteDeNave(nave.id));
 }
 
 function distanciaPuntoSegmento(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
@@ -97,36 +55,48 @@ function distanciaPuntoSegmento(px: number, py: number, ax: number, ay: number, 
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
-// Distancia de una detonación a la silueta que se DIBUJA (0 si cae dentro):
-// es la medida del daño por área. Con el casco a escala 3 el contorno llega a
-// ~100 u del centro, y medir al centro hacía que una explosión pegada al casco
-// visible no contara como impacto (sil-2: lo que se ve como impacto, cuenta).
-export function distanciaACasco(x: number, y: number, nave: NavePosicion): number {
-  const puntos = puntosCascoVariante(varianteDeNave(nave.id), direccionDeNave(nave.id));
-  const localX = x - nave.x;
-  const localY = y - nave.y;
-  if (dentroDelPoligono(localX, localY, puntos)) return 0;
+// Distancia de un punto (coordenadas locales) al polígono: 0 si cae dentro.
+export function distanciaAPoligono(x: number, y: number, puntos: readonly PuntoCasco[]): number {
+  if (dentroDelPoligono(x, y, puntos)) return 0;
   let minima = Infinity;
   for (let i = 0, j = puntos.length - 1; i < puntos.length; j = i++) {
-    minima = Math.min(minima, distanciaPuntoSegmento(localX, localY, puntos[j].x, puntos[j].y, puntos[i].x, puntos[i].y));
+    minima = Math.min(minima, distanciaPuntoSegmento(x, y, puntos[j].x, puntos[j].y, puntos[i].x, puntos[i].y));
   }
   return minima;
 }
 
-// Cuánto del radio de efecto se «recorre» al llegar a la silueta: la explosión
-// que justo la toca hace el 20 % de su daño máximo, no el máximo. Es un suelo
-// pequeño a propósito: el balance está calibrado contra el casco de 22 u y
-// medir al polígono entero (daño máximo al rozarlo) movía las bandas de las IA.
-const FRACCION_RADIO_EN_SILUETA = 0.8;
+// Distancia de una detonación a la silueta que se DIBUJA (0 si cae dentro): es
+// la medida del daño por área. El daño máximo es para quien está dentro y cae a
+// 0 al llegar al radio de efecto, sin suelos ni atajos.
+export function distanciaACasco(x: number, y: number, nave: NavePosicion): number {
+  return distanciaAPoligono(x - nave.x, y - nave.y, poligonoDeNave(nave));
+}
 
-// Distancia que usa el daño por área. Si el área de la explosión alcanza la
-// silueta visible, la distancia nunca pasa de 0,8·radio (más el tramo que falte
-// hasta ella), así que lo que se ve como impacto siempre hace daño > 0. Nunca
-// es mayor que la distancia al centro: no resta daño a nadie, y dentro del
-// radio de colisión, donde se detiene el proyectil, no cambia nada.
-export function distanciaDeDanio(x: number, y: number, nave: NavePosicion, radioEfectoPx: number): number {
-  const alCentro = Math.hypot(x - nave.x, y - nave.y);
-  const alCasco = distanciaACasco(x, y, nave);
-  if (alCentro <= RADIO_CASCO_NAVE_PX || alCasco >= radioEfectoPx) return alCentro;
-  return Math.min(alCentro, radioEfectoPx * FRACCION_RADIO_EN_SILUETA + alCasco * (1 - FRACCION_RADIO_EN_SILUETA));
+// Primer corte (el más cercano al origen del segmento) del segmento
+// a→b con los lados del polígono, o el propio origen si ya está dentro. Se
+// cruza el SEGMENTO entero, no solo su extremo, para que un proyectil rápido
+// no atraviese un ala fina sin tocarla (túnel).
+export function primerCorteSegmentoPoligono(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  puntos: readonly PuntoCasco[],
+): { readonly x: number; readonly y: number } | null {
+  if (dentroDelPoligono(ax, ay, puntos)) return { x: ax, y: ay };
+  const dx = bx - ax;
+  const dy = by - ay;
+  let mejorT = Infinity;
+  for (let i = 0, j = puntos.length - 1; i < puntos.length; j = i++) {
+    const ex = puntos[i].x - puntos[j].x;
+    const ey = puntos[i].y - puntos[j].y;
+    const den = dx * ey - dy * ex;
+    if (den === 0) continue;
+    const wx = puntos[j].x - ax;
+    const wy = puntos[j].y - ay;
+    const t = (wx * ey - wy * ex) / den;
+    const u = (wx * dy - wy * dx) / den;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1 && t < mejorT) mejorT = t;
+  }
+  return mejorT === Infinity ? null : { x: ax + mejorT * dx, y: ay + mejorT * dy };
 }

@@ -46,8 +46,11 @@ const NAVE_B_PLANA = { id: 1 as const, x: 1400, y: 900 };
 // semillas (razón con escalado 1,03, sin escalado 2,48). Reelegida otra vez en
 // siluetas-por-asiento: medir el daño contra la silueta visible cambia la
 // solución que encuentra la búsqueda de la IA; 101 sale del barrido de las 150
-// primeras semillas (razón con escalado 1,15, sin escalado 2,98).
-const SEMILLA_SISTEMA_SENSIBLE = 101;
+// primeras semillas (razón con escalado 1,15, sin escalado 2,98). Reelegida otra
+// vez en naves-silueta (la zona de impacto es el polígono, a escala 1,5): 69
+// sale del barrido de las semillas 41 a 110 (razón con escalado 1,05, sin
+// escalado 3,96).
+const SEMILLA_SISTEMA_SENSIBLE = 69;
 
 interface Escenario {
   readonly mascara: Mascara;

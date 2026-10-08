@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
+import { RADIO_ENVOLVENTE_NAVE_PX } from "@/sim/naves/geometriaCasco";
 import { crearMascaraVacia, esSolido, SOLIDO } from "@/sim/terreno/mascara";
 
 const ANCHO = 1920;
@@ -52,7 +53,8 @@ test("arm-8: la Barrena Planetaria detona SIEMPRE en un casco, aunque le quede p
 
   assert.equal(resultado.puntosDeImpacto.length, 1);
   assert.equal(resultado.puntosDeImpacto[0].impactoNave, 1, "la Barrena debería detonar en el casco de la nave 1, no perforarlo");
-  assert.ok(Math.abs(resultado.puntosDeImpacto[0].x - NAVE_X) < 30, "el punto de impacto debería estar en la nave, no más allá");
+  // naves-silueta: el impacto cae en el borde del polígono, no a 22 u del centro.
+  assert.ok(Math.abs(resultado.puntosDeImpacto[0].x - NAVE_X) <= RADIO_ENVOLVENTE_NAVE_PX, "el punto de impacto debería estar en la nave, no más allá");
   // El muro, más allá de la nave, nunca llega a tocarse.
   assert.equal(esSolido(resultado.mascara, MURO_X[0] + 10, FILA_DE_VUELO), true, "el muro detrás de la nave no debería haberse abierto");
 });

@@ -44,7 +44,7 @@ export function volarObjeto(estado: EstadoPartida, objeto: ObjetoEvento): VueloO
   const { mundo, mascara, planetas } = estado;
   const vivas = idsNavesVivas(estado).flatMap((id) => {
     const nave = estado.naves[id];
-    return nave.y === undefined ? [] : [{ id, x: nave.x, y: nave.y }];
+    return nave.y === undefined ? [] : [{ id, x: nave.x, y: nave.y, integridad: nave.integridad }];
   });
   // Ninguna nave es «propia»: el objeto no sale de ninguna, así que no hay gracia de casco.
   const rastreadorNaves = crearRastreadorImpactoNaves(vivas, -1);

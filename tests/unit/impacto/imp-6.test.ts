@@ -1,24 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cajaCasco } from "@/sim/naves/geometriaCasco";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { RADIO_ENVOLVENTE_NAVE_PX, puntosCascoVariante } from "@/sim/naves/geometriaCasco";
 
-// escala-legible (opción B de Adrián) rompe a propósito la proporción que
-// este test comprobaba antes: el casco de colisión se queda fijo en 22px
-// mientras la silueta dibujada crece con ESCALA_DIBUJO_NAVE, así que la
-// fracción baja de ~50% a ~17% -- es exactamente el precio de la opción B,
-// pagado en el bloque contacto-honesto (núcleo visible + roce anunciado).
-// Lo que este test sigue comprobando es que el casco NO ha crecido con el
-// dibujo: sigue siendo una fracción pequeña y estable de la silueta.
-test("imp-6: el radio de casco físico es mucho menor que la silueta dibujada (opción B: el dibujo miente, el casco no crece)", () => {
-  for (const dir of [1, -1] as const) {
-    const caja = cajaCasco(dir);
-    const dimensionMenor = Math.min(caja.ancho, caja.alto);
-    const fraccion = RADIO_CASCO_NAVE_PX / dimensionMenor;
+function area(puntos: readonly { x: number; y: number }[]): number {
+  let suma = 0;
+  for (let i = 0; i < puntos.length; i++) {
+    const a = puntos[i]!;
+    const b = puntos[(i + 1) % puntos.length]!;
+    suma += a.x * b.y - b.x * a.y;
+  }
+  return Math.abs(suma) / 2;
+}
 
-    assert.ok(
-      fraccion > 0 && fraccion <= 0.3,
-      `dir=${dir}: RADIO_CASCO_NAVE_PX (${RADIO_CASCO_NAVE_PX}px) es el ${(fraccion * 100).toFixed(1)}% de la dimensión menor dibujada (${dimensionMenor.toFixed(1)}px), debería quedarse por debajo del 30% desde escala-legible`,
-    );
+// naves-silueta: el círculo envolvente solo es un descarte rápido; la zona de
+// impacto es el polígono, que ocupa bastante menos que ese disco.
+test("imp-6: la zona de impacto (polígono) es menor que el círculo envolvente en las cuatro siluetas", () => {
+  const disco = Math.PI * RADIO_ENVOLVENTE_NAVE_PX ** 2;
+  for (const variante of [0, 1, 2, 3] as const) {
+    for (const dir of [1, -1] as const) {
+      const fraccion = area(puntosCascoVariante(variante, dir)) / disco;
+      assert.ok(fraccion > 0 && fraccion < 0.6, `variante ${variante} dir ${dir}: el polígono ocupa el ${(fraccion * 100).toFixed(1)}% del disco`);
+    }
   }
 });
