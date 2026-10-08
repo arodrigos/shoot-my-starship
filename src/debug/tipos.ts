@@ -8,6 +8,7 @@ import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
 import type { DatosExplosionPorCapas, NombreFaseExplosion } from "@/juego/efectos/ExplosionPorCapas";
 import type { TipoVisualPixel } from "@/juego/terreno/clasificacionVisual";
+import type { EntradaHistoricoBroma } from "@/juego/control/broma";
 import type { Detonacion } from "@/sim/partida/detonaciones";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 
@@ -130,6 +131,9 @@ export interface DebugNave {
   // sil-1/sil-2: familia de casco del asiento (0-3), leída de la Nave dibujada
   // para que el e2e compruebe que cuatro naves se ven con cuatro formas.
   readonly silueta: 0 | 1 | 2 | 3;
+  // Color del asiento en CSS (#rrggbb): el mismo con el que la cáscara pinta
+  // su nombre en el histórico.
+  readonly colorAsiento: string;
 }
 
 // hum-1: un registro por turno de lo que reaccionarABroma publicó de
@@ -433,6 +437,10 @@ export interface DebugGlobal {
   // hum-1: historial completo de bromas publicadas desde que arrancó la
   // escena, en orden de turno -- ver DebugBromaEntry.
   historialBromas?: readonly DebugBromaEntry[];
+  // historico-mensajes: estado de la hoja del histórico, y un inyector para
+  // llenarlo sin jugar decenas de turnos (mismo papel que cargarEscenario).
+  historico?: { abierto: boolean; mensajes: number };
+  inyectarHistorico?: (entradas: readonly EntradaHistoricoBroma[]) => void;
   // proy-1 (requisito c de la sexta devolución): true en cuanto la escena
   // de pruebas Siluetas ha dibujado las 13 siluetas del catálogo, para que
   // el test de captura no dependa de una espera fija (issue #151).
