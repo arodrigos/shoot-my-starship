@@ -69,7 +69,7 @@ de Chatarra**) son el fondo de armario.
 | Mortero Lamentable | 65 | área máxima permitida: perdona el error de ángulo, cuesta en consecuencia |
 | Zanjadora Manolita | 0 | gratis, de daño bajo y difícil de acertar -- fondo de armario |
 | Vertedero Portátil | 15 | utilitaria: rellena terreno, precio por volumen afectado, no por daño |
-| Racimo de Tuppers | 85 | cinco proyectiles dispersos: área grande repartida en vez de concentrada |
+| Racimo de Tuppers | 60 | cinco perdigones que estallan juntos en el punto de impacto: área media con daño combinado limitado |
 | Petardo de Feria | 0 | gratis, de daño bajo, difícil y además una de cada cuatro falla del todo |
 | La Pelota de Chatarra | 0 | gratis, de daño bajo: rueda hasta un agujero, pero no garantiza cuál |
 | Gravitón de Segunda Mano | 45 | utilitaria: reposiciona, precio por magnitud del desplazamiento, no por daño |
@@ -78,7 +78,7 @@ de Chatarra**) son el fondo de armario.
 | Rayo Láser | 115 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
 | Mosca Cojonera | 75 | trayectoria errática: difícil de planear, castiga bien si llega |
 | Granada de Espoleta | 80 | cuenta atrás desde el disparo: área grande, momento de detonar incierto |
-| Gancho Pegajoso | 115 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
+| Gancho Pegajoso | 118 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
 | Minirobot Saltaplanetas | 85 | lento pero seguro: tarda unos turnos en llegar y te deja jugar mientras tanto |
 
 ### Qué le pasa a un planeta al que le arrancas un trozo

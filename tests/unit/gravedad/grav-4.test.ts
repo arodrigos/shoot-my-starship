@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buscarArma } from "@/sim/armas/catalogo";
-import { ALTURA_CANON_PX, alturaSuperficie, detenerseEnSuelo, resolverDisparo } from "@/sim/armas/resolver";
+import { ALTURA_CANON_PX, alturaSuperficie, detenerseEnSuelo, patronPerdigones, resolverDisparo } from "@/sim/armas/resolver";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { crearProyectil } from "@/sim/fisica/proyectil";
 import { simularVuelo } from "@/sim/fisica/vuelo";
@@ -37,7 +37,7 @@ test("grav-4: la masa se queda congelada durante todo el vuelo de un disparo de 
   if (arma.comportamiento.tipo !== "submuniciones") {
     throw new Error("este test necesita un arma de submuniciones; el catálogo cambió");
   }
-  const { cantidad, dispersionPxS } = arma.comportamiento;
+  const { cantidad } = arma.comportamiento;
 
   const origenX = 100;
   const anguloGrados = 60;
@@ -60,34 +60,18 @@ test("grav-4: la masa se queda congelada durante todo el vuelo de un disparo de 
     planetas: [planeta],
   });
 
-  // Réplica manual, a mano, de exactamente lo que hace resolverSubmuniciones
-  // por dentro, pero dejando explícito en el propio test que `planeta` es
-  // UN SOLO valor, pasado sin tocar a la fase del ápice y a cada
-  // sub-proyectil: es la propiedad que grav-4 exige y que una recalculación
-  // a mitad de vuelo (el bug que este test debe atrapar) rompería.
+  // Réplica manual de lo que hace resolverSubmuniciones por dentro: el
+  // portador vuela con `planeta` como UN SOLO valor, sin tocar, y los
+  // perdigones salen de su punto de detonación. Es la propiedad que grav-4
+  // exige y que una recalculación a mitad de vuelo rompería.
   const origenY = alturaSuperficie(mascara, origenX) ?? ALTO - 1;
   const rad = (anguloGrados * Math.PI) / 180;
   const v = velocidadDesdePotencia(potencia);
   const inicial = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
   const detenerse = detenerseEnSuelo(mascara, ANCHO, ALTO);
-  // salida-pantalla: la réplica corta igual que el resolutor, al salir del encuadre.
   const encuadre = { ancho: ANCHO, alto: ALTO };
-  const { proyectil: apice, pasos, perdido: apicePerdido } = simularVuelo(inicial, 0, 0, (p) => p.vy >= 0 || detenerse(p), { planetas: [planeta], encuadre });
-
-  let puntosEsperados: { x: number; y: number }[];
-  if (apicePerdido) {
-    puntosEsperados = [];
-  } else if (pasos === 0 || detenerse(apice)) {
-    puntosEsperados = [{ x: apice.x, y: apice.y }];
-  } else {
-    puntosEsperados = [];
-    for (let i = 0; i < cantidad; i++) {
-      const offset = (i - (cantidad - 1) / 2) * (dispersionPxS / Math.max(1, cantidad - 1));
-      const subInicial = { x: apice.x, y: apice.y, vx: apice.vx + offset, vy: apice.vy };
-      const { proyectil, perdido } = simularVuelo(subInicial, 0, 0, detenerse, { planetas: [planeta], encuadre });
-      if (!perdido) puntosEsperados.push({ x: proyectil.x, y: proyectil.y });
-    }
-  }
+  const { proyectil, perdido } = simularVuelo(inicial, 0, 0, detenerse, { planetas: [planeta], encuadre });
+  const puntosEsperados = perdido ? [] : patronPerdigones(proyectil, cantidad);
 
   assert.equal(resultado.puntosDeImpacto.length, puntosEsperados.length);
   resultado.puntosDeImpacto.forEach((punto, indice) => {
