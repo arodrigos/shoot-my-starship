@@ -2498,8 +2498,8 @@ export class Partida extends Phaser.Scene {
       // detone; avanzar() es puro, descartar el intento no deja rastro.
       const solucion = this.calcularSolucionBalistica(this.estado) ?? { anguloGrados: 45, potencia: 70 };
       const candidatos = [solucion];
-      for (const potencia of [70, 100, 50]) {
-        for (let anguloGrados = 20; anguloGrados <= 160; anguloGrados += 10) {
+      for (const potencia of [30, 50, 70, 100]) {
+        for (let anguloGrados = 0; anguloGrados <= 180; anguloGrados += 5) {
           candidatos.push({ anguloGrados, potencia });
         }
       }
