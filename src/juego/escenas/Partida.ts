@@ -89,7 +89,8 @@ import { publicarCartel, publicarMuerteSubita, publicarPronostico, reiniciarUniv
 import { buscarEvento } from "@/sim/universo/catalogoEventos";
 import { conUniverso } from "@/sim/universo/efectos";
 import { conMuerteSubita, drenajeDeRonda, RONDA_MUERTE_SUBITA } from "@/sim/partida/muerteSubita";
-import { MAX_SALTOS_ROBOT } from "@/sim/armas/minirobot";
+import { MAX_SALTOS_ROBOT, type EstadoRobot } from "@/sim/armas/minirobot";
+import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
@@ -98,6 +99,7 @@ import { indiceTic } from "@/juego/audio/cadenciaTicTac";
 import type { DatosEscenaPartida } from "@/juego/main";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
 import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorCapas";
+import { reproducirDetonaciones } from "@/juego/efectos/reproductorDetonaciones";
 import type { Detonacion } from "@/sim/partida/detonaciones";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
@@ -143,6 +145,9 @@ function resumenBase(eventos: readonly EventoSimulacion[]): string {
   const perdido = eventos.find((evento) => evento.tipo === "proyectil-perdido");
   if (perdido?.tipo === "proyectil-perdido" && perdido.arma !== undefined && esComportamientoAdherente(buscarArma(perdido.arma).comportamiento)) {
     return "El gancho no se agarra al vacío del borde: se pierde sin efecto. El turno pasa igual.";
+  }
+  if (perdido?.tipo === "proyectil-perdido" && perdido.arma !== undefined && buscarArma(perdido.arma).comportamiento.tipo === "minirobot") {
+    return "¡Perdido! El minirobot se ha ido por el borde y no explota. El turno pasa igual.";
   }
   if (perdido) {
     return "Tu disparo se ha quedado atrapado en órbita, sin caer nunca. El turno pasa igual.";
@@ -1687,20 +1692,24 @@ export class Partida extends Phaser.Scene {
     window.__debug!.detonaciones = detonaciones;
     if (detonaciones.length > 0) this.medidorFrames.marcar("impacto");
     if (eventos.some((evento) => evento.tipo === "proyectil-perdido")) this.medidorFrames.marcar("salida");
-    const explosiones = detonaciones.map((detonacion) => {
-      const datos = this.explosionPorCapas.reproducir(detonacion, 1 / this.scale.displayScale.x, movimientoReducido);
-      window.__debug!.ultimaExplosionPorCapas = datos;
-      return {
-        tipo: "explosion" as const,
-        x: datos.x,
-        y: datos.y,
-        radioOnda: datos.radioOnda,
-        particulas: datos.particulas,
-        escala: datos.escala,
-        sobre: datos.sobre,
-      };
-    });
-    if (detonaciones.length > 0) this.medidorFrames.marcar("explosion");
+    const lanzadas = reproducirDetonaciones(
+      detonaciones,
+      this.explosionPorCapas,
+      1 / this.scale.displayScale.x,
+      movimientoReducido,
+      (nombre) => this.medidorFrames.marcar(nombre),
+    );
+    const ultima = lanzadas[lanzadas.length - 1];
+    if (ultima) window.__debug!.ultimaExplosionPorCapas = ultima;
+    const explosiones = lanzadas.map((datos) => ({
+      tipo: "explosion" as const,
+      x: datos.x,
+      y: datos.y,
+      radioOnda: datos.radioOnda,
+      particulas: datos.particulas,
+      escala: datos.escala,
+      sobre: datos.sobre,
+    }));
     const haz = this.dibujarHazLaser(detonaciones);
     window.__debug!.efectosVisibles = haz ? [haz, ...explosiones] : explosiones;
     for (const evento of eventos) {
@@ -1786,6 +1795,10 @@ export class Partida extends Phaser.Scene {
     this.terreno.sincronizarDesde(estadoDespues.mascara);
 
     const esperaSacudidaMs = this.manejarEventosVisuales(eventos, opciones?.detonaciones ?? []);
+    // mrb-1: el robot que detona se retira en el mismo instante que su
+    // explosión; si esperara a avanzarTurno (retrasado por la sacudida), se
+    // vería el robot vivo junto a su propia explosión.
+    if (eventos.some((evento) => evento.tipo === "robot-detona")) this.retirarRobotsDetonados(estadoDespues);
     this.reaccionarAHumor(eventos);
     if (categoriaBroma) {
       this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos, armaId ? buscarArma(armaId) : undefined);
@@ -2101,13 +2114,31 @@ export class Partida extends Phaser.Scene {
     window.__debug!.saldos = this.estado.saldos?.map((valor) => valor ?? null);
   }
 
+  private retirarRobotsDetonados(estadoDespues: EstadoPartida): void {
+    this.dibujarRobots(estadoDespues.robots ?? []);
+    window.__debug!.robots = (estadoDespues.robots ?? []).map((robot) => ({ dueno: robot.dueno, planetaId: robot.planetaId, x: robot.x, y: robot.y, saltos: robot.saltos }));
+  }
+
   // minirobot (rob-2): el robot se dibuja en el lienzo con su contador, y el
   // mismo texto sube al HUD. Se redibuja entero tras cada turno: son como
   // mucho unos pocos y el estado del núcleo es la única fuente de verdad.
   private refrescarRobots(): void {
+    const robots = this.estado.robots ?? [];
+    this.dibujarRobots(robots);
+    window.__debug!.robots = robots.map((robot) => ({ dueno: robot.dueno, planetaId: robot.planetaId, x: robot.x, y: robot.y, saltos: robot.saltos }));
+    publicarRobots(
+      robots.map((robot) => ({
+        dueno: robot.dueno,
+        saltos: robot.saltos,
+        maxSaltos: MAX_SALTOS_ROBOT,
+        texto: `${etiquetaMinirobot(nombreDeNave(this.controladores, robot.dueno), this.controladores[robot.dueno]?.tipo === "humano", contarHumanos(this.controladores))}: salto ${robot.saltos}/${MAX_SALTOS_ROBOT}`,
+      })),
+    );
+  }
+
+  private dibujarRobots(robots: readonly EstadoRobot[]): void {
     for (const marca of this.marcasRobot) marca.destroy();
     this.marcasRobot = [];
-    const robots = this.estado.robots ?? [];
     for (const robot of robots) {
       const y = alturaRenderNave(robot.y, robot.y);
       const cuerpo = this.add.graphics().setDepth(28);
@@ -2119,15 +2150,6 @@ export class Partida extends Phaser.Scene {
         .setDepth(28);
       this.marcasRobot.push(cuerpo, contador);
     }
-    window.__debug!.robots = robots.map((robot) => ({ dueno: robot.dueno, planetaId: robot.planetaId, x: robot.x, y: robot.y, saltos: robot.saltos }));
-    publicarRobots(
-      robots.map((robot) => ({
-        dueno: robot.dueno,
-        saltos: robot.saltos,
-        maxSaltos: MAX_SALTOS_ROBOT,
-        texto: `${etiquetaMinirobot(nombreDeNave(this.controladores, robot.dueno), this.controladores[robot.dueno]?.tipo === "humano", contarHumanos(this.controladores))}: salto ${robot.saltos}/${MAX_SALTOS_ROBOT}`,
-      })),
-    );
   }
 
   // eventos-objetos: corazón y tormenta se dibujan con su ruta punteada del
