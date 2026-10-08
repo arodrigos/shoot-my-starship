@@ -18,7 +18,7 @@ import { jugarLote, hashDeLote } from "../../utils/loteAleatorio";
 // fija ese bloque, no una regresión de este.
 // Hash actualizado en siluetas-por-asiento (sil-2): el daño se mide contra la
 // silueta visible (suelo del 20 % de daño al tocarla) en vez de al centro, lo que mueve el balance a propósito.
-const HASH_LOTE_PREVIO_A_VUELO_EXTENSIBLE = "2d01e241b9f4d5a0d087b4030fb3028049afbb3de8362edcfaae77908d63c565";
+const HASH_LOTE_PREVIO_A_VUELO_EXTENSIBLE = "3b5687a0d64ea926160f03de2797748b0942473eda610074e70b45abe9c1b150";
 
 test("vex-5: 200 partidas dan exactamente el mismo resultado que antes de vuelo-extensible", () => {
   const lote = jugarLote(20260929, 200);

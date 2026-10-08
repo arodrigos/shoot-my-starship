@@ -90,9 +90,9 @@ test("mus-1 límite: con la música desactivada los efectos se registran y la m�
   await page.goto("/?mapa=calma-de-los-restos");
   await jugar(page);
   await page.getByTestId("toggle-silenciado").click();
-  await page.evaluate(() => window.__debug.dispararEventoRoce!(1, 200, 300));
+  await page.evaluate(() => window.__debug.dispararEventoImpactoReal!(1, 200, 300, 30));
   const historial = await page.evaluate(() => window.__debug.audio!().historial);
-  expect(historial[historial.length - 1]?.id).toBe("roce");
+  expect(historial[historial.length - 1]?.id).toBe("impacto");
   expect(await notas(page)).toBe(0);
 });
 

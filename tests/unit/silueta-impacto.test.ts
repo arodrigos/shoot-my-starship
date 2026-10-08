@@ -4,7 +4,7 @@ import fc from "fast-check";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { resolverDisparo } from "@/sim/armas/resolver";
-import { direccionDeNave, distanciaACasco, distanciaDeDanio } from "@/sim/naves/contacto";
+import { direccionDeNave, distanciaACasco } from "@/sim/naves/contacto";
 import { puntosCascoVariante, type PuntoCasco } from "@/sim/naves/geometriaCasco";
 import type { IdNave } from "@/sim/partida/tipos";
 import { crearMascaraPlana } from "../utils/terrenoPlano";
@@ -143,20 +143,17 @@ test("sil-2 (propiedad): la distancia a la silueta no es negativa ni supera la d
   );
 });
 
-test("sil-2 (propiedad): la distancia de daño nunca supera la del centro y es < radio si el área alcanza la silueta", () => {
+test("sil-2 (propiedad): una detonación dentro de la silueta hace el daño máximo del arma, y a más de radioEfecto no hace ninguno", () => {
+  const efecto = ARMA.efecto;
+  if (efecto.tipo !== "danio") throw new Error("el Pepinazo es un arma de daño");
   fc.assert(
-    fc.property(
-      fc.integer({ min: 0, max: 3 }),
-      fc.double({ min: -300, max: 300, noNaN: true }),
-      fc.double({ min: -300, max: 300, noNaN: true }),
-      fc.double({ min: 30, max: 200, noNaN: true }),
-      (id, x, y, radio) => {
-        const nave = { id: id as IdNave, x: 0, y: 0 };
-        const efectiva = distanciaDeDanio(x, y, nave, radio);
-        assert.ok(efectiva <= Math.hypot(x, y) + 1e-9);
-        if (distanciaACasco(x, y, nave) < radio) assert.ok(efectiva < radio, "si el área alcanza el casco visible, hay daño");
-      },
-    ),
+    fc.property(fc.integer({ min: 0, max: 3 }), fc.double({ min: -60, max: 60, noNaN: true }), fc.double({ min: -60, max: 60, noNaN: true }), (id, x, y) => {
+      const nave = { id: id as IdNave, x: 0, y: 0 };
+      const distancia = distanciaACasco(x, y, nave);
+      const danio = dispararContraNave(id as IdNave, DETONACION.x - x, DETONACION.y - y).danioObjetivo;
+      if (distancia === 0) assert.equal(danio, efecto.danioMaximo);
+      if (distancia >= efecto.radioEfectoPx) assert.equal(danio, 0);
+    }),
     { numRuns: 300 },
   );
 });

@@ -4,9 +4,8 @@ import fc from "fast-check";
 import { areaMundoParaViewport, configurarMundoParaViewport, MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { calcularTamanoContenedorJuego } from "@/juego/layoutContenedor";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { colocarNaves, franjaInferiorU, MARGEN_BORDE_U } from "@/sim/naves/colocacion";
+import { colocarNaves, franjaInferiorU, MARGEN_MUNDO_NAVE_PX, RADIO_CASCO_COLOCACION_U } from "@/sim/naves/colocacion";
 import { factorPlanetasParaArea, generarSistema } from "@/sim/sistema/generador";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 import type { ParametrosMundo } from "@/sim/partida/tipos";
 
 // Mundo "de antes": la regla que dejó encuadre-movil-2 sobre el contenedor de
@@ -89,7 +88,9 @@ for (const vp of VIEWPORTS_PAN_4) {
   test(`pan-4: ${vp.ancho}x${vp.alto}, toda nave a ≥ margen + radio del borde y fuera de la franja inferior`, () => {
     const mundoPx = mundoNuevo(vp.ancho, vp.alto);
     const mundo: ParametrosMundo = { ...mundoPx, factorPlanetas: factorPlanetasParaArea(mundoPx.ancho, mundoPx.alto), gravedad: 1, deriva: 0, etiquetaDeriva: "ninguna" };
-    const minimo = MARGEN_BORDE_U + RADIO_CASCO_NAVE_PX;
+    // La colocación sembrada no cambia con las siluetas nuevas (conserva las
+    // partidas ya sembradas): su margen sigue siendo el de siempre.
+    const minimo = MARGEN_MUNDO_NAVE_PX;
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 100000 }), fc.integer({ min: 2, max: 4 }), (semilla, cantidad) => {
         const { naves } = colocarNaves(semilla, mundo, crearEstadoAleatorio(semilla), cantidad, naves0(cantidad));
@@ -100,7 +101,7 @@ for (const vp of VIEWPORTS_PAN_4) {
             nave.x <= mundo.ancho - minimo &&
             y >= minimo &&
             y <= mundo.alto - minimo &&
-            y + RADIO_CASCO_NAVE_PX <= mundo.alto - franjaInferiorU(mundo.alto)
+            y + RADIO_CASCO_COLOCACION_U <= mundo.alto - franjaInferiorU(mundo.alto)
           );
         });
       }),

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fc from "fast-check";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { colocarNaves } from "@/sim/naves/colocacion";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 import { crearMascaraVacia } from "@/sim/terreno/mascara";
 import type { EstadoNave, EstadoPartida, ParametrosMundo } from "@/sim/partida/tipos";
 import { aplicarEvento, avanzarUniverso, conUniverso } from "@/sim/universo/efectos";
@@ -168,10 +167,14 @@ test("obj-1: con 2 objetos vivos, un evento de objeto se anuncia perdido y no cr
 // cruce dos veces el casco o haya dos naves en el camino.
 test("invariante: el efecto de un choque se aplica una vez y el objeto desaparece en ese paso", () => {
   fc.assert(
-    fc.property(fc.integer({ min: 0, max: 40 }), fc.integer({ min: 1, max: 100 }), fc.boolean(), (desvio, integridad, esCorazon) => {
+    fc.property(fc.integer({ min: 0, max: 60 }), fc.integer({ min: 1, max: 100 }), fc.boolean(), (desvio, integridad, esCorazon) => {
+      // La nave 0 es la silueta de caza: su ala sobresale 32 u del eje. Los
+      // desvíos justo en el filo (32 u) se descartan; es el caso límite que
+      // cubre casco-poligono.test.ts.
+      fc.pre(desvio !== 32);
       const estado = conObjetos(estadoVacio([nave(400, 500 + desvio, integridad), nave(700, 900)]), [objeto(esCorazon ? "corazon" : "tormenta", 100, 500, 100, 0)]);
       const fase = avanzarObjetos(estado, estado.naves);
-      const alcanzado = desvio < RADIO_CASCO_NAVE_PX;
+      const alcanzado = desvio < 32;
       assert.deepEqual(fase.universo.objetos, alcanzado ? [] : (fase.universo.objetos as ObjetoEvento[]));
       const esperado = alcanzado ? Math.min(100, Math.max(0, integridad + (esCorazon ? 50 : -25))) : integridad;
       assert.equal(fase.naves[0].integridad, esperado);

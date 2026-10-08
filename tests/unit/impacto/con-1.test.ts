@@ -1,109 +1,76 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { comprobarRocePaso, dentroDelPoligono } from "@/sim/naves/contacto";
-import { RADIO_CASCO_NAVE_PX, crearRastreadorImpactoNaves, type NavePosicion } from "@/sim/naves/impacto";
+import { dentroDelPoligono, poligonoDeNave } from "@/sim/naves/contacto";
+import { crearRastreadorImpactoNaves, type NavePosicion } from "@/sim/naves/impacto";
 import { puntosCascoVariante } from "@/sim/naves/geometriaCasco";
 
-// con-1: la nave objetivo, quieta en el origen del mundo, mirando a +x --
-// puntosCascoVariante(id, dir) es exactamente la silueta que dibuja Nave.ts
-// para esta nave (la variante coincide con el asiento).
-const NAVE_OBJETIVO: NavePosicion = { id: 1, x: 500, y: 300 };
+// con-1 (naves-silueta): ya no hay roce. El segmento de un paso de vuelo es
+// impacto si y solo si corta la silueta dibujada; si no la corta, no pasa nada.
 
 // Orientación escrita a mano (la que se ve en pantalla), no sacada de
 // direccionDeNave: así el test no se compara con la implementación.
 const ORIENTACION_DIBUJADA = { 0: 1, 1: -1, 2: 1, 3: -1 } as const;
+const ASIENTOS = [0, 1, 2, 3] as const;
 
-// Un punto local de la silueta dibujada que queda fuera del casco de
-// colisión: se busca en la propia silueta de la nave, porque cada asiento
-// tiene una forma distinta y un punto fijo valdría solo para una.
-function puntoFueraDelCascoDentroDeLaSilueta(): { readonly x: number; readonly y: number } {
-  const dir = ORIENTACION_DIBUJADA[NAVE_OBJETIVO.id as 0 | 1 | 2 | 3];
-  const silueta = puntosCascoVariante(NAVE_OBJETIVO.id as 0 | 1 | 2 | 3, dir);
-  for (let distancia = RADIO_CASCO_NAVE_PX + 12; distancia < 120; distancia += 1) {
-    const candidato = { x: dir * distancia, y: 0 };
-    if (dentroDelPoligono(candidato.x, candidato.y, silueta)) return candidato;
-  }
-  throw new Error("fixture inválido: la silueta no sale del casco de colisión");
+function naveEn(id: 0 | 1 | 2 | 3): NavePosicion {
+  return { id, x: 500, y: 300 };
 }
 
-test("con-1: un segmento que cruza el casco real es impacto -- comprobarRocePaso no debe activarse ahí (lo decide comprobarPaso)", () => {
-  const anterior = { x: 500, y: 200, vx: 0, vy: 40 };
-  const actual = { x: 500, y: 320, vx: 0, vy: 40 };
-  // El segmento pasa por el centro del casco: comprobarPaso (RADIO_CASCO_NAVE_PX)
-  // ya lo clasificaría como impacto: comprobarRocePaso debe devolver null, no
-  // "también" roce -- impacto y roce son mutuamente excluyentes por diseño.
-  const roce = comprobarRocePaso(anterior, actual, [NAVE_OBJETIVO]);
-  assert.equal(roce, null);
+test("con-1: un segmento que cruza la silueta es impacto en los cuatro asientos", () => {
+  for (const id of ASIENTOS) {
+    const nave = naveEn(id);
+    const rastreador = crearRastreadorImpactoNaves([nave], id === 0 ? 1 : 0);
+    const impacto = rastreador.comprobarPaso(
+      { x: nave.x, y: nave.y - 200, vx: 0, vy: 40 },
+      { x: nave.x, y: nave.y + 20, vx: 0, vy: 40 },
+    );
+    assert.ok(impacto, `asiento ${id}: se esperaba impacto`);
+    assert.equal(impacto!.nave, id);
+  }
 });
 
-test("con-1: un segmento que pasa fuera del casco real pero dentro de la silueta dibujada es roce", () => {
-  const punto = puntoFueraDelCascoDentroDeLaSilueta();
-  assert.ok(Math.hypot(punto.x, punto.y) > RADIO_CASCO_NAVE_PX, "el punto de prueba debe quedar fuera del casco de colisión");
-
-  // Vertical, para cruzar la silueta por el eje en que sale del casco.
-  const x = NAVE_OBJETIVO.x + punto.x;
-  const anterior = { x, y: NAVE_OBJETIVO.y - 1, vx: 0, vy: 100 };
-  const actual = { x, y: NAVE_OBJETIVO.y + 1, vx: 0, vy: 100 };
-
-  const roce = comprobarRocePaso(anterior, actual, [NAVE_OBJETIVO]);
-  assert.ok(roce, "se esperaba roce");
-  assert.equal(roce!.nave, NAVE_OBJETIVO.id);
-});
-
-test("con-1: un segmento que pasa fuera de toda silueta no es ni impacto ni roce", () => {
-  const anterior = { x: NAVE_OBJETIVO.x, y: NAVE_OBJETIVO.y - 500, vx: 100, vy: 0 };
-  const actual = { x: NAVE_OBJETIVO.x + 40, y: NAVE_OBJETIVO.y - 500, vx: 100, vy: 0 };
-  const roce = comprobarRocePaso(anterior, actual, [NAVE_OBJETIVO]);
-  assert.equal(roce, null);
+test("con-1: un punto fuera de la silueta pero dentro del círculo envolvente no es impacto", () => {
+  for (const id of ASIENTOS) {
+    const dir = ORIENTACION_DIBUJADA[id];
+    const silueta = puntosCascoVariante(id, dir);
+    // La esquina superior de la caja: en todas las siluetas queda fuera.
+    const ancho = Math.max(...silueta.map((p) => Math.abs(p.x)));
+    const alto = Math.max(...silueta.map((p) => Math.abs(p.y)));
+    assert.equal(dentroDelPoligono(ancho * 0.99, alto * 0.99, silueta), false, `asiento ${id}: fixture inválido`);
+    const nave = naveEn(id);
+    const rastreador = crearRastreadorImpactoNaves([nave], id === 0 ? 1 : 0);
+    const y = nave.y - alto * 0.99;
+    const impacto = rastreador.comprobarPaso(
+      { x: nave.x + ancho * 0.99 + 1, y, vx: -100, vy: 0 },
+      { x: nave.x + ancho * 0.99 - 1, y, vx: -100, vy: 0 },
+    );
+    assert.equal(impacto, null, `asiento ${id}: el hueco de la caja no es zona de impacto`);
+  }
 });
 
 test("con-1: la clasificación es una función pura -- 200 llamadas idénticas dan exactamente el mismo resultado", () => {
-  const punto = puntoFueraDelCascoDentroDeLaSilueta();
-  const x = NAVE_OBJETIVO.x + punto.x;
-  const anterior = { x, y: NAVE_OBJETIVO.y - 1, vx: 0, vy: 100 };
-  const actual = { x, y: NAVE_OBJETIVO.y + 1, vx: 0, vy: 100 };
-
-  const resultados = Array.from({ length: 200 }, () => comprobarRocePaso(anterior, actual, [NAVE_OBJETIVO]));
-  assert.ok(resultados.every((r) => r !== null && r.nave === resultados[0]!.nave && r.x === resultados[0]!.x && r.y === resultados[0]!.y));
+  const nave = naveEn(2);
+  const resultados = Array.from({ length: 200 }, () =>
+    crearRastreadorImpactoNaves([nave], 0).comprobarPaso(
+      { x: nave.x, y: nave.y - 100, vx: 0, vy: 100 },
+      { x: nave.x, y: nave.y + 100, vx: 0, vy: 100 },
+    ),
+  );
+  assert.ok(resultados.every((r) => r !== null && r.x === resultados[0]!.x && r.y === resultados[0]!.y));
 });
 
-test("con-1/con-5: el rastreador aditivo (comprobarRoce) no cambia el resultado de comprobarPaso -- el lote de 200 semillas de impacto sigue igual", () => {
-  for (let semilla = 0; semilla < 200; semilla++) {
-    const anguloRad = (semilla / 200) * Math.PI * 2;
-    const radio = RADIO_CASCO_NAVE_PX - 1;
-    const anterior = { x: NAVE_OBJETIVO.x - 50, y: NAVE_OBJETIVO.y, vx: 100, vy: 0 };
-    const actual = {
-      x: NAVE_OBJETIVO.x + radio * Math.cos(anguloRad),
-      y: NAVE_OBJETIVO.y + radio * Math.sin(anguloRad),
-      vx: 100,
-      vy: 0,
-    };
-    const rastreador = crearRastreadorImpactoNaves([NAVE_OBJETIVO], 0 as 0 | 1);
-    const impacto = rastreador.comprobarPaso(anterior, actual);
-    // El punto final está DENTRO del radio de colisión en todas las
-    // semillas (radio < RADIO_CASCO_NAVE_PX): debe seguir siendo impacto,
-    // exactamente como antes de este bloque -- comprobarRoce nunca se llama
-    // para este paso porque avanzar()/vuelo.ts solo lo consulta cuando
-    // comprobarPaso ya ha dicho que no hay impacto.
-    assert.ok(impacto, `semilla ${semilla}: se esperaba impacto`);
-  }
-});
-
-test("con-1: el roce se mide contra la silueta dibujada en los cuatro asientos (el 2 mira a +x)", () => {
-  for (const id of [0, 1, 2, 3] as const) {
-    const nave: NavePosicion = { id, x: 500, y: 300 };
-    const silueta = puntosCascoVariante(id, ORIENTACION_DIBUJADA[id]);
-    // El punto más alejado del centro sobre el eje x dentro de la silueta
-    // dibujada: sale del casco de colisión, así que solo el roce puede verlo.
-    let candidato: { x: number; y: number } | null = null;
-    for (let distancia = 120; distancia > RADIO_CASCO_NAVE_PX + 12 && !candidato; distancia -= 1) {
-      const punto = { x: ORIENTACION_DIBUJADA[id] * distancia, y: 0 };
-      if (dentroDelPoligono(punto.x, punto.y, silueta)) candidato = punto;
-    }
-    assert.ok(candidato, `asiento ${id}: la silueta dibujada sale del casco`);
-    const x = nave.x + candidato!.x;
-    const roce = comprobarRocePaso({ x, y: nave.y - 1, vx: 0, vy: 100 }, { x, y: nave.y + 1, vx: 0, vy: 100 }, [nave]);
-    assert.ok(roce, `asiento ${id}: se esperaba roce`);
-    assert.equal(roce!.nave, id);
+test("con-1: el punto de impacto cae sobre el borde de la silueta (no más allá)", () => {
+  for (const id of ASIENTOS) {
+    const nave = naveEn(id);
+    const impacto = crearRastreadorImpactoNaves([nave], id === 0 ? 1 : 0).comprobarPaso(
+      { x: nave.x - 200, y: nave.y, vx: 100, vy: 0 },
+      { x: nave.x + 200, y: nave.y, vx: 100, vy: 0 },
+    );
+    assert.ok(impacto, `asiento ${id}: se esperaba impacto`);
+    const poligono = poligonoDeNave(nave);
+    const localX = impacto!.x - nave.x;
+    const haciaDentro = Math.sign(-localX);
+    assert.ok(dentroDelPoligono(localX + haciaDentro * 0.5, 0, poligono), `asiento ${id}: medio píxel hacia dentro debe estar dentro`);
+    assert.equal(dentroDelPoligono(localX - haciaDentro * 0.5, 0, poligono), false, `asiento ${id}: medio píxel hacia fuera debe estar fuera`);
   }
 });

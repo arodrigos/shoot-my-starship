@@ -44,8 +44,9 @@ function iou(a: boolean[], b: boolean[]): number {
 const VARIANTES: readonly VarianteNave[] = [0, 1, 2, 3];
 
 // sil-1 (invariante 2): para todo par de familias distintas, y mirando a
-// cualquiera de los dos lados, la IoU de sus máscaras es <= 0,6.
-test("sil-1: la IoU de cada par de familias de casco es <= 0,6 (property test)", () => {
+// cualquiera de los dos lados, la IoU de sus máscaras es <= 0,85 (naves-silueta
+// nav-1: al menos un 15 % de píxeles de máscara distintos).
+test("sil-1: la IoU de cada par de familias de casco es <= 0,85 (property test)", () => {
   fc.assert(
     fc.property(
       fc.constantFrom(...VARIANTES),
@@ -54,7 +55,7 @@ test("sil-1: la IoU de cada par de familias de casco es <= 0,6 (property test)",
       (a, b, dir) => {
         fc.pre(a !== b);
         const valor = iou(mascara(a, dir), mascara(b, dir));
-        assert.ok(valor <= 0.6, `IoU ${valor.toFixed(3)} entre familias ${a} y ${b}`);
+        assert.ok(valor <= 0.85, `IoU ${valor.toFixed(3)} entre familias ${a} y ${b}`);
       },
     ),
     { numRuns: 100 },
