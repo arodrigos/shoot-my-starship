@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { puntoLibreDeArrastre } from "./utilesApuntado";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 
 function danioAlObjetivo(eventos: readonly EventoSimulacion[] | undefined): number {
@@ -24,7 +25,7 @@ async function dispararConGesto(page: import("@playwright/test").Page): Promise<
   const deltaY = -(solucion!.anguloGrados - ajusteActual.anguloGrados) / GANANCIA_ANGULO_GRADOS;
   const deltaX = (solucion!.potencia - ajusteActual.potencia) / GANANCIA_POTENCIA;
 
-  const inicio = { x: 195, y: 760 };
+  const inicio = await puntoLibreDeArrastre(page);
   const fin = { x: inicio.x + deltaX * 390, y: inicio.y + deltaY * 844 };
   await page.mouse.move(inicio.x, inicio.y);
   await page.mouse.down();

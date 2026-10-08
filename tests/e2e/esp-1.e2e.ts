@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { puntoLibreDeArrastre } from "./utilesApuntado";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import { generarSistema } from "@/sim/sistema/generador";
 import { simularVuelo } from "@/sim/fisica/vuelo";
@@ -75,7 +76,7 @@ test("apuntar y disparar produce un vuelo curvado por la gravedad planetaria que
   const viewport = page.viewportSize()!;
   const deltaVerticalFraccion = (ANGULO_OBJETIVO_GRADOS - ANGULO_INICIAL_GRADOS) / GANANCIA_ANGULO_GRADOS;
   const deltaHorizontalFraccion = (POTENCIA_OBJETIVO - POTENCIA_INICIAL) / GANANCIA_POTENCIA;
-  const inicio = { x: viewport.width * 0.5, y: viewport.height * 0.85 };
+  const inicio = await puntoLibreDeArrastre(page);
   const fin = {
     x: inicio.x + deltaHorizontalFraccion * viewport.width,
     y: inicio.y - deltaVerticalFraccion * viewport.height,

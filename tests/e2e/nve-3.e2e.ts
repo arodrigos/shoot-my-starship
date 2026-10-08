@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { puntoLibreDeArrastre } from "./utilesApuntado";
 
 // Duplicadas a propósito (convención de control-1/control-5): deben coincidir
 // con src/juego/control/apuntado.ts y src/juego/naves/formaCasco.ts. Si
@@ -47,7 +48,7 @@ test("nve-3: tras un impacto real, el tramo de daño dibujado corresponde a la i
   const deltaY = -(solucion!.anguloGrados - ANGULO_INICIAL_GRADOS) / GANANCIA_ANGULO_GRADOS;
   const deltaX = (solucion!.potencia - POTENCIA_INICIAL) / GANANCIA_POTENCIA;
 
-  const inicio = { x: 195, y: 760 };
+  const inicio = await puntoLibreDeArrastre(page);
   const fin = { x: inicio.x + deltaX * 390, y: inicio.y + deltaY * 844 };
 
   await page.mouse.move(inicio.x, inicio.y);
