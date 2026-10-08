@@ -4,6 +4,7 @@ import type { EstadoAudio, IdEfectoSonoro } from "@/juego/audio/motor";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import type { IdVoz } from "@/contenido/bancoBromas";
 import type { IdNave } from "@/sim/partida/tipos";
+import type { TipoEvento } from "@/sim/universo/tipos";
 import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
 import type { DatosExplosionPorCapas, NombreFaseExplosion } from "@/juego/efectos/ExplosionPorCapas";
@@ -155,7 +156,11 @@ export interface DebugBromaEntry {
 export interface DebugEfectoVisible {
   // cat-2: "haz-laser" es el rayo instantáneo (un único segmento nave → punto
   // de impacto, que dura duracionMs); "explosion" es lo de siempre.
-  readonly tipo?: "explosion" | "haz-laser" | "numero-danio";
+  // eventos-visibles: «evento-<tipo>» es el efecto gráfico de un evento del
+  // universo (persistente mientras dure, o transitorio unos segundos).
+  readonly tipo?: "explosion" | "haz-laser" | "numero-danio" | `evento-${TipoEvento}`;
+  // Solo los efectos de evento ligados a una nave.
+  readonly nave?: number;
   // vida-color: solo "numero-danio" -- el daño mostrado y el color del
   // asiento de quien disparó.
   readonly valor?: number;
@@ -222,6 +227,9 @@ export interface DebugGlobal {
   // Solo e2e: sitúa la partida en una ronda y con unas integridades exactas.
   fijarMuerteSubita?: (escenario: { ronda: number; integridades?: readonly number[] }) => void;
   ronda?: number;
+  // Solo e2e: aplica el evento ya, sin esperar al calendario, y lo refresca
+  // como si hubiera llegado al cerrar un turno.
+  forzarEvento?: (tipo: TipoEvento, afectado?: number) => void;
   fijarProximoEvento?: (proximo: { enTurnos: number; tipo: "loteria" | "vitaminas" | "virus" | "reparacion" | "terremoto" | "gravedad-x2" | "gravedad-mitad" | "viento-solar" | "agujero-negro" | "corazon" | "tormenta"; afectado: number }) => void;
   // render-2, render-5: juega N turnos reales (misma avanzar() que un
   // jugador) sin animación, para que el test pueda comprobar el estado

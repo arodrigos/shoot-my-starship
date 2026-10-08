@@ -14,6 +14,7 @@
     "medir:ia": "tsx scripts/medir-ia.ts",
     "medir:armas": "tsx scripts/medir-armas.ts",
     "calibrar:economia": "tsx scripts/calibrar-economia.ts",
+    "medir:eventos": "tsx scripts/medir-eventos.ts",
     "medir:fisica": "tsx scripts/medir-fisica.ts",
     "verificar:presupuesto-bundle": "node scripts/comprobar-presupuesto-bundle.mjs",
     "verificar:activos": "node scripts/comprobar-activos.mjs",
