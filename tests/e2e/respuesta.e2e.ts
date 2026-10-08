@@ -32,6 +32,13 @@ for (const vp of VIEWPORTS) {
   test(`res-1: ${vp.ancho}x${vp.alto} con CPU ×4, todo toque responde en ≤ 200 ms, también con la IA pensando y en la explosión`, async ({ page }) => {
     test.setTimeout(240000);
     await vigilarAvisoIA(page);
+    await page.addInitScript(() => {
+      const w = window as unknown as { __largas: string[] };
+      w.__largas = [];
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries()) w.__largas.push(`${Math.round(e.startTime)}+${Math.round(e.duration)}`);
+      }).observe({ type: "longtask", buffered: true });
+    });
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
     await entrarAPartida(page, vp.ancho, vp.alto);
@@ -61,6 +68,7 @@ for (const vp of VIEWPORTS) {
       p95: window.__debug.rendimiento!.p95,
       max: window.__debug.rendimiento!.max,
       modo: window.__debug.motor!.modo,
+      largas: (window as unknown as { __largas: string[] }).__largas.slice(-25).join(" "),
       aviso: (window as unknown as { __vioAvisoIA: string | null }).__vioAvisoIA,
     }));
     expect(medida.modo).toBe("trabajador");
@@ -68,7 +76,7 @@ for (const vp of VIEWPORTS) {
     const lentas = medida.interacciones.filter((i) => i.duracion > LIMITE_MS || i.retrasoEntrada > LIMITE_MS);
     const peor = [...medida.interacciones].sort((x, y) => y.duracion - x.duracion).slice(0, 5);
     const resumen = peor.map((i) => `${i.objetivo.slice(7, 14)}${i.tipo[0]}${Math.round(i.duracion)}/${Math.round(i.retrasoEntrada)}`).join(",");
-    expect(lentas.length, `p95=${Math.round(medida.p95)} max=${Math.round(medida.max)} n=${medida.interacciones.length} ${resumen}`).toBe(0);
+    expect(lentas.length, `p95=${Math.round(medida.p95)} max=${Math.round(medida.max)} n=${medida.interacciones.length} ${resumen} largas=${medida.largas}`).toBe(0);
     expect(medida.inp).toBeLessThanOrEqual(LIMITE_MS);
     expect(medida.aviso).toMatch(/está apuntando…$/);
   });
