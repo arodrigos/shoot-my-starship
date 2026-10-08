@@ -18,7 +18,7 @@ import {
   idLiderDerrumbado,
 } from "@/sim/partida/eventosHumor";
 import { existeTiroViable, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
-import { recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
+import { longitudDeEmpuje, recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
 import { avanzarRonda, drenajeDeRonda, empiezaRonda } from "@/sim/partida/muerteSubita";
 import { entrarEnMuerteSubita } from "@/sim/universo/efectos";
 import { buscarEquipo, TURNOS_ESCUDO } from "@/sim/equipo/catalogo";
@@ -404,15 +404,17 @@ export function avanzar(
     };
     return !existeTiroViable({ ...comun, tiradorId: tirador, objetivoId }) || !existeTiroViable({ ...comun, tiradorId: objetivoId, objetivoId: tirador });
   };
-  const desplazadas = desplazarNavesDanadas(
+  const desplazadas = desplazarNavesDanadas({
     estado,
     navesTrasDanio,
-    resultado.mascara,
-    radioEfectoEnMundo(arma, estado.mundo.ancho, estado.mundo.alto),
-    resultado.aleatorio,
+    mascara: resultado.mascara,
+    planetas: planetasTrasDisparo,
+    radioEfectoU: radioEfectoEnMundo(arma, estado.mundo.ancho, estado.mundo.alto),
+    fuentes: resultado.puntosDeImpacto,
+    danioMaximo: arma.efecto.tipo === "danio" || arma.efecto.tipo === "danio-y-autodanio" ? arma.efecto.danioMaximo : 0,
     objetivoId,
-    (punto) => repetiriaElImpacto(punto) || sinTiroEntreLosDos(punto),
-  );
+    descartarDestinoDelObjetivo: (punto) => repetiriaElImpacto(punto) || sinTiroEntreLosDos(punto),
+  });
   const naves = desplazadas.naves;
   eventos.push(...desplazadas.eventos);
 
@@ -430,7 +432,7 @@ export function avanzar(
         ...sinRobots(estado),
         mascara: resultado.mascara,
         naves,
-        aleatorio: desplazadas.aleatorio,
+        aleatorio: resultado.aleatorio,
         resultado: { tipo: "terminada", ganador },
         planetas: planetasTrasDisparo,
         saldos: saldosTrasDisparo,
@@ -448,7 +450,7 @@ export function avanzar(
     naves,
     mascara: resultado.mascara,
     planetas: planetasTrasDisparo,
-    aleatorio: desplazadas.aleatorio,
+    aleatorio: resultado.aleatorio,
     robots: robotsTrasDisparo,
     saldos: saldosTrasDisparo,
     eventos,
@@ -541,7 +543,7 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
   let navesFinal: EstadoNave[] = naves;
   let mascaraFinal = mascara;
   let planetasFinal = planetas;
-  let aleatorioFinal = aleatorioInicial;
+  const aleatorioFinal = aleatorioInicial;
   let robotsFinal = robots;
   const detonacionesFinal = [...detonaciones];
   const turnoSiguiente = siguienteTurno({ ...estado, naves }, tirador);
@@ -562,9 +564,20 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
         }
         return conIntegridad(nave, nave.integridad - danio);
       });
-      const recolocadas = desplazarNavesDanadas({ ...estado, naves }, heridas, mascaraFinal, fase.detonaciones[0].radioEfectoU, aleatorioFinal, -1, () => false);
+      // El robot empuja en radial desde su detonación; el más dañino fija la
+      // longitud (no hay un daño máximo de arma que compararle).
+      const recolocadas = desplazarNavesDanadas({
+        estado: { ...estado, naves },
+        navesTrasDanio: heridas,
+        mascara: mascaraFinal,
+        planetas: planetasFinal,
+        radioEfectoU: fase.detonaciones[0].radioEfectoU,
+        fuentes: fase.detonaciones,
+        danioMaximo: Math.max(...fase.danios.values()),
+        objetivoId: -1,
+        descartarDestinoDelObjetivo: () => false,
+      });
       navesFinal = recolocadas.naves;
-      aleatorioFinal = recolocadas.aleatorio;
       eventos.push(...recolocadas.eventos);
     }
   }
@@ -705,27 +718,58 @@ function danioATercerasNaves(
   return danios;
 }
 
-function desplazarNavesDanadas(
-  estado: EstadoPartida,
-  navesTrasDanio: readonly EstadoNave[],
-  mascara: EstadoPartida["mascara"],
-  radioEfectoU: number,
-  aleatorioInicial: EstadoPartida["aleatorio"],
-  objetivoId: IdNave,
-  descartarDestinoDelObjetivo: (punto: { x: number; y: number }) => boolean,
-): { naves: EstadoNave[]; eventos: EventoSimulacion[]; aleatorio: EstadoPartida["aleatorio"] } {
+interface ParametrosDesplazarNaves {
+  readonly estado: EstadoPartida;
+  readonly navesTrasDanio: readonly EstadoNave[];
+  readonly mascara: EstadoPartida["mascara"];
+  readonly planetas: EstadoPartida["planetas"];
+  readonly radioEfectoU: number;
+  // Puntos de detonación del turno; los que traen velocidad empujan en esa
+  // dirección y los demás (robot, área sin vuelo) en radial desde el punto.
+  readonly fuentes: readonly { readonly x: number; readonly y: number; readonly vx?: number; readonly vy?: number }[];
+  readonly danioMaximo: number;
+  readonly objetivoId: IdNave;
+  readonly descartarDestinoDelObjetivo: (punto: { x: number; y: number }) => boolean;
+}
+
+// La detonación más cercana al centro de la nave es la que la empuja: con el
+// Racimo, cada nave sale en la dirección de la submunición que la alcanzó.
+function direccionDeEmpuje(nave: { x: number; y: number }, fuentes: ParametrosDesplazarNaves["fuentes"]): { x: number; y: number } {
+  let mejor: ParametrosDesplazarNaves["fuentes"][number] | undefined;
+  let distanciaMejor = Infinity;
+  for (const fuente of fuentes) {
+    const distancia = Math.hypot(nave.x - fuente.x, nave.y - fuente.y);
+    if (distancia < distanciaMejor) {
+      mejor = fuente;
+      distanciaMejor = distancia;
+    }
+  }
+  if (mejor === undefined) return { x: 0, y: -1 };
+  if (mejor.vx !== undefined && mejor.vy !== undefined && Math.hypot(mejor.vx, mejor.vy) > 1e-9) return { x: mejor.vx, y: mejor.vy };
+  return { x: nave.x - mejor.x, y: nave.y - mejor.y };
+}
+
+function desplazarNavesDanadas(parametros: ParametrosDesplazarNaves): { naves: EstadoNave[]; eventos: EventoSimulacion[] } {
+  const { estado, navesTrasDanio, mascara, planetas, radioEfectoU, fuentes, danioMaximo, objetivoId, descartarDestinoDelObjetivo } = parametros;
   const naves = [...navesTrasDanio];
   const eventos: EventoSimulacion[] = [];
-  let aleatorio = aleatorioInicial;
   naves.forEach((nave, id) => {
     const antes = estado.naves[id];
     // Sin y no hay modo espacial: el suelo plano heredado no recoloca.
     if (nave.y === undefined || nave.integridad <= 0 || nave.integridad >= antes.integridad) return;
     const otras = naves.flatMap((otra, idOtra) => (idOtra !== id && otra.integridad > 0 && otra.y !== undefined ? [{ x: otra.x, y: otra.y }] : []));
-    const destino = recolocarTrasImpacto({ desde: { x: nave.x, y: nave.y }, mundo: estado.mundo, mascara, otras, radioEfectoU, aleatorio, ...(id === objetivoId ? { descartar: descartarDestinoDelObjetivo } : {}) });
-    aleatorio = destino.aleatorio;
+    const destino = recolocarTrasImpacto({
+      desde: { x: nave.x, y: nave.y },
+      direccion: direccionDeEmpuje({ x: nave.x, y: nave.y }, fuentes),
+      longitud: longitudDeEmpuje(estado.mundo, radioEfectoU, antes.integridad - nave.integridad, danioMaximo),
+      mundo: estado.mundo,
+      mascara,
+      ...(planetas !== undefined ? { pozos: planetas } : {}),
+      otras,
+      ...(id === objetivoId ? { descartar: descartarDestinoDelObjetivo } : {}),
+    });
     naves[id] = { ...nave, x: destino.x, y: destino.y };
-    eventos.push({ tipo: "desplazamiento", nave: id, desdeX: nave.x, desdeY: nave.y, x: destino.x, y: destino.y, reserva: destino.reserva });
+    eventos.push({ tipo: "desplazamiento", nave: id, desdeX: nave.x, desdeY: nave.y, x: destino.x, y: destino.y, reserva: destino.reserva, puntos: destino.puntos, motivoParada: destino.motivoParada });
   });
-  return { naves, eventos, aleatorio };
+  return { naves, eventos };
 }

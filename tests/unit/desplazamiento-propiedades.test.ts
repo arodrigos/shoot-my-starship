@@ -4,7 +4,7 @@ import fc from "fast-check";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { colocarNaves } from "@/sim/naves/colocacion";
-import { distanciaMinimaDesplazamiento, octavoDelMundo, recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
+import { longitudDeEmpuje, octavoDelMundo, recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
 import { esPosicionValida } from "@/sim/naves/zonaValida";
 import { avanzar } from "@/sim/partida/avanzar";
 import type { EstadoPartida, ParametrosMundo } from "@/sim/partida/tipos";
@@ -27,40 +27,39 @@ const ESTADO: EstadoPartida = {
   planetas: COLOCACION.sistema.planetas,
 };
 
-// des-2 (invariantes 1 y 3): para toda semilla, radio y posición de partida, el
-// destino es válido y está en [d_min, OCTAVO], salvo la reserva declarada, y
-// la misma entrada da siempre el mismo destino.
-test("des-2: el destino es válido, está en [d_min, octavo] y es determinista", () => {
-  const otra = COLOCACION.naves[1];
+// des-2 (invariantes 1 y 3): para toda dirección, longitud y posición de partida,
+// el destino es válido, no pasa del octavo y la misma entrada da el mismo destino.
+test("des-2: el destino es válido, no pasa del octavo y es determinista", () => {
   fc.assert(
     fc.property(
-      fc.integer({ min: 1, max: 0x7fffffff }),
+      fc.double({ min: 0, max: 2 * Math.PI, noNaN: true }),
       fc.double({ min: 0, max: 400, noNaN: true }),
+      fc.double({ min: 0, max: 1, noNaN: true }),
       fc.constantFrom(0, 1),
-      (semilla, radioEfectoU, indice) => {
+      (angulo, radioEfectoU, fraccionDanio, indice) => {
         const yo = COLOCACION.naves[indice];
         const resto = [COLOCACION.naves[1 - indice]].map((nave) => ({ x: nave.x, y: nave.y as number }));
         const parametros = {
           desde: { x: yo.x, y: yo.y as number },
+          direccion: { x: Math.cos(angulo), y: Math.sin(angulo) },
+          longitud: longitudDeEmpuje(MUNDO, radioEfectoU, fraccionDanio * 40, 40),
           mundo: MUNDO,
           mascara: ESTADO.mascara,
+          pozos: COLOCACION.sistema.planetas,
           otras: resto,
-          radioEfectoU,
-          aleatorio: crearEstadoAleatorio(semilla),
         };
         const a = recolocarTrasImpacto(parametros);
         assert.deepEqual(a, recolocarTrasImpacto(parametros), "misma entrada, mismo destino");
 
         const distancia = Math.hypot(a.x - parametros.desde.x, a.y - parametros.desde.y);
-        const minima = distanciaMinimaDesplazamiento(MUNDO, radioEfectoU);
         if (a.reserva === "se-queda") {
           assert.equal(distancia, 0);
           return;
         }
         assert.ok(esPosicionValida(a, MUNDO, ESTADO.mascara, resto), "posición válida según zonaValida");
         assert.ok(distancia <= octavoDelMundo(MUNDO) + EPS, "nunca más lejos del octavo");
-        if (a.reserva === "ninguna") assert.ok(distancia >= minima - EPS, "destino normal a ≥ d_min");
-        assert.ok(otra !== undefined);
+        // Sin descartar, el destino es el natural: a lo sumo D.
+        assert.ok(distancia <= parametros.longitud + EPS, "sin descartar no pasa de D");
       },
     ),
     { numRuns: 500 },

@@ -120,6 +120,10 @@ export type EventoSimulacion =
       readonly x: number;
       readonly y: number;
       readonly reserva: "ninguna" | "mas-lejano" | "se-queda";
+      // Recorrido simulado, del origen al destino: la cáscara anima la nave
+      // por estos mismos puntos en vez de interpolar en línea recta.
+      readonly puntos: readonly { readonly x: number; readonly y: number }[];
+      readonly motivoParada: "longitud" | "planeta" | "nave" | "esquina";
     }
   // minirobot: el robot se ha posado tras el disparo, ha saltado a otro planeta
   // (con el número de saltos hechos) o ha detonado sobre su objetivo. La

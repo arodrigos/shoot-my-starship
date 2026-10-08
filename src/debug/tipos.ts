@@ -184,6 +184,8 @@ export interface DebugGlobal {
   // desplazamiento-tras-impacto (des-3): marcas «Estaba aquí» vivas durante el
   // turno siguiente, con el origen de cada desplazamiento.
   fantasmas?: readonly { readonly nave: number; readonly x: number; readonly y: number }[];
+  // Recorrido simulado de cada empuje del último turno, con el motivo de parada.
+  recorridoEmpuje?: readonly { readonly nave: number; readonly puntos: readonly { readonly x: number; readonly y: number }[]; readonly motivoParada: string }[];
   // minirobot (rob-2): robots posados en un planeta, con su posición y saltos.
   robots?: readonly { readonly dueno: number; readonly planetaId: number; readonly x: number; readonly y: number; readonly saltos: number }[];
   // eventos-universo: calendario y efectos vivos, y un gancho para fijar el
