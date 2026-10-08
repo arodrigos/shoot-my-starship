@@ -5,6 +5,7 @@ import type { SuperficieDeTerreno } from "@/juego/terreno/Terreno";
 import type { PaletaTerreno } from "@/juego/paleta";
 import { FACTOR_BORDE_QUEMADO, PALETA_ESPACIO_ESCOMBRO, PALETA_PROVISIONAL, oscurecer } from "@/juego/paleta";
 import { clasificarPixelVisual, type TipoVisualPixel } from "@/juego/terreno/clasificacionVisual";
+import { ColaRefresco, pintarRectangulo, rectanguloARepintar } from "@/juego/terreno/refrescoIncremental";
 
 // Implementación de SuperficieDeTerreno sobre una CanvasTexture de Phaser.
 // La paleta llega por parámetro (render-juego, sustituye el color cableado
@@ -15,10 +16,13 @@ export class SuperficieCanvasPhaser implements SuperficieDeTerreno {
   private readonly colorRoca: PaletaTerreno;
   private readonly colorBordeQuemado: PaletaTerreno;
 
+  private readonly cola: ColaRefresco;
+
   constructor(
     private readonly textura: Phaser.Textures.CanvasTexture,
     private readonly paleta: PaletaTerreno = PALETA_PROVISIONAL,
   ) {
+    this.cola = new ColaRefresco(textura);
     this.colorRoca = paleta;
     this.colorBordeQuemado = oscurecer(paleta, FACTOR_BORDE_QUEMADO);
   }
@@ -33,43 +37,23 @@ export class SuperficieCanvasPhaser implements SuperficieDeTerreno {
     return this.colorRoca;
   }
 
-  // Refresco incremental (un impacto): SOLO fillRect/clearRect, nunca
-  // getImageData ni putImageData (terreno-6) -- este es el camino que se
-  // ejecuta cada vez que un arma toca el terreno, y es justo el que el
-  // criterio no quiere ver tocando el canvas por lectura/escritura de
-  // píxeles a granel. Comprime cada fila en tramos contiguos del MISMO tipo
-  // visual (no solo sólido/aire, desde crateres-y-escombros) para no pintar
-  // píxel a píxel.
+  // Refresco incremental (un impacto): ImageData del rectángulo sucio y un
+  // putImageData, sin leer el lienzo (terreno-6) ni llamar a update(), que
+  // hace getImageData del mapa entero. La subida a la GPU va en vaciarCola.
   refrescarRectangulo(mascara: Mascara, rectangulo: RectanguloSucio): void {
-    if (rectangulo.ancho <= 0 || rectangulo.alto <= 0) {
+    const rect = rectanguloARepintar(mascara, rectangulo);
+    if (rect === null) {
       return;
     }
+    pintarRectangulo(this.textura, rect, (x, y) => {
+      const tipo = clasificarPixelVisual(mascara, x, y);
+      return tipo === "aire" ? null : this.colorDe(tipo);
+    });
+    this.cola.marcar();
+  }
 
-    const contexto = this.textura.context;
-    const maxX = rectangulo.x + rectangulo.ancho - 1;
-    const maxY = rectangulo.y + rectangulo.alto - 1;
-
-    for (let y = rectangulo.y; y <= maxY; y++) {
-      let x = rectangulo.x;
-      while (x <= maxX) {
-        const tipo = clasificarPixelVisual(mascara, x, y);
-        const inicioTramo = x;
-        while (x + 1 <= maxX && clasificarPixelVisual(mascara, x + 1, y) === tipo) {
-          x++;
-        }
-        const anchoTramo = x - inicioTramo + 1;
-        if (tipo === "aire") {
-          contexto.clearRect(inicioTramo, y, anchoTramo, 1);
-        } else {
-          const color = this.colorDe(tipo);
-          contexto.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
-          contexto.fillRect(inicioTramo, y, anchoTramo, 1);
-        }
-        x++;
-      }
-    }
-
-    this.textura.update();
+  vaciarCola(): boolean {
+    return this.cola.vaciar();
   }
 
   // Pintado inicial de la máscara entera, al generar el mapa: una pasada de
@@ -100,6 +84,7 @@ export class SuperficieCanvasPhaser implements SuperficieDeTerreno {
     }
 
     contexto.putImageData(imagen, 0, 0);
+    this.cola.descartar();
     this.textura.update();
   }
 }

@@ -213,7 +213,7 @@ function crearTexturaDeMentira(ancho: number, alto: number): Phaser.Textures.Can
     createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4), width: w, height: h }),
     putImageData: () => {},
   };
-  return { context: contexto, width: ancho, height: alto, update: () => {} } as unknown as Phaser.Textures.CanvasTexture;
+  return { context: contexto, width: ancho, height: alto, update: () => {}, refresh: () => {} } as unknown as Phaser.Textures.CanvasTexture;
 }
 
 test("esp-8 (crt-3, camino crítico): pintarCompleta del peor sistema tiene coste acotado (una sola pasada, nunca por fotograma)", () => {

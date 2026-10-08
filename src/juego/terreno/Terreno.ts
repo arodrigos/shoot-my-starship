@@ -13,6 +13,9 @@ export interface SuperficieDeTerreno {
   // refrescarRectangulo(mascara, rectánguloEntero) porque esa ruta solo
   // sabe de fillRect/clearRect y terreno-6 la mantiene así a propósito.
   pintarCompleta(mascara: Mascara): void;
+  // paron-explosion: sube a la GPU lo pintado desde la última vez, una sola
+  // vez por frame. Opcional: los dobles de prueba de Node no tienen GPU.
+  vaciarCola?(): boolean;
 }
 
 // Único punto de código que modifica la máscara Y la textura visible a la
@@ -56,6 +59,10 @@ export class Terreno {
       this.superficie.refrescarRectangulo(this.mascara, rectangulo);
     }
     return rectangulo;
+  }
+
+  vaciarCola(): boolean {
+    return this.superficie.vaciarCola?.() ?? false;
   }
 
   // render-5: tras RESTORE_WEBGL hay que repintar desde la máscara ACTUAL

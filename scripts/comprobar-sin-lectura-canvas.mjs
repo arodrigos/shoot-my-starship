@@ -23,6 +23,10 @@ const LISTA_BLANCA = new Set([
   // -- pintarCompleta es la única pasada íntegra, refrescarRectangulo (en el
   // mismo fichero) solo usa fillRect/clearRect.
   "src/juego/terreno/SuperficieEspacio.ts",
+  // paron-explosion: escribe el rectángulo sucio con UN putImageData (sin
+  // lecturas); es el camino de impacto, pero lo único prohibido allí es leer
+  // el lienzo, y este fichero no lo hace (lo comprueba refresco-incremental).
+  "src/juego/terreno/refrescoIncremental.ts",
   // Puente de depuración para Playwright (comprobarPuntos): una sola
   // lectura del lienzo por lote de puntos, nunca en el camino de colisión
   // del juego real.
