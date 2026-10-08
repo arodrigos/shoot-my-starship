@@ -74,7 +74,7 @@ export class Nave {
     this.colorCasco = COLORES_NAVE[idNave];
     this.direccion = mirarHaciaMasX ? 1 : -1;
     // La variante (forma) coincide con el asiento: de 0 a 3, las cuatro que
-    // ya existen en senaNave.ts. El núcleo acota a 4 naves.
+    // ya existen en geometriaCasco.ts. El núcleo acota a 4 naves.
     this.variante = idNave as VarianteNave;
 
     // Casco: silueta poligonal simple (fuselaje + aleta), con una sombra
