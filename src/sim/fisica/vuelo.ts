@@ -39,6 +39,60 @@ export function reiniciarContadorVuelosSimulados(): void {
   contadorVuelosSimulados = 0;
 }
 
+// salida-pantalla: un proyectil que sale del mundo por cualquier borde (más
+// este margen, para que un tiro que roza el borde no se pierda por un píxel)
+// se pierde en ese instante y no puede volver: sin detonación, sin daño y sin
+// cráter. Antes el techo era 3 mundos por encima y los demás bordes detonaban
+// en el borde, así que un tiro perdido podía animarse varios segundos o dañar.
+export const MARGEN_SALIDA_U = 24;
+
+export type BordeSalida = "arriba" | "abajo" | "izquierda" | "derecha";
+
+export interface EncuadreVuelo {
+  readonly ancho: number;
+  readonly alto: number;
+}
+
+export interface PuntoSalida {
+  readonly x: number;
+  readonly y: number;
+}
+
+export function bordeDeSalida(x: number, y: number, ancho: number, alto: number): BordeSalida | null {
+  if (y < -MARGEN_SALIDA_U) return "arriba";
+  if (y > alto + MARGEN_SALIDA_U) return "abajo";
+  if (x < -MARGEN_SALIDA_U) return "izquierda";
+  if (x > ancho + MARGEN_SALIDA_U) return "derecha";
+  return null;
+}
+
+export function fueraDeEncuadre(x: number, y: number, ancho: number, alto: number): boolean {
+  return bordeDeSalida(x, y, ancho, alto) !== null;
+}
+
+// Recorta el paso a la frontera del encuadre ampliado: así ningún punto del
+// vuelo simulado queda fuera de [-24, ancho + 24] x [-24, alto + 24], que es
+// lo que la previsualización y la animación necesitan para coincidir.
+function recortarAlEncuadre(desde: EstadoProyectil, hasta: EstadoProyectil, encuadre: EncuadreVuelo): EstadoProyectil {
+  const minX = -MARGEN_SALIDA_U;
+  const maxX = encuadre.ancho + MARGEN_SALIDA_U;
+  const minY = -MARGEN_SALIDA_U;
+  const maxY = encuadre.alto + MARGEN_SALIDA_U;
+  const dx = hasta.x - desde.x;
+  const dy = hasta.y - desde.y;
+  let t = 1;
+  if (hasta.x < minX && dx !== 0) t = Math.min(t, (minX - desde.x) / dx);
+  if (hasta.x > maxX && dx !== 0) t = Math.min(t, (maxX - desde.x) / dx);
+  if (hasta.y < minY && dy !== 0) t = Math.min(t, (minY - desde.y) / dy);
+  if (hasta.y > maxY && dy !== 0) t = Math.min(t, (maxY - desde.y) / dy);
+  t = Math.max(0, t);
+  return {
+    ...hasta,
+    x: Math.min(maxX, Math.max(minX, desde.x + dx * t)),
+    y: Math.min(maxY, Math.max(minY, desde.y + dy * t)),
+  };
+}
+
 export interface ResultadoVuelo {
   readonly proyectil: EstadoProyectil;
   readonly pasos: number;
@@ -60,6 +114,11 @@ export interface ResultadoVuelo {
   // sin que `detenerse` se cumpliera nunca: un proyectil en órbita estable
   // (grav-6). En el modo de un único mapa (sin planetas) es siempre false.
   readonly perdido: boolean;
+  // salida-pantalla: por qué borde salió y por dónde, solo cuando `perdido` se
+  // debe a salir del encuadre (null en la órbita sin fin y en cualquier vuelo
+  // sin `opciones.encuadre`).
+  readonly bordeSalida: BordeSalida | null;
+  readonly puntoSalida: PuntoSalida | null;
   // vuelo-extensible (vex-3): estado del PRNG hilvanado tras consumir la
   // perturbación errática de este vuelo -- null cuando `opciones.perturbacion`
   // no se pidió (todo llamante de antes de este bloque). El llamante
@@ -101,6 +160,10 @@ export interface OpcionesVueloGravitatorio {
   // "punto a punto" contra la reproducción del cliente sin reimplementar la
   // física para reconstruirla.
   readonly grabarTrayectoria?: boolean;
+  // salida-pantalla: con él, el vuelo se pierde en cuanto un paso lo saca del
+  // encuadre ampliado por MARGEN_SALIDA_U. Opcional y aditivo: sin él, el
+  // vuelo termina solo por `detenerse`, como siempre.
+  readonly encuadre?: EncuadreVuelo;
 }
 
 // Resuelve un vuelo completo en pasos fijos, sin necesitar tiempo real: es
@@ -131,6 +194,7 @@ export function simularVuelo(
   const pasoS = PASO_FIJO_MS / 1000;
   const planetas = opciones?.planetas;
   const rastreadorNaves = opciones?.rastreadorNaves;
+  const encuadre = opciones?.encuadre;
   const magnitudPerturbacion = opciones?.perturbacion?.magnitudPxS2 ?? 0;
   let aleatorioPerturbacion = opciones?.perturbacion?.aleatorio ?? null;
   // mos-2 (fix): memoria de velocidad lateral del Ornstein-Uhlenbeck discreto
@@ -168,7 +232,9 @@ export function simularVuelo(
         throw new Error("simularVuelo: la condición de parada nunca se cumple (posible vuelo infinito)");
       }
       const { gravedad: gravedadPaso, deriva: derivaPaso } = conPerturbacion(gravedad, deriva);
-      const siguiente = integrarPasoProyectil(proyectil, gravedadPaso, derivaPaso, pasoS);
+      const bruto = integrarPasoProyectil(proyectil, gravedadPaso, derivaPaso, pasoS);
+      const bordeSalida = encuadre ? bordeDeSalida(bruto.x, bruto.y, encuadre.ancho, encuadre.alto) : null;
+      const siguiente = bordeSalida && encuadre ? recortarAlEncuadre(proyectil, bruto, encuadre) : bruto;
       trayectoria?.push(siguiente);
       const impactoNave = rastreadorNaves?.comprobarPaso(proyectil, siguiente) ?? null;
       pasos++;
@@ -178,30 +244,35 @@ export function simularVuelo(
           pasos,
           impactoNave,
           roceNave: null,
-          perdido: false,
+          perdido: false, bordeSalida: null, puntoSalida: null,
           aleatorioFinal: aleatorioPerturbacion,
           trayectoria,
         };
+      }
+      if (bordeSalida) {
+        return { proyectil: siguiente, pasos, impactoNave: null, roceNave, perdido: true, bordeSalida, puntoSalida: { x: siguiente.x, y: siguiente.y }, aleatorioFinal: aleatorioPerturbacion, trayectoria };
       }
       if (!roceNave) {
         roceNave = rastreadorNaves?.comprobarRoce(proyectil, siguiente) ?? null;
       }
       proyectil = siguiente;
     }
-    return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion, trayectoria };
+    return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, bordeSalida: null, puntoSalida: null, aleatorioFinal: aleatorioPerturbacion, trayectoria };
   }
 
   const presupuesto = opciones?.presupuestoPasos ?? PRESUPUESTO_VUELO_MULTIPOZO_PASOS;
   while (!detenerse(proyectil)) {
     if (pasos >= presupuesto) {
-      return { proyectil, pasos, impactoNave: null, roceNave, perdido: true, aleatorioFinal: aleatorioPerturbacion, trayectoria };
+      return { proyectil, pasos, impactoNave: null, roceNave, perdido: true, bordeSalida: null, puntoSalida: null, aleatorioFinal: aleatorioPerturbacion, trayectoria };
     }
     const aceleracion = calcularAceleracionGravitatoria(planetas, proyectil.x, proyectil.y);
     const { gravedad: gravedadPaso, deriva: derivaPaso } = conPerturbacion(
       gravedad + aceleracion.y / GRAVEDAD_REFERENCIA_PX_S2,
       deriva + aceleracion.x,
     );
-    const siguiente = integrarPasoProyectil(proyectil, gravedadPaso, derivaPaso, pasoS);
+    const bruto = integrarPasoProyectil(proyectil, gravedadPaso, derivaPaso, pasoS);
+    const bordeSalida = encuadre ? bordeDeSalida(bruto.x, bruto.y, encuadre.ancho, encuadre.alto) : null;
+    const siguiente = bordeSalida && encuadre ? recortarAlEncuadre(proyectil, bruto, encuadre) : bruto;
     trayectoria?.push(siguiente);
     const impactoNave = rastreadorNaves?.comprobarPaso(proyectil, siguiente) ?? null;
     pasos++;
@@ -211,15 +282,18 @@ export function simularVuelo(
         pasos,
         impactoNave,
         roceNave: null,
-        perdido: false,
+        perdido: false, bordeSalida: null, puntoSalida: null,
         aleatorioFinal: aleatorioPerturbacion,
         trayectoria,
       };
+    }
+    if (bordeSalida) {
+      return { proyectil: siguiente, pasos, impactoNave: null, roceNave, perdido: true, bordeSalida, puntoSalida: { x: siguiente.x, y: siguiente.y }, aleatorioFinal: aleatorioPerturbacion, trayectoria };
     }
     if (!roceNave) {
       roceNave = rastreadorNaves?.comprobarRoce(proyectil, siguiente) ?? null;
     }
     proyectil = siguiente;
   }
-  return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, aleatorioFinal: aleatorioPerturbacion, trayectoria };
+  return { proyectil, pasos, impactoNave: null, roceNave, perdido: false, bordeSalida: null, puntoSalida: null, aleatorioFinal: aleatorioPerturbacion, trayectoria };
 }

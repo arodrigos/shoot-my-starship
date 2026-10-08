@@ -335,6 +335,9 @@ export interface DebugGlobal {
   // "proyectil perdido en órbita" con su propio texto (qué ha pasado y qué
   // hacer), no solo el genérico de impacto/fallo.
   resultadoTurno?: string;
+  // salida-pantalla: el aviso «¡Perdido!» del último tiro que salió del encuadre,
+  // en coordenadas del mundo (el texto vive en el lienzo, no en el DOM).
+  avisoPerdido?: { borde: string; x: number; y: number; ancho: number; alto: number };
   // esp-6: fuerza el cierre de turno con un evento "proyectil-perdido" real
   // (mismo aplicarResultadoTurno que usa un disparo de verdad), sin depender
   // de encontrar por gesto una órbita estable de un sistema planetario

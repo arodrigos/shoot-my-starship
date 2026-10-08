@@ -109,7 +109,7 @@ export function calcularPrevisualizacion(params: ParametrosPrevisualizacion): re
   // arm-4/arm-6: el láser instantáneo vuela con gravedad 0 y sin planetas --
   // el mismo ajuste que hace resolver.ts para el disparo real.
   const detenerseSuelo = detenerseEnSuelo(params.mascara, params.ancho, params.alto);
-  let detenerseReal = esInstantaneo ? (p: EstadoProyectil) => p.y < 0 || detenerseSuelo(p) : detenerseSuelo;
+  let detenerseReal = detenerseSuelo;
   const gravedad = esInstantaneo ? 0 : params.gravedad;
   const deriva = esInstantaneo ? 0 : params.deriva;
   const planetas = esInstantaneo ? undefined : params.planetas;
@@ -148,6 +148,7 @@ export function calcularPrevisualizacion(params: ParametrosPrevisualizacion): re
     rastreadorNaves,
     perturbacion,
     grabarTrayectoria: true,
+    encuadre: { ancho: params.ancho, alto: params.alto },
   });
 
   const trayectoria = resultado.trayectoria ?? [inicial];

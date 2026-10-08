@@ -1,5 +1,5 @@
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
-import { simularVuelo } from "@/sim/fisica/vuelo";
+import { MARGEN_SALIDA_U, simularVuelo, type BordeSalida, type PuntoSalida } from "@/sim/fisica/vuelo";
 import { pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { dispersionPorPotenciaGrados } from "@/sim/balistica/dispersionPotencia";
@@ -21,6 +21,14 @@ export interface PuntoDeImpacto {
   // punto exacto, si alguna -- undefined cuando el punto es una detonación
   // normal contra sólido, fuera de mundo o ápice de submuniciones.
   readonly impactoNave?: IdNave;
+}
+
+export interface SalidaDePantalla extends PuntoSalida {
+  readonly borde: BordeSalida;
+}
+
+function salidaDeVuelo(borde: BordeSalida | null, punto: PuntoSalida | null): SalidaDePantalla | undefined {
+  return borde && punto ? { borde, x: punto.x, y: punto.y } : undefined;
 }
 
 export interface ResultadoDisparo {
@@ -52,6 +60,9 @@ export interface ResultadoDisparo {
   // (órbita estable). puntosDeImpacto viaja vacío en ese caso -- no hay
   // ningún punto real que impactar ni huella que aplicar.
   readonly proyectilPerdido: boolean;
+  // salida-pantalla: null salvo que el disparo se haya perdido al salir del
+  // encuadre; la cáscara lo usa para el aviso «¡Perdido!» junto a ese borde.
+  readonly salida?: SalidaDePantalla | null;
   // contacto-honesto (con-1): la nave (si alguna) rozada por este disparo --
   // aproximación mínima fuera del casco de colisión pero dentro de la
   // silueta dibujada. null en cualquier disparo sin roce, incluido todo
@@ -99,7 +110,7 @@ export function alturaSuperficie(mascara: Mascara, x: number): number | null {
 // núcleo, trazado de la IA y animador sigan coincidiendo.
 export function detenerseEnSuelo(mascara: Mascara, ancho: number, alto: number) {
   return (p: EstadoProyectil): boolean => {
-    if (p.y >= alto || p.y < -3 * alto || p.x < 0 || p.x >= ancho) {
+    if (p.y > alto + MARGEN_SALIDA_U || p.y < -MARGEN_SALIDA_U || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
       return true;
     }
     return esSolido(mascara, Math.round(p.x), Math.round(p.y));
@@ -124,7 +135,7 @@ function crearDetenerseConPenetracion(mascara: Mascara, ancho: number, alto: num
   let anteriorY: number | null = null;
 
   const detenerse = (p: EstadoProyectil): boolean => {
-    if (p.y >= alto || p.y < -3 * alto || p.x < 0 || p.x >= ancho) {
+    if (p.y > alto + MARGEN_SALIDA_U || p.y < -MARGEN_SALIDA_U || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
       return true;
     }
     const solido = esSolido(mascara, Math.round(p.x), Math.round(p.y));
@@ -159,7 +170,7 @@ function crearDetenerseHaz(mascara: Mascara, ancho: number, alto: number, penetr
   let distanciaEnSolidoPx = 0;
   let anterior: EstadoProyectil | null = null;
   return (p: EstadoProyectil): boolean => {
-    if (p.y >= alto || p.y < -3 * alto || p.x < 0 || p.x >= ancho) return true;
+    if (p.y > alto + MARGEN_SALIDA_U || p.y < -MARGEN_SALIDA_U || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) return true;
     // El paso de integración puede ser de decenas de píxeles: se recorre el
     // segmento de 1 en 1 para medir la roca realmente cruzada, no el paso.
     if (anterior !== null) {
@@ -269,6 +280,9 @@ function resolverRodadura(mascara: Mascara, xInicial: number, yInicial: number, 
 interface ResultadoPuntosDeImpacto {
   readonly puntos: readonly PuntoDeImpacto[];
   readonly perdido: boolean;
+  // salida-pantalla: borde y punto por los que se perdió el disparo; ausente
+  // cuando no hay pérdida o se debe a la órbita sin fin.
+  readonly salida?: SalidaDePantalla;
   // armas-nuevas (arm-3): rastro dejado dentro de un sólido por un arma con
   // penetracionPx, aparte de los puntos de impacto que reciben daño -- ver
   // crearDetenerseConPenetracion. Ausente en el resto del catálogo.
@@ -304,14 +318,17 @@ function resolverSubmuniciones(
     proyectil: apice,
     pasos,
     perdido: apicePerdido,
+    bordeSalida: apiceBorde,
+    puntoSalida: apicePunto,
     impactoNave: impactoNaveApice,
     roceNave: roceApice,
-  } = simularVuelo(inicial, gravedad, deriva, (p) => p.vy >= 0 || detenerse(p), { planetas, rastreadorNaves });
+  } = simularVuelo(inicial, gravedad, deriva, (p) => p.vy >= 0 || detenerse(p), { planetas, rastreadorNaves, encuadre: { ancho, alto } });
 
+  const apiceSalida: SalidaDePantalla | undefined = apiceBorde && apicePunto ? { borde: apiceBorde, ...apicePunto } : undefined;
   // grav-6: el propio ápice se ha perdido en órbita antes de cruzar vy>=0 --
   // no hay desde dónde repartir submuniciones.
   if (apicePerdido) {
-    return { puntos: [], perdido: true, pasos };
+    return { puntos: [], perdido: true, pasos, salida: apiceSalida };
   }
 
   // impacto-naves: un casco cortado de camino al ápice detona ahí mismo --
@@ -330,14 +347,17 @@ function resolverSubmuniciones(
   }
 
   const puntos: PuntoDeImpacto[] = [];
+  let salida: SalidaDePantalla | undefined;
   let roce: RoceNave | undefined = roceApice ?? undefined;
   for (let i = 0; i < cantidad; i++) {
     const offset = (i - (cantidad - 1) / 2) * (dispersionPxS / Math.max(1, cantidad - 1));
     const subInicial: EstadoProyectil = { x: apice.x, y: apice.y, vx: apice.vx + offset, vy: apice.vy };
-    const { proyectil, perdido, impactoNave, roceNave } = simularVuelo(subInicial, gravedad, deriva, detenerse, {
+    const { proyectil, perdido, impactoNave, roceNave, bordeSalida, puntoSalida } = simularVuelo(subInicial, gravedad, deriva, detenerse, {
       planetas,
       rastreadorNaves,
+      encuadre: { ancho, alto },
     });
+    if (perdido && bordeSalida && puntoSalida && !salida) salida = { borde: bordeSalida, ...puntoSalida };
     // Una submunición individual perdida en órbita simplemente no aporta
     // punto de impacto -- el resto de la andanada, si aterriza, sigue
     // contando (grav-6 no exige que TODAS se pierdan para declarar el
@@ -349,7 +369,7 @@ function resolverSubmuniciones(
       roce = roceNave;
     }
   }
-  return { puntos, perdido: puntos.length === 0, roce, pasos };
+  return { puntos, perdido: puntos.length === 0, roce, pasos, salida: puntos.length === 0 ? salida : undefined };
 }
 
 // Un punto está "anclado" si cae dentro del mundo y toca roca en su entorno
@@ -424,10 +444,10 @@ function resolverUnDisparo(
     // en el primer casco, sólido que no puede cruzar, o el borde).
     const penetracionHaz = arma.penetracionPx ?? 0;
     const detenerseSuelo = penetracionHaz > 0 ? crearDetenerseHaz(mascara, ancho, alto, penetracionHaz) : detenerseEnSuelo(mascara, ancho, alto);
-    const detenerse = (p: EstadoProyectil): boolean => p.y < 0 || detenerseSuelo(p);
-    const { proyectil, pasos, perdido, impactoNave, roceNave } = simularVuelo(inicial, 0, 0, detenerse, { rastreadorNaves });
+    const detenerse = detenerseSuelo;
+    const { proyectil, pasos, perdido, impactoNave, roceNave, bordeSalida, puntoSalida } = simularVuelo(inicial, 0, 0, detenerse, { rastreadorNaves, encuadre: { ancho, alto } });
     if (perdido) {
-      return { puntos: [], perdido: true, aleatorio, pasos };
+      return { puntos: [], perdido: true, aleatorio, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
     }
     return {
       puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
@@ -444,14 +464,14 @@ function resolverUnDisparo(
     // comportamientoExtendido.ts). Detiene igual que cualquier arma sin
     // penetración: primer sólido, borde de mundo o casco.
     const detenerse = detenerseEnSuelo(mascara, ancho, alto);
-    const { proyectil, pasos, perdido, impactoNave, roceNave, aleatorioFinal } = simularVuelo(inicial, gravedad, deriva, detenerse, {
+    const { proyectil, pasos, perdido, impactoNave, roceNave, aleatorioFinal, bordeSalida, puntoSalida } = simularVuelo(inicial, gravedad, deriva, detenerse, {
       planetas,
       rastreadorNaves,
       perturbacion: { magnitudPxS2: arma.comportamiento.magnitudPxS2, aleatorio },
     });
     const aleatorioTrasVuelo = aleatorioFinal ?? aleatorio;
     if (perdido) {
-      return { puntos: [], perdido: true, aleatorio: aleatorioTrasVuelo, pasos };
+      return { puntos: [], perdido: true, aleatorio: aleatorioTrasVuelo, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
     }
     return {
       puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
@@ -469,9 +489,9 @@ function resolverUnDisparo(
     // proyectil pendiente al terminar el turno.
     const detenerseBase = detenerseEnSuelo(mascara, ancho, alto);
     const detenerse = crearDetenerseConMecha(detenerseBase, pasosDeMecha(arma.comportamiento.segundosHastaDetonar));
-    const { proyectil, pasos, perdido, impactoNave, roceNave } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
+    const { proyectil, pasos, perdido, impactoNave, roceNave, bordeSalida, puntoSalida } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves, encuadre: { ancho, alto } });
     if (perdido) {
-      return { puntos: [], perdido: true, aleatorio, pasos };
+      return { puntos: [], perdido: true, aleatorio, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
     }
     return {
       puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
@@ -495,12 +515,12 @@ function resolverUnDisparo(
     // vuelo-extensible (ver desviaciones en el entregable): "sin rama nueva"
     // era cierto para la física de vuelo, no para este caso límite.
     const detenerse = detenerseEnSuelo(mascara, ancho, alto);
-    const { proyectil, pasos, impactoNave, roceNave } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
+    const { proyectil, pasos, impactoNave, roceNave, bordeSalida, puntoSalida } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves, encuadre: { ancho, alto } });
     // cat-4: el gancho solo se ancla a roca de planeta o a un casco. En el
     // borde del mundo (o si el presupuesto de vuelo se agota en el vacío) se
     // pierde sin efecto: ni daño ni cambio en la máscara.
     if (!impactoNave && !estaAnclado(mascara, proyectil.x, proyectil.y, ancho, alto)) {
-      return { puntos: [], perdido: true, aleatorio, pasos };
+      return { puntos: [], perdido: true, aleatorio, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
     }
     return {
       puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
@@ -515,9 +535,9 @@ function resolverUnDisparo(
   const tracker = penetracionMaximaPx > 0 ? crearDetenerseConPenetracion(mascara, ancho, alto, penetracionMaximaPx) : null;
   const detenerse = tracker ? tracker.detenerse : detenerseEnSuelo(mascara, ancho, alto);
 
-  const { proyectil, pasos, perdido, impactoNave, roceNave } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves });
+  const { proyectil, pasos, perdido, impactoNave, roceNave, bordeSalida, puntoSalida } = simularVuelo(inicial, gravedad, deriva, detenerse, { planetas, rastreadorNaves, encuadre: { ancho, alto } });
   if (perdido) {
-    return { puntos: [], perdido: true, aleatorio, pasos };
+    return { puntos: [], perdido: true, aleatorio, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
   }
 
   // impacto-naves: la rodadura es terreno, no física de proyectil -- un
@@ -568,6 +588,7 @@ function resolverPuntosDeImpacto(
   const puntos: PuntoDeImpacto[] = [];
   const puntosPenetrados: { x: number; y: number }[] = [];
   let algunoLlego = false;
+  let salida: SalidaDePantalla | undefined;
   let roce: RoceNave | undefined;
   // armas-metrica: pasos del PRIMER proyectil del abanico -- mismo criterio
   // que roce, el primer vuelo real dispara el reloj del disparo entero.
@@ -600,6 +621,9 @@ function resolverPuntosDeImpacto(
         puntosPenetrados.push(...resultado.puntosPenetrados);
       }
     }
+    if (!salida && resultado.salida) {
+      salida = resultado.salida;
+    }
     if (!roce && resultado.roce) {
       roce = resultado.roce;
     }
@@ -608,6 +632,7 @@ function resolverPuntosDeImpacto(
   return {
     puntos,
     perdido: !algunoLlego,
+    salida: algunoLlego ? undefined : salida,
     puntosPenetrados: puntosPenetrados.length > 0 ? puntosPenetrados : undefined,
     roce,
     aleatorio: aleatorioActual,
@@ -735,6 +760,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
   const {
     puntos: puntosDeImpacto,
     perdido: proyectilPerdido,
+    salida,
     puntosPenetrados,
     roce,
     aleatorio: aleatorioTrasVuelo,
@@ -772,6 +798,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
       puntosDeImpacto,
       origenY,
       proyectilPerdido,
+      salida: salida ?? null,
       roce: roce ?? null,
       pasosVuelo,
     };
@@ -853,6 +880,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     puntosDeImpacto,
     origenY,
     proyectilPerdido,
+    salida: salida ?? null,
     roce: roce ?? null,
     pasosVuelo,
   };

@@ -178,7 +178,7 @@ export function avanzar(
     eventos.push({ tipo: "arma-falla", nave: tirador, arma: entrada.arma });
   }
   if (resultado.proyectilPerdido) {
-    eventos.push({ tipo: "proyectil-perdido", nave: tirador, arma: entrada.arma });
+    eventos.push({ tipo: "proyectil-perdido", nave: tirador, arma: entrada.arma, ...(resultado.salida ? { salida: resultado.salida } : {}) });
   }
 
   // minirobot: el proyectil que acaba en un planeta no detona, se queda posado
