@@ -62,12 +62,15 @@ for (const caso of CASOS) {
       const impacto = r.marcas.find((m) => m.nombre === "impacto")!;
       const explosion = r.marcas.find((m) => m.nombre === "explosion")!;
       const ventana = r.deltas.filter((f) => f.t >= impacto.t && f.t <= explosion.t + 1000).map((f) => f.delta);
-      return { separacion: explosion.t - impacto.t, max: Math.max(0, ...ventana), frames: ventana.length };
+      const grandes = r.deltas
+        .filter((f) => f.t >= impacto.t - 2000 && f.delta > 40)
+        .map((f) => `${(f.t - impacto.t).toFixed(0)}ms:${f.delta.toFixed(0)}`);
+      return { separacion: explosion.t - impacto.t, max: Math.max(0, ...ventana), frames: ventana.length, grandes };
     });
+    console.log(`[par-1] ${caso.nombre}: max ${medida.max.toFixed(1)} ms en ${medida.frames} frames; grandes (desde el impacto): ${medida.grandes.join(" ")}`);
     expect(medida.separacion).toBeLessThanOrEqual(100);
     expect(medida.frames).toBeGreaterThan(0);
     expect(medida.max).toBeLessThanOrEqual(150);
-    console.log(`[par-1] ${caso.nombre}: max ${medida.max.toFixed(1)} ms en ${medida.frames} frames`);
   });
 }
 
