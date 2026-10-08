@@ -284,6 +284,18 @@ export class Nave {
     return this.activa;
   }
 
+  // La silueta que se ve (y que colisiona) con el deterioro actual: el
+  // fantasma la hornea tal cual.
+  obtenerPuntosSilueta(): readonly { readonly x: number; readonly y: number }[] {
+    return puntosCascoConDanio(this.direccion, this.nivelDanioActual, this.variante);
+  }
+
+  // Una nave muerta deja su sitio al fantasma; no se destruye para que los
+  // índices y la depuración de naves sigan alineados con el estado.
+  mostrar(visible: boolean): void {
+    this.contenedor.setVisible(visible);
+  }
+
   obtenerVariante(): VarianteNave {
     return this.variante;
   }
