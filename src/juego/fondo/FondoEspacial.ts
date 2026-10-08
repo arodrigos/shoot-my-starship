@@ -3,6 +3,9 @@ import { crearGeneradorAleatorio } from "@/sim/aleatorio";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { generarEstrellasCercanas, dibujarEstrellasCercanas } from "@/juego/fondo/CapaEstelarCercana";
 import { dibujarPozosGravedad } from "@/juego/fondo/PozosGravedad";
+import type { AnilloHalo } from "@/sim/gravedad/halos";
+
+export type HalosPintados = Array<{ id: number; anillos: AnilloHalo[] }>;
 
 const NUM_ESTRELLAS = 260;
 const NUM_NUBES_NEBULOSA = 5;
@@ -35,10 +38,11 @@ export function crearFondoEspacial(
   alto: number,
   claveTextura: string,
   planetas: RegistroPlanetas,
-): FondoEspacial {
-  hornearFondo(escena, semilla, ancho, alto, claveTextura, planetas);
+  masasReferencia: ReadonlyMap<number, number>,
+): FondoEspacial & { halos: HalosPintados } {
+  const halos = hornearFondo(escena, semilla, ancho, alto, claveTextura, planetas, masasReferencia);
   const imagen = escena.add.image(0, 0, claveTextura).setOrigin(0, 0).setDepth(-1);
-  return { imagen };
+  return { imagen, halos };
 }
 
 // Vuelve a pintar el fondo sobre la MISMA textura (Phaser dibuja encima del
@@ -52,8 +56,9 @@ export function rehornearFondoEspacial(
   alto: number,
   claveTextura: string,
   planetas: RegistroPlanetas,
-): void {
-  hornearFondo(escena, semilla, ancho, alto, claveTextura, planetas);
+  masasReferencia: ReadonlyMap<number, number>,
+): HalosPintados {
+  return hornearFondo(escena, semilla, ancho, alto, claveTextura, planetas, masasReferencia);
 }
 
 function hornearFondo(
@@ -63,7 +68,8 @@ function hornearFondo(
   alto: number,
   claveTextura: string,
   planetas: RegistroPlanetas,
-): void {
+  masasReferencia: ReadonlyMap<number, number>,
+): HalosPintados {
   const aleatorio = crearGeneradorAleatorio(semilla);
   const lienzo = escena.make.graphics({ x: 0, y: 0 });
 
@@ -99,8 +105,9 @@ function hornearFondo(
   // Pozos de gravedad: al final, para que el halo quede por encima de las
   // estrellas -- mismo orden de profundidad que tenían las tres `Image`
   // separadas (-1, -0.8, -0.5).
-  dibujarPozosGravedad(lienzo, planetas);
+  const halos = dibujarPozosGravedad(lienzo, planetas, masasReferencia, ancho, alto);
 
   lienzo.generateTexture(claveTextura, ancho, alto);
   lienzo.destroy();
+  return halos;
 }
