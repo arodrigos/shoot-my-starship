@@ -64,7 +64,8 @@ for (const vp of VIEWPORTS) {
     expect(medida.modo).toBe("trabajador");
     expect(medida.interacciones.length).toBeGreaterThanOrEqual(6);
     const lentas = medida.interacciones.filter((i) => i.duracion > LIMITE_MS || i.retrasoEntrada > LIMITE_MS);
-    expect(lentas, JSON.stringify(lentas)).toEqual([]);
+    const resumen = medida.interacciones.map((i) => `${i.objetivo}/${i.tipo}:${Math.round(i.duracion)}d,${Math.round(i.retrasoEntrada)}r`).join(" ; ");
+    expect(lentas.length, `lentas de ${medida.interacciones.length}: ${resumen}`).toBe(0);
     expect(medida.inp).toBeLessThanOrEqual(LIMITE_MS);
     expect(medida.aviso).toMatch(/está apuntando…$/);
   });
