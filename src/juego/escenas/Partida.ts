@@ -90,7 +90,6 @@ import { buscarEvento } from "@/sim/universo/catalogoEventos";
 import { conUniverso } from "@/sim/universo/efectos";
 import { conMuerteSubita, drenajeDeRonda, RONDA_MUERTE_SUBITA } from "@/sim/partida/muerteSubita";
 import { MAX_SALTOS_ROBOT, type EstadoRobot } from "@/sim/armas/minirobot";
-import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
