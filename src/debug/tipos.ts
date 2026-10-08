@@ -405,7 +405,13 @@ export interface DebugGlobal {
   // escena ni leyendo píxeles.
   estela?: { vivas: number; tope: number };
   // paron-explosion: instantánea del medidor de frames (getter vivo).
-  rendimiento?: import("@/juego/rendimiento/medidorFrames").InstantaneaRendimiento;
+  rendimiento?: import("@/juego/rendimiento/medidorFrames").InstantaneaRendimiento &
+    import("@/juego/rendimiento/medidorRespuesta").InstantaneaRespuesta;
+  // respuesta-200ms: centinela de la medida. El siguiente toque bloquea el hilo
+  // `ms` (tope 1000) dentro de su manejador.
+  bloquearHilo?: (ms: number) => void;
+  // respuesta-200ms: cómo se resuelve la simulación ("trabajador" o "en-linea").
+  motor?: { modo: import("@/juego/motor/clienteSim").ModoMotor; motivo: string | null };
   // proy-4: el máximo de partículas vivas observado en cualquier fotograma
   // desde que arrancó la escena -- una ráfaga de disparos sucede en un único
   // page.evaluate síncrono (ver dispararRafagaTurbo), así que el test no
@@ -421,7 +427,7 @@ export interface DebugGlobal {
   // en ráfaga -- misma dispararEntrada/animación que un turno jugado a mano,
   // pero sin esperar el reloj real entre pasos, para que un test de pool
   // acotado no tenga que reproducir 20 vuelos a velocidad real.
-  dispararRafagaTurbo?: (numeroDeDisparos: number) => void;
+  dispararRafagaTurbo?: (numeroDeDisparos: number) => Promise<void>;
   // imp-11: análogo a solucionBalisticaJugador pero para modo espacial, donde
   // no hay fórmula cerrada -- reutiliza el mismo oráculo real de la IA
   // (barridoRejilla) para dar un disparo con daño > 0 verificado contra el
