@@ -131,6 +131,8 @@ function textoAnguloGrados(grados: number): string {
 interface PropsControl {
   readonly plegada: boolean;
   readonly alAlternarPlegado: () => void;
+  readonly alOcultar: () => void;
+  readonly alMover: () => void;
 }
 
 // Icono del arma en la barra mínima: el mismo dibujo que la celda del selector,
@@ -153,7 +155,7 @@ function textoEjeDeArma(arma: (typeof CATALOGO_ARMAS)[number]): string {
   return "";
 }
 
-export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
+export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: PropsControl) {
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const resultadoTurno = useSyncExternalStore(suscribirResultadoTurno, obtenerResultadoTurno, obtenerResultadoTurno);
   const navesEnPartida = useSyncExternalStore(suscribirIntegridad, obtenerIntegridad, obtenerIntegridad).naves.length;
@@ -246,26 +248,58 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
       ? "Espera a que termine el disparo."
       : null;
 
+  const estiloBotonConsola = {
+    ...botonEstilo,
+    width: TAMANO_BOTON_PLEGAR_PX,
+    height: TAMANO_BOTON_PLEGAR_PX,
+    minWidth: TAMANO_BOTON_PLEGAR_PX,
+    minHeight: TAMANO_BOTON_PLEGAR_PX,
+    padding: 0,
+    font: "20px system-ui, sans-serif",
+  } as const;
+
+  // Reducir y ampliar son el mismo botón (desplegada <-> mínima); ocultar y
+  // mover son aparte, para que cada gesto tenga un nombre accesible propio.
   const botonPlegar = (
     <button
       type="button"
       data-testid="boton-plegar-consola"
       aria-expanded={!plegada}
-      aria-label={plegada ? "Mostrar controles" : "Ocultar controles"}
-      title={plegada ? "Mostrar controles" : "Ocultar controles"}
+      aria-label={plegada ? "Ampliar controles" : "Reducir controles"}
+      title={plegada ? "Ampliar controles" : "Reducir controles"}
       onPointerDown={(evento) => evento.stopPropagation()}
       onClick={alAlternarPlegado}
-      style={{
-        ...botonEstilo,
-        width: TAMANO_BOTON_PLEGAR_PX,
-        height: TAMANO_BOTON_PLEGAR_PX,
-        minWidth: TAMANO_BOTON_PLEGAR_PX,
-        minHeight: TAMANO_BOTON_PLEGAR_PX,
-        padding: 0,
-        font: "20px system-ui, sans-serif",
-      }}
+      style={estiloBotonConsola}
     >
       <span aria-hidden="true">{plegada ? "▴" : "▾"}</span>
+    </button>
+  );
+
+  const botonOcultar = (
+    <button
+      type="button"
+      data-testid="boton-ocultar-consola"
+      aria-label="Ocultar controles"
+      title="Ocultar controles"
+      onPointerDown={(evento) => evento.stopPropagation()}
+      onClick={alOcultar}
+      style={estiloBotonConsola}
+    >
+      <span aria-hidden="true">✕</span>
+    </button>
+  );
+
+  const botonMover = (
+    <button
+      type="button"
+      data-testid="boton-mover-consola"
+      aria-label="Mover controles"
+      title="Mover controles"
+      onPointerDown={(evento) => evento.stopPropagation()}
+      onClick={alMover}
+      style={estiloBotonConsola}
+    >
+      <span aria-hidden="true">⇄</span>
     </button>
   );
 
@@ -319,8 +353,7 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
     // que era justo lo que producía los solapes que este bloque corrige.
     <div
       style={{
-        position: "absolute",
-        inset: 0,
+        position: "relative",
         zIndex: 1,
         touchAction: "none",
         userSelect: "none",
@@ -347,7 +380,11 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
     >
       {/* Flota sobre el borde superior del panel (no dentro de su alto): el
           panel ya no tiene sitio libre en 360x640 con el tope del 45 %. */}
-      <div style={{ position: "absolute", right: 8, top: -(TAMANO_BOTON_PLEGAR_PX + 4) }}>{botonPlegar}</div>
+      <div style={{ position: "absolute", right: 0, top: -(TAMANO_BOTON_PLEGAR_PX + 4), display: "flex", gap: 4 }}>
+        {botonMover}
+        {botonPlegar}
+        {botonOcultar}
+      </div>
       {/* canal-estado (hud-canales-1): permanente -- de quién es el turno y
           el nombre del rival ya no son una fila propia (ver IntegridadHUD:
           resalta la nave de quien juega y sustituye su etiqueta genérica),
@@ -704,8 +741,17 @@ export function ControlHUD({ plegada, alAlternarPlegado }: PropsControl) {
           // contenido; si de verdad no caben los dos a la vez (un aviso
           // largo con una broma larga), esta fila es la que se desplaza con
           // su propio overflowY, nunca los hijos recortando glifos a medias.
-          ...(bromas.clave > 0 ? { height: 78 } : { maxHeight: 78 }),
+          // consola-compacta: con la consola al 40 % del alto no queda sitio
+          // para esta fila dentro del panel. Flota sobre su borde superior,
+          // por encima de la fila de botones de la consola, y no recibe
+          // toques (la broma y su cierre los reactivan por su cuenta).
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: `calc(100% + ${TAMANO_BOTON_PLEGAR_PX + 8}px)`,
+          maxHeight: 150,
           overflowY: "auto",
+          pointerEvents: "none",
         }}
       >
         <RoceHUD />

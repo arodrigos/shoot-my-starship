@@ -20,9 +20,11 @@ export function PronosticoHUD() {
         background: "var(--color-roce-fondo)",
         border: "1px solid var(--color-roce-borde)",
         borderRadius: 10,
-        padding: "4px 10px",
+        // consola-compacta: con la consola a 320 px el texto del evento
+        // inminente no cabe en una línea a 12 px y padding 10.
+        padding: "4px 6px",
         color: "var(--color-roce-texto)",
-        font: "12px system-ui, sans-serif",
+        font: "11px system-ui, sans-serif",
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
