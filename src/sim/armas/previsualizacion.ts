@@ -148,6 +148,7 @@ export function calcularPrevisualizacion(params: ParametrosPrevisualizacion): re
     rastreadorNaves,
     perturbacion,
     grabarTrayectoria: true,
+    encuadre: { ancho: params.ancho, alto: params.alto },
   });
 
   const trayectoria = resultado.trayectoria ?? [inicial];

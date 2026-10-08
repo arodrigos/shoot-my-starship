@@ -28,7 +28,7 @@ test("arm-5: una ráfaga de 3 produce exactamente 3 proyectiles con la apertura 
     arma,
     origenX: 300,
     anguloGrados: 45,
-    potencia: 70,
+    potencia: 50, // cae dentro de la pantalla: por el lado se perdería (salida-pantalla)
     objetivoX: 900,
     objetivoY: SUELO_Y,
     ancho: ANCHO,
@@ -68,7 +68,7 @@ function desviacionTipicaDeCaida(arma: Arma): number {
       // 45° se dispara, así que la MEDIDA sobre 200 tiros separa mejor el
       // orden real entre 3° y 6° de dispersión.
       anguloGrados: 20,
-      potencia: 90,
+      potencia: 75, // el alcance a 90 salía por el lado derecho (salida-pantalla)
       objetivoX: 900,
       objetivoY: SUELO_Y,
       ancho: ANCHO,

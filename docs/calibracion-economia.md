@@ -43,6 +43,24 @@ sana es [0.6; 1.6].
 | Barato (la de pago más barata) | 10 |
 | Medio con dos escudos pagados | 4 |
 
-## Partidas de 3 IAs con la misma puntería (no ejecutado en esta pasada semillas)
+## Partidas de 3 IAs con la misma puntería (10 semillas)
 
-Se omite la simulación con `--sin-simulacion`.
+Cada perfil de gasto juega con la puntería de Almirante Bisagra, los asientos
+rotan por semilla y están activos el universo, la muerte súbita y el equipo.
+
+| Perfil | Victorias (partidas con ganador) | Turno propio medio en que no llega ni a la más barata | Sin saldo en su 8.º turno | Paga en la ronda 10 |
+| --- | --- | --- | --- | --- |
+| ahorrador | 2/5 (40 %) | 13.0 | 0/10 (0 %) | 9/10 (90 %) |
+| agresivo | 2/5 (40 %) | 7.4 | 8/10 (80 %) | 1/10 (10 %) |
+| mixto | 1/5 (20 %) | 12.0 | 0/10 (0 %) | 4/9 (44 %) |
+
+### Bandas de cal-3 con estas semillas
+
+- CUMPLE: ahorrador: gana entre el 20 % y el 50 % de las partidas con ganador (40 %)
+- CUMPLE: ahorrador: dispara de pago en la ronda 10 en ≥ 70 % de las partidas que llegan (90 %)
+- CUMPLE: agresivo: gana entre el 20 % y el 50 % de las partidas con ganador (40 %)
+- CUMPLE: agresivo: sin saldo para la más barata en su 8.º turno propio en ≥ 80 % de las partidas que llegan (80 %)
+- CUMPLE: mixto: gana entre el 20 % y el 50 % de las partidas con ganador (20 %)
+
+Con pocas semillas el intervalo de cada tasa es ancho: la comprobación que
+manda es la de `PRUEBA_LARGA=1 npm run calibrar:economia -- --semillas 60`.

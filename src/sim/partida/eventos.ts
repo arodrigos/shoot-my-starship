@@ -95,7 +95,14 @@ export type EventoSimulacion =
   // mostrar, el turno pasa igual.
   // arma: qué arma se perdió, para que el texto del turno distinga el gancho
   // que no encuentra a qué agarrarse de un disparo atrapado en órbita.
-  | { readonly tipo: "proyectil-perdido"; readonly nave: IdNave; readonly arma?: string }
+  // salida-pantalla: `salida` solo viene cuando el tiro se perdió al salir del
+  // encuadre (borde y punto de salida), no en la órbita sin fin.
+  | {
+      readonly tipo: "proyectil-perdido";
+      readonly nave: IdNave;
+      readonly arma?: string;
+      readonly salida?: { readonly borde: "arriba" | "abajo" | "izquierda" | "derecha"; readonly x: number; readonly y: number };
+    }
   // nucleo-n-naves-2: una tercera nave que el área del disparo alcanza sin
   // ser el objetivo declarado. Evento propio y no un "impacto" más porque la
   // presentación pinta una explosión por cada "impacto" y aquí el punto ya

@@ -25,6 +25,9 @@ const PLANETAS: Planeta[] = Array.from({ length: 6 }, (_, i) => ({
 
 function dispararRecto(armaId: string) {
   const mascara = crearMascaraVacia(ANCHO, ALTO);
+  // salida-pantalla: sin algo que parar el rayo en el borde derecho se pierde
+  // al salir; un muro lo detiene donde antes lo hacía el borde del mundo.
+  for (let y = 0; y < ALTO; y++) for (let x = 2950; x < ANCHO; x++) mascara.datos[y * ANCHO + x] = 1;
   return resolverDisparo({
     mascara,
     gravedad: 0,
@@ -47,10 +50,10 @@ test("arm-4: el Rayo Láser ignora la gravedad de un sistema de 6 planetas (desv
   const base = dispararRecto("pepinazo-cortesia");
   const laser = dispararRecto("rayo-laser");
 
-  assert.equal(base.proyectilPerdido, false);
   assert.equal(laser.proyectilPerdido, false);
-
-  const desviacionBase = Math.abs(base.puntosDeImpacto[0].y - Y_LINEA_RECTA);
+  // salida-pantalla: curvado por los planetas, el arma base puede salir del
+  // encuadre y perderse; eso también es desviarse de la línea recta.
+  const desviacionBase = base.proyectilPerdido ? Number.POSITIVE_INFINITY : Math.abs(base.puntosDeImpacto[0].y - Y_LINEA_RECTA);
   const desviacionLaser = Math.abs(laser.puntosDeImpacto[0].y - Y_LINEA_RECTA);
 
   assert.ok(desviacionLaser < 1, `el láser se desvía ${desviacionLaser}px, debería ser < 1px`);

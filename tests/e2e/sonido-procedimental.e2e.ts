@@ -126,7 +126,12 @@ test("snd-2: la mecha y la mina suenan con tic-tac distintos entre sí", async (
   await page.getByTestId("arma-gancho-pegajoso").click();
   await page.waitForFunction(() => window.__debug.control!.ajuste.armaId === "gancho-pegajoso");
   await page.evaluate(() => window.__debug.forzarFusibleAdherenciaPasos!(100));
-  await apuntar(page, 30, 50);
+  // salida-pantalla: un 30°/50 fijo ya sale del encuadre y se pierde sin
+  // pegarse, así que no hay mina que cuente; la solución balística del motor
+  // da un tiro que sí llega a la nave rival.
+  const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
+  expect(solucion).not.toBeNull();
+  await apuntar(page, solucion!.anguloGrados, solucion!.potencia);
 
   const numeroTurnoMina = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
   await page.getByTestId("disparar").click();

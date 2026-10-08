@@ -13,7 +13,7 @@ export const FACILIDAD_MEDIDA_PCT: Readonly<Record<string, number>> = {
   "petardo-de-feria": 1.5,
   "pelota-de-chatarra": 1.8,
   "graviton-segunda-mano": 0.0,
-  "despedida": 3.4,
+  "despedida": 3.2,
   "barrena-planetaria": 2.3,
   "rayo-laser": 0.9,
   "mosca-cojonera": 2.8,

@@ -21,8 +21,10 @@ const TOPE_SISTEMAS_LOTE = muestra(400);
 const UMBRAL_PROPORCION_MEJORA = 0.6;
 
 function distanciaAlCentro(punto: { readonly x: number; readonly y: number } | undefined, objetivo: { readonly x: number; readonly y: number }): number {
-  assert.ok(punto, "ia-n6: el disparo debía impactar en algún punto para medir distancia");
-  return Math.hypot(punto!.x - objetivo.x, punto!.y - objetivo.y);
+  // salida-pantalla: un disparo perdido al salir del encuadre no detona; cuenta
+  // como el peor fallo posible (la diagonal del mundo), no como un error del test.
+  if (!punto) return Math.hypot(MUNDO_MULTIPOZO.ancho, MUNDO_MULTIPOZO.alto);
+  return Math.hypot(punto.x - objetivo.x, punto.y - objetivo.y);
 }
 
 // ia-n6: "más cerca" se mide con la distancia euclídea 2D del punto de

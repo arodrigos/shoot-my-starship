@@ -3,7 +3,7 @@ import { GRAVEDAD_REFERENCIA_PX_S2, integrarPasoProyectil, type EstadoProyectil 
 import { acumuladorInicial, avanzarConAcumulador, PASO_FIJO_MS, type EstadoAcumulador } from "@/sim/tiempo";
 import { calcularAceleracionGravitatoria } from "@/sim/gravedad/nCuerpos";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
-import { PRESUPUESTO_VUELO_MULTIPOZO_PASOS } from "@/sim/fisica/vuelo";
+import { fueraDeEncuadre, PRESUPUESTO_VUELO_MULTIPOZO_PASOS, type EncuadreVuelo } from "@/sim/fisica/vuelo";
 import type { RastreadorImpactoNaves } from "@/sim/naves/impacto";
 import type { Arma } from "@/sim/armas/tipos";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
@@ -44,6 +44,11 @@ export class AnimadorProyectil {
   // disparo que de verdad entra en órbita estable animaría para siempre en
   // vez de declararse perdido en el mismo paso donde lo hace el núcleo.
   private pasos = 0;
+  // salida-pantalla: el núcleo ya declaró perdido el tiro que sale del
+  // encuadre; sin esto la vista seguía animando el vuelo fuera de pantalla
+  // hasta agotar el presupuesto (segundos de pantalla quieta, que además
+  // retrasan el turno en un CI con render por software).
+  private encuadre: EncuadreVuelo | undefined;
   private detenerse: ((p: EstadoProyectil) => boolean) | null = null;
   private alTerminar: ((p: EstadoProyectil) => void) | null = null;
   // impacto-naves (desviación, ver entregable): sin esto la vista no sabía
@@ -223,6 +228,10 @@ export class AnimadorProyectil {
     this.punto.setPosition(inicial.x, inicial.y).setRotation(this.anguloActualRad).setVisible(true);
   }
 
+  fijarEncuadre(encuadre: EncuadreVuelo): void {
+    this.encuadre = encuadre;
+  }
+
   obtenerObjetoDeCamara(): Phaser.GameObjects.Graphics {
     return this.punto;
   }
@@ -257,6 +266,7 @@ export class AnimadorProyectil {
     const detenerse = this.detenerse;
     const planetas = this.planetas;
     const rastreadorNaves = this.rastreadorNaves;
+    const encuadre = this.encuadre;
     let detenido = false;
     let agotado = false;
     let huboImpactoNave = false;
@@ -327,6 +337,13 @@ export class AnimadorProyectil {
       const siguiente = integrarPasoProyectil(p, gravedadPaso, derivaPaso, PASO_FIJO_S);
       this.trayectoria.push(siguiente);
       if (planetas) this.pasos++;
+      // Misma regla que simularVuelo: un vuelo que sale del encuadre se pierde
+      // sin detonar, así que la animación termina en el mismo punto.
+      if (encuadre && fueraDeEncuadre(siguiente.x, siguiente.y, encuadre.ancho, encuadre.alto)) {
+        detenido = true;
+        agotado = true;
+        return siguiente;
+      }
       // Mismo orden que simularVuelo: el casco se comprueba en cada paso,
       // por delante del propio detenerse() de terreno -- así el impacto de
       // casco siempre gana cuando el mismo paso cruza los dos.

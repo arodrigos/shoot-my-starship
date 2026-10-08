@@ -24,7 +24,7 @@ aparte que mantener sincronizada con el resolutor.
 | Petardo de Feria | 13 | 62 | 1.40s | 1.5% | 0 |
 | La Pelota de Chatarra | 8 | 30 | 1.26s | 1.8% | 0 |
 | Gravitón de Segunda Mano | 0 | 0 | n/a | 0.0% | 45 |
-| Despedida | 55 | 115 | 1.16s | 3.4% | 125 |
+| Despedida | 55 | 115 | 1.16s | 3.2% | 125 |
 | Barrena Planetaria | 44 | 38 | 1.28s | 2.3% | 90 |
 | Rayo Láser | 46 | 80 | 0.49s | 0.9% | 115 |
 | Mosca Cojonera | 28 | 50 | 1.25s | 2.8% | 75 |

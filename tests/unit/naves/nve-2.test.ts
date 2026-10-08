@@ -16,9 +16,9 @@ import { RADIO_ENVOLVENTE_NAVE_PX, puntosCascoVariante } from "@/sim/naves/geome
 // fija ese bloque, no una regresión de este.
 // Hash actualizado en siluetas-por-asiento (sil-2): el daño se mide contra la
 // silueta visible (suelo del 20 % de daño al tocarla) en vez de al centro, lo que mueve el balance a propósito.
-// Hash actualizado en naves-silueta: la zona de impacto es la silueta (daño
+// Hash actualizado en salida-pantalla (el tiro que sale del encuadre se pierde) y en naves-silueta: la zona de impacto es la silueta (daño
 // por distancia al polígono, sin el suelo del 20 %), lo que mueve el balance a propósito.
-const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "3b5687a0d64ea926160f03de2797748b0942473eda610074e70b45abe9c1b150";
+const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "1245898a0fc80ca6f457e63ef98dc482bec82519d3183e9e6342e787412d5f17";
 
 test("nve-2: 200 partidas dan exactamente el mismo resultado que antes de naves-siluetas (el balance no se movió)", () => {
   const lote = jugarLote(20260929, 200);

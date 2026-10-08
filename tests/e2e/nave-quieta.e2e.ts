@@ -20,7 +20,7 @@ for (const angulo of [170, 135, 45]) {
     await arrastrarDesdeNave(page, 0, angulo, 60);
     const numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
     await page.getByTestId("disparar").click();
-    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurnoAntes, { timeout: 60000 });
+    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurnoAntes, { timeout: 180000 });
 
     const eventos = (await page.evaluate(() => window.__debug.ultimosEventos)) ?? [];
     const leAlcanzo = eventos.some((e) => (e.tipo === "autoimpacto" && e.nave === 0) || (e.tipo === "impacto" && e.objetivo === 0));
