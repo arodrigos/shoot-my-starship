@@ -188,6 +188,17 @@ export interface DebugGlobal {
   // desplazamiento-tras-impacto (des-3): marcas «Estaba aquí» vivas durante el
   // turno siguiente, con el origen de cada desplazamiento.
   fantasmas?: readonly { readonly nave: number; readonly x: number; readonly y: number }[];
+  // fantasma (fan-1): naves muertas convertidas en fantasma. Aparte de
+  // `fantasmas`, que son las marcas «Estaba aquí» de un desplazamiento.
+  fantasmasNave?: readonly {
+    readonly nave: number;
+    readonly nombre: string;
+    readonly alfa: number;
+    readonly x: number;
+    readonly y: number;
+    readonly yVisible: number;
+    readonly texturaValida: boolean;
+  }[];
   // minirobot (rob-2): robots posados en un planeta, con su posición y saltos.
   robots?: readonly { readonly dueno: number; readonly planetaId: number; readonly x: number; readonly y: number; readonly saltos: number }[];
   // eventos-universo: calendario y efectos vivos, y un gancho para fijar el
