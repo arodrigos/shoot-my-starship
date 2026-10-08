@@ -65,7 +65,9 @@ export function medirFisica(escenarios: readonly SistemaColocado[] = ESCENARIOS_
           planetas: escenario.sistema.planetas,
         });
         disparos++;
-        if (resultado.proyectilPerdido) perdidos++;
+        // salida-pantalla: salir del encuadre es una pérdida distinta; aquí se mide la
+        // captura orbital (presupuesto de pasos agotado), que es lo que el umbral vigila.
+        if (resultado.proyectilPerdido && !resultado.salida) perdidos++;
         maxPasosVuelo = Math.max(maxPasosVuelo, resultado.pasosVuelo);
       }
     }
