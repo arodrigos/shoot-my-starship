@@ -5,7 +5,8 @@ import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
 import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPhaser";
 import { crearFondoEspacial, rehornearFondoEspacial } from "@/juego/fondo/FondoEspacial";
 import { firmaDeHalos } from "@/juego/fondo/PozosGravedad";
-import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
+import { aceleracionPozo } from "@/sim/gravedad/halos";
+import { masaPlaneta, type RegistroPlanetas } from "@/sim/gravedad/planetas";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { factorPlanetasParaArea } from "@/sim/sistema/generador";
 import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
@@ -304,6 +305,9 @@ export class Partida extends Phaser.Scene {
   private estado!: EstadoPartida;
   private semillaFondo: number | undefined;
   private firmaHalos = "";
+  // Masa de nacimiento de cada pozo (multiplicador 1, planeta entero): ancla
+  // de a_sup para que los halos crezcan con la gravedad y mengüen con los cráteres.
+  private readonly masasReferencia = new Map<number, number>();
   private terreno!: ReturnType<typeof crearTerrenoPhaser>["terreno"];
   private rival: Personalidad = RIVAL_POR_DEFECTO;
   // multi-setup-partida: de un único rival a una memoria por cada nave de IA
@@ -643,10 +647,16 @@ export class Partida extends Phaser.Scene {
       // pozos de gravedad se funden en esta misma textura (ver el porqué en
       // FondoEspacial.ts) -- `sistema.planetas` es el mismo registro que usa
       // la gravedad real, nunca una copia.
-      crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", sistema.planetas);
+      sistema.planetas.forEach((planeta) => this.masasReferencia.set(planeta.id, masaPlaneta(planeta)));
+      const fondo = crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", sistema.planetas, this.masasReferencia);
       this.semillaFondo = semillaSistema;
       this.firmaHalos = firmaDeHalos(sistema.planetas);
       window.__debug.fondoEspacial = { bakes: 1 };
+      window.__debug.halos = fondo.halos;
+      window.__debug.aceleracionPozo = (id, r) => {
+        const pozo = this.estado.planetas?.find((planeta) => planeta.id === id);
+        return pozo === undefined ? undefined : aceleracionPozo(pozo, r);
+      };
       this.selectorFrases = crearSelectorFrases(semillaSistema);
       this.selectorBromas = crearSelectorBromas(semillaSistema);
     }
@@ -2289,7 +2299,12 @@ export class Partida extends Phaser.Scene {
     const firma = firmaDeHalos(planetas);
     if (firma === this.firmaHalos) return;
     this.firmaHalos = firma;
-    rehornearFondoEspacial(this, this.semillaFondo, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", planetas);
+    // Un pozo que aparece a mitad de partida (agujero negro) nace con su masa fija.
+    planetas.forEach((planeta) => {
+      if (!this.masasReferencia.has(planeta.id)) this.masasReferencia.set(planeta.id, masaPlaneta(planeta));
+    });
+    const halos = rehornearFondoEspacial(this, this.semillaFondo, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", planetas, this.masasReferencia);
+    if (window.__debug !== undefined) window.__debug.halos = halos;
     const depuracion = window.__debug?.fondoEspacial;
     if (depuracion !== undefined) depuracion.rehornoHalos = (depuracion.rehornoHalos ?? 0) + 1;
   }
