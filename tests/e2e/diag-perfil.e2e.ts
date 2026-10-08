@@ -15,7 +15,7 @@ test("diag-perfil", async ({ page }) => {
   const { profile } = await cdp.send("Profiler.stop");
   const propio = new Map<number, number>();
   const nodos = new Map(profile.nodes.map((n) => [n.id, n]));
-  profile.samples.forEach((id, i) => propio.set(id, (propio.get(id) ?? 0) + (profile.timeDeltas[i] ?? 0)));
+  (profile.samples ?? []).forEach((id, i) => propio.set(id, (propio.get(id) ?? 0) + ((profile.timeDeltas ?? [])[i] ?? 0)));
   const porFuncion = new Map<string, number>();
   for (const [id, t] of propio) {
     const n = nodos.get(id)!;
