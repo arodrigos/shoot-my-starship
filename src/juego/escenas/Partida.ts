@@ -1530,6 +1530,7 @@ export class Partida extends Phaser.Scene {
       pasosHastaDetonarTrasAdherencia,
     };
 
+    this.animador.fijarEncuadre({ ancho: estadoAntes.mundo.ancho, alto: estadoAntes.mundo.alto });
     this.animador.iniciar(
       inicial,
       estadoAntes.mundo.gravedad,
@@ -2058,6 +2059,7 @@ export class Partida extends Phaser.Scene {
     // repetición anterior.
     const rastreadorNaves = navesParaRastreador ? crearRastreadorImpactoNaves(navesParaRastreador, tiradorId) : undefined;
     window.__debug!.impactoRepeticion = null;
+    this.animadorRepeticion.fijarEncuadre({ ancho: this.estado.mundo.ancho, alto: this.estado.mundo.alto });
     this.animadorRepeticion.iniciar(
       inicial,
       gravedad,
