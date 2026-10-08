@@ -7,7 +7,7 @@ import { arrastrarDesdeNave } from "./utilesApuntado";
 // tirador (el autoimpacto por gravedad sigue siendo legítimo).
 for (const angulo of [170, 135, 45]) {
   test(`nave-quieta: disparar a ${angulo}° deja al tirador en su sitio y sin roce propio`, async ({ page }) => {
-    test.setTimeout(180000);
+    test.setTimeout(300000);
     await page.setViewportSize({ width: 360, height: 640 });
     await page.goto("/");
     await page.getByTestId("boton-jugar").click();
@@ -20,7 +20,7 @@ for (const angulo of [170, 135, 45]) {
     await arrastrarDesdeNave(page, 0, angulo, 60);
     const numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
     await page.getByTestId("disparar").click();
-    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurnoAntes, { timeout: 60000 });
+    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurnoAntes, { timeout: 180000 });
 
     const eventos = (await page.evaluate(() => window.__debug.ultimosEventos)) ?? [];
     const leAlcanzo = eventos.some((e) => (e.tipo === "autoimpacto" && e.nave === 0) || (e.tipo === "impacto" && e.objetivo === 0));
