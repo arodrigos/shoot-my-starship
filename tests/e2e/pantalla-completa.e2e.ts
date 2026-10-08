@@ -30,7 +30,7 @@ for (const vp of VIEWPORTS) {
     expect(Math.abs(canvas.height - vp.alto)).toBeLessThanOrEqual(1);
 
     const consola = (await page.getByTestId("consola").boundingBox())!;
-    expect(consola.height).toBeLessThanOrEqual(vp.alto * 0.45 + 1);
+    expect(consola.height).toBeLessThanOrEqual(vp.alto * 0.4 + 1);
 
     const boton = page.getByTestId("boton-plegar-consola");
     await boton.click();
@@ -54,14 +54,14 @@ test("pan-3: el botón de plegar mide ≥ 48×48, cambia de etiqueta, recuerda e
   const caja = (await boton.boundingBox())!;
   expect(caja.width).toBeGreaterThanOrEqual(48);
   expect(caja.height).toBeGreaterThanOrEqual(48);
-  await expect(boton).toHaveAccessibleName("Ocultar controles");
+  await expect(boton).toHaveAccessibleName("Reducir controles");
 
   const resultados = await new AxeBuilder({ page }).include('[data-testid="consola"]').analyze();
   const serias = resultados.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(serias.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
 
   await boton.click();
-  await expect(boton).toHaveAccessibleName("Mostrar controles");
+  await expect(boton).toHaveAccessibleName("Ampliar controles");
   const cajaPlegada = (await boton.boundingBox())!;
   expect(cajaPlegada.width).toBeGreaterThanOrEqual(48);
   expect(cajaPlegada.height).toBeGreaterThanOrEqual(48);

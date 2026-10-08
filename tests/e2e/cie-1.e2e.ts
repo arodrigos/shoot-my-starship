@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { puntoLibreDeArrastre } from "./utilesApuntado";
 import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apuntado";
 
 // cie-1 (camino_critico): de punta a punta sobre el despliegue (ver
@@ -96,7 +97,7 @@ test("dos sistemas seguidos, cada uno con su propio rival, jugados de verdad con
       const ajusteAntes = (await page.evaluate(() => window.__debug.control!.ajuste))!;
       const deltaY = -(solucion!.anguloGrados - ajusteAntes.anguloGrados) / GANANCIA_ANGULO_GRADOS;
       const deltaX = (solucion!.potencia - ajusteAntes.potencia) / GANANCIA_POTENCIA;
-      const inicio = { x: 180, y: 620 };
+      const inicio = await puntoLibreDeArrastre(page);
       const fin = { x: inicio.x + deltaX * 360, y: inicio.y + deltaY * 740 };
       await page.mouse.move(inicio.x, inicio.y);
       await page.mouse.down();

@@ -3,7 +3,8 @@ import { esMaterialPlaneta, obtenerMaterial, type Mascara } from "@/sim/terreno/
 import type { RectanguloSucio } from "@/sim/terreno/huella";
 import type { SuperficieDeTerreno } from "@/juego/terreno/Terreno";
 import { FACTOR_BORDE_QUEMADO, PALETA_ESPACIO_ESCOMBRO, PALETA_ESPACIO_PLANETAS, type PaletaTerreno, oscurecer } from "@/juego/paleta";
-import { ANCHO_BORDE_QUEMADO_PX, clasificarPixelVisual } from "@/juego/terreno/clasificacionVisual";
+import { clasificarPixelVisual } from "@/juego/terreno/clasificacionVisual";
+import { ColaRefresco, pintarRectangulo, rectanguloARepintar } from "@/juego/terreno/refrescoIncremental";
 
 // Geometría de un planeta a efectos de sombreado: cx/cy/radio, FIJOS de por
 // vida (nucleo-gravedad -- el centro de atracción y el radio declarado nunca
@@ -84,50 +85,29 @@ export class SuperficieEspacio implements SuperficieDeTerreno {
   constructor(
     private readonly textura: Phaser.Textures.CanvasTexture,
     private readonly geometrias: ReadonlyMap<number, GeometriaPlaneta>,
-  ) {}
+  ) {
+    this.cola = new ColaRefresco(textura);
+  }
 
-  // Mismo contrato que SuperficieCanvasPhaser (terreno-6): solo
-  // fillRect/clearRect en el camino de impacto, nunca getImageData ni
-  // putImageData. Aquí el color varía píxel a píxel dentro de un planeta
-  // (el sombreado), así que el tramo contiguo que de verdad se comprime es
-  // el de AIRE (siempre transparente, sea cual sea el material que había
-  // antes) -- el resto se pinta píxel a píxel, acotado al rectángulo sucio
-  // (pequeño: el radio de huella de un arma, nunca el mapa entero).
+  private readonly cola: ColaRefresco;
+
+  // paron-explosion: un solo ImageData del rectángulo sucio y un putImageData;
+  // la subida a la GPU queda en la cola (vaciarCola), una vez por frame. Ya
+  // no hay update(): hacía getImageData del mapa entero tras cada impacto.
   refrescarRectangulo(mascara: Mascara, sucio: RectanguloSucio): void {
-    if (sucio.ancho <= 0 || sucio.alto <= 0) {
+    const rect = rectanguloARepintar(mascara, sucio);
+    if (rect === null) {
       return;
     }
+    pintarRectangulo(this.textura, rect, (x, y) => {
+      const material = obtenerMaterial(mascara, x, y);
+      return material === 0 ? null : colorPixel(mascara, material, x, y, this.geometrias);
+    });
+    this.cola.marcar();
+  }
 
-    // La banda quemada cae FUERA del hueco que devuelve la huella: sus
-    // píxeles pasan de "roca" a "borde-quemado" sin cambiar de material, así
-    // que el rectángulo de la máscara no los incluye y se quedaban con el
-    // color de roca intacta. Se amplía por el ancho de la banda.
-    const minX = Math.max(0, sucio.x - ANCHO_BORDE_QUEMADO_PX);
-    const minY = Math.max(0, sucio.y - ANCHO_BORDE_QUEMADO_PX);
-    const maxX = Math.min(mascara.ancho - 1, sucio.x + sucio.ancho - 1 + ANCHO_BORDE_QUEMADO_PX);
-    const maxY = Math.min(mascara.alto - 1, sucio.y + sucio.alto - 1 + ANCHO_BORDE_QUEMADO_PX);
-    const contexto = this.textura.context;
-
-    for (let y = minY; y <= maxY; y++) {
-      let x = minX;
-      while (x <= maxX) {
-        const material = obtenerMaterial(mascara, x, y);
-        if (material === 0) {
-          const inicioTramo = x;
-          while (x + 1 <= maxX && obtenerMaterial(mascara, x + 1, y) === 0) {
-            x++;
-          }
-          contexto.clearRect(inicioTramo, y, x - inicioTramo + 1, 1);
-        } else {
-          const color = colorPixel(mascara, material, x, y, this.geometrias);
-          contexto.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
-          contexto.fillRect(x, y, 1, 1);
-        }
-        x++;
-      }
-    }
-
-    this.textura.update();
+  vaciarCola(): boolean {
+    return this.cola.vaciar();
   }
 
   // Pasada completa (generación inicial, render-5 tras RESTORE_WEBGL): en la
@@ -155,6 +135,7 @@ export class SuperficieEspacio implements SuperficieDeTerreno {
     }
 
     contexto.putImageData(imagen, 0, 0);
+    this.cola.descartar();
     this.textura.update();
   }
 }

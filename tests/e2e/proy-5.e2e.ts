@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { puntoLibreDeArrastre } from "./utilesApuntado";
 import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apuntado";
 
 const MUNDO_ANCHO = 1920;
@@ -59,7 +60,7 @@ test("proy-5: en móvil, el proyectil real se ve dentro del lienzo y sin tapar p
     const deltaY = -(anguloObjetivo - ajusteAntes.anguloGrados) / GANANCIA_ANGULO_GRADOS;
     const deltaX = (potenciaObjetivo - ajusteAntes.potencia) / GANANCIA_POTENCIA;
 
-    const inicio = { x: 160, y: 560 };
+    const inicio = await puntoLibreDeArrastre(page);
     const fin = { x: inicio.x + deltaX * 360, y: inicio.y + deltaY * 640 };
     await page.mouse.move(inicio.x, inicio.y);
     await page.mouse.down();

@@ -31,3 +31,31 @@ export async function arrastrarDesdeNave(page: Page, id: number, grados: number,
   await page.mouse.move(destinoX, destinoY, { steps: 3 });
   await page.mouse.up();
 }
+
+// consola-compacta: la consola ocupa el 40 % del ancho y sus controles
+// (barras de ángulo y potencia, botones) ya no dejan libres los puntos fijos
+// que los tests usaban para el arrastre combinado. Busca un punto de la
+// superficie de arrastre que no esté encima de ningún control, como haría un
+// dedo que quiere apuntar y no pulsar un botón.
+export async function puntoLibreDeArrastre(page: Page): Promise<{ x: number; y: number }> {
+  const punto = await page.evaluate(() => {
+    const superficie = document.querySelector<HTMLElement>('[data-testid="superficie-arrastre"]');
+    if (superficie === null) return null;
+    const caja = superficie.getBoundingClientRect();
+    const centroX = caja.x + caja.width / 2;
+    for (let y = caja.bottom - 6; y > caja.y + 6; y -= 6) {
+      for (let desplazamiento = 0; desplazamiento < caja.width / 2 - 6; desplazamiento += 6) {
+        for (const signo of [1, -1]) {
+          const x = centroX + signo * desplazamiento;
+          const elemento = document.elementFromPoint(x, y);
+          if (elemento === null || !superficie.contains(elemento)) continue;
+          if (elemento.closest('button, [role="slider"], input, select, a') !== null) continue;
+          return { x, y };
+        }
+      }
+    }
+    return null;
+  });
+  if (punto === null) throw new Error("No hay ningún punto libre en la superficie de arrastre de la consola");
+  return punto;
+}

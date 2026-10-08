@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { puntoLibreDeArrastre } from "./utilesApuntado";
 import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apuntado";
 import { escalaDeDanio } from "@/juego/efectos/ExplosionPorCapas";
 
@@ -15,7 +16,7 @@ async function arrastrarHasta(
   const deltaY = -(anguloObjetivo - ajusteAntes.anguloGrados) / GANANCIA_ANGULO_GRADOS;
   const deltaX = (potenciaObjetivo - ajusteAntes.potencia) / GANANCIA_POTENCIA;
 
-  const inicio = { x: 160, y: 560 };
+  const inicio = await puntoLibreDeArrastre(page);
   const fin = { x: inicio.x + deltaX * 360, y: inicio.y + deltaY * 640 };
   await page.mouse.move(inicio.x, inicio.y);
   await page.mouse.down();
