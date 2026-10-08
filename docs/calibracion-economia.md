@@ -22,7 +22,7 @@ sana es [0.6; 1.6].
 | Pepinazo de Cortesía | 55 | 18 | 2.4 % | 50 | 10 % | 0.76 |
 | Mortero Lamentable | 65 | 24 | 2.5 % | 60 | 8 % | 0.89 |
 | Racimo de Tuppers | 85 | 20 | 6.6 % | 100 | 15 % | 1.49 |
-| Despedida | 125 | 55 | 3.4 % | 115 | 9 % | 1.44 |
+| Despedida | 125 | 55 | 3.2 % | 115 | 9 % | 1.35 |
 | Barrena Planetaria | 90 | 44 | 2.3 % | 90 | 0 % | 1.08 |
 | Rayo Láser | 115 | 46 | 0.9 % | 75 | 53 % | 0.35 |
 | Mosca Cojonera | 75 | 28 | 2.8 % | 70 | 7 % | 1.00 |
