@@ -58,14 +58,17 @@ for (const vp of VIEWPORTS) {
     const medida = await page.evaluate(() => ({
       interacciones: window.__debug.rendimiento!.interacciones,
       inp: window.__debug.rendimiento!.inp,
+      p95: window.__debug.rendimiento!.p95,
+      max: window.__debug.rendimiento!.max,
       modo: window.__debug.motor!.modo,
       aviso: (window as unknown as { __vioAvisoIA: string | null }).__vioAvisoIA,
     }));
     expect(medida.modo).toBe("trabajador");
     expect(medida.interacciones.length).toBeGreaterThanOrEqual(6);
     const lentas = medida.interacciones.filter((i) => i.duracion > LIMITE_MS || i.retrasoEntrada > LIMITE_MS);
-    const resumen = medida.interacciones.map((i) => `${i.objetivo}/${i.tipo}:${Math.round(i.duracion)}d,${Math.round(i.retrasoEntrada)}r`).join(" ; ");
-    expect(lentas.length, `lentas de ${medida.interacciones.length}: ${resumen}`).toBe(0);
+    const peor = [...medida.interacciones].sort((x, y) => y.duracion - x.duracion).slice(0, 5);
+    const resumen = peor.map((i) => `${i.objetivo.slice(7, 14)}${i.tipo[0]}${Math.round(i.duracion)}/${Math.round(i.retrasoEntrada)}`).join(",");
+    expect(lentas.length, `p95=${Math.round(medida.p95)} max=${Math.round(medida.max)} n=${medida.interacciones.length} ${resumen}`).toBe(0);
     expect(medida.inp).toBeLessThanOrEqual(LIMITE_MS);
     expect(medida.aviso).toMatch(/está apuntando…$/);
   });
