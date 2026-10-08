@@ -35,6 +35,13 @@ import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apunt
 // 777777 la simulación con la IA real termina con las dos naves a 0). Se
 // rebuscaron con avanzar(), el oráculo real y la IA real: 1006 (Almirante) y
 // 777778 (La Contable) terminan en 6 y 4 rondas con la nave del jugador viva.
+//
+// empuje-direccional: la nave golpeada sale ahora en la dirección del tiro y no
+// al azar, así que las partidas cambiaron y 1006 / 777778 se quedaron sin tiro
+// viable hacia la ronda 4 (el único tiro de la rejilla caía en la dispersión
+// del disparo real). Se rebuscaron con el mismo oráculo y la IA real: 2000
+// (Almirante, 5 rondas) y 2001 (La Contable, 5 rondas) acaban con la nave del
+// jugador viva.
 const NUMERO_MAXIMO_DE_RONDAS = 10;
 
 test("dos sistemas seguidos, cada uno con su propio rival, jugados de verdad con el oráculo real hasta que hay un ganador, sin errores de consola", async ({
@@ -135,7 +142,7 @@ test("dos sistemas seguidos, cada uno con su propio rival, jugados de verdad con
     return planetas;
   }
 
-  await page.goto("/?semilla=1006");
+  await page.goto("/?semilla=2000");
   await expect(page.getByTestId("pantalla-inicio")).toBeVisible();
   const planetasSistema1 = await jugarUnSistemaHastaGanar("almirante-bisagra");
 
@@ -143,7 +150,7 @@ test("dos sistemas seguidos, cada uno con su propio rival, jugados de verdad con
   // DISTINTO de verdad, no basta con confiar en el sorteo de "otra
   // partida" (podría repetir disposición por azar); una semilla explícita
   // distinta sí lo garantiza.
-  await page.goto("/?semilla=777778");
+  await page.goto("/?semilla=2001");
   await expect(page.getByTestId("pantalla-inicio")).toBeVisible();
   const planetasSistema2 = await jugarUnSistemaHastaGanar("la-contable");
 

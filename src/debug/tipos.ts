@@ -199,6 +199,8 @@ export interface DebugGlobal {
     readonly yVisible: number;
     readonly texturaValida: boolean;
   }[];
+  // Recorrido simulado de cada empuje del último turno, con el motivo de parada.
+  recorridoEmpuje?: readonly { readonly nave: number; readonly puntos: readonly { readonly x: number; readonly y: number }[]; readonly motivoParada: string }[];
   // minirobot (rob-2): robots posados en un planeta, con su posición y saltos.
   robots?: readonly { readonly dueno: number; readonly planetaId: number; readonly x: number; readonly y: number; readonly saltos: number }[];
   // eventos-universo: calendario y efectos vivos, y un gancho para fijar el
