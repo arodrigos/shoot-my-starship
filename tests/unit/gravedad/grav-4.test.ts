@@ -70,18 +70,22 @@ test("grav-4: la masa se queda congelada durante todo el vuelo de un disparo de 
   const v = velocidadDesdePotencia(potencia);
   const inicial = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
   const detenerse = detenerseEnSuelo(mascara, ANCHO, ALTO);
-  const { proyectil: apice, pasos } = simularVuelo(inicial, 0, 0, (p) => p.vy >= 0 || detenerse(p), { planetas: [planeta] });
+  // salida-pantalla: la réplica corta igual que el resolutor, al salir del encuadre.
+  const encuadre = { ancho: ANCHO, alto: ALTO };
+  const { proyectil: apice, pasos, perdido: apicePerdido } = simularVuelo(inicial, 0, 0, (p) => p.vy >= 0 || detenerse(p), { planetas: [planeta], encuadre });
 
   let puntosEsperados: { x: number; y: number }[];
-  if (pasos === 0 || detenerse(apice)) {
+  if (apicePerdido) {
+    puntosEsperados = [];
+  } else if (pasos === 0 || detenerse(apice)) {
     puntosEsperados = [{ x: apice.x, y: apice.y }];
   } else {
     puntosEsperados = [];
     for (let i = 0; i < cantidad; i++) {
       const offset = (i - (cantidad - 1) / 2) * (dispersionPxS / Math.max(1, cantidad - 1));
       const subInicial = { x: apice.x, y: apice.y, vx: apice.vx + offset, vy: apice.vy };
-      const { proyectil } = simularVuelo(subInicial, 0, 0, detenerse, { planetas: [planeta] });
-      puntosEsperados.push({ x: proyectil.x, y: proyectil.y });
+      const { proyectil, perdido } = simularVuelo(subInicial, 0, 0, detenerse, { planetas: [planeta], encuadre });
+      if (!perdido) puntosEsperados.push({ x: proyectil.x, y: proyectil.y });
     }
   }
 

@@ -46,6 +46,15 @@ export function reiniciarContadorVuelosSimulados(): void {
 // en el borde, así que un tiro perdido podía animarse varios segundos o dañar.
 export const MARGEN_SALIDA_U = 24;
 
+// Por arriba el tiro puede subir mucho antes de perderse: un mortero a
+// potencia máxima asoma varios mundos de alto y vuelve a caer sobre el
+// objetivo, y la IA y la mitad de la balística de las armas cuentan con eso.
+// Se mantiene el techo de siempre (3 alturas) en vez del margen de los otros
+// bordes; ver `desviaciones` del entregable.
+export function techoU(alto: number): number {
+  return 3 * alto;
+}
+
 export type BordeSalida = "arriba" | "abajo" | "izquierda" | "derecha";
 
 export interface EncuadreVuelo {
@@ -59,7 +68,7 @@ export interface PuntoSalida {
 }
 
 export function bordeDeSalida(x: number, y: number, ancho: number, alto: number): BordeSalida | null {
-  if (y < -MARGEN_SALIDA_U) return "arriba";
+  if (y < -techoU(alto)) return "arriba";
   if (y > alto + MARGEN_SALIDA_U) return "abajo";
   if (x < -MARGEN_SALIDA_U) return "izquierda";
   if (x > ancho + MARGEN_SALIDA_U) return "derecha";
@@ -71,12 +80,12 @@ export function fueraDeEncuadre(x: number, y: number, ancho: number, alto: numbe
 }
 
 // Recorta el paso a la frontera del encuadre ampliado: así ningún punto del
-// vuelo simulado queda fuera de [-24, ancho + 24] x [-24, alto + 24], que es
+// vuelo simulado queda fuera del encuadre ampliado, que es
 // lo que la previsualización y la animación necesitan para coincidir.
 function recortarAlEncuadre(desde: EstadoProyectil, hasta: EstadoProyectil, encuadre: EncuadreVuelo): EstadoProyectil {
   const minX = -MARGEN_SALIDA_U;
   const maxX = encuadre.ancho + MARGEN_SALIDA_U;
-  const minY = -MARGEN_SALIDA_U;
+  const minY = -techoU(encuadre.alto);
   const maxY = encuadre.alto + MARGEN_SALIDA_U;
   const dx = hasta.x - desde.x;
   const dy = hasta.y - desde.y;
