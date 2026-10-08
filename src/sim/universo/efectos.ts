@@ -1,7 +1,7 @@
 import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { masaPlaneta, recalcularRegistro, type Planeta } from "@/sim/gravedad/planetas";
 import { octavoDelMundo } from "@/sim/naves/desplazamiento";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { RADIO_ENVOLVENTE_NAVE_PX } from "@/sim/naves/geometriaCasco";
 import { esPosicionValida, type PuntoNave } from "@/sim/naves/zonaValida";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
 import { idsNavesVivas, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
@@ -178,7 +178,7 @@ function repararPlanetas(estado: EstadoPartida, inicial: Mascara): { mascara: Ma
       if (inicial.datos[indice] !== planeta.id || datos[indice] === planeta.id) continue;
       const x = indice % ancho;
       const y = Math.floor(indice / ancho);
-      if (cascos.some((casco) => Math.hypot(casco.x - x, casco.y - y) <= RADIO_CASCO_NAVE_PX)) continue;
+      if (cascos.some((casco) => Math.hypot(casco.x - x, casco.y - y) <= RADIO_ENVOLVENTE_NAVE_PX)) continue;
       perdidos.push({ indice, distancia: Math.hypot(x - planeta.cx, y - planeta.cy) });
     }
     perdidos.sort((a, b) => a.distancia - b.distancia || a.indice - b.indice);

@@ -20,8 +20,8 @@ import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from 
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } from "@/sim/armas/resolver";
 import { buscarArma, CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import type { Arma } from "@/sim/armas/tipos";
-import { RADIO_CASCO_NAVE_PX, crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
-import { cajaCasco } from "@/sim/naves/geometriaCasco";
+import { crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
+import { RADIO_ENVOLVENTE_NAVE_PX, SEMIALTO_MAXIMO_NAVE_PX, cajaCasco } from "@/sim/naves/geometriaCasco";
 import { puntosSilueta, dimensionMayor } from "@/juego/proyectiles/geometriaProyectil";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
@@ -94,7 +94,6 @@ import { buscarEvento } from "@/sim/universo/catalogoEventos";
 import { conUniverso } from "@/sim/universo/efectos";
 import { conMuerteSubita, drenajeDeRonda, RONDA_MUERTE_SUBITA } from "@/sim/partida/muerteSubita";
 import { MAX_SALTOS_ROBOT, type EstadoRobot } from "@/sim/armas/minirobot";
-import { limpiarRoce, publicarRoce } from "@/juego/control/roceStore";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
@@ -272,10 +271,6 @@ const CANTIDAD_PARTICULAS_EXPLOSION = 24;
 // imp-12: bastantes menos partículas y sin color de fuego -- un vistazo
 // basta para distinguir "no ha hecho nada" de un impacto directo.
 const CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO = 8;
-// contacto-honesto (con-3): la más pequeña de las tres -- una chispa, no una
-// detonación, porque el roce no ha tocado el casco real. Igual al techo
-// declarado para "roce-chispazo" en registroEfectos.ts.
-const CANTIDAD_PARTICULAS_ROCE = 4;
 // proy-4: tope duro del pool de la estela -- declarado aquí (no en un
 // fichero de datos) porque es un límite técnico de rendimiento, no un
 // parámetro de diseño de partida como el catálogo de armas.
@@ -295,11 +290,11 @@ function fraccionDeVentana(clienteX: number, clienteY: number): PuntoFraccion {
 // se usa tal cual. En suelo plano (nave.y ausente) alturaSuperficie sigue
 // devolviendo la altura de los PIES, como siempre -- pero el contenedor de
 // Nave ahora nace centrado en su casco (geometriaCasco), así que sin este
-// desplazamiento de RADIO_CASCO_NAVE_PX la nave se dibujaría hundida hasta la
+// desplazamiento de SEMIALTO_MAXIMO_NAVE_PX la nave se dibujaría hundida hasta la
 // mitad en el terreno. window.__debug.naves NO aplica este ajuste: sigue
 // reportando la misma altura que usa avanzar() para la colisión real.
 function alturaRenderNave(naveY: number | undefined, alturaDerivada: number): number {
-  return naveY ?? alturaDerivada - RADIO_CASCO_NAVE_PX;
+  return naveY ?? alturaDerivada - SEMIALTO_MAXIMO_NAVE_PX;
 }
 
 // Escena real del juego (render-juego). El gesto de apuntado se resuelve
@@ -401,7 +396,7 @@ export class Partida extends Phaser.Scene {
     // pedirse varias veces, así que cada reproducción necesita el suyo
     // propio, fresco, en vez de reutilizar uno ya consumido por el vuelo
     // real o por una repetición anterior.
-    readonly navesParaRastreador?: readonly { readonly id: IdNave; readonly x: number; readonly y: number }[];
+    readonly navesParaRastreador?: readonly NavePosicion[];
     readonly tiradorId: IdNave;
     // proyectiles-visibles: qué arma disparó, para que la repetición dibuje
     // la misma silueta que el vuelo real en vez de caer al arma por
@@ -433,10 +428,6 @@ export class Partida extends Phaser.Scene {
   // partículas, gris humo en vez de naranja) en vez de reutilizar el mismo
   // emisor con el mismo aspecto para los dos casos.
   private emisorExplosionSinDanio!: Phaser.GameObjects.Particles.ParticleEmitter;
-  // contacto-honesto (con-3): chispa mínima, no una explosión -- el roce no
-  // detona, así que reutilizar cualquiera de los dos emisores de arriba se
-  // leería como un impacto que en realidad no ha ocurrido.
-  private emisorRoce!: Phaser.GameObjects.Particles.ParticleEmitter;
   // explosiones-por-capas: las cinco capas (destello, onda, escombros, humo,
   // marca persistente) viven agrupadas en su propia clase -- a diferencia de
   // los tres emisores de arriba, no es un solo GameObject sino un conjunto
@@ -503,7 +494,7 @@ export class Partida extends Phaser.Scene {
     const cajaNave = cajaCasco(1);
     window.__debug.geometria = {
       naveLadoMayorDibujadoPx: Math.max(cajaNave.ancho, cajaNave.alto),
-      radioCascoColisionPx: RADIO_CASCO_NAVE_PX,
+      radioCascoColisionPx: RADIO_ENVOLVENTE_NAVE_PX,
       proyectilLadoMayorMaximoPx: Math.max(...CATALOGO_ARMAS.map((arma) => dimensionMayor(puntosSilueta(arma)))),
     };
     // encuadre-movil: main.ts ya recalculó MUNDO_ANCHO/MUNDO_ALTO antes de
@@ -783,23 +774,6 @@ export class Partida extends Phaser.Scene {
       emitting: false,
     });
 
-    // contacto-honesto (con-3): chispa blanca, breve y mínima -- ni el color
-    // naranja de daño ni el gris apagado de "sin daño", para que se lea como
-    // un tercer resultado distinto, no como una variante apagada de los
-    // otros dos.
-    const lienzoRoce = this.make.graphics({ x: 0, y: 0 });
-    lienzoRoce.fillStyle(0xffffff, 1);
-    lienzoRoce.fillCircle(2, 2, 2);
-    lienzoRoce.generateTexture("particula-roce", 4, 4);
-    lienzoRoce.destroy();
-    this.emisorRoce = crearEmisorRegistrado(this, "roce-chispazo", 0, 0, "particula-roce", {
-      lifespan: 180,
-      speed: { min: 10, max: 40 },
-      scale: { start: 0.5, end: 0 },
-      quantity: 0,
-      emitting: false,
-    });
-
     this.explosionPorCapas = new ExplosionPorCapas(this);
 
     // paron-explosion: __debug.rendimiento es una instantánea viva (getter)
@@ -893,7 +867,6 @@ export class Partida extends Phaser.Scene {
     window.__debug.ultimosEventos = [];
     window.__debug.historialBromas = [];
     window.__debug.inyectarHistorico = inyectarHistorico;
-    window.__debug.destellosNucleo = [];
     window.__debug.dispararReaccionHumor = (tipo) => this.reaccionarAHumor([crearEventoDePruebaHumor(tipo)]);
     window.__debug.forzarProyectilPerdido = () =>
       this.aplicarResultadoTurno(this.estado, [{ tipo: "proyectil-perdido", nave: this.estado.turno }]);
@@ -908,15 +881,6 @@ export class Partida extends Phaser.Scene {
     // sea el que sea.
     window.__debug.forzarFusibleAdherenciaPasos = (pasos) => {
       this.fusibleAdherenciaForzadoPasos = pasos;
-    };
-    // contacto-honesto: aterrizar un vuelo real EXACTAMENTE en la banda de
-    // roce (fuera del radio de colisión, dentro de la silueta dibujada) no
-    // es determinista de apuntar a mano -- este hook reproduce el mismo
-    // camino que un roce real (manejarEventosVisuales, el mismo método que
-    // usa un turno jugado) para que el e2e compruebe con-2/con-3/con-6 sobre
-    // el efecto en pantalla, no sobre la puntería.
-    window.__debug.dispararEventoRoce = (nave, x, y) => {
-      this.manejarEventosVisuales([{ tipo: "roce", nave, x, y }], []);
     };
     window.__debug.dispararEventoImpactoReal = (nave, x, y, danio = 0) => {
       this.manejarEventosVisuales([{ tipo: "impacto", x, y, objetivo: nave, danio, impactoNave: nave }], []);
@@ -1014,14 +978,6 @@ export class Partida extends Phaser.Scene {
     const jugable = this.puedeJugarAhora();
     publicarJugable(jugable);
 
-    // con-4: el núcleo realzado es el de la nave OBJETIVO (contra quien se
-    // apunta), no el propio -- entrar en "modo de apuntado" es exactamente
-    // puedeJugarAhora() (turno del jugador, sin animación en curso, partida
-    // sin terminar); realzarNucleo es idempotente, así que llamarlo cada
-    // fotograma no tiene coste cuando el estado no cambia.
-    const objetivoApuntado: IdNave = this.objetivoDe(this.estado.turno);
-    this.naves.forEach((nave, id) => nave.realzarNucleo(jugable && (id as IdNave) === objetivoApuntado));
-    window.__debug!.nucleoRealzado = jugable ? objetivoApuntado : null;
 
     this.actualizarPrevisualizacion(jugable);
     // paron-explosion: la subida del terreno a la GPU, una vez por frame y
@@ -1062,7 +1018,7 @@ export class Partida extends Phaser.Scene {
       ? estado.naves
           .map((nave, id) => ({ id: id as IdNave, nave }))
           .filter(({ nave }) => nave.integridad > 0)
-          .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }))
+          .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
       : undefined;
     // respuesta-200ms: la mira se calcula en el trabajador, "la última gana".
     // Mientras llega la nueva se sigue dibujando la anterior del MISMO estado:
@@ -1444,7 +1400,6 @@ export class Partida extends Phaser.Scene {
     }
     // contacto-honesto: un roce viejo no debe seguir en pantalla una vez que
     // ya se está resolviendo el disparo siguiente.
-    limpiarRoce();
     // arma-granada-espoleta (gra-2): mismo motivo que limpiarRoce() -- una
     // cuenta atrás vieja no debe quedarse en pantalla al empezar el disparo
     // siguiente (que puede ni siquiera ser una granada).
@@ -1541,7 +1496,7 @@ export class Partida extends Phaser.Scene {
         ? estadoAntes.naves
             .map((nave, id) => ({ id: id as IdNave, nave }))
             .filter(({ nave }) => nave.integridad > 0)
-            .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number }))
+            .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
         : undefined;
       const rastreadorNaves = navesVivas ? crearRastreadorImpactoNaves(navesVivas, tirador) : undefined;
 
@@ -1685,7 +1640,6 @@ export class Partida extends Phaser.Scene {
   private usarEquipoEntrada(entrada: EntradaDeTurno, esJugador: boolean): void {
     const estadoAntes = this.estado;
     if (estadoAntes.resultado.tipo === "terminada" || this.animador.enVuelo()) return;
-    limpiarRoce();
     limpiarCuentaAtras();
     const tirador: IdNave = estadoAntes.turno;
     const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = avanzar(estadoAntes, entrada);
@@ -1902,16 +1856,9 @@ export class Partida extends Phaser.Scene {
           }
           window.__debug!.ultimoTipoExplosion = "sin-danio";
         }
-        // con-2: el destello vive en el propio núcleo de la nave (no un
-        // emisor de partículas aparte) -- solo cuando el punto de impacto ha
-        // tocado de verdad el casco real (evento.impactoNave), nunca en una
-        // detonación normal contra el terreno.
+        // Solo cuando el punto de impacto ha tocado la silueta (impactoNave),
+        // nunca en una detonación normal contra el terreno.
         if (evento.impactoNave !== undefined) {
-          this.naves[evento.impactoNave].destellarNucleo();
-          window.__debug!.destellosNucleo = [
-            ...(window.__debug!.destellosNucleo ?? []),
-            { nave: evento.impactoNave, x: evento.x, y: evento.y },
-          ];
 
           // realce-impacto (rlc-1, rlc-2): solo en el impacto que de verdad
           // hizo daño -- un impacto a cero daño se queda con el destello de
@@ -1926,18 +1873,6 @@ export class Partida extends Phaser.Scene {
             esperaSacudidaMs = Math.max(esperaSacudidaMs, DURACION_SACUDIDA_IMPACTO_MS);
           }
         }
-      } else if (evento.tipo === "roce") {
-        reproducirEfecto("roce");
-        if (!movimientoReducido) {
-          comprobarCantidadDentroDelTecho("roce-chispazo", CANTIDAD_PARTICULAS_ROCE);
-          this.emisorRoce.explode(CANTIDAD_PARTICULAS_ROCE, evento.x, evento.y);
-        }
-        const naveNombre = this.datosEscena.jugadores
-          ? `la nave de ${nombreDeNave(this.controladores, evento.nave)}`
-          : evento.nave === ID_JUGADOR
-            ? "tu nave"
-            : "la nave rival";
-        publicarRoce(`Roce: el disparo ha pasado rozando ${naveNombre} sin tocar su casco. Sin daño.`);
       }
     }
     return esperaSacudidaMs;
@@ -2527,6 +2462,7 @@ export class Partida extends Phaser.Scene {
       id: indice as IdNave,
       x: nave.x,
       y: nave.y ?? alturaSuperficie(estado.mascara, nave.x) ?? estado.mundo.alto - 1,
+      integridad: nave.integridad,
     }));
   }
 

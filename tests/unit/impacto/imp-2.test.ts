@@ -4,7 +4,8 @@ import { crearMascaraVacia } from "@/sim/terreno/mascara";
 import { crearProyectil, integrarPasoProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { simularVuelo } from "@/sim/fisica/vuelo";
 import { detenerseEnSuelo } from "@/sim/armas/resolver";
-import { crearRastreadorImpactoNaves, RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
+import { distanciaACasco } from "@/sim/naves/contacto";
 import { PASO_FIJO_MS } from "@/sim/tiempo";
 
 const ANCHO = 3000;
@@ -14,11 +15,11 @@ const PASO_S = PASO_FIJO_MS / 1000;
 // Referencia deliberadamente ingenua (lo que este bloque NO hace): mirar solo
 // la posición al final de cada paso de integración, nunca el segmento
 // recorrido dentro de ese paso.
-function impactaPorPuntoFinal(inicial: EstadoProyectil, pasos: number, naveX: number, naveY: number, radio: number): boolean {
+function impactaPorPuntoFinal(inicial: EstadoProyectil, pasos: number, nave: { id: 0 | 1 | 2 | 3; x: number; y: number }): boolean {
   let proyectil = inicial;
   for (let i = 0; i < pasos; i++) {
     proyectil = integrarPasoProyectil(proyectil, 0, 0, PASO_S);
-    if (Math.hypot(proyectil.x - naveX, proyectil.y - naveY) <= radio) {
+    if (distanciaACasco(proyectil.x, proyectil.y, nave) === 0) {
       return true;
     }
   }
@@ -30,7 +31,7 @@ test("imp-2: el barrido de segmento atrapa el túnel a alta velocidad que un mue
   const detenerse = detenerseEnSuelo(mascara, ANCHO, ALTO);
 
   // 90px por paso (vx * PASO_S = 90): el primer paso va de x=1000 a x=1090,
-  // pasando de largo por delante y por detrás del casco (radio 22px) sin que
+  // pasando de largo por delante y por detrás de la silueta (≈ 86 u de largo) sin que
   // ningún extremo de ese paso quede dentro de él -- el centro del casco cae
   // justo en el punto MEDIO del primer paso, a 45px de cada extremo.
   const inicial = crearProyectil(1000, 500, 90 / PASO_S, 0);
@@ -43,7 +44,7 @@ test("imp-2: el barrido de segmento atrapa el túnel a alta velocidad que un mue
 
   // La comprobación de referencia, sobre la MISMA trayectoria: ningún punto
   // final de los primeros pasos cae dentro del radio del casco.
-  const detectadoPorPuntoFinal = impactaPorPuntoFinal(inicial, 5, objetivo.x, objetivo.y, RADIO_CASCO_NAVE_PX);
+  const detectadoPorPuntoFinal = impactaPorPuntoFinal(inicial, 5, objetivo);
   assert.equal(
     detectadoPorPuntoFinal,
     false,

@@ -87,7 +87,7 @@ test("lay-1: en 360x640 el lienzo ocupa el viewport y todo el HUD cabe dentro de
 });
 
 for (const [nombreViewport, viewport] of Object.entries({ "360x640": VIEWPORT_MOVIL, "1280x800": VIEWPORT_ESCRITORIO })) {
-  test(`lay-2: a ${nombreViewport} ningún texto del HUD se corta (arma más larga y resultado con roce)`, async ({
+  test(`lay-2: a ${nombreViewport} ningún texto del HUD se corta (arma más larga y resultado del turno)`, async ({
     page,
   }) => {
     await irAPartida(page, viewport);
@@ -96,10 +96,7 @@ for (const [nombreViewport, viewport] of Object.entries({ "360x640": VIEWPORT_MO
     await page.getByTestId("selector-arma-abrir").click();
     await page.getByTestId(`arma-${armaMasLarga.id}`).click();
 
-    await page.evaluate(() => window.__debug.dispararEventoRoce!(1, 200, 300));
-    await expect(page.getByTestId("panel-roce")).toBeVisible();
-
-    for (const testId of ["selector-arma-abrir", "resultado-turno", "panel-roce"]) {
+    for (const testId of ["selector-arma-abrir", "resultado-turno"]) {
       const locator = page.getByTestId(testId);
       const desborde = await locator.evaluate((el) => ({
         ancho: el.scrollWidth > el.clientWidth + 1,

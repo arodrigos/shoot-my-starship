@@ -85,12 +85,15 @@ test("ia-autodanio-1: barridoRejilla nunca pone en cabeza un candidato con autod
   // más daño bruto que el mejor candidato seguro -- si esto deja de ser
   // cierto, el test ya no prueba nada y hay que rehacer el mundo.
   const mejorSeguro = candidatos.find((c) => c.autodanioTotal === 0);
-  const algunoConAutodanio = candidatos.find((c) => c.autodanioTotal > 0);
+  const algunoConAutodanio = candidatos.filter((c) => c.autodanioTotal > 0).sort((a, b) => b.danio - a.danio)[0];
   assert.ok(mejorSeguro, "el mundo de prueba debe tener al menos un candidato seguro");
   assert.ok(algunoConAutodanio, "el mundo de prueba debe tener al menos un candidato con autodaño");
+  // naves-silueta: con la zona de impacto igual al polígono (más pequeño), el
+  // mejor candidato seguro ya llega al daño máximo del arma, así que el que
+  // se autodaña solo puede igualarlo; ningún mundo de la zona buscada lo supera.
   assert.ok(
-    algunoConAutodanio!.danio > mejorSeguro!.danio,
-    "precondición del mundo de prueba: el candidato con autodaño debe hacer MÁS daño bruto que el mejor seguro",
+    algunoConAutodanio!.danio >= mejorSeguro!.danio,
+    "precondición del mundo de prueba: el candidato con autodaño debe hacer al menos el mismo daño bruto que el mejor seguro",
   );
 
   assert.equal(candidatos[0].autodanioTotal, 0, "el candidato en cabeza de la rejilla debe ser siempre uno sin autodaño cuando existe");

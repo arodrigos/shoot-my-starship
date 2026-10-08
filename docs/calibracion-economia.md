@@ -19,16 +19,16 @@ sana es [0.6; 1.6].
 
 | Arma | Coste | Daño máx. | Facilidad | Curva | Desviación | Valor |
 | --- | --- | --- | --- | --- | --- | --- |
-| Pepinazo de Cortesía | 55 | 18 | 3.2 % | 60 | 8 % | 0.78 |
-| Mortero Lamentable | 65 | 24 | 3.4 % | 70 | 7 % | 0.94 |
-| Racimo de Tuppers | 85 | 20 | 6.6 % | 100 | 15 % | 1.16 |
-| Despedida | 125 | 55 | 4.4 % | 125 | 0 % | 1.45 |
-| Barrena Planetaria | 90 | 44 | 2.8 % | 95 | 5 % | 1.02 |
-| Rayo Láser | 115 | 46 | 1.3 % | 80 | 44 % | 0.39 |
-| Mosca Cojonera | 75 | 28 | 3.5 % | 80 | 6 % | 0.98 |
-| Granada de Espoleta | 80 | 34 | 3.3 % | 85 | 6 % | 1.05 |
-| Gancho Pegajoso | 115 | 24 | 9.0 % | 130 | 12 % | 1.40 |
-| Minirobot Saltaplanetas | 85 | 40 | 2.7 % | 85 | 0 % | 0.95 |
+| Pepinazo de Cortesía | 55 | 18 | 2.4 % | 50 | 10 % | 0.76 |
+| Mortero Lamentable | 65 | 24 | 2.5 % | 60 | 8 % | 0.89 |
+| Racimo de Tuppers | 85 | 20 | 6.6 % | 100 | 15 % | 1.49 |
+| Despedida | 125 | 55 | 3.2 % | 115 | 9 % | 1.35 |
+| Barrena Planetaria | 90 | 44 | 2.3 % | 90 | 0 % | 1.08 |
+| Rayo Láser | 115 | 46 | 0.9 % | 75 | 53 % | 0.35 |
+| Mosca Cojonera | 75 | 28 | 2.8 % | 70 | 7 % | 1.00 |
+| Granada de Espoleta | 80 | 34 | 2.4 % | 75 | 7 % | 0.98 |
+| Gancho Pegajoso | 115 | 24 | 7.9 % | 120 | 4 % | 1.58 |
+| Minirobot Saltaplanetas | 85 | 40 | 2.2 % | 80 | 6 % | 1.00 |
 
 ### Desviaciones declaradas
 

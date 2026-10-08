@@ -1,16 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
-import { ESCALA_DIBUJO_NAVE } from "@/sim/naves/geometriaCasco";
+import { ESCALA_DIBUJO_NAVE, RADIO_ENVOLVENTE_NAVE_PX } from "@/sim/naves/geometriaCasco";
 
-// esc-3: el casco de COLISIÓN (impacto-naves) no se mueve un píxel aunque el
-// casco de DIBUJO se triplique -- es la promesa central de la opción B, y lo
-// que hace seguro construir contacto-honesto encima sin volver a discutir
-// este número.
-test("esc-3: RADIO_CASCO_NAVE_PX sigue en 22px tras escalar el dibujo de la nave", () => {
-  assert.equal(RADIO_CASCO_NAVE_PX, 22);
-  assert.equal(ESCALA_DIBUJO_NAVE, 3.0);
+// esc-3 (naves-silueta): la escala del dibujo es 1,5 y la zona de impacto es
+// la propia silueta, así que ya no hay un casco de colisión independiente que
+// deba quedarse fijo: lo que se comprueba es la escala vigente.
+test("esc-3: ESCALA_DIBUJO_NAVE es 1,5 (la mitad que antes) y el círculo envolvente la sigue", () => {
+  assert.equal(ESCALA_DIBUJO_NAVE, 1.5);
+  assert.ok(RADIO_ENVOLVENTE_NAVE_PX > 0 && RADIO_ENVOLVENTE_NAVE_PX < 60);
 });
 
 // esc-3: impacto.ts (la física de colisión real) no depende en absoluto de

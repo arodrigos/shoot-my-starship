@@ -59,35 +59,7 @@ test("rlc-1: la sacudida de cámara es acotada y nunca deja la ráfaga de turnos
   await page.screenshot({ path: "capturas/realce-impacto-1-sacudida.png" });
 });
 
-// rlc-2 (camino_critico): el realce de impacto (sacudida + destello rojo)
-// solo dispara con daño real -- un roce nunca lo activa y conserva su propio
-// efecto (el chispazo + panel-roce de contacto-honesto), distinto y más
-// débil. Se usan los mismos atajos de depuración que con-2/con-3 porque
-// aterrizar un roce real a mano no es reproducible de forma determinista.
-//
-// Las dos mitades viven en tests INDEPENDIENTES, cada una con su propia
-// entrarAPartida, en vez de encadenar roce -> impacto en el mismo test como
-// antes: panel-roce no se autooculta por temporizador (con-3 lo exige así,
-// ver RoceHUD.tsx) y solo se limpia al inicio de dispararEntrada -- el
-// camino real de un turno -- pero dispararEventoImpactoReal es un atajo de
-// depuración que llama directo a manejarEventosVisuales sin pasar por
-// dispararEntrada. Encadenados, el panel de roce quedaba visible todavía en
-// la captura del impacto (no es un fallo del juego real: cualquier turno de
-// verdad limpia el roce viejo antes de resolver el nuevo), y esa captura no
-// servía para juzgar que impacto y roce se distinguen a la vista.
-test("rlc-2a: el roce nunca dispara sacudida ni destello de daño", async ({ page }) => {
-  await entrarAPartida(page);
-
-  await page.evaluate(() => window.__debug.dispararEventoRoce!(1, 200, 300));
-  // con-3: el roce mantiene su propio aviso.
-  await expect(page.getByTestId("panel-roce")).toBeVisible();
-  expect(await page.evaluate(() => window.__debug.sacudiendoCamara)).toBe(false);
-  expect(await page.evaluate(() => window.__debug.ultimoRealceImpacto ?? null)).toBeNull();
-
-  await page.screenshot({ path: "capturas/realce-impacto-2-roce-sin-sacudida.png" });
-});
-
-test("rlc-2b: el impacto real dispara sacudida y destello de daño, distinto del roce", async ({ page }) => {
+test("rlc-2b: el impacto real dispara sacudida y destello de daño", async ({ page }) => {
   await entrarAPartida(page);
 
   await page.evaluate(() => window.__debug.dispararEventoImpactoReal!(1, 200, 300, 30));
@@ -99,9 +71,6 @@ test("rlc-2b: el impacto real dispara sacudida y destello de daño, distinto del
     .toBe(true);
   const realce = await page.evaluate(() => window.__debug.ultimoRealceImpacto);
   expect(realce).toEqual({ danio: 30, amplitud: expect.any(Number) });
-  // Sesión fresca: no hay ningún roce previo que pueda dejar panel-roce
-  // visible en esta captura, así que lo que se vea es solo el realce real.
-  await expect(page.getByTestId("panel-roce")).toHaveCount(0);
 
   await page.screenshot({ path: "capturas/realce-impacto-3-impacto-con-sacudida.png" });
 });

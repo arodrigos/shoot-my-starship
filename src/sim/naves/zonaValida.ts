@@ -4,13 +4,14 @@ import {
   libreDeSolido,
   MARGEN_MUNDO_NAVE_PX,
 } from "@/sim/naves/colocacion";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
+import { RADIO_ENVOLVENTE_NAVE_PX, SEMIALTO_MAXIMO_NAVE_PX } from "@/sim/naves/geometriaCasco";
 import type { ParametrosMundo } from "@/sim/partida/tipos";
 import type { Mascara } from "@/sim/terreno/mascara";
 
-// Distancia mínima entre centros de dos naves tras moverse: dos cascos de
-// colisión (2 × 22) más un respiro para que no se pisen ni se oculten.
-export const SEPARACION_MINIMA_CASCOS_U = 52;
+// Distancia mínima entre centros de dos naves tras moverse: dos radios
+// envolventes, así que ningún par de siluetas puede solaparse. Es una cota
+// conservadora (más estricta que comparar polígonos) y barata.
+export const SEPARACION_MINIMA_CASCOS_U = 2 * RADIO_ENVOLVENTE_NAVE_PX;
 
 export interface PuntoNave {
   readonly x: number;
@@ -28,7 +29,7 @@ export function esPosicionValida(
   mascara: Mascara,
   otras: readonly PuntoNave[],
 ): boolean {
-  const limiteInferior = mundo.alto - Math.max(MARGEN_MUNDO_NAVE_PX, franjaInferiorU(mundo.alto) + RADIO_CASCO_NAVE_PX);
+  const limiteInferior = mundo.alto - Math.max(MARGEN_MUNDO_NAVE_PX, franjaInferiorU(mundo.alto) + SEMIALTO_MAXIMO_NAVE_PX);
   if (punto.x < MARGEN_MUNDO_NAVE_PX || punto.x > mundo.ancho - MARGEN_MUNDO_NAVE_PX) return false;
   if (punto.y < MARGEN_MUNDO_NAVE_PX || punto.y > limiteInferior) return false;
   if (otras.some((otra) => Math.hypot(otra.x - punto.x, otra.y - punto.y) < SEPARACION_MINIMA_CASCOS_U)) return false;

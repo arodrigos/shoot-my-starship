@@ -4,7 +4,6 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
-import { RADIO_CASCO_NAVE_PX } from "@/sim/naves/impacto";
 
 // cie-4: la guía de uso (README.md) tiene que cubrir, de forma comprobable,
 // las seis cosas que pide el diseño -- "comprobable" quiere decir que este
@@ -46,11 +45,12 @@ test("cie-4: el README declara qué le pasa a la gravedad de un planeta al que l
   assert.match(readme, /no cambia|fij[ao]s?\b/i);
 });
 
-test("cie-4: el README explica qué cuenta como impacto, con el radio de casco real", async () => {
+test("cie-4: el README explica qué cuenta como impacto: la silueta dibujada", async () => {
   const readme = await leerReadme();
   assert.match(readme, /casco/i);
   assert.match(readme, /distancia/i);
-  assert.match(readme, new RegExp(`${RADIO_CASCO_NAVE_PX}px`));
+  assert.match(readme, /silueta/i);
+  assert.match(readme, /pol[ií]gono/i);
 });
 
 test("cie-4: el README dice qué se espera que juzgue Adrián al jugar", async () => {

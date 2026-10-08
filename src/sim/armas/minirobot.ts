@@ -1,7 +1,7 @@
 import { buscarArma } from "@/sim/armas/catalogo";
 import { radioEfectoEnMundo } from "@/sim/armas/radioEfecto";
 import { aplicarHuellaDeArma, alturaSuperficie, danioPorDistancia } from "@/sim/armas/resolver";
-import { distanciaDeDanio } from "@/sim/naves/contacto";
+import { distanciaACasco } from "@/sim/naves/contacto";
 import { octavoDelMundo } from "@/sim/naves/desplazamiento";
 import type { Detonacion } from "@/sim/partida/detonaciones";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
@@ -203,7 +203,7 @@ export function faseDeRobots(params: {
     let danioAlObjetivo = 0;
     naves.forEach((nave, id) => {
       if (!viva(id)) return;
-      const danio = danioPorDistancia(radio, danioMaximo, distanciaDeDanio(objetivo.x, objetivo.y, { id: id as IdNave, ...posicionNave(nave, mascara, mundo) }, radio));
+      const danio = danioPorDistancia(radio, danioMaximo, distanciaACasco(objetivo.x, objetivo.y, { id: id as IdNave, ...posicionNave(nave, mascara, mundo), integridad: nave.integridad }));
       if (danio > 0) danios.set(id, (danios.get(id) ?? 0) + danio);
       if (id === objetivoId) danioAlObjetivo = danio;
     });

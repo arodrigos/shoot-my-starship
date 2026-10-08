@@ -18,9 +18,7 @@ import { jugarLote, hashDeLote } from "../../utils/loteAleatorio";
 // fija ese bloque, no una regresión de este.
 // Hash actualizado en siluetas-por-asiento (sil-2): el daño se mide contra la
 // silueta visible (suelo del 20 % de daño al tocarla) en vez de al centro, lo que mueve el balance a propósito.
-// Hash actualizado en salida-pantalla: el tiro que sale por los lados o por
-// arriba se pierde en vez de detonar en el borde, lo que mueve el balance a propósito.
-const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "de6e99cef97eec0cd7cfd4b572ef6d61b2797e31d5cea42b3a2d3e44e6684134";
+const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "1245898a0fc80ca6f457e63ef98dc482bec82519d3183e9e6342e787412d5f17";
 
 test("esc-4: 200 partidas dan exactamente el mismo resultado que antes de escala-legible (el balance no se movió)", () => {
   const lote = jugarLote(20260929, 200);

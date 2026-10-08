@@ -1,25 +1,19 @@
-// Geometría COMPARTIDA del casco (sin Phaser): baja a src/sim en
-// escala-legible porque contacto-honesto (el bloque siguiente) necesita
-// clasificar el roce en el núcleo con datos deterministas, no con una
-// interpretación del cliente -- src/juego la lee, nunca al revés
-// (comprobar-frontera-nucleo.mjs).
+// Geometría COMPARTIDA del casco (sin Phaser): vive en src/sim porque la zona
+// de impacto es EXACTAMENTE la silueta que se dibuja (naves-silueta) y el
+// núcleo la necesita con datos deterministas -- src/juego la lee, nunca al
+// revés (comprobar-frontera-nucleo.mjs).
 //
-// Opción B de Adrián (puerta de aprobación de diseño, iteración 1): la nave
-// se dibuja grande para que se lea a 360px de ancho, pero el casco de
-// COLISIÓN (RADIO_CASCO_NAVE_PX, en src/sim/naves/impacto.ts) se queda
-// exactamente en 22px y no se toca. ESCALA_DIBUJO_NAVE es la única palanca:
-// multiplica la silueta base (46x44, la misma de siempre) sin tocar ni un
-// píxel de lo que de verdad colisiona.
-export const ESCALA_DIBUJO_NAVE = 3.0;
+// ESCALA_DIBUJO_NAVE es la única palanca de tamaño: multiplica la caja base
+// (46x44) de la que salen las cuatro siluetas. A 1,5 las naves miden la mitad
+// que a la escala 3 de antes (petición de Adrián) y ya no hay un círculo de
+// colisión aparte: lo que se ve es lo que cuenta.
+export const ESCALA_DIBUJO_NAVE = 1.5;
 
 const ANCHO_CASCO_BASE = 46;
 const ALTO_CASCO_BASE = 44;
 const LARGO_CANON_BASE = 30;
 
 export const ANCHO_CASCO = ANCHO_CASCO_BASE * ESCALA_DIBUJO_NAVE;
-// Centrada en el origen del contenedor (el mismo (x, y) que usa la física
-// para el círculo de colisión, RADIO_CASCO_NAVE_PX) -- de -ALTO_CASCO/2 a
-// +ALTO_CASCO/2.
 export const ALTO_CASCO = ALTO_CASCO_BASE * ESCALA_DIBUJO_NAVE;
 export const LARGO_CANON = LARGO_CANON_BASE * ESCALA_DIBUJO_NAVE;
 
@@ -28,74 +22,123 @@ export interface PuntoCasco {
   readonly y: number;
 }
 
-// Silueta poligonal (fuselaje + aleta de cola), en coordenadas locales del
-// contenedor y YA a escala de dibujo. `dir` es +1 (mira hacia +x) o -1
-// (mira hacia -x). Es la silueta de la variante 0 -- se mantiene como
-// función propia (en vez de un alias de puntosCascoVariante(0, dir)) porque
-// es la firma que ya usan contacto.ts, opacidadCasco.ts y los tests de
-// escala-legible/contacto-honesto desde antes de que existieran las otras
-// tres variantes.
-export function puntosCasco(dir: 1 | -1): readonly PuntoCasco[] {
-  return [
-    { x: -0.5 * ANCHO_CASCO * dir, y: 0.32 * ALTO_CASCO },
-    { x: -0.35 * ANCHO_CASCO * dir, y: -0.5 * ALTO_CASCO },
-    { x: 0.3 * ANCHO_CASCO * dir, y: -0.36 * ALTO_CASCO },
-    { x: 0.55 * ANCHO_CASCO * dir, y: -0.11 * ALTO_CASCO },
-    { x: 0.2 * ANCHO_CASCO * dir, y: 0.5 * ALTO_CASCO },
-  ];
-}
-
 export type VarianteNave = 0 | 1 | 2 | 3;
 
-// arte-siluetas-3: cuatro siluetas de CASCO distintas por forma (no solo
-// mirroring por dirección), listas para cuando nucleo-n-naves deje de ser
-// 0 | 1. Las cuatro mantienen los mismos cinco vértices semánticos que
-// puntosCasco (borde-trasero-inferior, borde-trasero-superior, morro-alto,
-// morro-punta, borde-delantero-inferior) para que puntosCascoConDanio siga
-// insertando sus abolladuras entre los mismos pares de vértices sin
-// importar la variante -- cambia la geometría, no la topología.
+// Semisilueta superior (y negativa = arriba) de cada familia, del morro hacia
+// la popa, en fracciones de ANCHO_CASCO y ALTO_CASCO con el morro hacia +x. El
+// polígono completo es el morro, estos puntos y su reflejo vertical: las alas
+// o aletas son simétricas por construcción y la tobera es el último tramo,
+// estrecho, de la popa. De 10 a 16 vértices por silueta.
+//   0 «caza»: alas en flecha y fuselaje medio.
+//   1 «dardo»: fuselaje largo y fino con aletas mínimas.
+//   2 «platillo»: cuerpo ancho y bajo, de morro romo pero en punta.
+//   3 «ala delta»: alas anchas hacia atrás.
+const SEMISILUETAS: Readonly<Record<VarianteNave, readonly (readonly [number, number])[]>> = {
+  0: [
+    [0.3, -0.1],
+    [0.02, -0.17],
+    [-0.14, -0.485],
+    [-0.34, -0.485],
+    [-0.3, -0.15],
+    [-0.38, -0.09],
+    [-0.5, -0.08],
+  ],
+  1: [
+    [0.2, -0.045],
+    [-0.08, -0.07],
+    [-0.2, -0.136],
+    [-0.36, -0.136],
+    [-0.3, -0.06],
+    [-0.38, -0.045],
+    [-0.5, -0.035],
+  ],
+  2: [
+    [0.35, -0.14],
+    [0.05, -0.273],
+    [-0.28, -0.273],
+    [-0.36, -0.1],
+    [-0.42, -0.075],
+    [-0.52, -0.06],
+  ],
+  3: [
+    [0.25, -0.08],
+    [0.02, -0.12],
+    [-0.3, -0.485],
+    [-0.4, -0.485],
+    [-0.34, -0.14],
+    [-0.4, -0.09],
+    [-0.5, -0.07],
+  ],
+};
+
+const MORRO_X: Readonly<Record<VarianteNave, number>> = { 0: 0.543, 1: 0.63, 2: 0.567, 3: 0.63 };
+
 export function puntosCascoVariante(variante: VarianteNave, dir: 1 | -1): readonly PuntoCasco[] {
-  if (variante === 0) return puntosCasco(dir);
-  const factores: Record<Exclude<VarianteNave, 0>, readonly PuntoCasco[]> = {
-    // Variante 1 "dardo": fuselaje fino y largo, morro muy agudo.
-    1: [
-      { x: -0.5, y: 0.14 },
-      { x: -0.5, y: -0.14 },
-      { x: 0.1, y: -0.12 },
-      { x: 0.65, y: 0 },
-      { x: 0.1, y: 0.12 },
-    ],
-    // Variante 2 "platillo": ancho y achatado, con el borde delantero romo.
-    2: [
-      { x: -0.55, y: 0.35 },
-      { x: -0.55, y: 0 },
-      { x: 0.1, y: -0.2 },
-      { x: 0.55, y: 0.05 },
-      { x: 0.15, y: 0.35 },
-    ],
-    // Variante 3 "ala delta": cola a todo lo alto y morro bajo en el centro,
-    // la única con el vértice más alto detrás de la cabina.
-    3: [
-      { x: -0.55, y: 0.5 },
-      { x: -0.55, y: -0.5 },
-      { x: -0.05, y: -0.1 },
-      { x: 0.6, y: 0.1 },
-      { x: -0.05, y: 0.25 },
-    ],
-  };
-  return factores[variante].map((p) => ({ x: p.x * ANCHO_CASCO * dir, y: p.y * ALTO_CASCO }));
+  const semi = SEMISILUETAS[variante];
+  const superior = semi.map(([x, y]) => ({ x: x * ANCHO_CASCO * dir, y: y * ALTO_CASCO }));
+  const inferior = superior.map((p) => ({ x: p.x, y: -p.y })).reverse();
+  return [{ x: MORRO_X[variante] * ANCHO_CASCO * dir, y: 0 }, ...superior, ...inferior];
 }
 
-// Caja delimitadora real de la silueta DIBUJADA (a escala de dibujo) -- lo
-// que esc-1/esc-2 usan para derivar el tamaño del proyectil, y lo que
-// imp-6 compara contra RADIO_CASCO_NAVE_PX (una proporción deliberadamente
-// distinta desde escala-legible, ver el comentario en ese test).
-export function cajaCasco(dir: 1 | -1): { readonly ancho: number; readonly alto: number } {
-  const puntos = puntosCasco(dir);
+// Atajo de la variante 0: es la silueta que usan los tests heredados.
+export function puntosCasco(dir: 1 | -1): readonly PuntoCasco[] {
+  return puntosCascoVariante(0, dir);
+}
+
+// Caja delimitadora de la silueta dibujada, sin deterioro (las abolladuras
+// solo la meten hacia dentro). Lo usa el tamaño del proyectil.
+export function cajaPuntos(puntos: readonly PuntoCasco[]): { readonly ancho: number; readonly alto: number } {
   const xs = puntos.map((p) => p.x);
   const ys = puntos.map((p) => p.y);
-  return {
-    ancho: Math.max(...xs) - Math.min(...xs),
-    alto: Math.max(...ys) - Math.min(...ys),
-  };
+  return { ancho: Math.max(...xs) - Math.min(...xs), alto: Math.max(...ys) - Math.min(...ys) };
+}
+
+export function cajaCasco(dir: 1 | -1, variante: VarianteNave = 0): { readonly ancho: number; readonly alto: number } {
+  return cajaPuntos(puntosCascoVariante(variante, dir));
+}
+
+// Radio envolvente máximo de las cuatro siluetas desde el centro: solo sirve de
+// descarte rápido y de holgura para colocar o separar naves, nunca como zona de
+// impacto (esa es el polígono).
+export const RADIO_ENVOLVENTE_NAVE_PX = Math.ceil(
+  Math.max(
+    ...([0, 1, 2, 3] as const).flatMap((v) => puntosCascoVariante(v, 1).map((p) => Math.hypot(p.x, p.y))),
+  ),
+);
+
+// Mitad de la altura de la silueta más alta: cuánto sobresale una nave por
+// encima y por debajo de su centro.
+export const SEMIALTO_MAXIMO_NAVE_PX = Math.ceil(
+  Math.max(...([0, 1, 2, 3] as const).flatMap((v) => puntosCascoVariante(v, 1).map((p) => Math.abs(p.y)))),
+);
+
+export type NivelDanio = "alta" | "media" | "baja";
+
+// Umbrales elegidos para que los tres tramos sean anchos y no se puedan
+// confundir por un punto de integridad de diferencia: >66 intacta, 34-66
+// dañada, <=33 crítica.
+export function nivelDanio(integridad: number): NivelDanio {
+  if (integridad > 66) return "alta";
+  if (integridad > 33) return "media";
+  return "baja";
+}
+
+function abolladuraEntre(a: PuntoCasco, b: PuntoCasco, profundidad: number): PuntoCasco {
+  const medioX = (a.x + b.x) / 2;
+  const medioY = (a.y + b.y) / 2;
+  return { x: medioX - medioX * profundidad, y: medioY - medioY * profundidad };
+}
+
+// Silueta con abolladuras según el tramo de daño. Vive en el núcleo para que
+// el polígono dañado que se ve sea el que colisiona. Los vértices originales no
+// se mueven (solo se inserta uno entre dos), así que la caja no cambia.
+// Lomo del fuselaje (vértices 1-2) en «media»; en «baja» además el borde de
+// salida del ala superior (vértices 4-5).
+export function puntosCascoConDanio(dir: 1 | -1, nivel: NivelDanio, variante: VarianteNave = 0): PuntoCasco[] {
+  const base = [...puntosCascoVariante(variante, dir)];
+  if (nivel === "alta") return base;
+  const lomo = abolladuraEntre(base[1], base[2], 0.3);
+  if (nivel === "media") return [base[0], base[1], lomo, ...base.slice(2)];
+  const cola = abolladuraEntre(base[4], base[5], 0.45);
+  return [base[0], base[1], lomo, base[2], base[3], base[4], cola, ...base.slice(5)];
 }

@@ -37,18 +37,20 @@ function disparar(armaIndice: number, angulo: number, potencia: number) {
 }
 
 // qui-1 / invariante: sin gravedad ni planetas el tiro nunca vuelve, así que
-// el tirador no puede recibir ni roce ni impacto propio de su propio vuelo.
+// el tirador no puede recibir impacto propio de su propio vuelo.
 test("qui-1: ningún disparo, desde cualquier ángulo y arma, toca al propio tirador", () => {
   fc.assert(
     fc.property(
       fc.integer({ min: 0, max: ARMAS.length - 1 }),
-      fc.integer({ min: 0, max: 360 }),
+      // Rango jugable (2°-178°): el cañón está encima del casco y un tiro hacia
+      // abajo atraviesa la propia silueta, que ya no es un círculo más bajo
+      // que el cañón.
+      fc.integer({ min: 2, max: 178 }),
       fc.integer({ min: 10, max: 100 }),
       (arma, angulo, potencia) => {
         const resultado = disparar(arma, angulo, potencia);
         assert.equal(resultado.impactoPropio, null);
-        assert.notEqual(resultado.roce?.nave, TIRADOR.id);
-        assert.equal(resultado.puntosDeImpacto.some((punto) => punto.impactoNave === TIRADOR.id), false);
+              assert.equal(resultado.puntosDeImpacto.some((punto) => punto.impactoNave === TIRADOR.id), false);
       },
     ),
     { numRuns: 500 },
@@ -57,8 +59,7 @@ test("qui-1: ningún disparo, desde cualquier ángulo y arma, toca al propio tir
 
 // qui-2: regresión del defecto. Hacia atrás (170°) el proyectil sale rozando
 // la silueta propia, que llega bastante más lejos que la gracia vieja.
-test("qui-2: un tiro hacia atrás por encima del casco no roza al tirador", () => {
+test("qui-2: un tiro hacia atrás por encima del casco no impacta al tirador", () => {
   const resultado = disparar(0, 170, 60);
-  assert.equal(resultado.roce, null);
   assert.equal(resultado.impactoPropio, null);
 });

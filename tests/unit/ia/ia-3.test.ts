@@ -8,7 +8,10 @@ import { medirPersonalidad, NUM_PARTIDAS_MEDICION_IA, SEMILLA_MAESTRA_MEDICION_I
 // que afirmar las tres bandas medidas con npm run medir:ia (ver
 // docs/jugador-patron.md) para que la siguiente deriva del buscador la cante.
 const PARTIDAS_POR_PERSONALIDAD = NUM_PARTIDAS_MEDICION_IA;
-const BANDA_LA_CONTABLE = [0.75, 0.9] as const;
+// naves-silueta: con las naves a la mitad (zona de impacto = polígono) es más
+// difícil acertar y La Contable pasa de ~80 % a ~68 % (medido con 200 partidas);
+// las tres siguen ordenadas.
+const BANDA_LA_CONTABLE = [0.6, 0.9] as const;
 const BANDA_ALMIRANTE_BISAGRA = [0.45, 0.65] as const;
 const BANDA_CHISPA = [0.2, 0.4] as const;
 
