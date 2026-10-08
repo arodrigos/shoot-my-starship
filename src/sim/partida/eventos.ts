@@ -119,7 +119,7 @@ export type EventoSimulacion =
       readonly desdeY: number;
       readonly x: number;
       readonly y: number;
-      readonly reserva: "ninguna" | "lateral" | "mas-lejano" | "se-queda";
+      readonly reserva: "ninguna" | "lateral" | "se-queda";
       // Recorrido simulado, del origen al destino: la cáscara anima la nave
       // por estos mismos puntos en vez de interpolar en línea recta.
       readonly puntos: readonly { readonly x: number; readonly y: number }[];

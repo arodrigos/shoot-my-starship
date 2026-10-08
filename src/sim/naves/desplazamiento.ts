@@ -27,10 +27,9 @@ export const K_CURVA_EMPUJE = 0.00002;
 
 // «ninguna» = el destino natural (o uno de su prolongación) cumple el
 // descartar; «lateral» = ningún punto del recorrido lo cumplía (el mismo tiro
-// sigue pasando por la trayectoria) y la nave se aparta de ella; «mas-lejano» =
-// tampoco había salida lateral y se usa el más lejano del recorrido;
-// «se-queda» = ni siquiera hay un primer paso válido.
-export type ReservaDesplazamiento = "ninguna" | "lateral" | "mas-lejano" | "se-queda";
+// sigue pasando por la trayectoria) y la nave se aparta de ella;
+// «se-queda» = no hay un primer paso válido o ningún destino cumple el descartar.
+export type ReservaDesplazamiento = "ninguna" | "lateral" | "se-queda";
 export type MotivoParadaEmpuje = "longitud" | "planeta" | "nave" | "esquina";
 
 export interface ResultadoDesplazamiento {
@@ -239,6 +238,8 @@ export function recolocarTrasImpacto(parametros: ParametrosRecolocacion): Result
       }
     }
   }
-  const final = masLejos.puntos[masLejos.puntos.length - 1];
-  return { x: final.x, y: final.y, reserva: "mas-lejano", puntos: masLejos.puntos, motivoParada: motivoDe(masLejos.puntos) };
+  // Sin ningún destino que cumpla el descartar, moverla al más lejano la
+  // dejaba a veces donde ni ella ni el rival tienen tiro y la partida no
+  // acababa nunca: se queda donde estaba, que es donde sí había tiro.
+  return { x: desde.x, y: desde.y, reserva: "se-queda", puntos: [desde], motivoParada: motivoDe(masLejos.puntos) };
 }
