@@ -21,6 +21,10 @@ export interface PuntoDeImpacto {
   // punto exacto, si alguna -- undefined cuando el punto es una detonación
   // normal contra sólido, fuera de mundo o ápice de submuniciones.
   readonly impactoNave?: IdNave;
+  // Velocidad del proyectil al detonar: da la dirección del empuje a la nave
+  // golpeada. Ausente en los puntos que no vienen de un vuelo.
+  readonly vx?: number;
+  readonly vy?: number;
 }
 
 export interface SalidaDePantalla extends PuntoSalida {
@@ -328,7 +332,7 @@ function resolverSubmuniciones(
     // casi horizontal apuntando cuesta abajo): no hay altura para repartir,
     // así que se resuelve como un impacto único en vez de partir en el vacío.
     return {
-      puntos: [{ x: apice.x, y: apice.y, impactoNave: impactoNaveApice?.nave }],
+      puntos: [{ x: apice.x, y: apice.y, impactoNave: impactoNaveApice?.nave, vx: apice.vx, vy: apice.vy }],
       perdido: false,
       pasos,
     };
@@ -350,7 +354,7 @@ function resolverSubmuniciones(
     // contando (grav-6 no exige que TODAS se pierdan para declarar el
     // disparo entero perdido).
     if (!perdido) {
-      puntos.push({ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave });
+      puntos.push({ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave, vx: proyectil.vx, vy: proyectil.vy });
     }
   }
   return { puntos, perdido: puntos.length === 0, pasos, salida: puntos.length === 0 ? salida : undefined };
@@ -434,7 +438,7 @@ function resolverUnDisparo(
       return { puntos: [], perdido: true, aleatorio, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
     }
     return {
-      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
+      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave, vx: proyectil.vx, vy: proyectil.vy }],
       perdido: false,
       aleatorio,
       pasos,
@@ -457,7 +461,7 @@ function resolverUnDisparo(
       return { puntos: [], perdido: true, aleatorio: aleatorioTrasVuelo, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
     }
     return {
-      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
+      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave, vx: proyectil.vx, vy: proyectil.vy }],
       perdido: false,
       aleatorio: aleatorioTrasVuelo,
       pasos,
@@ -476,7 +480,7 @@ function resolverUnDisparo(
       return { puntos: [], perdido: true, aleatorio, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
     }
     return {
-      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
+      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave, vx: proyectil.vx, vy: proyectil.vy }],
       perdido: false,
       aleatorio,
       pasos,
@@ -504,7 +508,7 @@ function resolverUnDisparo(
       return { puntos: [], perdido: true, aleatorio, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
     }
     return {
-      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
+      puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave, vx: proyectil.vx, vy: proyectil.vy }],
       perdido: false,
       aleatorio,
       pasos,
@@ -525,7 +529,7 @@ function resolverUnDisparo(
   // "la penetración atraviesa sólido pero nunca un casco, que siempre
   // detona" aplica igual de fuerte a la rodadura).
   if (arma.comportamiento.tipo === "rodante" && !impactoNave) {
-    const punto = resolverRodadura(mascara, proyectil.x, proyectil.y, arma.comportamiento.distanciaMaximaPx, arma.comportamiento.pasoPx);
+    const punto = { ...resolverRodadura(mascara, proyectil.x, proyectil.y, arma.comportamiento.distanciaMaximaPx, arma.comportamiento.pasoPx), vx: proyectil.vx, vy: proyectil.vy };
     return { puntos: [punto], perdido: false, aleatorio, pasos };
   }
 
@@ -533,7 +537,7 @@ function resolverUnDisparo(
   // la caída genérica, sin rama propia. "adherente-con-mecha" (la mina) ya
   // se resolvió arriba, antes de este punto -- ver el comentario de esa rama.
   return {
-    puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave }],
+    puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave, vx: proyectil.vx, vy: proyectil.vy }],
     perdido: false,
     puntosPenetrados: tracker?.puntosPenetrados,
     aleatorio,

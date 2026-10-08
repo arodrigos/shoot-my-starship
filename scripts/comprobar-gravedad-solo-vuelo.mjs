@@ -11,7 +11,16 @@ const DIRECTORIO = "src/sim";
 const PATRON_LLAMADA = /calcularAceleracionGravitatoria\(/;
 // halos.ts mide la aceleración de UN pozo a distintas distancias para colocar
 // los anillos del halo: no recibe naves ni mueve nada, solo lee la función.
-const FICHEROS_PERMITIDOS = new Set(["src/sim/fisica/vuelo.ts", "src/sim/gravedad/nCuerpos.ts", "src/sim/gravedad/halos.ts"]);
+// desplazamiento.ts curva el recorrido del empuje tras un impacto con la
+// misma aceleración (decisión de Adrián: el empuje se curva cerca de un
+// planeta). Lo hace sobre la trayectoria del empuje, no tirando de la nave en
+// reposo: la nave sigue sin moverse por gravedad entre turnos.
+const FICHEROS_PERMITIDOS = new Set([
+  "src/sim/fisica/vuelo.ts",
+  "src/sim/gravedad/nCuerpos.ts",
+  "src/sim/gravedad/halos.ts",
+  "src/sim/naves/desplazamiento.ts",
+]);
 
 async function ficherosTypeScript(directorio) {
   const entradas = await readdir(directorio, { withFileTypes: true }).catch(() => []);

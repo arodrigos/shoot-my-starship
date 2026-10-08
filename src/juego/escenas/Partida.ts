@@ -116,7 +116,7 @@ import "@/debug/tipos";
 const DURACION_HAZ_MS = 450;
 
 // desplazamiento-tras-impacto (des-3): el deslizamiento dura entre 300 y 600 ms.
-const DURACION_DESLIZAMIENTO_MS = 450;
+const DURACION_DESLIZAMIENTO_MS = 500;
 const RADIO_MARCA_FANTASMA_U = 22;
 const TAMANO_TEXTO_FANTASMA_PX = 34;
 const RADIO_ROBOT_U = 14;
@@ -295,6 +295,22 @@ function fraccionDeVentana(clienteX: number, clienteY: number): PuntoFraccion {
 // desplazamiento de SEMIALTO_MAXIMO_NAVE_PX la nave se dibujaría hundida hasta la
 // mitad en el terreno. window.__debug.naves NO aplica este ajuste: sigue
 // reportando la misma altura que usa avanzar() para la colisión real.
+// Punto a la fracción t (0..1) de la longitud de una poligonal.
+function puntoDelRecorrido(camino: readonly { x: number; y: number }[], t: number): { x: number; y: number } {
+  let total = 0;
+  for (let i = 1; i < camino.length; i++) total += Math.hypot(camino[i].x - camino[i - 1].x, camino[i].y - camino[i - 1].y);
+  let restante = total * Math.min(1, Math.max(0, t));
+  for (let i = 1; i < camino.length; i++) {
+    const largo = Math.hypot(camino[i].x - camino[i - 1].x, camino[i].y - camino[i - 1].y);
+    if (restante <= largo && largo > 0) {
+      const f = restante / largo;
+      return { x: camino[i - 1].x + (camino[i].x - camino[i - 1].x) * f, y: camino[i - 1].y + (camino[i].y - camino[i - 1].y) * f };
+    }
+    restante -= largo;
+  }
+  return camino[camino.length - 1];
+}
+
 function alturaRenderNave(naveY: number | undefined, alturaDerivada: number): number {
   return naveY ?? alturaDerivada - SEMIALTO_MAXIMO_NAVE_PX;
 }
@@ -2190,6 +2206,7 @@ export class Partida extends Phaser.Scene {
   private animarDesplazamientos(eventos: readonly EventoSimulacion[]): void {
     const movimientoReducido = prefiereMovimientoReducido();
     const fantasmas: { nave: number; x: number; y: number }[] = [];
+    const recorridos: { nave: number; puntos: readonly { x: number; y: number }[]; motivoParada: string }[] = [];
     for (const evento of eventos) {
       if (evento.tipo !== "desplazamiento" && evento.tipo !== "propulsores") continue;
       if (evento.tipo === "desplazamiento" && evento.reserva === "se-queda") continue;
@@ -2210,6 +2227,10 @@ export class Partida extends Phaser.Scene {
         .setDepth(29);
       this.marcasFantasma.push(grafico, texto);
       fantasmas.push({ nave: evento.nave, x: evento.desdeX, y: desdeY });
+      // La nave sigue los mismos puntos que calculó el núcleo (curva por la
+      // gravedad, deslizamiento por el borde), no una recta de origen a destino.
+      const camino = evento.tipo === "desplazamiento" ? evento.puntos : [{ x: evento.desdeX, y: evento.desdeY }, { x: evento.x, y: evento.y }];
+      if (evento.tipo === "desplazamiento") recorridos.push({ nave: evento.nave, puntos: evento.puntos, motivoParada: evento.motivoParada });
 
       if (movimientoReducido) continue;
       nave.posicionarEn(evento.desdeX, desdeY);
@@ -2219,12 +2240,15 @@ export class Partida extends Phaser.Scene {
         t: 1,
         duration: DURACION_DESLIZAMIENTO_MS,
         ease: "Sine.easeInOut",
-        onUpdate: () =>
-          nave.posicionarEn(evento.desdeX + (evento.x - evento.desdeX) * progreso.t, desdeY + (haciaY - desdeY) * progreso.t),
+        onUpdate: () => {
+          const punto = puntoDelRecorrido(camino, progreso.t);
+          nave.posicionarEn(punto.x, punto.y);
+        },
         onComplete: () => nave.posicionarEn(evento.x, haciaY),
       });
     }
     window.__debug!.fantasmas = fantasmas;
+    window.__debug!.recorridoEmpuje = recorridos;
     publicarFantasmas(
       fantasmas.map(({ nave }) => ({ nave, texto: `Estaba aquí: ${nombreDeNave(this.controladores, nave)} fue desplazada de este punto.` })),
     );
