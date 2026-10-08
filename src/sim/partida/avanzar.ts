@@ -390,9 +390,9 @@ export function avanzar(
   // forma de acabar salvo por la muerte súbita, y colocarNaves ya garantiza
   // lo contrario al empezar. Presupuesto acotado: se rinde al primer tiro con
   // daño y como mucho prueba PRESUPUESTO_VIABILIDAD_DESTINO vuelos.
-  const sinTiroEntreLosDos = (punto: { x: number; y: number }): boolean => {
+  const sinTiroEntreLosDos = (movida: IdNave, punto: { x: number; y: number }): boolean => {
     if (navesVivas === undefined) return false;
-    const naves = navesVivas.map((nave) => (nave.id === objetivoId ? { ...nave, x: punto.x, y: punto.y } : nave));
+    const naves = navesVivas.map((nave) => (nave.id === movida ? { ...nave, x: punto.x, y: punto.y } : nave));
     const comun = {
       mascara: resultado.mascara,
       ancho: estado.mundo.ancho,
@@ -417,7 +417,8 @@ export function avanzar(
     fuentes: resultado.puntosDeImpacto,
     danioMaximo: arma.efecto.tipo === "danio" || arma.efecto.tipo === "danio-y-autodanio" ? arma.efecto.danioMaximo : 0,
     objetivoId,
-    descartarDestinoDelObjetivo: (punto) => repetiriaElImpacto(punto) || sinTiroEntreLosDos(punto),
+    descartarDestinoDelObjetivo: (punto) => repetiriaElImpacto(punto) || sinTiroEntreLosDos(objetivoId, punto),
+    descartarDestinoDeOtra: sinTiroEntreLosDos,
   });
   const naves = desplazadas.naves;
   eventos.push(...desplazadas.eventos);
@@ -734,6 +735,9 @@ interface ParametrosDesplazarNaves {
   readonly danioMaximo: number;
   readonly objetivoId: IdNave;
   readonly descartarDestinoDelObjetivo: (punto: { x: number; y: number }) => boolean;
+  // Cualquier otra nave dañada (el tirador por su propio disparo, una tercera
+  // por el área) tampoco puede acabar donde ya no hay tiro entre los dos.
+  readonly descartarDestinoDeOtra?: (id: IdNave, punto: { x: number; y: number }) => boolean;
 }
 
 // La detonación más cercana al centro de la nave es la que la empuja: con el
@@ -754,7 +758,7 @@ function direccionDeEmpuje(nave: { x: number; y: number }, fuentes: ParametrosDe
 }
 
 function desplazarNavesDanadas(parametros: ParametrosDesplazarNaves): { naves: EstadoNave[]; eventos: EventoSimulacion[] } {
-  const { estado, navesTrasDanio, mascara, planetas, radioEfectoU, fuentes, danioMaximo, objetivoId, descartarDestinoDelObjetivo } = parametros;
+  const { estado, navesTrasDanio, mascara, planetas, radioEfectoU, fuentes, danioMaximo, objetivoId, descartarDestinoDelObjetivo, descartarDestinoDeOtra } = parametros;
   const naves = [...navesTrasDanio];
   const eventos: EventoSimulacion[] = [];
   naves.forEach((nave, id) => {
@@ -770,7 +774,11 @@ function desplazarNavesDanadas(parametros: ParametrosDesplazarNaves): { naves: E
       mascara,
       ...(planetas !== undefined ? { pozos: planetas } : {}),
       otras,
-      ...(id === objetivoId ? { descartar: descartarDestinoDelObjetivo } : {}),
+      ...(id === objetivoId
+        ? { descartar: descartarDestinoDelObjetivo }
+        : descartarDestinoDeOtra !== undefined
+          ? { descartar: (punto: { x: number; y: number }) => descartarDestinoDeOtra(id as IdNave, punto) }
+          : {}),
     });
     naves[id] = { ...nave, x: destino.x, y: destino.y };
     eventos.push({ tipo: "desplazamiento", nave: id, desdeX: nave.x, desdeY: nave.y, x: destino.x, y: destino.y, reserva: destino.reserva, puntos: destino.puntos, motivoParada: destino.motivoParada });
