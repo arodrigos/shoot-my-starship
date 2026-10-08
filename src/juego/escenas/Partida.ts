@@ -1247,7 +1247,7 @@ export class Partida extends Phaser.Scene {
   // que cada vez que la partida termina dentro de la ráfaga se repone la
   // integridad de ambas naves (y el turno, siempre de vuelta al jugador) y
   // se continúa disparando en el mismo mundo, en vez de cortar la ráfaga.
-  private dispararRafagaTurbo(numeroDeDisparos: number): void {
+  private async dispararRafagaTurbo(numeroDeDisparos: number): Promise<void> {
     const PASO_TURBO_MS = 32;
     const objetivoTurno = this.estado.numeroTurno + numeroDeDisparos;
     let guardia = 0;
@@ -1265,6 +1265,11 @@ export class Partida extends Phaser.Scene {
           naves: this.estado.naves.map((actual) => ({ ...actual, integridad: 100 })),
         };
         this.refrescarDebugNaves();
+      } else if (this.solicitudEnCurso) {
+        // respuesta-200ms: la decisión de la IA y la resolución del disparo
+        // viven en el trabajador; se cede el hilo para que su respuesta
+        // llegue en vez de salir de la ráfaga con un solo turno jugado.
+        await new Promise<void>((resolver) => setTimeout(resolver, 0));
       } else if (this.puedeJugarAhora()) {
         const solucion = this.calcularSolucionBalistica(this.estado);
         const ajuste = solucion ?? { anguloGrados: 45, potencia: 55 };
