@@ -39,6 +39,15 @@ export const REGISTRO_EFECTOS = {
     techoObjetosVivos: 40,
     reutilizaPool: true,
   },
+  // armas-aspecto: segunda estela, aditiva, para las armas con llama. Su techo
+  // se descuenta del presupuesto global de 120 partículas del móvil.
+  "estela-llama": {
+    id: "estela-llama",
+    descripcion: "Estela de llama del proyectil (armas-aspecto): pool fijo con mezcla aditiva; la de humo es 'estela-proyectil'.",
+    techoParticulas: 16,
+    techoObjetosVivos: 16,
+    reutilizaPool: true,
+  },
   // explosiones-por-capas (exl-1..exl-5): destello y onda son `graphics`
   // (Arc), no emisores de partículas -- su techoParticulas es 0 a propósito,
   // pero se dan de alta igual que las demás porque pre-1 exige que TODO

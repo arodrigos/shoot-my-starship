@@ -76,3 +76,23 @@ en verde o «Supera 200 ms» en rojo).
 
 No se reduce la resolución del lienzo en este bloque; queda como refinamiento si
 el recuadro en el móvil o el iPad enseña que lo lento es el render.
+
+## Aspecto de las armas (armas-aspecto)
+
+Coste añadido al vuelo, por construcción:
+
+- Las 15 siluetas se hornean una sola vez al crear la escena (`generateTexture`) y en vuelo
+  solo se mueve un `Image` (posición y rotación); no se redibuja ningún polígono por fotograma.
+- La estela suma dos emisores de pool fijo: `estela-proyectil` (humo, 40) y `estela-llama`
+  (aditiva, 16). La suma de todos los techos registrados (`techoTotalParticulas`) se comprueba
+  en `tests/unit/armas/aspecto.test.ts` contra el presupuesto global de 120 partículas (móvil).
+- Sin movimiento reducido: estela y giro apagados; la imagen sigue visible.
+- No se usa `Glow`: el realismo sale de la textura con borde, brillo y sombra, la estela y el
+  fogonazo (un círculo con tween, sin partículas).
+
+| Caso | p95 de frame en vuelo, línea base (paron-explosion) | Con armas-aspecto |
+| --- | --- | --- |
+| Pepinazo 360x640 | pendiente de la medición en el dispositivo (`?rendimiento=1`) | pendiente |
+
+El CI rasteriza el lienzo por software, así que no puede juzgar el +15 % de arm-4; queda para
+el recuadro de `?rendimiento=1` en el móvil y el iPad.

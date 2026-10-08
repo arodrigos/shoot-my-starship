@@ -34,6 +34,8 @@ import { buscarMapa, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { Nave } from "@/juego/naves/Nave";
 import { IndicadorDeriva } from "@/juego/deriva/IndicadorDeriva";
 import { AnimadorProyectil } from "@/juego/vuelo/AnimadorProyectil";
+import { VisualArmas } from "@/juego/armas/VisualArmas";
+import { aspectoDeId, aspectosDelCatalogo, trazadoDeArma } from "@/juego/armas/aspecto";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { buscarEquipo, esIdEquipo } from "@/sim/equipo/catalogo";
 import { alcancePropulsores, volarConPropulsores } from "@/sim/equipo/propulsores";
@@ -278,6 +280,7 @@ const CANTIDAD_PARTICULAS_EXPLOSION_SIN_DANIO = 8;
 // fichero de datos) porque es un límite técnico de rendimiento, no un
 // parámetro de diseño de partida como el catálogo de armas.
 const TOPE_PARTICULAS_ESTELA = 40;
+const TOPE_PARTICULAS_ESTELA_LLAMA = 16;
 
 interface PuntoFraccion {
   readonly x: number;
@@ -476,6 +479,9 @@ export class Partida extends Phaser.Scene {
   // getAliveParticleCount() nunca puede superarlo, también con varios vuelos
   // seguidos sin que el pool "en reposo" entre turnos crezca.
   private emisorEstela!: Phaser.GameObjects.Particles.ParticleEmitter;
+  // armas-aspecto: estela aditiva de las armas con llama y capa de textura.
+  private emisorEstelaLlama!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private visualArmas!: VisualArmas;
   // prevision-real: se dibuja en coordenadas de MUNDO (como la estela, no
   // como IndicadorDeriva, que es HUD de pantalla) -- misma convención que
   // "dibujados en el mundo y no en un recuadro" del diseño.
@@ -852,6 +858,19 @@ export class Partida extends Phaser.Scene {
       maxParticles: TOPE_PARTICULAS_ESTELA,
     });
     this.emisorEstela.setDepth(40);
+    this.emisorEstelaLlama = crearEmisorRegistrado(this, "estela-llama", 0, 0, "particula-estela", {
+      lifespan: 180,
+      speed: 0,
+      scale: { start: 1.3, end: 0 },
+      alpha: { start: 0.9, end: 0 },
+      quantity: 0,
+      emitting: false,
+      maxParticles: TOPE_PARTICULAS_ESTELA_LLAMA,
+      blendMode: Phaser.BlendModes.ADD,
+    });
+    this.emisorEstelaLlama.setDepth(40);
+    this.visualArmas = new VisualArmas(this, { llama: this.emisorEstelaLlama, humo: this.emisorEstela });
+    this.animador.usarTexturaExterna(true);
 
     window.addEventListener("pointerdown", this.manejarPointerDown);
     window.addEventListener("pointermove", this.manejarPointerMove);
@@ -898,6 +917,11 @@ export class Partida extends Phaser.Scene {
     window.__debug.proyectilEnVuelo = null;
     window.__debug.estela = { vivas: 0, tope: TOPE_PARTICULAS_ESTELA };
     window.__debug.estelaMaxVivas = 0;
+    window.__debug.armas = Object.fromEntries(
+      aspectosDelCatalogo().map((a) => [a.armaId, { trazado: trazadoDeArma(a.armaId), textura: `arma-${a.armaId}`, estela: a.estela, giroRadS: a.giroRadS }]),
+    );
+    window.__debug.proyectilVisual = null;
+    window.__debug.armaEnReposo = null;
     window.__debug.parteDeGuerra = null;
     window.__debug.ultimosEventos = [];
     window.__debug.historialBromas = [];
@@ -983,7 +1007,8 @@ export class Partida extends Phaser.Scene {
     this.animadorRepeticion.actualizar(delta);
     window.__debug!.animacionEnCurso = this.animador.enVuelo();
     window.__debug!.repeticionEnCurso = this.animadorRepeticion.enVuelo();
-    this.actualizarEstelaYDebugProyectil();
+    this.actualizarEstelaYDebugProyectil(delta);
+    this.actualizarArmaEnReposo();
     this.actualizarCuentaAtrasMecha();
     this.actualizarCuentaAtrasAdherencia();
 
@@ -1244,23 +1269,58 @@ export class Partida extends Phaser.Scene {
   // curso (nunca el de repetición: humor-6 lo deja explícitamente fuera de
   // la partida) y publica su posición y arma al debug -- así ni el pool
   // acotado ni la comprobación de visibilidad dependen de leer píxeles.
-  private actualizarEstelaYDebugProyectil(): void {
+  private actualizarEstelaYDebugProyectil(deltaMs: number): void {
     const posicion = this.animador.obtenerPosicion();
     if (posicion) {
-      // emitParticleAt sin recuento explícito usa this.ops.quantity.onEmit(),
-      // que lee la config del emisor (quantity: 0 -- pensada para que no
-      // emita solo por frecuencia) y por tanto no emitía NINGUNA partícula:
-      // el recuento hay que pasarlo aquí, no en la config del emisor.
-      this.emisorEstela.emitParticleAt(posicion.x, posicion.y, 1);
       const armaId = this.animador.obtenerArmaId() ?? CATALOGO_ARMAS[0].id;
+      // armas-aspecto: la textura rota con el rumbo (más el giro propio de las
+      // que ruedan) y la estela sale de la misma capa. emitParticleAt necesita
+      // el recuento explícito: la config del emisor lleva quantity 0.
+      const muestra = this.visualArmas.actualizarVuelo(armaId, posicion.x, posicion.y, this.animador.obtenerAnguloActual(), deltaMs, prefiereMovimientoReducido());
+      // Con el Racimo abierto los perdigones ya los dibuja el animador.
+      if (this.animador.obtenerPerdigones() > 1) this.visualArmas.ocultarVuelo();
       window.__debug!.proyectilEnVuelo = { x: posicion.x, y: posicion.y, armaId };
+      window.__debug!.proyectilVisual = {
+        armaId,
+        textura: muestra.textura,
+        rotacion: muestra.rotacion,
+        rumbo: muestra.rumbo,
+        particulasEstela: muestra.particulasEstela,
+      };
     } else {
+      this.visualArmas.finDeVuelo();
       window.__debug!.proyectilEnVuelo = null;
+      window.__debug!.proyectilVisual = null;
     }
-    const vivas = this.emisorEstela.getAliveParticleCount();
+    const vivas = this.emisorEstela.getAliveParticleCount() + this.emisorEstelaLlama.getAliveParticleCount();
     window.__debug!.proyectil = { perdigones: this.animador.obtenerPerdigones(), perdigonesMaximo: this.animador.obtenerPerdigonesMaximo() };
-    window.__debug!.estela = { vivas, tope: TOPE_PARTICULAS_ESTELA };
+    window.__debug!.estela = { vivas, tope: TOPE_PARTICULAS_ESTELA + TOPE_PARTICULAS_ESTELA_LLAMA };
     window.__debug!.estelaMaxVivas = Math.max(window.__debug!.estelaMaxVivas ?? 0, vivas);
+  }
+
+  // armas-aspecto: el arma elegida va montada en el lanzador de la nave del
+  // turno, con el ángulo del apuntado. Solo cuando se puede jugar: durante el
+  // vuelo ya la lleva el proyectil.
+  private actualizarArmaEnReposo(): void {
+    const debug = window.__debug!;
+    if (!this.puedeJugarAhora() || this.animador.enVuelo()) {
+      this.visualArmas.ocultarReposo();
+      debug.armaEnReposo = null;
+      return;
+    }
+    const estado = this.estado;
+    const nave = estado.naves[estado.turno];
+    const origenY = nave.y ?? alturaSuperficie(estado.mascara, nave.x);
+    if (origenY === null || origenY === undefined) {
+      this.visualArmas.ocultarReposo();
+      debug.armaEnReposo = null;
+      return;
+    }
+    const { anguloGrados, armaId } = obtenerEstadoControl().ajuste;
+    // Mismo signo que el vuelo: vy = -v·sen(ángulo), así que la imagen gira -ángulo.
+    const rotacion = -(anguloGrados * Math.PI) / 180;
+    this.visualArmas.mostrarReposo(armaId, nave.x, origenY - ALTURA_CANON_PX, rotacion);
+    debug.armaEnReposo = { armaId, rotacion };
   }
 
   // proy-4 (desviación, ver entregable): un test que dispare 20 vuelos
@@ -1525,6 +1585,7 @@ export class Partida extends Phaser.Scene {
       const inicial: EstadoProyectil = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
       const detenerse = detenerseEnSuelo(estadoAntes.mascara, estadoAntes.mundo.ancho, estadoAntes.mundo.alto);
       this.origenUltimoDisparo = { x: inicial.x, y: inicial.y };
+      if (!prefiereMovimientoReducido()) this.visualArmas.fogonazo(inicial.x, inicial.y, aspectoDeId(entrada.arma).paleta.estela);
 
       // impacto-naves: mismo criterio que avanzar.ts para decidir si hay
       // cuerpo de colisión de casco -- modo espacial (las dos naves con `y`) y
