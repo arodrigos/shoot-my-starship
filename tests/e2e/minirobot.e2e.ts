@@ -93,7 +93,16 @@ test("minirobot-explosion: el robot detona a la vista, deja su explosión en su 
   await plegarConsola(page);
   await arrastrarDesdeNave(page, 0, 270, 40);
   await page.getByTestId("disparar").click();
-  await page.waitForFunction(() => (window.__debug.robots?.length ?? 0) === 1, undefined, { timeout: 60000 });
+  // El robot existe solo mientras la IA piensa: si esa búsqueda ocupa el hilo
+  // principal, el robot puede posarse y detonar sin que el sondeo vea nunca
+  // «un robot». Basta con que haya aparecido o con que ya haya detonado.
+  await page.waitForFunction(
+    () =>
+      (window.__debug.robots?.length ?? 0) === 1 ||
+      (window.__debug.detonaciones ?? []).some((d) => d.armaId === "minirobot-saltaplanetas"),
+    undefined,
+    { timeout: 120000 },
+  );
 
   // El robot detona en el cierre del turno de la IA.
   await page.waitForFunction(
