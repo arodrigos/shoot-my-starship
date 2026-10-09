@@ -303,8 +303,11 @@ for (const vp of VIEWPORTS) {
     // 8. Tres eventos del universo, cada uno con su efecto propio.
     for (const tipo of ["gravedad-x2", "agujero-negro", "tormenta"] as const) {
       await esperarJugable(page);
+      // El humano es la única nave que se mantiene viva: si el evento cayera
+      // sobre una IA ya destruida, el núcleo lo anuncia como perdido y no hay efecto.
+      await curarAlHumano(page);
       const halosAntes = await page.evaluate(() => JSON.stringify(window.__debug.halos));
-      await page.evaluate((t) => window.__debug.forzarEvento!(t, 1), tipo);
+      await page.evaluate((t) => window.__debug.forzarEvento!(t, 0), tipo);
       await page.waitForFunction((t) => (window.__debug.efectosVisibles ?? []).some((e) => e.tipo === `evento-${t}`), tipo, { timeout: 30000 });
       if (tipo === "gravedad-x2") expect(await page.evaluate(() => JSON.stringify(window.__debug.halos)), "los halos crecen con gravedad-x2").not.toBe(halosAntes);
       if (tipo === "agujero-negro") expect(await page.evaluate(() => (window.__debug.halos ?? []).some((h) => h.id === 200))).toBe(true);
