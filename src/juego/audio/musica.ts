@@ -97,6 +97,9 @@ export interface EstadoProgramador {
 export interface Programador {
   iniciar(): void;
   detener(): void;
+  // voz-chistes: baja o devuelve el volumen de la música (1 = el normal)
+  // mientras habla un chiste, sin tocar las notas ya agendadas.
+  atenuar(factor: number): void;
   activo(): boolean;
   // Una pasada del temporizador; pública para que los tests la ejecuten sin
   // reloj real.
@@ -178,6 +181,12 @@ export function crearProgramador(contexto: AudioContext): Programador {
         }
       }
       voces = [];
+    },
+    atenuar(factor) {
+      // Constante de 50 ms: llega al 99 % en ~250 ms, dentro de los 300 ms
+      // que exige voz-4, y sin el chasquido de un salto de ganancia.
+      salida.gain.cancelScheduledValues(contexto.currentTime);
+      salida.gain.setTargetAtTime(temporizador === null ? 0 : GANANCIA_MUSICA * factor, contexto.currentTime, 0.05);
     },
     activo: () => temporizador !== null,
     pasada,

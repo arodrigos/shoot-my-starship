@@ -177,6 +177,25 @@ dos crea el audio hasta un gesto tuyo: pulsar «Jugar» o el propio control.
 La música es un bucle sobre una escala pentatónica que tarda más de 60 s en
 repetirse y suena por debajo de los efectos.
 
+## Voz de los chistes
+
+Los chistes se leen en voz alta con la Web Speech API del navegador, a través
+de `easy-speech` (fijada en 2.4.0). No hay ficheros de audio ni servicios de
+terceros: solo se usan voces **locales** en castellano (`es-*` con
+`localService`), porque las voces remotas (las «Google español» de Chrome de
+escritorio) mandarían el texto, con los nombres de los jugadores, a un
+servidor ajeno. Si el dispositivo no tiene una voz así, el juego sigue en
+texto, lo avisa una vez y deshabilita el interruptor.
+
+- El interruptor «Voz» está en la consola, activado por defecto, y se recuerda
+  en `voz:activada`. No afecta a la música ni a los efectos.
+- La síntesis se desbloquea en el gesto de «Jugar» (o al pulsar el
+  interruptor), igual que la música.
+- Cada personaje tiene su timbre (velocidad y tono, en
+  `src/contenido/vocesPersonajes.ts`) sobre la misma voz del sistema.
+- Habla de uno en uno (cada chiste corta al anterior), baja la música al 35 %
+  mientras habla y calla durante el relevo y al ocultar la pestaña.
+
 ## Desarrollo
 
 ```bash

@@ -95,6 +95,16 @@ function arrancarMusica(): void {
   }
 }
 
+// voz-chistes: la música baja mientras habla un chiste. No hace nada si la
+// música no está sonando.
+export function atenuarMusica(factor: number): void {
+  try {
+    programador?.atenuar(factor);
+  } catch {
+    // ver desbloquearAudio.
+  }
+}
+
 export function sonidoSilenciado(): boolean {
   return silenciado;
 }
