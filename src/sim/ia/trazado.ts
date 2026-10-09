@@ -1,6 +1,6 @@
 import { crearProyectil } from "@/sim/fisica/proyectil";
-import { simularVuelo } from "@/sim/fisica/vuelo";
-import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
+import { bordeDeSalida, simularVuelo } from "@/sim/fisica/vuelo";
+import { POTENCIA_MAXIMA_PX_S, velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas, type SolucionBalistica } from "@/sim/balistica/solucionador";
 import { ALTURA_CANON_PX, alturaSuperficie, detenerseEnSuelo } from "@/sim/armas/resolver";
 import type { Mascara } from "@/sim/terreno/mascara";
@@ -59,17 +59,56 @@ export function trazarIntentos(
   const indiceMortero = distanciasA90.indexOf(Math.min(...distanciasA90));
   const detenerse = detenerseEnSuelo(mascara, ancho, alto);
 
-  return soluciones.map((solucion, indice) => {
+  const trazar = (solucion: SolucionBalistica, esMortero: boolean): IntentoBalistico & { readonly salioDePantalla: boolean } => {
     const v = velocidadDesdePotencia(solucion.potencia);
     const rad = anguloRad(solucion.anguloGrados);
     const inicial = crearProyectil(origenX, origenCanonY, v * Math.cos(rad), -v * Math.sin(rad));
     const { proyectil } = simularVuelo(inicial, gravedad, deriva, detenerse);
-    const viable = Math.abs(proyectil.x - objetivoX) <= TOLERANCIA_VIABLE_PX;
     return {
       solucion,
-      esMortero: indice === indiceMortero,
+      esMortero,
       puntoDeImpacto: { x: proyectil.x, y: proyectil.y },
-      viable,
+      viable: Math.abs(proyectil.x - objetivoX) <= TOLERANCIA_VIABLE_PX,
+      salioDePantalla: bordeDeSalida(proyectil.x, proyectil.y, ancho, alto) !== null,
     };
+  };
+
+  return soluciones.map((solucion, indice) => {
+    const esMortero = indice === indiceMortero;
+    const intento = trazar(solucion, esMortero);
+    if (!esMortero || !intento.salioDePantalla) return intento;
+    // salida-pantalla: a potencia máxima el mortero asoma por encima del
+    // borde y se pierde. Se baja la potencia hasta que el arco cabe: con
+    // menos velocidad la raíz alta se acerca a 45° y su apex baja. Solo se
+    // sustituye si se perdió por salir; un mortero tapado por un techo sigue
+    // siendo no viable.
+    for (const fraccion of FRACCIONES_POTENCIA_MORTERO) {
+      const velocidad = POTENCIA_MAXIMA_PX_S * fraccion;
+      const alta = (destinoX: number): SolucionBalistica | null => {
+        const raices = resolverSolucionesBalisticas(origenX, origenCanonY, destinoX, alturaObjetivo, gravedad, velocidad);
+        if (raices.length === 0) return null;
+        return raices.reduce((a, b) => (Math.abs(a.anguloGrados - 90) <= Math.abs(b.anguloGrados - 90) ? a : b));
+      };
+      const primera = alta(objetivoX);
+      if (!primera) break;
+      let mejor = trazar(primera, true);
+      if (mejor.salioDePantalla) continue;
+      // El paso fijo de la integración desplaza el aterrizaje unos píxeles
+      // respecto a la fórmula cerrada: se apunta a un destino corregido por
+      // ese error para mantener la precisión del tiro a potencia máxima.
+      for (let ronda = 0; ronda < 2 && mejor.viable; ronda++) {
+        const corregida = alta(objetivoX - (mejor.puntoDeImpacto.x - objetivoX));
+        if (!corregida) break;
+        const candidato = trazar(corregida, true);
+        if (candidato.salioDePantalla || Math.abs(candidato.puntoDeImpacto.x - objetivoX) >= Math.abs(mejor.puntoDeImpacto.x - objetivoX)) break;
+        mejor = candidato;
+      }
+      return mejor;
+    }
+    return intento;
   });
 }
+
+// Fracciones de la potencia máxima que prueba el mortero cuando el arco a
+// máxima se sale de la pantalla, de la más alta a la más baja.
+const FRACCIONES_POTENCIA_MORTERO = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3];

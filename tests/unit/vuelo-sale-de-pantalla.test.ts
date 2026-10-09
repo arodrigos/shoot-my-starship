@@ -5,7 +5,7 @@ import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { calcularPrevisualizacion } from "@/sim/armas/previsualizacion";
-import { MARGEN_SALIDA_U, techoU } from "@/sim/fisica/vuelo";
+import { MARGEN_SALIDA_U } from "@/sim/fisica/vuelo";
 import { crearMascaraPlana } from "../utils/terrenoPlano";
 
 const ANCHO = 2000;
@@ -54,7 +54,7 @@ test("sal-1: un tiro vertical que sale por arriba se pierde: sin daño, sin deto
   const resultado = disparo({ gravedad: GRAVEDAD_BAJA, origenX: 1000, angulo: 90 });
   assert.equal(resultado.proyectilPerdido, true);
   assert.equal(resultado.salida?.borde, "arriba");
-  assert.ok(resultado.salida!.y <= -techoU(ALTO) + 1e-6, `y de salida: ${resultado.salida!.y}`);
+  assert.ok(resultado.salida!.y <= -MARGEN_SALIDA_U + 1e-6, `y de salida: ${resultado.salida!.y}`);
   assert.equal(resultado.danioObjetivo, 0);
   assert.equal(resultado.puntosDeImpacto.length, 0);
   assert.ok(resultado.pasosVuelo < PASOS_DE_UN_VUELO_SIN_CORTE / 2, `pasos: ${resultado.pasosVuelo}`);
@@ -79,7 +79,7 @@ test("sal-1: sin suelo bajo el tiro, el fondo del mundo sigue siendo suelo y det
   assert.ok(resultado.puntosDeImpacto.length > 0);
 });
 
-test("sal-1: un tiro que sube un poco por encima del borde (dentro del techo) y vuelve NO se pierde", () => {
+test("sal-1: un tiro que sube sin llegar al margen y vuelve NO se pierde", () => {
   // Gravedad normal: el vuelo sube y cae al suelo sin llegar a -24.
   const resultado = disparo({ gravedad: 1, origenX: 1000, angulo: 45, potencia: 40 });
   assert.equal(resultado.proyectilPerdido, false);
@@ -88,17 +88,17 @@ test("sal-1: un tiro que sube un poco por encima del borde (dentro del techo) y 
 
 test("la previsualización corta donde el vuelo se pierde, sin pasar del margen", () => {
   for (const punto of previa(GRAVEDAD_BAJA, 1000, 90)) {
-    assert.ok(punto.y >= -techoU(ALTO) - 1e-6, `el trazado no sigue más allá del techo: y=${punto.y}`);
+    assert.ok(punto.y >= -MARGEN_SALIDA_U - 1e-6, `el trazado no sigue más allá del margen: y=${punto.y}`);
   }
 });
 
 // Invariante 1: ningún punto del vuelo simulado queda fuera del encuadre ampliado.
-test("invariante: todos los puntos de la previsualización cumplen -24 ≤ x ≤ ancho+24 y -3·alto ≤ y ≤ alto+24", () => {
+test("invariante: todos los puntos de la previsualización cumplen -24 ≤ x ≤ ancho+24 y -24 ≤ y ≤ alto+24", () => {
   fc.assert(
     fc.property(fc.integer({ min: 0, max: ANCHO }), fc.integer({ min: 0, max: 180 }), fc.constantFrom(0.02, 0.2, 1), (origenX, angulo, gravedad) => {
       for (const p of previa(gravedad, origenX, angulo)) {
         assert.ok(p.x >= -MARGEN_SALIDA_U - 1e-6 && p.x <= ANCHO + MARGEN_SALIDA_U + 1e-6, `x=${p.x}`);
-        assert.ok(p.y >= -techoU(ALTO) - 1e-6 && p.y <= ALTO + MARGEN_SALIDA_U + 1e-6, `y=${p.y}`);
+        assert.ok(p.y >= -MARGEN_SALIDA_U - 1e-6 && p.y <= ALTO + MARGEN_SALIDA_U + 1e-6, `y=${p.y}`);
       }
     }),
     { numRuns: 500 },

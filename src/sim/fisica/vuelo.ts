@@ -46,16 +46,10 @@ export function reiniciarContadorVuelosSimulados(): void {
 // en el borde, así que un tiro perdido podía animarse varios segundos o dañar.
 export const MARGEN_SALIDA_U = 24;
 
-// Por arriba el tiro puede subir mucho antes de perderse: un mortero a
-// potencia máxima asoma varios mundos de alto y vuelve a caer sobre el
-// objetivo, y la IA y la mitad de la balística de las armas cuentan con eso.
-// Se mantiene el techo de siempre (3 alturas) en vez del margen de los otros
-// bordes; ver `desviaciones` del entregable. Por abajo el fondo del mundo
-// sigue siendo suelo: el tiro que cae por un hueco del terreno detona contra él
-// (detenerseEnSuelo), y no se pierde.
-export function techoU(alto: number): number {
-  return 3 * alto;
-}
+// Por abajo el fondo del mundo sigue siendo suelo: el tiro que cae por un
+// hueco del terreno detona contra él (detenerseEnSuelo), y no se pierde. Por
+// los otros tres bordes el corte es el mismo margen: sin techo propio arriba,
+// porque un tiro que ya no se ve no puede dejar la pantalla quieta.
 
 export type BordeSalida = "arriba" | "abajo" | "izquierda" | "derecha";
 
@@ -70,7 +64,7 @@ export interface PuntoSalida {
 }
 
 export function bordeDeSalida(x: number, y: number, ancho: number, alto: number): BordeSalida | null {
-  if (y < -techoU(alto)) return "arriba";
+  if (y < -MARGEN_SALIDA_U) return "arriba";
   if (y > alto + MARGEN_SALIDA_U) return "abajo";
   if (x < -MARGEN_SALIDA_U) return "izquierda";
   if (x > ancho + MARGEN_SALIDA_U) return "derecha";
@@ -87,7 +81,7 @@ export function fueraDeEncuadre(x: number, y: number, ancho: number, alto: numbe
 function recortarAlEncuadre(desde: EstadoProyectil, hasta: EstadoProyectil, encuadre: EncuadreVuelo): EstadoProyectil {
   const minX = -MARGEN_SALIDA_U;
   const maxX = encuadre.ancho + MARGEN_SALIDA_U;
-  const minY = -techoU(encuadre.alto);
+  const minY = -MARGEN_SALIDA_U;
   const maxY = encuadre.alto + MARGEN_SALIDA_U;
   const dx = hasta.x - desde.x;
   const dy = hasta.y - desde.y;
