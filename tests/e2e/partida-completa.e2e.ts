@@ -63,6 +63,26 @@ async function solucionDelTurno(page: Page): Promise<{ anguloGrados: number; pot
   return solucion ?? { anguloGrados: 45, potencia: 60 };
 }
 
+// Pone a la nave humana en el aire justo encima de un planeta libre: desde ahí
+// un tiro hacia abajo cae siempre sobre roca, sin depender de que el oráculo
+// (rejilla gruesa) encuentre solución. Falso si ningún planeta tiene hueco.
+async function colocarSobrePlaneta(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const mundo = window.__debug.mundo!;
+    const naves = window.__debug.naves ?? [];
+    for (const planeta of window.__debug.planetas ?? []) {
+      const x = planeta.cx;
+      const y = planeta.cy - planeta.radio - 70;
+      if (x < 80 || x > mundo.ancho - 80 || y < 80) continue;
+      if (window.__debug.terreno!.esSolido(Math.round(x), Math.round(y))) continue;
+      if (naves.some((nave) => nave.id !== 0 && Math.hypot(nave.x - x, (nave.y as number) - y) < 150)) continue;
+      window.__debug.forzarPosicionNave!(0, x, y);
+      return true;
+    }
+    return false;
+  });
+}
+
 // Apunta con la solución exacta, dispara y espera a que el turno pase a la IA.
 async function dispararConSolucion(page: Page): Promise<void> {
   await esperarJugable(page);
@@ -165,13 +185,30 @@ for (const vp of VIEWPORTS) {
     const saldoAntes = (await page.evaluate(() => window.__debug.saldo)) as number;
     // El turno de la IA reinicia `detonaciones` antes de que la lectura llegue, así que se guarda el máximo visto.
     await page.evaluate(() => {
-      const w = window as unknown as { __maxDet: number };
+      const w = window as unknown as { __maxDet: number; __histDet: string[] };
       w.__maxDet = 0;
-      setInterval(() => { w.__maxDet = Math.max(w.__maxDet, window.__debug.detonaciones?.length ?? 0); }, 20);
+      w.__histDet = [];
+      setInterval(() => {
+        const n = window.__debug.detonaciones?.length ?? 0;
+        w.__maxDet = Math.max(w.__maxDet, n);
+        const marca = `t${window.__debug.numeroTurno}:${n}`;
+        if (w.__histDet[w.__histDet.length - 1] !== marca) w.__histDet.push(marca);
+      }, 20);
     });
-    await dispararConSolucion(page);
+    // Sin solución del oráculo el tiro a ciegas puede perder al portador y no
+    // detonar nada; hacia el planeta, los cinco perdigones estallan seguro.
+    if (await colocarSobrePlaneta(page)) {
+      await arrastrarBarraHasta(page, "barra-angulo", (270 - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
+      await arrastrarBarraHasta(page, "barra-potencia", 0.3);
+      const turnoRacimo = await page.evaluate(() => window.__debug.numeroTurno!);
+      await page.getByTestId("disparar").click();
+      await esperarTurnoPosterior(page, turnoRacimo, "racimo");
+    } else {
+      await dispararConSolucion(page);
+    }
     const racimo = await page.evaluate(() => ({ detonaciones: { length: (window as unknown as { __maxDet: number }).__maxDet }, saldo: window.__debug.saldo as number }));
-    expect(racimo.detonaciones.length, "el Racimo detona sus 5 perdigones").toBeGreaterThanOrEqual(5);
+    const historial = await page.evaluate(() => (window as unknown as { __histDet: string[] }).__histDet.join(" "));
+    expect(racimo.detonaciones.length, `el Racimo detona sus 5 perdigones (turno:detonaciones ${historial})`).toBeGreaterThanOrEqual(5);
     expect(racimo.saldo, "el saldo baja con cada compra").toBeLessThan(saldoAntes);
     await capturar("racimo-perdigones", "Perdigones del Racimo estallando muy juntos, cerca del punto de impacto.");
 
@@ -246,20 +283,7 @@ for (const vp of VIEWPORTS) {
     await esperarJugable(page);
     await curarAlHumano(page);
     await elegirArma(page, "minirobot-saltaplanetas");
-    const colocada = await page.evaluate(() => {
-      const mundo = window.__debug.mundo!;
-      const naves = window.__debug.naves ?? [];
-      for (const planeta of window.__debug.planetas ?? []) {
-        const x = planeta.cx;
-        const y = planeta.cy - planeta.radio - 70;
-        if (x < 80 || x > mundo.ancho - 80 || y < 80) continue;
-        if (window.__debug.terreno!.esSolido(Math.round(x), Math.round(y))) continue;
-        if (naves.some((nave) => nave.id !== 0 && Math.hypot(nave.x - x, (nave.y as number) - y) < 150)) continue;
-        window.__debug.forzarPosicionNave!(0, x, y);
-        return true;
-      }
-      return false;
-    });
+    const colocada = await colocarSobrePlaneta(page);
     if (colocada) {
       // Con las barras y no con un arrastre: la consola ya no se pliega y el
       // arrastre sobre el lienzo puede caer bajo ella.
