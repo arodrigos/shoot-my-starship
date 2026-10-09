@@ -44,10 +44,11 @@ test("arm-1: el icono del selector, el arma en reposo y el proyectil en vuelo co
   const reposo = await page.evaluate(() => window.__debug.armaEnReposo!);
   const angulo = await page.evaluate(() => window.__debug.control!.ajuste.anguloGrados);
   expect(Math.abs((reposo.rotacion * 180) / Math.PI + angulo)).toBeLessThanOrEqual(1);
+});
 
-  // dispararConSolucionExacta abre el selector por su cuenta: si sigue abierto
-  // tras elegir, ese segundo clic lo cerraría y la celda no se podría pulsar.
-  if (await page.getByTestId("arma-pelota-de-chatarra").isVisible()) await abrirSelector(page);
+test("arm-1: el proyectil en vuelo conserva la textura del arma y gira sobre sí misma", async ({ page }) => {
+  test.setTimeout(240000);
+  await empezarPresupuesto(page, { saldo: 600 });
   await empezarAMuestrear(page);
   await dispararConSolucionExacta(page, "pelota-de-chatarra");
   const muestras = await leerMuestras(page);
