@@ -109,10 +109,10 @@ test("economia-rectificada-2/3 (propiedad): el saldo nunca es negativo, cada arm
   );
 });
 
-test("economia-rectificada-4: Despedida con 80 cr se rechaza («cuesta 90») y el estado serializado queda idéntico", () => {
+test("economia-rectificada-4: Despedida con 80 cr se rechaza («cuesta 85») y el estado serializado queda idéntico", () => {
   const estado = estadoConSaldos([80, 80]);
   const antes = serializarEstado(estado);
-  assert.throws(() => disparo(estado, "despedida"), /cuesta 90 cr/);
+  assert.throws(() => disparo(estado, "despedida"), /cuesta 85 cr/);
   assert.equal(serializarEstado(estado), antes);
 });
 
