@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 // Tras el reprecio de armas-reprecio-roles, pepinazo-cortesia ya no es
-// gratis (coste 55): las tres armas gratis reales son zanjadora-manolita,
+// gratis (coste 40): las tres armas gratis reales son zanjadora-manolita,
 // petardo-de-feria y pelota-de-chatarra (src/sim/armas/catalogo.ts).
 const ARMA_GRATIS_ID = "zanjadora-manolita";
 const ARMA_DE_PAGO_ID = "mortero-lamentable";
