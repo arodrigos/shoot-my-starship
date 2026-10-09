@@ -49,6 +49,9 @@ for (const definicion of CATALOGO_EVENTOS) {
   test(`evv-1: ${definicion.tipo} enseña su efecto gráfico propio`, async ({ page }) => {
     test.setTimeout(150000);
     await empezar(page, "");
+    // La consola va anclada abajo y, según dónde caiga la nave en un mapa sin
+    // sembrar, puede taparla: el efecto existe pero no se ve en la captura.
+    await page.addStyleTag({ content: '[data-testid="consola"], [data-testid="pestana-consola"] { visibility: hidden !important; }' });
     const halosAntes = await page.evaluate(() => JSON.stringify(window.__debug.halos));
     const antes = await lienzo(page).screenshot();
     await page.evaluate((tipo) => window.__debug.forzarEvento!(tipo, 1), definicion.tipo);
