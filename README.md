@@ -75,7 +75,7 @@ de Chatarra**) son el fondo de armario.
 | Gravitón de Segunda Mano | 45 | utilitaria: reposiciona, precio por magnitud del desplazamiento, no por daño |
 | Despedida | 85 | la más cara y la más dañina: un solo uso, con autodaño real de por medio |
 | Barrena Planetaria | 65 | atraviesa terreno y pega fuerte: cara y de las de más daño |
-| Rayo Láser | 85 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
+| Rayo Láser | 80 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
 | Mosca Cojonera | 50 | trayectoria errática: difícil de planear, castiga bien si llega |
 | Granada de Espoleta | 55 | cuenta atrás desde el disparo: área grande, momento de detonar incierto |
 | Gancho Pegajoso | 90 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |

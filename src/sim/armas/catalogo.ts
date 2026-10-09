@@ -207,11 +207,11 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // medida es de las más bajas del catálogo (sale recta, pero exige
     // precisión real) -- el precio se mantiene cerca del máximo porque paga
     // además la inmunidad a la gravedad, un eje que la curva no modela.
-    // Coste 85 (no 90, el de Despedida): empatando con ella en coste y con
+    // Coste 80 (no 85, el de Despedida): empatando con ella en coste y con
     // menos daño y menos facilidad quedaría dominada por Despedida (criterio
-    // 3); 85 rompe esa comparación sin cambiar su papel de «la más cara tras
+    // 3); 80 rompe esa comparación sin cambiar su papel de «la más cara tras
     // Despedida».
-    coste: 85,
+    coste: 80,
     inmuneAGravedad: true,
     // cat-2: el haz atraviesa hasta 40 u de roca antes de detonar.
     penetracionPx: 40,

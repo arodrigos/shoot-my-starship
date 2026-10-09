@@ -116,11 +116,11 @@ test("economia-rectificada-4: Despedida con 80 cr se rechaza («cuesta 85») y e
   assert.equal(serializarEstado(estado), antes);
 });
 
-test("economia-rectificada-2: Pepinazo con 100 cr deja 60 cr y la gratis siguiente no cobra", () => {
+test("economia-rectificada-2: Pepinazo con 100 cr deja 65 cr y la gratis siguiente no cobra", () => {
   const tras = disparo(estadoConSaldos([100, 100]), "pepinazo-cortesia").estado;
-  assert.deepEqual(tras.saldos, [60, 100]);
+  assert.deepEqual(tras.saldos, [65, 100]);
   const trasGratis = disparo({ ...tras, turno: 0 }, "petardo-de-feria").estado;
-  assert.deepEqual(trasGratis.saldos, [60, 100]);
+  assert.deepEqual(trasGratis.saldos, [65, 100]);
 });
 
 test("economia-rectificada-3: en barra libre ningún disparo toca saldos y el petardo conserva su daño", () => {
