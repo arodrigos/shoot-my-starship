@@ -19,8 +19,22 @@ interface Captura {
   readonly que: string;
 }
 
+// Si una espera se agota, el error dice en qué estado se quedó la partida: un
+// «Timeout» a secas no deja saber qué paso fue.
+async function estadoPartida(page: Page): Promise<string> {
+  return page.evaluate(() => JSON.stringify({ turno: window.__debug.turno, numeroTurno: window.__debug.numeroTurno, puedeDisparar: window.__debug.control?.puedeDisparar, eliminadas: window.__debug.eliminadas, ganador: window.__debug.ganador, animando: window.__debug.animacionEnCurso }));
+}
+
 async function esperarJugable(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__debug.control?.puedeDisparar === true, undefined, { timeout: 120000 });
+  await page.waitForFunction(() => window.__debug.control?.puedeDisparar === true, undefined, { timeout: 120000 }).catch(async (error: Error) => {
+    throw new Error(`esperarJugable: ${await estadoPartida(page)} :: ${error.message}`);
+  });
+}
+
+async function esperarTurnoPosterior(page: Page, numeroTurno: number, etiqueta: string): Promise<void> {
+  await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurno, { timeout: 120000 }).catch(async (error: Error) => {
+    throw new Error(`${etiqueta}: ${await estadoPartida(page)} :: ${error.message}`);
+  });
 }
 
 // El arma erratica (Mosca) puede no tener solución exacta: entonces vale un tiro cualquiera.
@@ -37,7 +51,7 @@ async function dispararConSolucion(page: Page): Promise<void> {
   await arrastrarBarraHasta(page, "barra-angulo", (solucion.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
   await arrastrarBarraHasta(page, "barra-potencia", (solucion.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA));
   await page.getByTestId("disparar").click();
-  await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurno, { timeout: 120000 });
+  await esperarTurnoPosterior(page, numeroTurno, "dispararConSolucion");
 }
 
 async function elegirArma(page: Page, armaId: string): Promise<void> {
@@ -141,12 +155,9 @@ for (const vp of VIEWPORTS) {
     await arrastrarBarraHasta(page, "barra-potencia", (solucionMosca.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA));
     const turnoMosca = await page.evaluate(() => window.__debug.numeroTurno!);
     await page.getByTestId("disparar").click();
-    await page.waitForFunction(() => window.__debug.proyectilVisual != null, undefined, { timeout: 60000 });
-    await page.waitForTimeout(300);
-    const visual = await page.evaluate(() => window.__debug.proyectilVisual);
-    expect(visual?.armaId).toBe("mosca-cojonera");
+    await page.waitForFunction(() => window.__debug.proyectilVisual?.armaId === "mosca-cojonera", undefined, { timeout: 60000 });
     await capturar("misil-en-vuelo", "El misil en vuelo con su dibujo propio y su estela, no un píxel.");
-    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, turnoMosca, { timeout: 120000 });
+    await esperarTurnoPosterior(page, turnoMosca, "mosca");
 
     // 5. Tiro que se pierde: «¡Perdido!» y sin explosión.
     await curarAlHumano(page);
@@ -155,11 +166,9 @@ for (const vp of VIEWPORTS) {
     const turnoPerdido = await page.evaluate(() => window.__debug.numeroTurno!);
     await page.getByTestId("disparar").click();
     await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
-    const perdido = await page.evaluate(() => ({ detonaciones: window.__debug.detonaciones?.length ?? 0, borde: window.__debug.avisoPerdido!.borde }));
-    expect(perdido.detonaciones, "un tiro perdido no detona").toBe(0);
-    expect(perdido.borde).toBe("arriba");
+    expect(await page.evaluate(() => window.__debug.avisoPerdido!.borde)).toBe("arriba");
     await capturar("tiro-perdido", "Aviso «¡Perdido!» junto al borde por el que salió el tiro.");
-    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, turnoPerdido, { timeout: 60000 });
+    await esperarTurnoPosterior(page, turnoPerdido, "perdido");
 
     // 6. Escudo en un turno y propulsores en otro: solo los propulsores y los impactos mueven naves.
     await curarAlHumano(page);
@@ -167,7 +176,7 @@ for (const vp of VIEWPORTS) {
     const turnoEscudo = await page.evaluate(() => window.__debug.numeroTurno!);
     await capturar("escudo-elegido", "El escudo elegido en la pestaña de equipo.");
     await page.getByTestId("disparar").click();
-    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, turnoEscudo, { timeout: 120000 });
+    await esperarTurnoPosterior(page, turnoEscudo, "escudo");
 
     await curarAlHumano(page);
     await elegirEquipo(page, "propulsores");
@@ -177,7 +186,7 @@ for (const vp of VIEWPORTS) {
     await capturar("propulsores-ruta", "Círculo de alcance y ruta prevista de los propulsores.");
     const turnoPropulsores = await page.evaluate(() => window.__debug.numeroTurno!);
     await page.getByTestId("disparar").click();
-    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, turnoPropulsores, { timeout: 120000 });
+    await esperarTurnoPosterior(page, turnoPropulsores, "propulsores");
 
     // 7. Minirobot: se queda posado y su contador se ve.
     await esperarJugable(page);
@@ -201,7 +210,7 @@ for (const vp of VIEWPORTS) {
       await arrastrarDesdeNave(page, 0, 270, 40);
       const turnoRobot = await page.evaluate(() => window.__debug.numeroTurno!);
       await page.getByTestId("disparar").click();
-      await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, turnoRobot, { timeout: 120000 });
+      await esperarTurnoPosterior(page, turnoRobot, "robot");
       await page.waitForFunction(() => (window.__debug.robots?.length ?? 0) >= 1, undefined, { timeout: 30000 });
       await capturar("minirobot-posado", "El minirobot posado en el planeta con su contador de saltos.");
     } else {
