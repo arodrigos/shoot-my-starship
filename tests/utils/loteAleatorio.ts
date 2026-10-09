@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { crearEstadoAleatorio, siguienteAleatorio } from "@/sim/aleatorio";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "./solucionTensa";
 import { comprobarInvariante, crearPartidaInicial, jugarPartida } from "@/sim/partida/motor";
 import { generarMascara } from "@/sim/terreno/generador";
 import type { Mascara } from "@/sim/terreno/mascara";
@@ -34,13 +34,24 @@ export const fuenteAleatoria: FuenteDeTurno = (estado) => {
   const objetivoId = estado.turno === 0 ? 1 : 0;
   const tirador = estado.naves[estado.turno];
   const objetivo = estado.naves[objetivoId];
-  const soluciones = resolverSolucionesBalisticas(tirador.x, 0, objetivo.x, 0, estado.mundo.gravedad);
-  const base = soluciones[0] ?? { anguloGrados: 45, potencia: 90 };
+  // Las cimas del terreno de este mundo quedan a ~90 u del borde superior: un
+  // mortero a potencia máxima sale por arriba y se pierde, así que la solución
+  // tiene que caber en esa altura (suelo = 150 = cima + cañón).
+  let base = { anguloGrados: 45, potencia: 90 };
+  try {
+    base = solucionTensa(tirador.x, 0, objetivo.x, 0, estado.mundo.gravedad, 150);
+  } catch {
+    // sin solución exacta (fuera de alcance): se queda el disparo por defecto
+  }
 
   const pasoAngulo = siguienteAleatorio(estado.aleatorio);
   const pasoPotencia = siguienteAleatorio(pasoAngulo.estado);
-  const anguloGrados = Math.min(179, Math.max(1, base.anguloGrados + (pasoAngulo.valor - 0.5) * 16));
-  const potencia = Math.min(100, Math.max(80, base.potencia + (pasoPotencia.valor - 0.5) * 20));
+  // Con el tiro tendido que cabe bajo el techo, una cima entre las dos naves
+  // puede tapar el disparo para siempre: pasados unos turnos se abre el
+  // abanico de ángulo y potencia para que alguno la salve.
+  const atascada = estado.numeroTurno > 50;
+  const anguloGrados = Math.min(179, Math.max(1, base.anguloGrados + (pasoAngulo.valor - 0.5) * (atascada ? 60 : 16)));
+  const potencia = Math.min(100, Math.max(atascada ? 30 : 80, base.potencia + (pasoPotencia.valor - 0.5) * (atascada ? 100 : 20)));
 
   return {
     entrada: { arma: "pepinazo-cortesia", anguloGrados, potencia, objetivoId },
