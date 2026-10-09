@@ -239,6 +239,15 @@ jobs:
           name: e2e-resultado-${{ matrix.shard }}
           path: resultado-e2e.json
           retention-days: 7
+      # pc-3: las capturas de la partida completa y su tabla de respuesta, a
+      # mano de quien revisa (solo el fragmento que corrió partida-completa).
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: partida-completa-${{ matrix.shard }}
+          path: test-results/partida-completa/
+          if-no-files-found: ignore
+          retention-days: 14
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
