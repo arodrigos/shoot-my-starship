@@ -713,6 +713,24 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
         >
           Música: {estado.musicaActiva ? "Sí" : "No"}
         </button>
+      </div>
+
+      {/* voz-chistes: cuarto interruptor de la banda superior. En 360 px la
+          fila de cuatro llegaba hasta el botón Histórico y lo tapaba, así que
+          Voz va en su propia fila fija justo debajo (a 10 + 44 + 6 px). */}
+      <div
+        style={{
+          position: "fixed",
+          top: 60,
+          right: 10,
+          zIndex: 15,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          gap: 4,
+          maxWidth: "min(260px, calc(100vw - 20px))",
+        }}
+      >
         {/* voz-chistes: sin voz castellana local el interruptor se
             deshabilita y el aviso explica por qué (voz-3). */}
         <button
@@ -744,7 +762,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           Voz: {estado.vozActiva && estado.vozDisponible ? "On" : "Off"}
         </button>
         {estado.avisoVoz !== null && (
-          <span data-testid="voz-aviso" role="status" style={{ flexBasis: "100%", font: "11px system-ui, sans-serif", color: "var(--color-cromado-texto)" }}>
+          <span data-testid="voz-aviso" role="status" style={{ textAlign: "right", font: "11px system-ui, sans-serif", color: "var(--color-cromado-texto)" }}>
             {estado.avisoVoz}
           </span>
         )}
