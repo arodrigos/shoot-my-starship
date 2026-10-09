@@ -401,6 +401,10 @@ export interface DebugGlobal {
   // declara el núcleo, y las explosiones que la cáscara dibujó para ellas
   // (misma longitud y mismo orden). Se sustituyen en cada turno.
   detonaciones?: readonly Detonacion[];
+  // Cuántas detonaciones declaró cada arma en cada turno resuelto, en orden.
+  // `detonaciones` se pisa en cuanto otro turno se resuelve, y dos turnos
+  // pueden resolverse en la misma tarea: un muestreo por intervalo no los ve.
+  registroDetonaciones?: readonly { readonly armaId: string; readonly cantidad: number }[];
   efectosVisibles?: readonly DebugEfectoVisible[];
   // vida-color: lo que pinta la barra de vida de cada nave viva (una nave a
   // 0 no tiene barra y no aparece).

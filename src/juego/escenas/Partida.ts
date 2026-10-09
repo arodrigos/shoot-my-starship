@@ -2008,6 +2008,9 @@ export class Partida extends Phaser.Scene {
     let esperaSacudidaMs = 0;
     const movimientoReducido = prefiereMovimientoReducido();
     window.__debug!.detonaciones = detonaciones;
+    if (detonaciones.length > 0) {
+      window.__debug!.registroDetonaciones = [...(window.__debug!.registroDetonaciones ?? []), { armaId: detonaciones[0].armaId, cantidad: detonaciones.length }];
+    }
     if (detonaciones.length > 0) this.medidorFrames.marcar("impacto");
     if (eventos.some((evento) => evento.tipo === "proyectil-perdido")) this.medidorFrames.marcar("salida");
     const lanzadas = reproducirDetonaciones(

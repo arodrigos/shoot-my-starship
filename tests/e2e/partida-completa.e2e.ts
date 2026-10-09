@@ -183,18 +183,7 @@ for (const vp of VIEWPORTS) {
     await elegirArma(page, "racimo-de-tuppers");
     await capturar("racimo-en-reposo", "El Racimo de Tuppers elegido en el selector, con su dibujo propio.");
     const saldoAntes = (await page.evaluate(() => window.__debug.saldo)) as number;
-    // El turno de la IA reinicia `detonaciones` antes de que la lectura llegue, así que se guarda el máximo visto.
-    await page.evaluate(() => {
-      const w = window as unknown as { __maxDet: number; __histDet: string[] };
-      w.__maxDet = 0;
-      w.__histDet = [];
-      setInterval(() => {
-        const n = window.__debug.detonaciones?.length ?? 0;
-        w.__maxDet = Math.max(w.__maxDet, n);
-        const marca = `t${window.__debug.numeroTurno}:${n}`;
-        if (w.__histDet[w.__histDet.length - 1] !== marca) w.__histDet.push(marca);
-      }, 20);
-    });
+    const detonacionesPrevias = await page.evaluate(() => window.__debug.registroDetonaciones?.length ?? 0);
     // Sin solución del oráculo el tiro a ciegas puede perder al portador y no
     // detonar nada; hacia el planeta, los cinco perdigones estallan seguro.
     if (await colocarSobrePlaneta(page)) {
@@ -206,9 +195,12 @@ for (const vp of VIEWPORTS) {
     } else {
       await dispararConSolucion(page);
     }
-    const racimo = await page.evaluate(() => ({ detonaciones: { length: (window as unknown as { __maxDet: number }).__maxDet }, saldo: window.__debug.saldo as number }));
-    const historial = await page.evaluate(() => (window as unknown as { __histDet: string[] }).__histDet.join(" "));
-    expect(racimo.detonaciones.length, `el Racimo detona sus 5 perdigones (turno:detonaciones ${historial})`).toBeGreaterThanOrEqual(5);
+    const racimo = await page.evaluate((previas) => ({
+      registro: (window.__debug.registroDetonaciones ?? []).slice(previas),
+      saldo: window.__debug.saldo as number,
+    }), detonacionesPrevias);
+    const perdigones = Math.max(0, ...racimo.registro.filter((r) => r.armaId === "racimo-de-tuppers").map((r) => r.cantidad));
+    expect(perdigones, `el Racimo detona sus 5 perdigones (${JSON.stringify(racimo.registro)})`).toBeGreaterThanOrEqual(5);
     expect(racimo.saldo, "el saldo baja con cada compra").toBeLessThan(saldoAntes);
     await capturar("racimo-perdigones", "Perdigones del Racimo estallando muy juntos, cerca del punto de impacto.");
 
