@@ -298,6 +298,14 @@ export interface DebugGlobal {
     notasProgramadas: number;
     vocesActivas: number;
   };
+  // voz-chistes: estado en vivo de la voz y lo que se le ha pedido al
+  // sintetizador (cancel y speak, en orden).
+  voz?: () => {
+    activada: boolean;
+    disponibilidad: "desconocida" | "si" | "no";
+    aviso: string | null;
+    llamadas: readonly { tipo: "cancel" | "speak"; texto?: string; lang?: string; rate?: number; pitch?: number }[];
+  };
   // humor-6: dispara la repetición instantánea del último disparo resuelto
   // (de cualquiera de las dos naves) sin tocar el estado de partida; expone
   // el punto de impacto que la repetición reproduce para comparar con el

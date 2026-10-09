@@ -100,6 +100,7 @@ import { MAX_SALTOS_ROBOT, type EstadoRobot } from "@/sim/armas/minirobot";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
+import { obtenerLocutor } from "@/juego/audio/voz";
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirEfecto, reproducirTono } from "@/juego/audio/motor";
 import { indiceTic } from "@/juego/audio/cadenciaTicTac";
 import type { DatosEscenaPartida } from "@/juego/main";
@@ -328,6 +329,10 @@ function alturaRenderNave(naveY: number | undefined, alturaDerivada: number): nu
 // el ajuste del sistema con la partida en marcha.
 function prefiereMovimientoReducido(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function callarVoz(): void {
+  obtenerLocutor().callar();
 }
 
 export class Partida extends Phaser.Scene {
@@ -893,6 +898,7 @@ export class Partida extends Phaser.Scene {
     // engancharse a esos mismos eventos para que el audio no siga sonando ni
     // consumiendo el AudioContext en segundo plano.
     this.game.events.on(Phaser.Core.Events.PAUSE, pausarAudio);
+    this.game.events.on(Phaser.Core.Events.PAUSE, callarVoz);
     this.game.events.on(Phaser.Core.Events.RESUME, reanudarAudio);
 
     this.game.renderer.on(Phaser.Renderer.Events.RESTORE_WEBGL, () => {
@@ -1382,6 +1388,8 @@ export class Partida extends Phaser.Scene {
     this.cancelarManejadorRelevo?.();
     this.cancelarManejadorRelevo = null;
     this.game.events.off(Phaser.Core.Events.PAUSE, pausarAudio);
+    this.game.events.off(Phaser.Core.Events.PAUSE, callarVoz);
+    callarVoz();
     this.game.events.off(Phaser.Core.Events.RESUME, reanudarAudio);
   }
 
@@ -1394,6 +1402,7 @@ export class Partida extends Phaser.Scene {
     // para cualquier entrada que llegue a esta escena sin haber pasado por
     // ese botón (navegación directa de los tests e2e de bloques anteriores).
     desbloquearAudio();
+    obtenerLocutor().iniciar();
 
     const fraccion = fraccionDeVentana(evento.clientX, evento.clientY);
 
@@ -1773,6 +1782,7 @@ export class Partida extends Phaser.Scene {
     );
     const impacto = obtenerBromas().impacto;
     this.relevoPendiente = true;
+    obtenerLocutor().callar();
     publicarJugable(false);
     publicarRelevo(
       nombreDeNave(this.controladores, siguiente),
@@ -2169,6 +2179,12 @@ export class Partida extends Phaser.Scene {
       textoImpacto = `${textoImpacto} ${this.selectorBromas.elegirImpactoArma(arma.id, arma.bromaPropia.impacto)}`;
     }
     publicarBromaImpacto(numeroTurnoAntes, textoImpacto, categoria, tirador);
+    // voz-chistes: se lee lo mismo que se ve (disparo y luego impacto, en un
+    // solo enunciado porque la cola es de uno). Durante el relevo la pantalla
+    // tapa el juego y no debe hablar nadie.
+    if (!this.relevoPendiente) {
+      obtenerLocutor().hablar(voz, [textoDisparo, textoImpacto].filter((texto) => texto !== null).join(" "));
+    }
 
     // hum-1: un registro por turno, para que el test pueda comprobar "sin
     // excepción" a lo largo de varios turnos y cruzar la frase contra el

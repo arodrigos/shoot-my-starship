@@ -9,6 +9,8 @@ import {
   ajustarAnguloFino,
   ajustarPotenciaFino,
   alternarMusicaActiva,
+  alternarVozActiva,
+  sincronizarVoz,
   alternarSilenciado,
   armaEstaAgotada,
   cerrarAyuda,
@@ -30,6 +32,7 @@ import {
   terminarArrastre,
 } from "@/juego/control/store";
 import { estadoMusica, obtenerHistorialEfectos, sonidoSilenciado } from "@/juego/audio/motor";
+import { obtenerLocutor } from "@/juego/audio/voz";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
@@ -189,6 +192,17 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
     // programan fuera del ciclo de React).
     window.__debug.musica = () => estadoMusica();
   }, [estado]);
+
+  // voz-chistes: la disponibilidad de voz se resuelve en un momento que React
+  // no ve (las voces del sistema cargan solas), así que el store la sigue
+  // por suscripción.
+  useEffect(() => {
+    const locutor = obtenerLocutor();
+    sincronizarVoz();
+    window.__debug = window.__debug ?? {};
+    window.__debug.voz = () => ({ ...locutor.estado(), llamadas: locutor.llamadas() });
+    return locutor.suscribir(sincronizarVoz);
+  }, []);
 
   useEffect(() => {
     window.__debug = window.__debug ?? {};
@@ -699,6 +713,41 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
         >
           Música: {estado.musicaActiva ? "Sí" : "No"}
         </button>
+        {/* voz-chistes: sin voz castellana local el interruptor se
+            deshabilita y el aviso explica por qué (voz-3). */}
+        <button
+          type="button"
+          data-testid="toggle-voz"
+          aria-pressed={estado.vozActiva && estado.vozDisponible}
+          disabled={!estado.vozDisponible}
+          onClick={() => alternarVozActiva()}
+          title={
+            !estado.vozDisponible
+              ? (estado.avisoVoz ?? "Sin voz en castellano")
+              : estado.vozActiva
+                ? "Callar la voz de los chistes"
+                : "Leer los chistes en voz alta"
+          }
+          style={{
+            minWidth: TAMANO_MINIMO_BOTON_PX,
+            minHeight: TAMANO_MINIMO_BOTON_PX,
+            padding: "0 8px",
+            borderRadius: 8,
+            border: "none",
+            background: "var(--color-cromado-fondo)",
+            color: "var(--color-cromado-texto)",
+            font: "12px system-ui, sans-serif",
+            cursor: estado.vozDisponible ? "pointer" : "not-allowed",
+            opacity: estado.vozDisponible ? 1 : 0.6,
+          }}
+        >
+          Voz: {estado.vozActiva && estado.vozDisponible ? "On" : "Off"}
+        </button>
+        {estado.avisoVoz !== null && (
+          <span data-testid="voz-aviso" role="status" style={{ flexBasis: "100%", font: "11px system-ui, sans-serif", color: "var(--color-cromado-texto)" }}>
+            {estado.avisoVoz}
+          </span>
+        )}
       </div>
 
       {/* fila-avisos (hud-canales-1, quinta corrección): roce, aviso y broma

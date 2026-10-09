@@ -18,6 +18,7 @@ import {
 } from "@/juego/control/apuntado";
 import { UMBRAL_POTENCIA_DISPERSION_VISIBLE } from "@/sim/balistica/dispersionPotencia";
 import { alternarMusica, alternarSonido, musicaActivada, sonidoSilenciado } from "@/juego/audio/motor";
+import { obtenerLocutor } from "@/juego/audio/voz";
 
 // Puente entre React (ControlHUD, fuera del lienzo) y la escena de Phaser
 // (que sí sabe de terreno y física): un módulo-singleton con
@@ -68,6 +69,10 @@ export interface EstadoControl {
   readonly silenciado: boolean;
   // banda-sonora: espejo de motor.ts/musicaActivada(), igual que silenciado.
   readonly musicaActiva: boolean;
+  // voz-chistes: espejo de voz.ts, igual que musicaActiva.
+  readonly vozActiva: boolean;
+  readonly vozDisponible: boolean;
+  readonly avisoVoz: string | null;
   // hud-canales-1/2: de quién es el turno, para el canal de estado -- la
   // escena ya lo sabía (window.__debug.turno, solo para e2e); esto es lo
   // mismo pero reactivo para la UI real. nombreRival llega una sola vez por
@@ -189,6 +194,9 @@ let estado: EstadoControl = {
   sacudidaActiva: leerSacudidaActivaGuardada(),
   silenciado: sonidoSilenciado(),
   musicaActiva: musicaActivada(),
+  vozActiva: true,
+  vozDisponible: true,
+  avisoVoz: null,
   turno: 0,
   nombreRival: "Rival",
   ayudaApuntadoVisible: false,
@@ -452,6 +460,19 @@ export function alternarSilenciado(): void {
 
 export function alternarMusicaActiva(): void {
   fijar({ musicaActiva: alternarMusica() });
+}
+
+// voz-chistes: el estado real vive en voz.ts (lee localStorage y la lista de
+// voces del sistema, que solo existen en el navegador); el store lo refleja
+// para que el HUD se reactive.
+export function sincronizarVoz(): void {
+  const { activada, disponibilidad, aviso } = obtenerLocutor().estado();
+  fijar({ vozActiva: activada, vozDisponible: disponibilidad !== "no", avisoVoz: aviso });
+}
+
+export function alternarVozActiva(): void {
+  obtenerLocutor().alternar();
+  sincronizarVoz();
 }
 
 type ManejadorDisparo = (entrada: EntradaDeTurno) => void;
