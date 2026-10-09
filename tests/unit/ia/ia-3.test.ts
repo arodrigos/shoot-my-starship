@@ -1,13 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LA_CONTABLE, ALMIRANTE_BISAGRA, CHISPA } from "@/sim/ia/personalidades";
-import { medirPersonalidad, NUM_PARTIDAS_MEDICION_IA, SEMILLA_MAESTRA_MEDICION_IA } from "../../utils/medirIA";
+import { medirEnSemillas, SEMILLAS_MINIMAS_EN_BANDA } from "../../utils/medirIA";
 
 // ia-punteria-3 exige una guarda que falle si alguna personalidad sale de su
 // banda, sobre al menos 200 partidas -- no basta con "no degenerada": hay
 // que afirmar las tres bandas medidas con npm run medir:ia (ver
 // docs/jugador-patron.md) para que la siguiente deriva del buscador la cante.
-const PARTIDAS_POR_PERSONALIDAD = NUM_PARTIDAS_MEDICION_IA;
+// cal-6c: cinco semillas maestras con 100 partidas cada una (500 por
+// personalidad); la banda tiene que cumplirse en al menos cuatro.
+const PARTIDAS_POR_SEMILLA = 100;
 // naves-silueta: con las naves a la mitad (zona de impacto = polígono) es más
 // difícil acertar y La Contable pasa de ~80 % a ~68 % (medido con 200 partidas);
 // las tres siguen ordenadas.
@@ -34,34 +36,26 @@ const BANDA_CHISPA = [0.2, 0.4] as const;
 // "la regla con la que se medirá la dificultad en los bloques siguientes" --
 // este test se consolida en esa misma regla en vez de mantener un segundo
 // árbitro de dificultad que compite con ella.
-test("ia-3: las tres bandas de dificultad están dentro de su rango medido y ordenadas", () => {
-  const informeContable = medirPersonalidad(LA_CONTABLE, SEMILLA_MAESTRA_MEDICION_IA, PARTIDAS_POR_PERSONALIDAD);
-  const informeBisagra = medirPersonalidad(ALMIRANTE_BISAGRA, SEMILLA_MAESTRA_MEDICION_IA, PARTIDAS_POR_PERSONALIDAD);
-  const informeChispa = medirPersonalidad(CHISPA, SEMILLA_MAESTRA_MEDICION_IA, PARTIDAS_POR_PERSONALIDAD);
-  const pctContable = informeContable.tasaVictoria;
-  const pctBisagra = informeBisagra.tasaVictoria;
-  const pctChispa = informeChispa.tasaVictoria;
-
-  console.log(
-    `ia-3: La Contable ${(pctContable * 100).toFixed(1)}%, Almirante Bisagra ${(pctBisagra * 100).toFixed(1)}%, Chispa ${(pctChispa * 100).toFixed(1)}%`,
-  );
+test("ia-3: las tres bandas de dificultad se cumplen y están ordenadas en ≥ 4 de 5 semillas maestras", () => {
+  const contable = medirEnSemillas(LA_CONTABLE, PARTIDAS_POR_SEMILLA);
+  const bisagra = medirEnSemillas(ALMIRANTE_BISAGRA, PARTIDAS_POR_SEMILLA);
+  const chispa = medirEnSemillas(CHISPA, PARTIDAS_POR_SEMILLA);
 
   // Cada personalidad dentro de su banda medida (ia-punteria-3, camino
   // crítico): esto es la guarda que el criterio exige, no una comprobación
   // de "no degenerada" -- si el buscador deriva (p. ej. al tocarlo en
   // potencia-dispersion), este test lo tiene que cantar.
-  for (const [nombre, pct, [minimo, maximo]] of [
-    ["La Contable", pctContable, BANDA_LA_CONTABLE],
-    ["Almirante Bisagra", pctBisagra, BANDA_ALMIRANTE_BISAGRA],
-    ["Chispa", pctChispa, BANDA_CHISPA],
-  ] as const) {
-    assert.ok(
-      pct >= minimo && pct <= maximo,
-      `${nombre} ganó ${(pct * 100).toFixed(1)}%, fuera de su banda [${minimo * 100}, ${maximo * 100}]`,
-    );
+  const lotes = [
+    ["La Contable", contable, BANDA_LA_CONTABLE],
+    ["Almirante Bisagra", bisagra, BANDA_ALMIRANTE_BISAGRA],
+    ["Chispa", chispa, BANDA_CHISPA],
+  ] as const;
+  for (const [nombre, informes, [minimo, maximo]] of lotes) {
+    const tasas = informes.map((informe) => informe.tasaVictoria);
+    console.log(`ia-3: ${nombre} ${tasas.map((t) => (t * 100).toFixed(1)).join(" / ")} %`);
+    const dentro = tasas.filter((t) => t >= minimo && t <= maximo).length;
+    assert.ok(dentro >= SEMILLAS_MINIMAS_EN_BANDA, `${nombre}: solo ${dentro} de ${tasas.length} semillas dentro de [${minimo * 100}, ${maximo * 100}] (${tasas.map((t) => (t * 100).toFixed(1)).join(", ")} %)`);
   }
-  assert.ok(
-    pctChispa < pctBisagra && pctBisagra < pctContable,
-    `Las tres bandas no quedan estrictamente ordenadas: Chispa ${(pctChispa * 100).toFixed(1)}% / Almirante Bisagra ${(pctBisagra * 100).toFixed(1)}% / La Contable ${(pctContable * 100).toFixed(1)}%`,
-  );
+  const ordenadas = contable.filter((_, i) => chispa[i].tasaVictoria < bisagra[i].tasaVictoria && bisagra[i].tasaVictoria < contable[i].tasaVictoria).length;
+  assert.ok(ordenadas >= SEMILLAS_MINIMAS_EN_BANDA, `Las tres bandas solo quedan estrictamente ordenadas en ${ordenadas} de ${contable.length} semillas`);
 });

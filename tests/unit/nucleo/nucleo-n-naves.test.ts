@@ -109,7 +109,7 @@ test("nucleo-n-naves-3: el saldo es un campo por nave: disparar cobra solo el pr
     objetivoId: 1,
   });
 
-  assert.deepEqual(tras.saldos, [1000 - 55, 500, undefined, 1000], "solo el saldo del tirador baja, exactamente el precio del Pepinazo");
+  assert.deepEqual(tras.saldos, [1000 - 40, 500, undefined, 1000], "solo el saldo del tirador baja, exactamente el precio del Pepinazo");
 });
 
 test("nucleo-n-naves-6: invariantes del modelo de turnos (fast-check)", () => {

@@ -30,7 +30,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 44, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 55, danioMaximo: 18 },
     fiabilidad: 1,
-    coste: 55,
+    coste: 40,
     rol: "equilibrada: ni la más floja ni la más fuerte",
   },
   {
@@ -46,7 +46,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // lo deja justo en el tope (70, nunca por encima).
     efecto: { tipo: "danio", radioEfectoPx: 70, danioMaximo: 24 },
     fiabilidad: 1,
-    coste: 65,
+    coste: 50,
     rol: "área máxima permitida: perdona el error de ángulo, cuesta en consecuencia",
   },
   {
@@ -88,7 +88,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 17, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 62, danioMaximo: 20 },
     fiabilidad: 1,
-    coste: 60,
+    coste: 45,
     rol: "cinco perdigones que estallan juntos en el punto de impacto: área media con daño combinado limitado",
   },
   {
@@ -152,7 +152,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     },
     fiabilidad: 1,
     usosMaximos: 1,
-    coste: 125,
+    coste: 90,
     rol: "la más cara y la más dañina: un solo uso, con autodaño real de por medio",
   },
   // armas-nuevas: las tres armas que ejercitan los ejes nuevos de verdad
@@ -175,7 +175,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 32, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 38, danioMaximo: 44 },
     fiabilidad: 1,
-    coste: 90,
+    coste: 70,
     penetracionPx: 260,
     rol: "atraviesa terreno y pega fuerte: cara y de las de más daño",
   },
@@ -207,11 +207,11 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // medida es de las más bajas del catálogo (sale recta, pero exige
     // precisión real) -- el precio se mantiene cerca del máximo porque paga
     // además la inmunidad a la gravedad, un eje que la curva no modela.
-    // Coste 115 (no 125, el techo de Despedida): con 125 empataría a
-    // Despedida en coste y, al tener menos daño y menos facilidad, quedaría
-    // dominada por ella en el sentido del criterio 3 -- 115 rompe esa
-    // comparación sin cambiar el papel de "la más cara tras Despedida".
-    coste: 115,
+    // Coste 85 (no 90, el de Despedida): empatando con ella en coste y con
+    // menos daño y menos facilidad quedaría dominada por Despedida (criterio
+    // 3); 85 rompe esa comparación sin cambiar su papel de «la más cara tras
+    // Despedida».
+    coste: 85,
     inmuneAGravedad: true,
     // cat-2: el haz atraviesa hasta 40 u de roca antes de detonar.
     penetracionPx: 40,
@@ -232,7 +232,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 20, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 50, danioMaximo: 28 },
     fiabilidad: 1,
-    coste: 75,
+    coste: 55,
     notaAyuda: "Avisa: no vuela recta, hace eses todo el camino hasta que choca.",
     bromaPropia: {
       disparo: ["Ahí va. Que le vaya bien a donde sea que decida ir."],
@@ -253,7 +253,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 40, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 62, danioMaximo: 34 },
     fiabilidad: 1,
-    coste: 80,
+    coste: 60,
     notaAyuda: "La cuenta empieza al disparar, no al tocar: a los 5 s explota donde esté, en el aire o en el suelo.",
     bromaPropia: {
       disparo: ["Cinco, cuatro... empieza a contar en cuanto sale, le toque lo que le toque."],
@@ -289,7 +289,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // explotar con tanta área ya no es "difícil". Se baja el daño máximo (cae
     // linealmente con la distancia) y se sube el precio para que no domine al
     // Racimo de Tuppers (dominancia de armas-metrica).
-    coste: 118,
+    coste: 90,
     notaAyuda: "La cuenta empieza al pegarse, no al disparar: solo se agarra a un planeta o a una nave (nunca al borde) y su onda daña menos cuanto más lejos.",
     bromaPropia: {
       disparo: ["Ahí va, a buscar dónde agarrarse."],
@@ -309,7 +309,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // El arnés de medición mide el disparo directo (no el viaje por planetas): su
     // facilidad es ~2,8 % y la curva da 85-90. calibrado-economia lo recalibra
     // midiendo partidas enteras.
-    coste: 85,
+    coste: 65,
     notaAyuda: "Salta de planeta en planeta hacia tu objetivo y explota encima (máx. 4 saltos).",
     bromaPropia: {
       disparo: ["Ahí va el pequeñajo, con sus mejores intenciones."],

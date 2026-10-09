@@ -2,19 +2,19 @@ import { test, expect } from "@playwright/test";
 import { abrirSelector, dispararConSolucionExacta, empezarPresupuesto, esperarJugable, MAPA_SEMBRADO } from "./utilesCompra";
 
 // eco-2 / eco-3: de punta a punta por la UI real, a 360x640. Precios de dev:
-// Pepinazo 55, Mortero 65, Despedida 125.
+// Pepinazo 40, Mortero 50, Despedida 90.
 test("compra-al-usar: todo está en el selector, el arma de pago se cobra al disparar y las gratis no cobran", async ({ page }) => {
   test.setTimeout(240000);
-  await empezarPresupuesto(page, { saldo: 100 });
+  await empezarPresupuesto(page, { saldo: 70 });
 
   await expect(page.getByTestId("tu-arsenal")).toHaveCount(0);
   await expect(page.getByTestId("pantalla-seleccion")).toHaveCount(0);
-  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 100 cr");
+  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 70 cr");
 
   await abrirSelector(page);
   await expect(page.locator('[data-testid^="arma-"]')).toHaveCount(15);
   await expect(page.getByTestId("arma-despedida")).toBeDisabled();
-  await expect(page.getByTestId("faltan-despedida")).toContainText("Te faltan 25 cr");
+  await expect(page.getByTestId("faltan-despedida")).toContainText("Te faltan 20 cr");
   // eco-3: el selector avisa del daño reducido de cada gratis.
   await expect(page.getByTestId("gratis-reducida-petardo-de-feria")).toContainText("Gratis · daño reducido al 25 %");
 
@@ -22,11 +22,11 @@ test("compra-al-usar: todo está en el selector, el arma de pago se cobra al dis
   await page.getByTestId("arma-mortero-lamentable").click();
   await abrirSelector(page);
   await page.getByTestId("arma-pepinazo-cortesia").click();
-  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 100 cr");
+  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 70 cr");
 
   await dispararConSolucionExacta(page, "pepinazo-cortesia");
   await esperarJugable(page);
-  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 45 cr");
+  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 30 cr");
 
   await abrirSelector(page);
   await expect(page.getByTestId("arma-pepinazo-cortesia")).toBeDisabled();
@@ -37,7 +37,7 @@ test("compra-al-usar: todo está en el selector, el arma de pago se cobra al dis
   await page.getByTestId("arma-petardo-de-feria").click();
   await dispararConSolucionExacta(page, "petardo-de-feria");
   await esperarJugable(page);
-  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 45 cr");
+  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 30 cr");
 });
 
 // eco-5

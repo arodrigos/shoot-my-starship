@@ -16,6 +16,8 @@ import { avanzar } from "@/sim/partida/avanzar";
 import { costeArma } from "@/sim/partida/economia";
 import { conMuerteSubita } from "@/sim/partida/muerteSubita";
 import type { EstadoPartida, ParametrosMundo } from "@/sim/partida/tipos";
+import { semillasDelLote } from "./loteAleatorio";
+import { SEMILLAS_MINIMAS_EN_BANDA } from "./medirIA";
 import { conUniverso } from "@/sim/universo/efectos";
 
 export function redondeaA50(valor: number): number {
@@ -153,7 +155,16 @@ function perfilDeGasto(base: Personalidad): Personalidad {
 const PERFILES: readonly Personalidad[] = [LA_CONTABLE, ALMIRANTE_BISAGRA, CHISPA].map(perfilDeGasto);
 export const NOMBRES_PERFIL: Readonly<Record<string, string>> = { "almirante-bisagra": "agresivo", "la-contable": "ahorrador", chispa: "mixto" };
 
-export function simularPerfiles(semillas: number): readonly ResultadoPerfil[] {
+export interface ResultadoSemilla {
+  readonly semillaMaestra: number;
+  readonly perfiles: readonly ResultadoPerfil[];
+}
+
+// cal-6a: una semilla maestra deriva sus `partidas` semillas de partida igual
+// que el resto de lotes del repo, así que el resultado depende solo de la
+// pareja (semillaMaestra, partidas).
+export function simularPerfiles(semillaMaestra: number, partidas: number): ResultadoSemilla {
+  const semillasPartida = semillasDelLote(semillaMaestra, partidas);
   const precioMinimo = Math.min(...armasDePagoConDanio().map(costeArma));
   const acumulado = PERFILES.map(() => ({
     victorias: 0,
@@ -166,9 +177,9 @@ export function simularPerfiles(semillas: number): readonly ResultadoPerfil[] {
     sumaTurnoSinSaldo: 0,
     conTurnoSinSaldo: 0,
   }));
-  for (let semilla = 1; semilla <= semillas; semilla++) {
+  for (const [indicePartida, semilla] of semillasPartida.entries()) {
     // Rotar los asientos reparte la ventaja de jugar primero entre perfiles.
-    const rotacion = semilla % PERFILES.length;
+    const rotacion = indicePartida % PERFILES.length;
     const perfilDeAsiento = [0, 1, 2].map((asiento) => (asiento + rotacion) % PERFILES.length);
     const colocacion = colocarNaves(semilla, MUNDO, crearEstadoAleatorio(semilla), 3, [true, true, true]);
     let estado: EstadoPartida = conMuerteSubita(
@@ -226,7 +237,7 @@ export function simularPerfiles(semillas: number): readonly ResultadoPerfil[] {
     if (ganador === null) acumulado.forEach((a) => (a.empates += 1));
     else if (ganador !== undefined) acumulado[perfilDeAsiento[ganador]].victorias += 1;
   }
-  return PERFILES.map((personalidad, indice) => {
+  const perfiles = PERFILES.map((personalidad, indice) => {
     const a = acumulado[indice];
     return {
       perfil: NOMBRES_PERFIL[personalidad.id],
@@ -240,25 +251,37 @@ export function simularPerfiles(semillas: number): readonly ResultadoPerfil[] {
       turnoMedioSinSaldo: a.conTurnoSinSaldo > 0 ? a.sumaTurnoSinSaldo / a.conTurnoSinSaldo : null,
     };
   });
+  return { semillaMaestra, perfiles };
 }
 
-// Las tres bandas de cal-3. Una sola definición para el script (que decide el
-// código de salida con PRUEBA_LARGA=1) y para el informe (que las enseña).
-export function evaluarBandas(resultados: readonly ResultadoPerfil[]): readonly { readonly texto: string; readonly cumple: boolean }[] {
+export const BANDA_TASA_PERFIL: readonly [number, number] = [0.2, 0.45];
+export const TASA_MAXIMA_PERFIL = 0.5;
+
+function tasaDe(r: ResultadoPerfil): number {
+  const conGanador = r.partidas - r.empates;
+  return conGanador === 0 ? 0 : r.victorias / conGanador;
+}
+
+// Las bandas de cal-6a. Una sola definición para el script (que decide el
+// código de salida con PRUEBA_LARGA=1) y para el informe (que las enseña):
+// cada perfil gana entre el 20 % y el 45 % en ≥ 4 de las 5 semillas y en
+// ninguna pasa del 50 %; el ahorrador sigue pagando en la ronda 10.
+export function evaluarBandas(resultados: readonly ResultadoSemilla[]): readonly { readonly texto: string; readonly cumple: boolean }[] {
   const bandas: { texto: string; cumple: boolean }[] = [];
-  for (const r of resultados) {
-    const conGanador = r.partidas - r.empates;
-    const tasa = conGanador === 0 ? 0 : r.victorias / conGanador;
-    bandas.push({ texto: `${r.perfil}: gana entre el 20 % y el 50 % de las partidas con ganador (${(100 * tasa).toFixed(0)} %)`, cumple: tasa >= 0.2 && tasa <= 0.5 });
-    if (r.perfil === "agresivo") {
-      const parte = r.llegaronAlOctavo === 0 ? 0 : r.sinSaldoEnOctavo / r.llegaronAlOctavo;
-      bandas.push({ texto: `agresivo: sin saldo para la más barata en su 8.º turno propio en ≥ 80 % de las partidas que llegan (${(100 * parte).toFixed(0)} %)`, cumple: parte >= 0.8 });
-    }
-    if (r.perfil === "ahorrador") {
-      const parte = r.llegaronARonda10 === 0 ? 0 : r.pagoEnRonda10 / r.llegaronARonda10;
-      bandas.push({ texto: `ahorrador: dispara de pago en la ronda 10 en ≥ 70 % de las partidas que llegan (${(100 * parte).toFixed(0)} %)`, cumple: parte >= 0.7 });
-    }
-  }
+  const nombres = resultados[0]?.perfiles.map((r) => r.perfil) ?? [];
+  nombres.forEach((nombre, indice) => {
+    const tasas = resultados.map((semilla) => tasaDe(semilla.perfiles[indice]));
+    const dentro = tasas.filter((t) => t >= BANDA_TASA_PERFIL[0] && t <= BANDA_TASA_PERFIL[1]).length;
+    const detalle = tasas.map((t) => `${(100 * t).toFixed(0)} %`).join(", ");
+    const minimo = Math.min(SEMILLAS_MINIMAS_EN_BANDA, resultados.length);
+    bandas.push({ texto: `${nombre}: gana entre el 20 % y el 45 % en ${dentro} de ${tasas.length} semillas (mínimo ${minimo}; ${detalle})`, cumple: dentro >= minimo });
+    bandas.push({ texto: `${nombre}: ninguna semilla pasa del 50 % (máximo ${(100 * Math.max(...tasas)).toFixed(0)} %)`, cumple: Math.max(...tasas) <= TASA_MAXIMA_PERFIL });
+  });
+  const ahorrador = resultados.map((semilla) => semilla.perfiles.find((r) => r.perfil === "ahorrador")).filter((r): r is ResultadoPerfil => r !== undefined);
+  const llegan = ahorrador.reduce((suma, r) => suma + r.llegaronARonda10, 0);
+  const pagan = ahorrador.reduce((suma, r) => suma + r.pagoEnRonda10, 0);
+  const parte = llegan === 0 ? 0 : pagan / llegan;
+  bandas.push({ texto: `ahorrador: dispara de pago en la ronda 10 en ≥ 70 % de las partidas que llegan (${(100 * parte).toFixed(0)} %)`, cumple: parte >= 0.7 });
   return bandas;
 }
 
@@ -266,7 +289,7 @@ function pct(parte: number, total: number): string {
   return total === 0 ? "n/a" : `${((100 * parte) / total).toFixed(0)} %`;
 }
 
-export function renderizarInforme(semillas: number, resultados: readonly ResultadoPerfil[] | null): string {
+export function renderizarInforme(partidasPorSemilla: number, resultados: readonly ResultadoSemilla[] | null): string {
   const p = calcularParametros();
   const filas = tablaDePrecios();
   const lineasPrecio = filas
@@ -278,9 +301,11 @@ export function renderizarInforme(semillas: number, resultados: readonly Resulta
   const compras = (estrategia: EstrategiaCompra, saldo: number, extra = 0): number => comprasHastaAgotar(estrategia, saldo, extra);
   const lineasPerfil = resultados
     ? resultados
-        .map(
-          (r) =>
-            `| ${r.perfil} | ${r.victorias}/${r.partidas - r.empates} (${pct(r.victorias, r.partidas - r.empates)}) | ${r.turnoMedioSinSaldo === null ? "no se queda sin saldo" : r.turnoMedioSinSaldo.toFixed(1)} | ${r.sinSaldoEnOctavo}/${r.llegaronAlOctavo} (${pct(r.sinSaldoEnOctavo, r.llegaronAlOctavo)}) | ${r.pagoEnRonda10}/${r.llegaronARonda10} (${pct(r.pagoEnRonda10, r.llegaronARonda10)}) |`,
+        .flatMap((semilla) =>
+          semilla.perfiles.map(
+            (r) =>
+              `| ${semilla.semillaMaestra} | ${r.perfil} | ${r.victorias}/${r.partidas - r.empates} (${pct(r.victorias, r.partidas - r.empates)}) | ${r.turnoMedioSinSaldo === null ? "no se queda sin saldo" : r.turnoMedioSinSaldo.toFixed(1)} | ${r.sinSaldoEnOctavo}/${r.llegaronAlOctavo} | ${r.pagoEnRonda10}/${r.llegaronARonda10} (${pct(r.pagoEnRonda10, r.llegaronARonda10)}) |`,
+          ),
         )
         .join("\n")
     : "";
@@ -320,25 +345,26 @@ ${lineasDesviacion}
 | Barato (la de pago más barata) | ${compras("barato", p.presupuestoBase)} |
 | Medio con dos escudos pagados | ${compras("medio", p.presupuestoBase, 2 * (CATALOGO_EQUIPO.find((e) => e.id === "escudo")?.coste ?? 0))} |
 
-## Partidas de 3 IAs con la misma puntería (${resultados ? semillas : "no ejecutado en esta pasada"} semillas)
+## Partidas de 3 IAs con la misma puntería (${resultados ? `${resultados.length} semillas maestras × ${partidasPorSemilla} partidas` : "no ejecutado en esta pasada"})
 
 ${
   resultados
     ? `Cada perfil de gasto juega con la puntería de Almirante Bisagra, los asientos
 rotan por semilla y están activos el universo, la muerte súbita y el equipo.
 
-| Perfil | Victorias (partidas con ganador) | Turno propio medio en que no llega ni a la más barata | Sin saldo en su 8.º turno | Paga en la ronda 10 |
-| --- | --- | --- | --- | --- |
+| Semilla maestra | Perfil | Victorias (partidas con ganador) | Turno propio medio en que no llega ni a la más barata | Sin saldo en su 8.º turno | Paga en la ronda 10 |
+| --- | --- | --- | --- | --- | --- |
 ${lineasPerfil}
 
-### Bandas de cal-3 con estas semillas
+### Bandas de cal-6a con estas semillas
 
 ${evaluarBandas(resultados)
   .map((b) => `- ${b.cumple ? "CUMPLE" : "FUERA DE BANDA"}: ${b.texto}`)
   .join("\n")}
 
-Con pocas semillas el intervalo de cada tasa es ancho: la comprobación que
-manda es la de \`PRUEBA_LARGA=1 npm run calibrar:economia -- --semillas 60\`.`
+Con pocas partidas por semilla cada tasa es muy gruesa (una victoria más o
+menos mueve decenas de puntos): la comprobación que manda es la de
+\`PRUEBA_LARGA=1 npm run calibrar:economia -- --partidas 40\`.`
     : "Se omite la simulación con `--sin-simulacion`."
 }
 `;

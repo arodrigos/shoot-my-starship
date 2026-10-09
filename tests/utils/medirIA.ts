@@ -10,14 +10,15 @@ import type { EstadoPartida, FuenteDeTurno } from "@/sim/partida/tipos";
 import { generarMascara } from "@/sim/terreno/generador";
 import { fuenteAleatoria, LIMITE_TURNOS_LOTE, MUNDO_LOTE, NAVE0_X, NAVE1_X, semillasDelLote } from "./loteAleatorio";
 
-// Congelada (ia-autodanio-5): la misma semilla maestra que ia-3 usa para sus
-// bandas de victoria, para que "jugador patrón" sea un único concepto
-// documentado y no dos números de semilla que casualmente coinciden.
-// Reelegida (2024 → 2028) al introducir el margen de borde y la franja de la
-// consola: la colocación sembrada cambió y con 2024 Chispa caía al 19 %,
-// fuera de su banda por ruido de muestreo (±2,8 % con 200 partidas). Con 2028
-// las tres personalidades quedan holgadas en su banda (85/55/34,5 %).
-export const SEMILLA_MAESTRA_MEDICION_IA = 2028;
+// cal-6c: las mediciones recorren cinco semillas maestras y exigen que las
+// bandas se cumplan en al menos cuatro. Una sola semilla elegida a mano (antes
+// se reelegía cada vez que la colocación sembrada cambiaba) deja el resultado
+// a merced del ruido de muestreo de ese mapa concreto. ia-autodanio-5 sigue
+// pidiendo que "jugador patrón" sea un único concepto documentado: el lote de
+// semillas es ese concepto.
+export const SEMILLAS_MAESTRAS_MEDICION_IA: readonly number[] = [2024, 2028, 3031, 4057, 5099];
+// Semillas en las que tiene que cumplirse una banda.
+export const SEMILLAS_MINIMAS_EN_BANDA = 4;
 // El criterio pide "al menos 200 partidas sembradas".
 export const NUM_PARTIDAS_MEDICION_IA = 200;
 
@@ -83,11 +84,7 @@ function medirPartida(personalidad: Personalidad, semilla: number, mascara: Retu
 // Pura en función de (personalidad, semillaMaestra, numPartidas): misma
 // entrada, mismo informe, siempre -- es justo lo que ia-autodanio-5 exige
 // comprobar.
-export function medirPersonalidad(
-  personalidad: Personalidad,
-  semillaMaestra: number = SEMILLA_MAESTRA_MEDICION_IA,
-  numPartidas: number = NUM_PARTIDAS_MEDICION_IA,
-): InformePersonalidad {
+export function medirPersonalidad(personalidad: Personalidad, semillaMaestra: number, numPartidas: number = NUM_PARTIDAS_MEDICION_IA): InformePersonalidad {
   const mascara = generarMascara(semillaMaestra, MUNDO_LOTE.ancho, MUNDO_LOTE.alto);
   const semillas = semillasDelLote(semillaMaestra, numPartidas);
 
@@ -117,4 +114,9 @@ export function medirPersonalidad(
     disparos,
     partidasConProblemas,
   };
+}
+
+// Un informe por semilla maestra, en el orden de SEMILLAS_MAESTRAS_MEDICION_IA.
+export function medirEnSemillas(personalidad: Personalidad, numPartidas: number = NUM_PARTIDAS_MEDICION_IA): readonly InformePersonalidad[] {
+  return SEMILLAS_MAESTRAS_MEDICION_IA.map((semilla) => medirPersonalidad(personalidad, semilla, numPartidas));
 }
