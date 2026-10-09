@@ -17,11 +17,11 @@ import { RADIO_ENVOLVENTE_NAVE_PX } from "@/sim/naves/geometriaCasco";
 import { esPosicionValida } from "@/sim/naves/zonaValida";
 import type { EstadoPartida, ParametrosMundo } from "@/sim/partida/tipos";
 import { eventosDisponibles } from "@/sim/universo/catalogoEventos";
-import { INTERVALO_MAXIMO_TURNOS, INTERVALO_MINIMO_TURNOS } from "@/sim/universo/calendario";
 import { PROBABILIDAD_EVENTO_GRATIS } from "@/sim/universo/disparoGratis";
 import { aplicarEvento, avanzarUniverso, conUniverso, factorDanio, ID_AGUJERO_NEGRO, TURNOS_EFECTO_NAVE } from "@/sim/universo/efectos";
 import type { EventoProgramado, EstadoUniverso, TipoEvento } from "@/sim/universo/tipos";
 import { MUNDO_ALTO, MUNDO_ANCHO } from "../utils/sistemaGenerado";
+import { comprobarCalendarioDeEventos, NUM_SEMILLAS_EVT_1_RAPIDO } from "../utils/calendarioEventos";
 
 const MUNDO: ParametrosMundo = { ancho: MUNDO_ANCHO, alto: MUNDO_ALTO, gravedad: 0, deriva: 0, etiquetaDeriva: "" };
 const SEMILLA_SISTEMA = 31;
@@ -59,35 +59,11 @@ function conProximo(estado: EstadoPartida, proximo: EventoProgramado): EstadoPar
 }
 
 // evt-1 (invariantes 1 y 5): para toda semilla, el hueco entre eventos de
-// calendario está en [2, 5] (también con disparos gratis que provocan eventos
-// entre medias) y el evento que ocurre es exactamente el anunciado.
+// calendario está en [2, 5] y el evento que ocurre es exactamente el
+// anunciado. Aquí corre con pocas semillas; el lote de 1000 vive en
+// scripts/medir-eventos.ts (PRUEBA_LARGA), fuera del CI rápido.
 test("evt-1: huecos del calendario en [2,5] y el pronóstico siempre acierta", () => {
-  fc.assert(
-    fc.property(fc.integer({ min: 1, max: 0x7fffffff }), fc.boolean(), (semilla, gratis) => {
-      let estado = estadoBase(semilla, "presupuesto");
-      const primero = universoDe(estado).proximo.enTurnos;
-      assert.ok(primero >= INTERVALO_MINIMO_TURNOS && primero <= INTERVALO_MAXIMO_TURNOS);
-      let ultimoEvento = 0;
-      for (let turno = 1; turno <= 60; turno++) {
-        const anunciado = universoDe(estado).proximo;
-        const resultado = cerrar(estado, (turno - 1) % 4, gratis);
-        const delCalendario = resultado.eventos.filter((evento) => evento.tipo === "evento-universo" && evento.origen === "calendario");
-        if (anunciado.enTurnos === 1) {
-          assert.equal(delCalendario.length, 1, "con enTurnos=1 el evento llega ya");
-          const ocurrido = delCalendario[0];
-          assert.ok(ocurrido.tipo === "evento-universo");
-          assert.equal(ocurrido.evento, anunciado.tipo);
-          assert.equal(ocurrido.nave, anunciado.afectado);
-          assert.ok(turno - ultimoEvento >= INTERVALO_MINIMO_TURNOS && turno - ultimoEvento <= INTERVALO_MAXIMO_TURNOS, `hueco ${turno - ultimoEvento}`);
-          ultimoEvento = turno;
-        } else {
-          assert.equal(delCalendario.length, 0);
-        }
-        estado = resultado.estado;
-      }
-    }),
-    { numRuns: 60 },
-  );
+  comprobarCalendarioDeEventos(NUM_SEMILLAS_EVT_1_RAPIDO);
 });
 
 // evt-3: vitaminas ×2 durante exactamente 3 turnos propios y luego desaparece;
