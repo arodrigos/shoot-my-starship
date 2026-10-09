@@ -92,7 +92,7 @@ export function trazarIntentos(
       const primera = alta(objetivoX);
       if (!primera) break;
       let mejor = trazar(primera, true);
-      if (mejor.salioDePantalla) continue;
+      if (mejor.salioDePantalla || !mejor.viable) continue;
       // El paso fijo de la integración desplaza el aterrizaje unos píxeles
       // respecto a la fórmula cerrada: se apunta a un destino corregido por
       // ese error para mantener la precisión del tiro a potencia máxima.
@@ -110,5 +110,7 @@ export function trazarIntentos(
 }
 
 // Fracciones de la potencia máxima que prueba el mortero cuando el arco a
-// máxima se sale de la pantalla, de la más alta a la más baja.
-const FRACCIONES_POTENCIA_MORTERO = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3];
+// máxima se sale de la pantalla, de la más alta a la más baja. El paso es fino
+// porque en un mundo bajo con montañas altas la ventana de potencias cuyo arco
+// cabe entre la cima y el borde es de pocos puntos.
+const FRACCIONES_POTENCIA_MORTERO: readonly number[] = Array.from({ length: 71 }, (_, i) => 0.95 - i * 0.01);
