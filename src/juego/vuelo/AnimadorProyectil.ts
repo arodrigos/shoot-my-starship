@@ -118,10 +118,18 @@ export class AnimadorProyectil {
   // saltaría la ventana de apertura, aunque en el vuelo sí se haya abierto.
   private perdigonesMaximo = 1;
   private readonly graficoPerdigones: Phaser.GameObjects.Graphics;
+  // armas-aspecto: con una textura horneada por arma (VisualArmas) el polígono
+  // plano de abajo ya no se enseña; sigue existiendo como respaldo para las
+  // escenas sin texturas (pruebas, Siluetas).
+  private texturaExterna = false;
 
   constructor(escena: Phaser.Scene) {
     this.punto = escena.add.graphics().setVisible(false).setDepth(50);
     this.graficoPerdigones = escena.add.graphics().setVisible(false).setDepth(50);
+  }
+
+  usarTexturaExterna(valor: boolean): void {
+    this.texturaExterna = valor;
   }
 
   // Debe llamarse antes de iniciar(); iniciar() no lo borra para que la
@@ -290,7 +298,7 @@ export class AnimadorProyectil {
     this.perdigonesVisibles = 1;
     this.perdigonesMaximo = 1;
     this.graficoPerdigones.setVisible(false);
-    this.punto.setPosition(inicial.x, inicial.y).setRotation(this.anguloActualRad).setVisible(true);
+    this.punto.setPosition(inicial.x, inicial.y).setRotation(this.anguloActualRad).setVisible(!this.texturaExterna);
   }
 
   fijarEncuadre(encuadre: EncuadreVuelo): void {
