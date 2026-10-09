@@ -7,6 +7,10 @@ import { arrastrarBarraHasta } from "./utilesControl";
 // persona en el móvil y en el iPad. El mapa de planetas de siempre: el oráculo
 // multipozo da la solución del tiro, así que los disparos dirigidos aciertan.
 const LIMITE_MS = 200;
+// Espera (no umbral de producto) a algo que llega tras un vuelo animado: con el
+// lienzo por software cada vuelo cuesta ~70 s de reloj, así que 30-60 s se
+// quedaban cortos. Cabe de sobra en el tope de 25 min del test.
+const ESPERA_VUELO_MS = 180000;
 const VIEWPORTS = [
   { ancho: 360, alto: 640 },
   { ancho: 820, alto: 1180 },
@@ -114,6 +118,11 @@ async function curarAlHumano(page: Page): Promise<void> {
   await page.evaluate(() => window.__debug.forzarIntegridad!(0, 100));
 }
 
+// Sin reintento en este fichero: sus fallos son deterministas (mismo mapa,
+// mismos tiros) y un segundo intento de hasta 25 min solo duplica el tiempo
+// del job antes de dar el mismo rojo. El `retries` global no cambia.
+test.describe.configure({ retries: 0 });
+
 for (const vp of VIEWPORTS) {
   test(`pc-1/pc-2/pc-3: partida completa en ${vp.ancho}x${vp.alto} con CPU ×4`, async ({ page }) => {
     test.setTimeout(1500000);
@@ -199,7 +208,7 @@ for (const vp of VIEWPORTS) {
       registro: (window.__debug.registroDetonaciones ?? []).slice(previas),
       saldo: window.__debug.saldo as number,
     }), detonacionesPrevias);
-    const perdigones = Math.max(0, ...racimo.registro.filter((r) => r.armaId === "racimo-de-tuppers").map((r) => r.cantidad));
+    const perdigones = Math.max(0, ...racimo.registro.filter((r) => r.tirador === 0 && r.armaId === "racimo-de-tuppers").map((r) => r.cantidad));
     expect(perdigones, `el Racimo detona sus 5 perdigones (${JSON.stringify(racimo.registro)})`).toBeGreaterThanOrEqual(5);
     expect(racimo.saldo, "el saldo baja con cada compra").toBeLessThan(saldoAntes);
     await capturar("racimo-perdigones", "Perdigones del Racimo estallando muy juntos, cerca del punto de impacto.");
@@ -212,7 +221,7 @@ for (const vp of VIEWPORTS) {
     await arrastrarBarraHasta(page, "barra-potencia", (solucionMosca.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA));
     const turnoMosca = await page.evaluate(() => window.__debug.numeroTurno!);
     await page.getByTestId("disparar").click();
-    await page.waitForFunction(() => window.__debug.proyectilVisual?.armaId === "mosca-cojonera", undefined, { timeout: 60000 });
+    await page.waitForFunction(() => window.__debug.proyectilVisual?.armaId === "mosca-cojonera", undefined, { timeout: ESPERA_VUELO_MS });
     await capturar("misil-en-vuelo", "El misil en vuelo con su dibujo propio y su estela, no un píxel.");
     await esperarTurnoPosterior(page, turnoMosca, "mosca");
 
@@ -248,7 +257,7 @@ for (const vp of VIEWPORTS) {
     await arrastrarBarraHasta(page, "barra-potencia", 1);
     const turnoPerdido = await page.evaluate(() => window.__debug.numeroTurno!);
     await page.getByTestId("disparar").click();
-    await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
+    await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: ESPERA_VUELO_MS });
     expect(["arriba", "abajo", "izquierda", "derecha"]).toContain(await page.evaluate(() => window.__debug.avisoPerdido!.borde));
     await capturar("tiro-perdido", "Aviso «¡Perdido!» junto al borde por el que salió el tiro.");
     await esperarTurnoPosterior(page, turnoPerdido, "perdido");
@@ -284,7 +293,7 @@ for (const vp of VIEWPORTS) {
       const turnoRobot = await page.evaluate(() => window.__debug.numeroTurno!);
       await page.getByTestId("disparar").click();
       await esperarTurnoPosterior(page, turnoRobot, "robot");
-      await page.waitForFunction(() => (window.__debug.robots?.length ?? 0) >= 1, undefined, { timeout: 60000 });
+      await page.waitForFunction(() => (window.__debug.robots?.length ?? 0) >= 1, undefined, { timeout: ESPERA_VUELO_MS });
       await capturar("minirobot-posado", "El minirobot posado en el planeta con su contador de saltos.");
     } else {
       // Sin hueco sobre ningún planeta se dispara con la solución exacta: el robot igualmente sale.
