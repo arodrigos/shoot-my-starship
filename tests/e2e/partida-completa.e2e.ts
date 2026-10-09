@@ -2,7 +2,6 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { arrastrarBarraHasta } from "./utilesControl";
-import { arrastrarDesdeNave } from "./utilesApuntado";
 
 // pc-1, pc-2, pc-3: una partida de la portada al final, como la jugaría una
 // persona en el móvil y en el iPad. El mapa de planetas de siempre: el oráculo
@@ -22,13 +21,32 @@ interface Captura {
 // Si una espera se agota, el error dice en qué estado se quedó la partida: un
 // «Timeout» a secas no deja saber qué paso fue.
 async function estadoPartida(page: Page): Promise<string> {
-  return page.evaluate(() => JSON.stringify({ turno: window.__debug.turno, numeroTurno: window.__debug.numeroTurno, puedeDisparar: window.__debug.control?.puedeDisparar, eliminadas: window.__debug.eliminadas, ganador: window.__debug.ganador, animando: window.__debug.animacionEnCurso }));
+  return page.evaluate(() => JSON.stringify({ turno: window.__debug.turno, numeroTurno: window.__debug.numeroTurno, puedeDisparar: window.__debug.control?.puedeDisparar, eliminadas: window.__debug.eliminadas, ganador: window.__debug.ganador, animando: window.__debug.animacionEnCurso, arma: window.__debug.proyectilVisual?.armaId, pasosAnimados: window.__debug.trayectoriaAnimadaUltimoVuelo?.length, frames: window.__debug.rendimiento?.frames }));
 }
 
+// Distingue un lienzo lento (los fotogramas y los pasos del vuelo siguen
+// avanzando, solo cuesta más) de una animación parada de verdad: solo la
+// segunda falla antes del tope, y el error dice cuál de las dos fue.
 async function esperarJugable(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__debug.control?.puedeDisparar === true, undefined, { timeout: 300000 }).catch(async (error: Error) => {
-    throw new Error(`esperarJugable: ${await estadoPartida(page)} :: ${error.message}`);
-  });
+  const tope = Date.now() + 300000;
+  const progreso = () => page.evaluate(() => `${window.__debug.numeroTurno}:${window.__debug.trayectoriaAnimadaUltimoVuelo?.length ?? 0}`);
+  let ultimo = await progreso();
+  let desde = Date.now();
+  while (Date.now() < tope) {
+    const listo = await page
+      .waitForFunction(() => window.__debug.control?.puedeDisparar === true, undefined, { timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+    if (listo) return;
+    const ahora = await progreso();
+    if (ahora !== ultimo) {
+      ultimo = ahora;
+      desde = Date.now();
+    } else if (Date.now() - desde > 90000) {
+      throw new Error(`esperarJugable: animación parada 90 s sin avanzar :: ${await estadoPartida(page)}`);
+    }
+  }
+  throw new Error(`esperarJugable: 300 s sin turno jugable :: ${await estadoPartida(page)}`);
 }
 
 async function esperarTurnoPosterior(page: Page, numeroTurno: number, etiqueta: string): Promise<void> {
@@ -162,7 +180,33 @@ for (const vp of VIEWPORTS) {
     // 5. Tiro que se pierde: «¡Perdido!» y sin explosión.
     await curarAlHumano(page);
     await elegirArma(page, "pepinazo-cortesia");
-    await arrastrarDesdeNave(page, 0, 90, 220);
+    // La nave se coloca pegada al borde superior con la columna de arriba
+    // libre: el tiro vertical a máxima potencia sale del encuadre sea cual sea
+    // la gravedad que la partida lleve acumulada (un arrastre de 220 px da
+    // potencias distintas en cada viewport y a veces vuelve a un planeta).
+    const colocadaArriba = await page.evaluate(() => {
+      const mundo = window.__debug.mundo!;
+      const naves = window.__debug.naves ?? [];
+      const y = 70;
+      for (let i = 1; i <= 9; i++) {
+        const x = Math.round((mundo.ancho * i) / 10);
+        let libre = true;
+        for (let yy = 0; yy <= y + 40; yy += 6) {
+          if (window.__debug.terreno!.esSolido(x, yy)) {
+            libre = false;
+            break;
+          }
+        }
+        if (!libre) continue;
+        if (naves.some((nave) => nave.id !== 0 && Math.hypot(nave.x - x, (nave.y as number) - y) < 150)) continue;
+        window.__debug.forzarPosicionNave!(0, x, y);
+        return true;
+      }
+      return false;
+    });
+    expect(colocadaArriba, "hace falta una columna libre junto al borde superior").toBe(true);
+    await arrastrarBarraHasta(page, "barra-angulo", (90 - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
+    await arrastrarBarraHasta(page, "barra-potencia", 1);
     const turnoPerdido = await page.evaluate(() => window.__debug.numeroTurno!);
     await page.getByTestId("disparar").click();
     await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
@@ -207,11 +251,14 @@ for (const vp of VIEWPORTS) {
       return false;
     });
     if (colocada) {
-      await arrastrarDesdeNave(page, 0, 270, 40);
+      // Con las barras y no con un arrastre: la consola ya no se pliega y el
+      // arrastre sobre el lienzo puede caer bajo ella.
+      await arrastrarBarraHasta(page, "barra-angulo", (270 - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
+      await arrastrarBarraHasta(page, "barra-potencia", 0.3);
       const turnoRobot = await page.evaluate(() => window.__debug.numeroTurno!);
       await page.getByTestId("disparar").click();
       await esperarTurnoPosterior(page, turnoRobot, "robot");
-      await page.waitForFunction(() => (window.__debug.robots?.length ?? 0) >= 1, undefined, { timeout: 30000 });
+      await page.waitForFunction(() => (window.__debug.robots?.length ?? 0) >= 1, undefined, { timeout: 60000 });
       await capturar("minirobot-posado", "El minirobot posado en el planeta con su contador de saltos.");
     } else {
       // Sin hueco sobre ningún planeta se dispara con la solución exacta: el robot igualmente sale.
