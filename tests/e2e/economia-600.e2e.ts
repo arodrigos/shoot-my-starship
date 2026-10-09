@@ -23,6 +23,8 @@ test("economia-600: el selector enseña los precios nuevos y el Racimo se compra
   // Con 600 cr ninguna arma queda deshabilitada por precio.
   await expect(page.locator('[data-testid^="faltan-"]')).toHaveCount(0);
 
+  // Al elegir un arma el selector se cierra; el ayudante lo vuelve a abrir.
+  await page.getByTestId(`arma-${RACIMO.id}`).click();
   const integridadAntes = (await page.evaluate(() => window.__debug.naves))!.find((nave) => nave.id === 1)!.integridad;
   await dispararConSolucionExacta(page, RACIMO.id);
   await esperarJugable(page);
