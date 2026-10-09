@@ -115,6 +115,8 @@ for (const vp of VIEWPORTS) {
 
     // 1. Portada y configuración: 1 humano frente a 2 IAs, en modo presupuesto.
     await page.goto("/");
+    // La config de Playwright apaga los eventos en bloque; este recorrido los necesita.
+    await page.evaluate(() => window.localStorage.setItem("universo:eventos", "1"));
     await capturar("portada", "Portada con el botón «Jugar» y la configuración de la partida.");
     await page.getByTestId("humanos-1").click();
     await page.getByTestId("ias-2").click();
@@ -161,8 +163,14 @@ for (const vp of VIEWPORTS) {
     await elegirArma(page, "racimo-de-tuppers");
     await capturar("racimo-en-reposo", "El Racimo de Tuppers elegido en el selector, con su dibujo propio.");
     const saldoAntes = (await page.evaluate(() => window.__debug.saldo)) as number;
+    // El turno de la IA reinicia `detonaciones` antes de que la lectura llegue, así que se guarda el máximo visto.
+    await page.evaluate(() => {
+      const w = window as unknown as { __maxDet: number };
+      w.__maxDet = 0;
+      setInterval(() => { w.__maxDet = Math.max(w.__maxDet, window.__debug.detonaciones?.length ?? 0); }, 20);
+    });
     await dispararConSolucion(page);
-    const racimo = await page.evaluate(() => ({ detonaciones: window.__debug.detonaciones ?? [], saldo: window.__debug.saldo as number }));
+    const racimo = await page.evaluate(() => ({ detonaciones: { length: (window as unknown as { __maxDet: number }).__maxDet }, saldo: window.__debug.saldo as number }));
     expect(racimo.detonaciones.length, "el Racimo detona sus 5 perdigones").toBeGreaterThanOrEqual(5);
     expect(racimo.saldo, "el saldo baja con cada compra").toBeLessThan(saldoAntes);
     await capturar("racimo-perdigones", "Perdigones del Racimo estallando muy juntos, cerca del punto de impacto.");
