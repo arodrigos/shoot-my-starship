@@ -33,10 +33,14 @@ test("arm-1: el icono del selector, el arma en reposo y el proyectil en vuelo co
   await empezarPresupuesto(page, { saldo: 600 });
   await esperarJugable(page);
   await abrirSelector(page);
+  // El icono se lee en la celda del selector, antes de elegir: al elegir, el selector se cierra.
+  const trazadoIcono = await page
+    .getByTestId("arma-pelota-de-chatarra")
+    .getByTestId("icono-trazado-pelota-de-chatarra")
+    .getAttribute("d", { timeout: 5000 });
   await page.getByTestId("arma-pelota-de-chatarra").click();
   await page.waitForFunction(() => window.__debug.armaEnReposo?.armaId === "pelota-de-chatarra", undefined, { timeout: 2000 });
 
-  const trazadoIcono = await page.getByTestId("icono-trazado-pelota-de-chatarra").first().getAttribute("d", { timeout: 5000 });
   const definicion = await page.evaluate(() => window.__debug.armas!["pelota-de-chatarra"]);
   expect(trazadoIcono).toBe(definicion.trazado);
   expect(definicion.textura).toBe("arma-pelota-de-chatarra");
@@ -51,7 +55,7 @@ test("arm-1: el proyectil en vuelo conserva la textura del arma y gira sobre sí
   await empezarPresupuesto(page, { saldo: 600 });
   await empezarAMuestrear(page);
   await dispararConSolucionExacta(page, "pelota-de-chatarra");
-  const muestras = await leerMuestras(page);
+  const muestras = (await leerMuestras(page)).filter((m) => m.armaId === "pelota-de-chatarra");
   expect(muestras.length).toBeGreaterThan(3);
   for (const m of muestras) expect(m.textura).toBe("arma-pelota-de-chatarra");
 
@@ -65,7 +69,8 @@ test("arm-2: el proyectil apunta a su rumbo y deja estela desde los primeros fot
   await empezarPresupuesto(page, { saldo: 600 });
   await empezarAMuestrear(page);
   await dispararConSolucionExacta(page, "pepinazo-cortesia");
-  const muestras = await leerMuestras(page);
+  // Solo el vuelo del Pepinazo: el turno de la IA, que se muestrea después, lleva otra arma que gira.
+  const muestras = (await leerMuestras(page)).filter((m) => m.armaId === "pepinazo-cortesia");
   expect(muestras.length).toBeGreaterThan(5);
   // El primer fotograma tras el disparo aún no ha orientado la imagen: se descarta.
   const alineadas = muestras.slice(1).filter((m) => Math.abs(diferencia(m.rotacion - m.rumbo)) <= (2 * Math.PI) / 180);
