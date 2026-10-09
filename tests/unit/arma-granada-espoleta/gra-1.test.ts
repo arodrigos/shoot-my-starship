@@ -5,7 +5,7 @@ import { simularVuelo } from "@/sim/fisica/vuelo";
 import { pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { crearProyectil } from "@/sim/fisica/proyectil";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
@@ -33,9 +33,10 @@ function disparar(
   gravedad: number = GRAVEDAD,
   angulo?: number,
   potencia?: number,
+  ancho: number = ANCHO,
 ) {
-  const mascara = crearMascaraPlana(ANCHO, ALTO, alturaSuelo);
-  const [solucion] = resolverSolucionesBalisticas(origenX, alturaSuelo, objetivoX, objetivoY, gravedad);
+  const mascara = crearMascaraPlana(ancho, ALTO, alturaSuelo);
+  const solucion = solucionTensa(origenX, alturaSuelo, objetivoX, objetivoY, gravedad);
   return resolverDisparo({
     mascara,
     gravedad,
@@ -47,7 +48,7 @@ function disparar(
     potencia: potencia ?? solucion.potencia,
     objetivoX,
     objetivoY,
-    ancho: ANCHO,
+    ancho,
     alto: ALTO,
   });
 }
@@ -74,22 +75,23 @@ test("gra-1: un vuelo lo bastante largo detona en el aire, en el paso 300 exacto
   const alturaSuelo = 900;
   const objetivoX = 900;
   const objetivoY = 900;
-  // Disparo casi vertical (89°) a potencia máxima con una gravedad de mundo
-  // baja (0.6, dentro del rango real de mundos jugables): tiempo de vuelo
-  // natural de sobra por encima de 5s, para que la espoleta gane en el aire
-  // sin depender de que caiga exactamente sobre el objetivo.
-  const gravedad = 0.6;
-  const angulo = 89;
+  // Disparo rasante (20°) a potencia máxima, con poca gravedad, en un mundo muy ancho: más de 300
+  // pasos de vuelo natural para que la espoleta gane en el aire sin depender
+  // de que caiga sobre el objetivo. Ni sube por encima de la pantalla ni sale
+  // por los lados, porque un tiro que sale se pierde y ya no vuelve a caer.
+  const ancho = 20_000;
+  const gravedad = 0.2;
+  const angulo = 20;
   const potencia = 100;
-  const mascara = crearMascaraPlana(ANCHO, ALTO, alturaSuelo);
+  const mascara = crearMascaraPlana(ancho, ALTO, alturaSuelo);
   const rad = (angulo * Math.PI) / 180;
   const v = velocidadDesdePotencia(potencia);
   const inicial = crearProyectil(origenX, alturaSuelo - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
-  const detenerse = detenerseEnSuelo(mascara, ANCHO, ALTO);
+  const detenerse = detenerseEnSuelo(mascara, ancho, ALTO);
   const pasosNaturales = simularVuelo(inicial, gravedad, 0, detenerse).pasos;
   assert.equal(pasosNaturales > 300, true, "el fixture necesita un vuelo natural de más de 300 pasos para que la mecha gane en el aire");
 
-  const resultado = disparar(origenX, alturaSuelo, objetivoX, objetivoY, gravedad, angulo, potencia);
+  const resultado = disparar(origenX, alturaSuelo, objetivoX, objetivoY, gravedad, angulo, potencia, ancho);
   assert.equal(resultado.fallo, false);
   assert.equal(resultado.proyectilPerdido, false);
   assert.equal(resultado.puntosDeImpacto.length, 1);

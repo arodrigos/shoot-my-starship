@@ -4,7 +4,7 @@ import { resolverDisparo, detenerseEnSuelo, crearDetenerseConMecha, ALTURA_CANON
 import { simularVuelo } from "@/sim/fisica/vuelo";
 import { crearProyectil } from "@/sim/fisica/proyectil";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import type { Arma } from "@/sim/armas/tipos";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
@@ -30,7 +30,7 @@ function armaMecha(segundosHastaDetonar: number): Arma {
 
 function dispararMecha(segundosHastaDetonar: number) {
   const mascara = crearMascaraPlana(ANCHO, ALTO, 900);
-  const [solucion] = resolverSolucionesBalisticas(ORIGEN_X, 900, OBJETIVO_X, OBJETIVO_Y, GRAVEDAD);
+  const solucion = solucionTensa(ORIGEN_X, 900, OBJETIVO_X, OBJETIVO_Y, GRAVEDAD);
   return resolverDisparo({
     mascara,
     gravedad: GRAVEDAD,
@@ -53,7 +53,7 @@ function dispararMecha(segundosHastaDetonar: number) {
 // adivinar un número de segundos a ciegas.
 function pasosNaturalesDeAterrizaje(): number {
   const mascara = crearMascaraPlana(ANCHO, ALTO, 900);
-  const [solucion] = resolverSolucionesBalisticas(ORIGEN_X, 900, OBJETIVO_X, OBJETIVO_Y, GRAVEDAD);
+  const solucion = solucionTensa(ORIGEN_X, 900, OBJETIVO_X, OBJETIVO_Y, GRAVEDAD);
   const rad = (solucion.anguloGrados * Math.PI) / 180;
   const v = velocidadDesdePotencia(solucion.potencia);
   const inicial = crearProyectil(ORIGEN_X, 900 - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
@@ -87,8 +87,8 @@ test("vex-4: la mecha que expira tarde deja ganar el contacto con el suelo", () 
       fiabilidad: 1,
     },
     origenX: ORIGEN_X,
-    anguloGrados: resolverSolucionesBalisticas(ORIGEN_X, 900, OBJETIVO_X, OBJETIVO_Y, GRAVEDAD)[0].anguloGrados,
-    potencia: resolverSolucionesBalisticas(ORIGEN_X, 900, OBJETIVO_X, OBJETIVO_Y, GRAVEDAD)[0].potencia,
+    anguloGrados: solucionTensa(ORIGEN_X, 900, OBJETIVO_X, OBJETIVO_Y, GRAVEDAD).anguloGrados,
+    potencia: solucionTensa(ORIGEN_X, 900, OBJETIVO_X, OBJETIVO_Y, GRAVEDAD).potencia,
     objetivoX: OBJETIVO_X,
     objetivoY: OBJETIVO_Y,
     ancho: ANCHO,

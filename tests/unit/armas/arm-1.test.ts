@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import type { Arma } from "@/sim/armas/tipos";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
@@ -36,7 +36,7 @@ const ARMA_INVENTADA: Arma = {
 
 test("arm-1: un arma inventada solo en el test, con los ejes nuevos declarados, se resuelve sin tocar el resolutor", () => {
   const mascara = crearMascaraPlana(ANCHO, ALTO, 900);
-  const [solucion] = resolverSolucionesBalisticas(300, 900, 900, 900, 1);
+  const solucion = solucionTensa(300, 900, 900, 900, 1);
   const resultado = resolverDisparo({
     mascara,
     gravedad: 1,

@@ -5,7 +5,7 @@ import { crearMascaraPlana } from "../../utils/terrenoPlano";
 import { crearMascaraVacia } from "@/sim/terreno/mascara";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { resolverDisparo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import { simularVuelo } from "@/sim/fisica/vuelo";
 import { PRESUPUESTO_VUELO_MULTIPOZO_PASOS } from "@/sim/fisica/vuelo";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
@@ -32,7 +32,7 @@ test("min-1: un disparo contra terreno sólido se pega en el punto de contacto, 
   const objetivoY = 900;
   const gravedad = 1;
   const mascara = crearMascaraPlana(ANCHO, ALTO, alturaSuelo);
-  const [solucion] = resolverSolucionesBalisticas(origenX, alturaSuelo, objetivoX, objetivoY, gravedad);
+  const solucion = solucionTensa(origenX, alturaSuelo, objetivoX, objetivoY, gravedad);
 
   const resultado = resolverDisparo({
     mascara,

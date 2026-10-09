@@ -63,7 +63,9 @@ test("grav-vis-2: un tiro largo sigue acotado por PASOS_PREVISUALIZACION, que ya
   const alturaSuelo = 1395;
   const mascara = crearMascaraPlana(anchoAmplio, ALTO, alturaSuelo);
   const origenY = 50;
-  const anguloGrados = 5;
+  // Casi horizontal: con más ángulo el tiro sale por arriba (se pierde) a los
+  // pocos pasos y deja de ser un vuelo largo.
+  const anguloGrados = 2;
   const potencia = 99;
   const gravedadDebil = 0.1;
 
