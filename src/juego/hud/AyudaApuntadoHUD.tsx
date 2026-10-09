@@ -20,7 +20,7 @@ export function AyudaApuntadoHUD() {
         position: "absolute",
         left: 8,
         right: 8,
-        top: 96,
+        top: 108,
         // Solo el botón de cerrar captura toques: el resto no debe impedir
         // apuntar a través de la ayuda.
         pointerEvents: "none",

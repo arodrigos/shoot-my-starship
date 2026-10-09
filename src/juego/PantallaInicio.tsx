@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import { almacenamientoDisponible, guardarRivalElegido, leerProgreso } from "@/juego/control/progreso";
 import { desbloquearAudio } from "@/juego/audio/motor";
+import { obtenerLocutor } from "@/juego/audio/voz";
 import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
@@ -54,6 +55,7 @@ export function PantallaInicio({ onJugar }: Props) {
     // desbloquear el AudioContext, igual que el pointerdown de Partida.ts
     // que sigue sirviendo de red de seguridad para gestos posteriores.
     desbloquearAudio();
+    obtenerLocutor().iniciar();
     guardarRivalElegido(rivalId);
     // La partida de siempre (un humano sin nombre contra el rival elegido)
     // no pasa jugadores: conserva sus etiquetas "Tu nave" / nombre del rival.
