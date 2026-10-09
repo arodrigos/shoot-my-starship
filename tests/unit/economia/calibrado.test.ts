@@ -5,6 +5,7 @@ import { join } from "node:path";
 import fc from "fast-check";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import type { Arma } from "@/sim/armas/tipos";
+import { curvaPrecio, FACTOR_ESCALA_600 } from "@/sim/armas/precio";
 import { PREMIO_LOTERIA, PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import {
   BANDA_VALOR,
@@ -54,14 +55,11 @@ test("calibrado-4: la parte determinista del informe se regenera idéntica", () 
 });
 
 // cal-1 / turnos-por-estrategia
-// Transitorio: con los precios de la base de 850 y el saldo ya en 600, el medio
-// hace 7 compras. El bloque calibrado-600 reescala los precios y devuelve la
-// banda objetivo (9-11 compras medias).
 test("calibrado-1: el presupuesto de 600 da compras medias, pocas al caro y muchas al barato", () => {
   const medio = comprasHastaAgotar("medio", PRESUPUESTO_BASE);
   const caro = comprasHastaAgotar("caro", PRESUPUESTO_BASE);
   const barato = comprasHastaAgotar("barato", PRESUPUESTO_BASE);
-  assert.ok(medio >= 6 && medio <= 11, `medio: ${medio} compras`);
+  assert.ok(medio >= 9 && medio <= 11, `medio: ${medio} compras`);
   assert.ok(caro <= 8, `caro: ${caro} compras`);
   assert.ok(barato >= 9, `barato: ${barato} compras`);
 });
@@ -92,5 +90,50 @@ test("calibrado-2: las desviaciones declaradas son solo las que de verdad se sal
   for (const fila of tablaDePrecios()) {
     const fuera = fila.desviacion > TOLERANCIA_CURVA || fila.valorRelativo < BANDA_VALOR[0] || fila.valorRelativo > BANDA_VALOR[1];
     assert.equal(DESVIACIONES_DECLARADAS[fila.id] !== undefined, fuera, `${fila.id}: declarada=${DESVIACIONES_DECLARADAS[fila.id] !== undefined}, fuera de banda=${fuera}`);
+  }
+});
+
+// cal-6a: con 600 créditos fijos, 10 × la mediana de pago es el saldo ± 50 y
+// ninguna arma pasa de la cuarta parte.
+test("calibrado-6a: 10 × la mediana de pago = 600 ± 50 y el arma más cara cuesta ≤ 25 % del saldo", () => {
+  assert.ok(Math.abs(10 * parametros.medianaPrecios - PRESUPUESTO_BASE) <= 50, `mediana ${parametros.medianaPrecios}`);
+  const mayor = Math.max(...tablaDePrecios().map((fila) => fila.coste));
+  assert.ok(mayor <= PRESUPUESTO_BASE * 0.25, `el arma más cara cuesta ${mayor}`);
+});
+
+// Invariante 1 de calibrado-600: el precio sale de la curva escalada y redondeada.
+test("calibrado-6a (propiedad): la curva da múltiplos de 5, escalados por FACTOR_ESCALA_600 y no negativos", () => {
+  fc.assert(
+    fc.property(fc.double({ min: 0, max: 80, noNaN: true }), fc.double({ min: 0, max: 0.2, noNaN: true }), (danio, facilidad) => {
+      const precio = curvaPrecio(danio, facilidad);
+      assert.equal(precio % 5, 0);
+      assert.ok(precio >= 0);
+      const sinEscalar = (160 * (danio / 55 + facilidad / 0.076)) / 2;
+      assert.equal(precio, Math.round((sinEscalar * FACTOR_ESCALA_600) / 5) * 5);
+    }),
+    { numRuns: 300 },
+  );
+});
+
+// Invariante 2: quien supera a otro en daño y facilidad nunca es más barato.
+test("calibrado-6a (propiedad): si un arma domina a otra en daño y facilidad, su precio de curva no es menor", () => {
+  fc.assert(
+    fc.property(
+      fc.double({ min: 0, max: 80, noNaN: true }),
+      fc.double({ min: 0, max: 0.2, noNaN: true }),
+      fc.double({ min: 0, max: 20, noNaN: true }),
+      fc.double({ min: 0, max: 0.05, noNaN: true }),
+      (danio, facilidad, masDanio, masFacilidad) => {
+        assert.ok(curvaPrecio(danio + masDanio, facilidad + masFacilidad) >= curvaPrecio(danio, facilidad));
+      },
+    ),
+    { numRuns: 300 },
+  );
+});
+
+test("calibrado-6a: cada arma de pago cuesta lo que da la curva, salvo las desviaciones declaradas", () => {
+  for (const fila of tablaDePrecios()) {
+    if (DESVIACIONES_DECLARADAS[fila.id] !== undefined) continue;
+    assert.equal(fila.coste, fila.curva, `${fila.id}: coste ${fila.coste} y curva ${fila.curva}`);
   }
 });
