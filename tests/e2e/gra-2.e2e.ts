@@ -53,10 +53,13 @@ test("gra-2: el contador de la espoleta es visible y legible sin tapar el HUD, y
   await page.getByTestId("arma-granada-de-espoleta").click();
   await page.waitForFunction(() => window.__debug.control!.ajuste.armaId === "granada-de-espoleta");
 
-  await page.evaluate(() => window.__debug.forzarFusibleMechaPasos!(100));
+  // Con la pérdida por el margen superior (salida-pantalla) un tiro alto sale de
+  // la pantalla antes de que la mecha llegue a cero: se dispara tendido y con
+  // una mecha más corta que el vuelo.
+  await page.evaluate(() => window.__debug.forzarFusibleMechaPasos!(60));
 
-  const anguloObjetivo = 45;
-  const potenciaObjetivo = 80;
+  const anguloObjetivo = 25;
+  const potenciaObjetivo = 60;
   const fraccionAngulo = (anguloObjetivo - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS);
   const fraccionPotencia = (potenciaObjetivo - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA);
   await arrastrarBarraHasta(page, "barra-angulo", fraccionAngulo);
