@@ -24,7 +24,7 @@ sana es [0.6; 1.6].
 | Racimo de Tuppers | 40 | 20 | 2.4 % | 40 | 0 % | 0.92 |
 | Despedida | 85 | 55 | 2.9 % | 85 | 0 % | 1.43 |
 | Barrena Planetaria | 65 | 44 | 2.0 % | 65 | 0 % | 1.03 |
-| Rayo Láser | 85 | 46 | 1.1 % | 60 | 42 % | 0.45 |
+| Rayo Láser | 80 | 46 | 1.1 % | 60 | 33 % | 0.48 |
 | Mosca Cojonera | 50 | 28 | 2.3 % | 50 | 0 % | 0.98 |
 | Granada de Espoleta | 55 | 34 | 2.3 % | 55 | 0 % | 1.08 |
 | Gancho Pegajoso | 90 | 24 | 8.1 % | 90 | 0 % | 1.65 |

@@ -51,7 +51,9 @@ export const fuenteAleatoria: FuenteDeTurno = (estado) => {
   // abanico de ángulo y potencia para que alguno la salve.
   const atascada = estado.numeroTurno > 50;
   const anguloGrados = Math.min(179, Math.max(1, base.anguloGrados + (pasoAngulo.valor - 0.5) * (atascada ? 60 : 16)));
-  const potencia = Math.min(100, Math.max(atascada ? 30 : 80, base.potencia + (pasoPotencia.valor - 0.5) * (atascada ? 100 : 20)));
+  // El suelo de potencia sigue a la solución: cuando el tiro tendido pide menos
+  // de 80, recortar a 80 lo pasaría de largo en cada turno.
+  const potencia = Math.min(100, Math.max(atascada ? 30 : Math.max(20, base.potencia - 10), base.potencia + (pasoPotencia.valor - 0.5) * (atascada ? 100 : 20)));
 
   return {
     entrada: { arma: "pepinazo-cortesia", anguloGrados, potencia, objetivoId },
