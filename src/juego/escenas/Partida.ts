@@ -27,7 +27,7 @@ import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
 import { barridoRejilla, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
 import type { NavePosicion } from "@/sim/naves/impacto";
-import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
+import { crearProyectil, GRAVEDAD_REFERENCIA_PX_S2, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { contarPixelesDestruidos } from "@/sim/terreno/estadisticas";
 import { estadisticasIniciales, generarParteDeGuerra, type EstadisticasPartida } from "@/sim/partida/parteDeGuerra";
 import { buscarMapa, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
@@ -119,6 +119,9 @@ import type { DebugEfectoVisible } from "@/debug/tipos";
 import "@/debug/tipos";
 
 // cat-2: el haz del Rayo Láser se ve al menos esto antes de apagarse.
+// Holgura entre el vértice de la solución de depuración y el borde superior.
+const MARGEN_VERTICE_SOLUCION_PX = 40;
+
 const DURACION_HAZ_MS = 450;
 
 // desplazamiento-tras-impacto (des-3): el deslizamiento dura entre 300 y 600 ms.
@@ -2704,9 +2707,15 @@ export class Partida extends Phaser.Scene {
         estado.mundo.gravedad,
         velocidadDesdePotencia(fraccionPotencia),
       );
-      if (soluciones.length > 0) {
-        return soluciones[0];
-      }
+      // Un tiro cuyo vértice pasa del borde superior se pierde por arriba
+      // (salida-pantalla): se prefiere la raíz que cabe en pantalla.
+      const g = estado.mundo.gravedad * GRAVEDAD_REFERENCIA_PX_S2;
+      const v = velocidadDesdePotencia(fraccionPotencia);
+      const cabe = soluciones.find((s) => {
+        const vy = v * Math.sin((s.anguloGrados * Math.PI) / 180);
+        return (vy * vy) / (2 * g) <= origenCanonY - MARGEN_VERTICE_SOLUCION_PX;
+      });
+      if (cabe !== undefined) return cabe;
     }
     return null;
   }
