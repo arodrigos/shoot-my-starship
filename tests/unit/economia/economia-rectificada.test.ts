@@ -109,18 +109,18 @@ test("economia-rectificada-2/3 (propiedad): el saldo nunca es negativo, cada arm
   );
 });
 
-test("economia-rectificada-4: Despedida con 100 cr se rechaza («cuesta 125») y el estado serializado queda idéntico", () => {
-  const estado = estadoConSaldos([100, 100]);
+test("economia-rectificada-4: Despedida con 80 cr se rechaza («cuesta 90») y el estado serializado queda idéntico", () => {
+  const estado = estadoConSaldos([80, 80]);
   const antes = serializarEstado(estado);
-  assert.throws(() => disparo(estado, "despedida"), /cuesta 125 cr/);
+  assert.throws(() => disparo(estado, "despedida"), /cuesta 90 cr/);
   assert.equal(serializarEstado(estado), antes);
 });
 
-test("economia-rectificada-2: Pepinazo con 100 cr deja 45 cr y la gratis siguiente no cobra", () => {
+test("economia-rectificada-2: Pepinazo con 100 cr deja 60 cr y la gratis siguiente no cobra", () => {
   const tras = disparo(estadoConSaldos([100, 100]), "pepinazo-cortesia").estado;
-  assert.deepEqual(tras.saldos, [45, 100]);
+  assert.deepEqual(tras.saldos, [60, 100]);
   const trasGratis = disparo({ ...tras, turno: 0 }, "petardo-de-feria").estado;
-  assert.deepEqual(trasGratis.saldos, [45, 100]);
+  assert.deepEqual(trasGratis.saldos, [60, 100]);
 });
 
 test("economia-rectificada-3: en barra libre ningún disparo toca saldos y el petardo conserva su daño", () => {

@@ -17,9 +17,15 @@
 export const DANIO_MAXIMO_CATALOGO = 55; // Despedida
 export const FACILIDAD_MAXIMA_CATALOGO = 0.076; // Andanada de Flechas
 
-// Escala para que Despedida (daño y facilidad máximos relativos del
-// catálogo con daño real) quede en 125, el techo de precio de este bloque.
+// Escala de la curva con el saldo anterior de 850: Despedida (daño y
+// facilidad máximos relativos del catálogo) quedaba en 160 antes de redondear.
 const ESCALA_PRECIO = 160;
+
+// calibrado-600: con 600 créditos fijos, 10 × la mediana de pago tiene que
+// valer 600 ± 50. Medida sobre el catálogo con naves de silueta exacta, salida
+// de pantalla, empuje dirigido y Racimo agrupado: la facilidad no se movió, y
+// 0,78 deja la mediana en 62,5 cr y el arma más cara en 90 (15 % del saldo).
+export const FACTOR_ESCALA_600 = 0.78;
 
 function redondearA5(valor: number): number {
   return Math.round(valor / 5) * 5;
@@ -31,7 +37,7 @@ function redondearA5(valor: number): number {
 export function curvaPrecio(danioMaximo: number, facilidad: number): number {
   const danioNorm = danioMaximo / DANIO_MAXIMO_CATALOGO;
   const facilidadNorm = facilidad / FACILIDAD_MAXIMA_CATALOGO;
-  return redondearA5(ESCALA_PRECIO * ((danioNorm + facilidadNorm) / 2));
+  return redondearA5(ESCALA_PRECIO * FACTOR_ESCALA_600 * ((danioNorm + facilidadNorm) / 2));
 }
 
 // armas-reprecio-roles-1: cuánto se desvía un coste declarado de lo que

@@ -6,7 +6,7 @@
 import { ALMIRANTE_BISAGRA, CHISPA, LA_CONTABLE } from "@/sim/ia/personalidades";
 import { medirCompraIA } from "../tests/utils/medirCompraIA";
 import { medirTerminacion } from "../tests/utils/medirTerminacion";
-import { medirPersonalidad, NUM_PARTIDAS_MEDICION_IA, SEMILLA_MAESTRA_MEDICION_IA } from "../tests/utils/medirIA";
+import { medirPersonalidad, NUM_PARTIDAS_MEDICION_IA, SEMILLAS_MAESTRAS_MEDICION_IA } from "../tests/utils/medirIA";
 
 // Medida una sola vez contra el commit c63de318d62d15873648bd129af30fe41eb64f1d
 // (el padre de #82, justo antes del bloque ia-autodanio), con este mismo
@@ -55,12 +55,12 @@ if (argumento("naves") !== undefined && argumento("modo") === undefined) {
   process.exit(dentroDeCota ? 0 : 1);
 }
 
-for (const personalidad of [LA_CONTABLE, ALMIRANTE_BISAGRA, CHISPA]) {
-  const informe = medirPersonalidad(personalidad, SEMILLA_MAESTRA_MEDICION_IA, NUM_PARTIDAS_MEDICION_IA);
+for (const semillaMaestra of SEMILLAS_MAESTRAS_MEDICION_IA) for (const personalidad of [LA_CONTABLE, ALMIRANTE_BISAGRA, CHISPA]) {
+  const informe = medirPersonalidad(personalidad, semillaMaestra, NUM_PARTIDAS_MEDICION_IA);
   const previo = AUTOIMPACTO_PREVIO_AL_BLOQUE[informe.personalidad];
   const marca = (informe.tasaAutoimpacto ?? 0) <= UMBRAL_AUTOIMPACTO ? "OK" : "SUPERA EL UMBRAL";
 
-  console.log(`\n${informe.personalidad} (${informe.partidas} partidas, semilla maestra ${SEMILLA_MAESTRA_MEDICION_IA})`);
+  console.log(`\n${informe.personalidad} (${informe.partidas} partidas, semilla maestra ${semillaMaestra})`);
   console.log(`  tasa de victoria:        ${(informe.tasaVictoria * 100).toFixed(1)}%`);
   console.log(`  error medio de impacto:  ${informe.errorMedioImpactoPx?.toFixed(1) ?? "n/a"}px`);
   console.log(`  tasa de autoimpacto:     ${((informe.tasaAutoimpacto ?? 0) * 100).toFixed(2)}% [${marca}, umbral ${UMBRAL_AUTOIMPACTO * 100}%]`);

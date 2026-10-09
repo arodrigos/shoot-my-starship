@@ -1,21 +1,21 @@
 import { test, expect } from "@playwright/test";
 import { dispararConSolucionExacta, empezarPresupuesto } from "./utilesCompra";
 
-// eco-1: con saldos [850, 850] el Almirante Bisagra compra en su turno el arma
-// de pago más cara de su orden de preferencia que puede pagar (Despedida, 125)
+// eco-1: con saldos [600, 600] el Almirante Bisagra compra en su turno el arma
+// de pago más cara de su orden de preferencia que puede pagar (Despedida, 90)
 // y se le descuenta el precio exacto; el humano, que disparó una gratis,
 // conserva su saldo.
 test("ia-compra: la IA agresiva compra en su turno y se le descuenta el precio exacto", async ({ page }) => {
   test.setTimeout(240000);
-  await empezarPresupuesto(page, { saldo: 850, rival: "almirante-bisagra" });
-  expect(await page.evaluate(() => window.__debug.saldos)).toEqual([850, 850]);
+  await empezarPresupuesto(page, { saldo: 600, rival: "almirante-bisagra" });
+  expect(await page.evaluate(() => window.__debug.saldos)).toEqual([600, 600]);
 
   await dispararConSolucionExacta(page, "petardo-de-feria");
   await page.waitForFunction(() => window.__debug.ultimaEntrada?.nave === 1 && (window.__debug.numeroTurno ?? 0) >= 2, undefined, { timeout: 90000 });
 
   const { entrada, saldos } = await page.evaluate(() => ({ entrada: window.__debug.ultimaEntrada, saldos: window.__debug.saldos }));
   expect(entrada?.arma).toBe("despedida");
-  expect(saldos).toEqual([850, 850 - 125]);
+  expect(saldos).toEqual([600, 600 - 90]);
 });
 
 // Límite de eco-1: con menos saldo que cualquier arma de ataque de pago la IA

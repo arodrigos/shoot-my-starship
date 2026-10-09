@@ -41,10 +41,10 @@ terreno generado por partida con la semilla maestra del lote.
 
 ## Semillas
 
-- `npm run medir:ia` y `ia-autodanio-3.test.ts` usan la semilla maestra
-  `2028` (la misma que calibró las bandas de dificultad de `ia-3`) y
-  `NUM_PARTIDAS_MEDICION_IA = 200` partidas -- el mínimo que pide el
-  criterio.
+- `npm run medir:ia`, `ia-3.test.ts` y `ia-autodanio-3.test.ts` recorren las
+  cinco semillas maestras de `SEMILLAS_MAESTRAS_MEDICION_IA` (2024, 2028,
+  3031, 4057 y 5099) y exigen que cada banda se cumpla en al menos cuatro. El
+  script mide `NUM_PARTIDAS_MEDICION_IA = 200` partidas por semilla.
 - `semillasDelLote(semillaMaestra, n)` deriva las `n` semillas de partida a
   partir de la semilla maestra con el mismo generador sembrado que el resto
   del núcleo: la misma semilla maestra reproduce siempre el mismo lote de
