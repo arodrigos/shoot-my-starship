@@ -20,7 +20,9 @@ import { RADIO_ENVOLVENTE_NAVE_PX, puntosCascoVariante } from "@/sim/naves/geome
 // por distancia al polígono, sin el suelo del 20 %), lo que mueve el balance a propósito.
 // Hash actualizado en salida-pantalla: el tiro que cruza el margen de 24 u por
 // cualquier borde (arriba incluido) se pierde, lo que mueve el balance a propósito.
-const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "6cbb186ce4079b0490c8f950bee9f12cc4f5a1ae71b4f4cbb9cd28ff193e0d93";
+// Hash actualizado en salida-pantalla (jugador patrón): el patrón traza el tiro con trazarIntentos y
+// tiene la mitad de ruido, así que juega otras partidas a propósito; no es una regresión de este bloque.
+const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "8fcdd4a27d56e6011841725813feb6038bd095ea0e70acfe6c9d48f17c94ec87";
 
 test("nve-2: 200 partidas dan exactamente el mismo resultado que antes de naves-siluetas (el balance no se movió)", () => {
   const lote = jugarLote(20260929, 200);
