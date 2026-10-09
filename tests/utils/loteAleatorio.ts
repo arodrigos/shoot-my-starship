@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { crearEstadoAleatorio, siguienteAleatorio } from "@/sim/aleatorio";
 import { solucionTensa } from "./solucionTensa";
+import { trazarIntentos } from "@/sim/ia/trazado";
 import { comprobarInvariante, crearPartidaInicial, jugarPartida } from "@/sim/partida/motor";
 import { generarMascara } from "@/sim/terreno/generador";
 import type { Mascara } from "@/sim/terreno/mascara";
@@ -34,14 +35,21 @@ export const fuenteAleatoria: FuenteDeTurno = (estado) => {
   const objetivoId = estado.turno === 0 ? 1 : 0;
   const tirador = estado.naves[estado.turno];
   const objetivo = estado.naves[objetivoId];
-  // Las cimas del terreno de este mundo quedan a ~90 u del borde superior: un
-  // mortero a potencia máxima sale por arriba y se pierde, así que la solución
-  // tiene que caber en esa altura (suelo = 150 = cima + cañón).
+  // El tiro se traza contra el terreno real, como hace la IA (trazarIntentos):
+  // con la solución de suelo llano el jugador patrón dependía del mapa y en
+  // algunas semillas se atascaba bajo el techo mientras las tres IAs ganaban
+  // por encima del 90 %, lo que dejaba sin sentido cualquier banda de ia-3.
   let base = { anguloGrados: 45, potencia: 90 };
-  try {
-    base = solucionTensa(tirador.x, 0, objetivo.x, 0, estado.mundo.gravedad, 150);
-  } catch {
-    // sin solución exacta (fuera de alcance): se queda el disparo por defecto
+  const intentos = trazarIntentos(estado.mascara, tirador.x, objetivo.x, estado.mundo.gravedad, estado.mundo.deriva, estado.mundo.ancho, estado.mundo.alto);
+  const viable = intentos.find((i) => i.viable);
+  if (viable !== undefined) {
+    base = { anguloGrados: viable.solucion.anguloGrados, potencia: viable.solucion.potencia };
+  } else {
+    try {
+      base = solucionTensa(tirador.x, 0, objetivo.x, 0, estado.mundo.gravedad, 150);
+    } catch {
+      // sin solución exacta (fuera de alcance): se queda el disparo por defecto
+    }
   }
 
   const pasoAngulo = siguienteAleatorio(estado.aleatorio);
@@ -50,10 +58,10 @@ export const fuenteAleatoria: FuenteDeTurno = (estado) => {
   // puede tapar el disparo para siempre: pasados unos turnos se abre el
   // abanico de ángulo y potencia para que alguno la salve.
   const atascada = estado.numeroTurno > 50;
-  const anguloGrados = Math.min(179, Math.max(1, base.anguloGrados + (pasoAngulo.valor - 0.5) * (atascada ? 60 : 16)));
+  const anguloGrados = Math.min(179, Math.max(1, base.anguloGrados + (pasoAngulo.valor - 0.5) * (atascada ? 60 : 8)));
   // El suelo de potencia sigue a la solución: cuando el tiro tendido pide menos
   // de 80, recortar a 80 lo pasaría de largo en cada turno.
-  const potencia = Math.min(100, Math.max(atascada ? 30 : Math.max(20, base.potencia - 10), base.potencia + (pasoPotencia.valor - 0.5) * (atascada ? 100 : 20)));
+  const potencia = Math.min(100, Math.max(atascada ? 30 : Math.max(20, base.potencia - 5), base.potencia + (pasoPotencia.valor - 0.5) * (atascada ? 100 : 10)));
 
   return {
     entrada: { arma: "pepinazo-cortesia", anguloGrados, potencia, objetivoId },

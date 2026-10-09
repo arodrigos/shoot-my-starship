@@ -8,7 +8,7 @@ const ARMAS_EN_CATALOGO = 15;
 
 test("selector-iconos: una celda con icono por arma, ≥ 44 px y 6 px de separación, sin scroll horizontal", async ({ page }) => {
   test.setTimeout(240000);
-  await empezarPresupuesto(page, { saldo: 45 });
+  await empezarPresupuesto(page, { saldo: 40 });
   await abrirSelector(page);
 
   const celdas = page.locator('[data-testid^="arma-"]');
@@ -44,7 +44,7 @@ test("selector-iconos: una celda con icono por arma, ≥ 44 px y 6 px de separac
   await expect(page.getByTestId("eje-vertedero-portatil")).toContainText("Relleno:");
   await expect(page.getByTestId("eje-graviton-segunda-mano")).toContainText("Empuje:");
 
-  // Con saldo 45: cada celda de pago muestra su precio y las de más de 45 quedan deshabilitadas.
+  // Con saldo 40: cada celda de pago muestra su precio y las de más de 40 quedan deshabilitadas.
   await expect(page.getByTestId("precio-mortero-lamentable")).toContainText("45 cr");
   await expect(page.getByTestId("arma-mortero-lamentable")).toBeDisabled();
   await expect(page.getByTestId("faltan-mortero-lamentable")).toContainText("Te faltan 5 cr");
