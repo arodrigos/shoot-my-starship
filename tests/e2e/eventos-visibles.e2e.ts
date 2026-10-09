@@ -48,7 +48,7 @@ const lienzo = (page: Page) => page.locator("#game-container canvas");
 for (const definicion of CATALOGO_EVENTOS) {
   test(`evv-1: ${definicion.tipo} enseña su efecto gráfico propio`, async ({ page }) => {
     test.setTimeout(150000);
-    await empezar(page, "");
+    await empezar(page, "mapa=calma-de-los-restos");
     const halosAntes = await page.evaluate(() => JSON.stringify(window.__debug.halos));
     const antes = await lienzo(page).screenshot();
     await page.evaluate((tipo) => window.__debug.forzarEvento!(tipo, 1), definicion.tipo);
