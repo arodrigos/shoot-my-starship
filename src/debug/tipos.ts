@@ -471,6 +471,9 @@ export interface DebugGlobal {
   // pero sin esperar el reloj real entre pasos, para que un test de pool
   // acotado no tenga que reproducir 20 vuelos a velocidad real.
   dispararRafagaTurbo?: (numeroDeDisparos: number) => Promise<void>;
+  // partida-completa (solo e2e): empuja el reloj de la animación hasta que el
+  // jugador puede volver a disparar, sin esperar fotogramas reales.
+  avanzarHastaTurnoHumano?: () => Promise<void>;
   // imp-11: análogo a solucionBalisticaJugador pero para modo espacial, donde
   // no hay fórmula cerrada -- reutiliza el mismo oráculo real de la IA
   // (barridoRejilla) para dar un disparo con daño > 0 verificado contra el

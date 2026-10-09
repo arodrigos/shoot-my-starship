@@ -24,13 +24,15 @@ async function estadoPartida(page: Page): Promise<string> {
   return page.evaluate(() => JSON.stringify({ turno: window.__debug.turno, numeroTurno: window.__debug.numeroTurno, puedeDisparar: window.__debug.control?.puedeDisparar, eliminadas: window.__debug.eliminadas, ganador: window.__debug.ganador, animando: window.__debug.animacionEnCurso, arma: window.__debug.proyectilVisual?.armaId, pasosAnimados: window.__debug.trayectoriaAnimadaUltimoVuelo?.length, frames: window.__debug.rendimiento?.frames }));
 }
 
-// Distingue un lienzo lento (los fotogramas y los pasos del vuelo siguen
-// avanzando, solo cuesta más) de una animación parada de verdad: solo la
-// segunda falla antes del tope, y el error dice cuál de las dos fue.
+// Los turnos de las IAs (vuelos y explosiones) se empujan con el gancho del
+// juego: con el lienzo por software cada vuelo animado cuesta ~70 s de reloj.
+// Lo que sigue es la espera real, con progreso medido en fotogramas: solo falla
+// antes del tope si el lienzo no ha pintado ninguno en 90 s.
 async function esperarJugable(page: Page): Promise<void> {
+  await page.evaluate(() => window.__debug.avanzarHastaTurnoHumano?.());
   const tope = Date.now() + 300000;
-  const progreso = () => page.evaluate(() => `${window.__debug.numeroTurno}:${window.__debug.trayectoriaAnimadaUltimoVuelo?.length ?? 0}`);
-  let ultimo = await progreso();
+  const fotogramas = () => page.evaluate(() => window.__debug.rendimiento?.frames ?? 0);
+  let ultimo = await fotogramas();
   let desde = Date.now();
   while (Date.now() < tope) {
     const listo = await page
@@ -38,12 +40,12 @@ async function esperarJugable(page: Page): Promise<void> {
       .then(() => true)
       .catch(() => false);
     if (listo) return;
-    const ahora = await progreso();
+    const ahora = await fotogramas();
     if (ahora !== ultimo) {
       ultimo = ahora;
       desde = Date.now();
     } else if (Date.now() - desde > 90000) {
-      throw new Error(`esperarJugable: animación parada 90 s sin avanzar :: ${await estadoPartida(page)}`);
+      throw new Error(`esperarJugable: ningún fotograma en 90 s :: ${await estadoPartida(page)}`);
     }
   }
   throw new Error(`esperarJugable: 300 s sin turno jugable :: ${await estadoPartida(page)}`);
