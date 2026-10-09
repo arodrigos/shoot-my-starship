@@ -92,7 +92,9 @@ import { dibujarObjetoEvento } from "@/juego/efectos/dibujarObjetoEvento";
 import { RONDAS_DE_VIDA_OBJETO, rutaPrevistaObjeto } from "@/sim/universo/objetos";
 import { publicarCartel, publicarMuerteSubita, publicarPronostico, reiniciarUniverso } from "@/juego/control/universoStore";
 import { buscarEvento } from "@/sim/universo/catalogoEventos";
-import { conUniverso } from "@/sim/universo/efectos";
+import { aplicarEvento, conUniverso } from "@/sim/universo/efectos";
+import { EfectosEventos, type DatosEventos } from "@/juego/efectos/eventos/EfectosEventos";
+import type { TipoEvento } from "@/sim/universo/tipos";
 import { conMuerteSubita, drenajeDeRonda, RONDA_MUERTE_SUBITA } from "@/sim/partida/muerteSubita";
 import { MAX_SALTOS_ROBOT, type EstadoRobot } from "@/sim/armas/minirobot";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
@@ -457,6 +459,7 @@ export class Partida extends Phaser.Scene {
   private explosionPorCapas!: ExplosionPorCapas;
   // vida-color: efectos del turno (explosiones, haz) y números de daño aún vivos.
   private efectosDelTurno: readonly DebugEfectoVisible[] = [];
+  private efectosEventos!: EfectosEventos;
   private numerosDanioVivos: DebugEfectoVisible[] = [];
   // paron-explosion: medición permanente de frames, de solo lectura.
   private readonly medidorFrames = new MedidorFrames();
@@ -708,6 +711,13 @@ export class Partida extends Phaser.Scene {
     // guardada «universo:eventos» a «0», que es como el e2e lo apaga en bloque)
     // lo desactiva, y `eventos=1` fuerza encenderlo.
     reiniciarUniverso();
+    this.efectosEventos?.destruir();
+    this.efectosEventos = new EfectosEventos(this, {
+      reducido: prefiereMovimientoReducido,
+      sacudidaActiva: () => obtenerEstadoControl().sacudidaActiva,
+      sacudir: (duracionMs, intensidad) => this.sacudirCamara(duracionMs, intensidad),
+      alCambiar: () => this.publicarEfectosVisibles(),
+    });
     if (this.eventosActivados(parametrosUrl)) this.estado = conUniverso(this.estado);
     // muerte-subita: activa por defecto; `muerte=0` en la URL o la clave
     // guardada «muerte-subita:activada» a «0» (como el e2e la apaga en bloque)
@@ -730,6 +740,15 @@ export class Partida extends Phaser.Scene {
         universo: { ...universo, objetos: objetos.map((objeto, id) => ({ ...objeto, id, turnosRestantes: vida })), contadorObjetos: objetos.length },
       };
       this.refrescarObjetos();
+    };
+    window.__debug.forzarEvento = (tipo, afectado = 1) => {
+      if (this.estado.universo === undefined) return;
+      const aplicado = aplicarEvento(this.estado, { enTurnos: 0, tipo, afectado }, "calendario");
+      this.estado = aplicado.estado;
+      this.refrescarNaves();
+      this.terreno.sincronizarDesde(this.estado.mascara);
+      this.refrescarObjetos();
+      this.refrescarUniverso(aplicado.eventos);
     };
     window.__debug.fijarProximoEvento = (proximo) => {
       const universo = this.estado.universo;
@@ -1877,7 +1896,7 @@ export class Partida extends Phaser.Scene {
   }
 
   private publicarEfectosVisibles(): void {
-    window.__debug!.efectosVisibles = [...this.efectosDelTurno, ...this.numerosDanioVivos];
+    window.__debug!.efectosVisibles = [...this.efectosDelTurno, ...this.numerosDanioVivos, ...(this.efectosEventos?.entradasDebug() ?? [])];
   }
 
   private manejarEventosVisuales(eventos: readonly EventoSimulacion[], detonaciones: readonly Detonacion[], tirador: number = this.estado.turno): number {
@@ -2496,6 +2515,37 @@ export class Partida extends Phaser.Scene {
       const quien = definicion.alcance === "nave" ? ` · ${nombreDeNave(this.controladores, evento.nave)}` : "";
       publicarCartel(`${definicion.nombre}${quien}`);
     }
+    this.mostrarEfectosDeEventos(eventos);
+  }
+
+  // eventos-visibles: lo que ve el jugador de cada evento, además del cartel.
+  // Los persistentes se cuadran contra EstadoUniverso en cada refresco; los
+  // instantáneos y los del contacto de un objeto se lanzan con el evento del núcleo.
+  private mostrarEfectosDeEventos(eventos: readonly EventoSimulacion[]): void {
+    const datos = this.datosParaEventos();
+    this.efectosEventos.sincronizar(datos);
+    for (const evento of eventos) {
+      if (evento.tipo === "evento-universo" && evento.perdido !== true) this.efectosEventos.disparar(evento.evento as TipoEvento, evento.nave, datos);
+      else if (evento.tipo === "objeto-alcanza") {
+        if (evento.objeto === "corazon") this.efectosEventos.destelloCuracion(evento.nave, datos);
+        else this.efectosEventos.descargaTormenta(evento.nave, datos);
+      }
+    }
+  }
+
+  private datosParaEventos(): DatosEventos {
+    const estado = this.estado;
+    return {
+      universo: estado.universo,
+      naves: estado.naves.map((nave) =>
+        nave.integridad <= 0 ? null : { x: nave.x, y: alturaRenderNave(nave.y, alturaSuperficie(estado.mascara, nave.x) ?? estado.mundo.alto - 1) },
+      ),
+      objetos: (estado.universo?.objetos ?? []).map((objeto) => ({ id: objeto.id, x: objeto.x, y: objeto.y })),
+      planetas: (estado.planetas ?? []).map((planeta) => ({ id: planeta.id, x: planeta.cx, y: planeta.cy, radio: planeta.radio })),
+      ancho: estado.mundo.ancho,
+      alto: estado.mundo.alto,
+      mundoPorCss: this.scale.displayScale.x,
+    };
   }
 
   // Los halos de gravedad salen de la masa del registro: se vuelven a pintar
