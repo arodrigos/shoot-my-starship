@@ -1914,7 +1914,7 @@ export class Partida extends Phaser.Scene {
     const final = detonaciones[0];
     const origen = this.origenUltimoDisparo;
     if (!final || !origen || buscarArma(final.armaId).comportamiento.tipo !== "instantaneo") return null;
-    const trazo = 1 / this.scale.displayScale.x;
+    const trazo = this.scale.displayScale.x;
     const grafico = this.add.graphics().setDepth(31);
     grafico.lineStyle(6 * trazo, 0xff2e63, 0.9).lineBetween(origen.x, origen.y, final.x, final.y);
     grafico.lineStyle(2 * trazo, 0xffe3ea, 1).lineBetween(origen.x, origen.y, final.x, final.y);
@@ -1928,14 +1928,26 @@ export class Partida extends Phaser.Scene {
   // lienzo y ningún selector de DOM lo ve.
   private mostrarAvisoPerdido(salida: { borde: string; x: number; y: number }, movimientoReducido: boolean): void {
     const { ancho, alto } = this.estado.mundo;
-    const escala = 1 / this.scale.displayScale.x;
+    // displayScale.x son unidades de mundo por px CSS: se multiplica para
+    // pasar de px CSS a mundo (dividir dejaba el texto 8 veces más pequeño).
+    const escala = this.scale.displayScale.x;
     const texto = this.add
       .text(0, 0, "¡Perdido!", { fontFamily: "sans-serif", fontSize: `${Math.round(22 * escala)}px`, fontStyle: "bold", color: "#ffd166", stroke: "#000000", strokeThickness: Math.round(4 * escala) })
       .setDepth(2000);
-    const margen = 8 * escala;
+    // El lienzo puede asomar unos px CSS fuera del viewport: el margen se
+    // cuenta desde la parte visible, no desde el 0 del mundo.
+    const rect = this.game.canvas.getBoundingClientRect();
+    const visibleArriba = Math.max(0, -rect.top) * escala;
+    const visibleAbajo = alto - Math.max(0, rect.bottom - window.innerHeight) * escala;
+    const margen = 12 * escala;
+    // Franja de botones fijos de arriba (histórico, música, voz) y consola
+    // de abajo: el aviso queda en el hueco entre ambas.
+    const minY = visibleArriba + 64 * escala;
+    const maxY = Math.min(visibleAbajo - texto.height - margen, 440 * escala - texto.height);
     const x = Math.min(ancho - texto.width - margen, Math.max(margen, salida.x - texto.width / 2));
-    const y = Math.min(alto - texto.height - margen, Math.max(margen, salida.y - texto.height / 2));
-    texto.setPosition(salida.borde === "derecha" ? ancho - texto.width - margen : salida.borde === "izquierda" ? margen : x, salida.borde === "arriba" ? margen : salida.borde === "abajo" ? alto - texto.height - margen : y);
+    const yLibre = Math.min(maxY, Math.max(minY, salida.y - texto.height / 2));
+    const yBorde = salida.borde === "arriba" ? minY : salida.borde === "abajo" ? Math.max(minY, maxY) : yLibre;
+    texto.setPosition(salida.borde === "derecha" ? ancho - texto.width - margen : salida.borde === "izquierda" ? margen : x, yBorde);
     window.__debug!.avisoPerdido = { borde: salida.borde, x: texto.x, y: texto.y, ancho: texto.width, alto: texto.height };
     if (!movimientoReducido) {
       this.cameras.main.flash(120, 255, 209, 102, false);
@@ -1947,7 +1959,7 @@ export class Partida extends Phaser.Scene {
   // Sin movimiento reducido no se llama. Se publica en efectosVisibles mientras
   // vive, porque el texto está en el lienzo y ningún selector de DOM lo ve.
   private mostrarNumeroDanio(x: number, y: number, danio: number, atacante: number): void {
-    const escala = 1 / this.scale.displayScale.x;
+    const escala = this.scale.displayScale.x;
     const color = colorDeAsiento(atacante);
     const texto = this.add
       .text(x, y, `-${danio}`, { fontFamily: "sans-serif", fontSize: `${Math.round(18 * escala)}px`, fontStyle: "bold", color, stroke: "#000000", strokeThickness: Math.round(3 * escala) })
