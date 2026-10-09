@@ -113,4 +113,32 @@ export function trazarIntentos(
 // máxima se sale de la pantalla, de la más alta a la más baja. El paso es fino
 // porque en un mundo bajo con montañas altas la ventana de potencias cuyo arco
 // cabe entre la cima y el borde es de pocos puntos.
-const FRACCIONES_POTENCIA_MORTERO: readonly number[] = Array.from({ length: 71 }, (_, i) => 0.95 - i * 0.01);
+const FRACCIONES_POTENCIA_MORTERO: readonly number[] = Array.from({ length: 360 }, (_, i) => 0.95 - i * 0.0025);
+
+// salida-pantalla: un tiro con el error de puntería ya aplicado puede salir
+// de la pantalla (el mortero a poca altura de techo) y se pierde. La IA no
+// gasta turnos así: baja la potencia, en pasos del 2 %, hasta que el vuelo
+// queda dentro del encuadre. Devuelve la potencia (0-100) ya corregida.
+export function potenciaSinSalirDePantalla(
+  mascara: Mascara,
+  origenX: number,
+  anguloGrados: number,
+  potencia: number,
+  gravedad: number,
+  deriva: number,
+  ancho: number,
+  alto: number,
+): number {
+  const origenCanonY = (alturaSuperficie(mascara, origenX) ?? alto - 1) - ALTURA_CANON_PX;
+  const detenerse = detenerseEnSuelo(mascara, ancho, alto);
+  const rad = anguloRad(anguloGrados);
+  let actual = potencia;
+  for (let intento = 0; intento < 40 && actual > 5; intento++) {
+    const v = velocidadDesdePotencia(actual);
+    const inicial = crearProyectil(origenX, origenCanonY, v * Math.cos(rad), -v * Math.sin(rad));
+    const { proyectil } = simularVuelo(inicial, gravedad, deriva, detenerse);
+    if (bordeDeSalida(proyectil.x, proyectil.y, ancho, alto) === null) return actual;
+    actual *= 0.98;
+  }
+  return actual;
+}

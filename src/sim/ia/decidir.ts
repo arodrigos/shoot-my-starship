@@ -9,7 +9,7 @@ import type { NavePosicion } from "@/sim/naves/impacto";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { EntradaDeTurno, IdNave } from "@/sim/partida/tipos";
 import type { Mascara } from "@/sim/terreno/mascara";
-import { trazarIntentos, type IntentoBalistico } from "@/sim/ia/trazado";
+import { potenciaSinSalirDePantalla, trazarIntentos, type IntentoBalistico } from "@/sim/ia/trazado";
 import type { Personalidad, RangoDeError } from "@/sim/ia/tipos";
 
 // Arma a la que recurre cualquier personalidad cuando ninguna solución
@@ -666,7 +666,8 @@ export function decidirTurnoIA(params: ParametrosDecisionIA): ResultadoDecisionI
       : { armaId: armaElegida, aleatorio: aleatorioTrasError };
 
   const anguloGrados = Math.min(180, Math.max(0, solucionExacta.anguloGrados + error.anguloGrados));
-  const potencia = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));
+  const potenciaConError = Math.min(100, Math.max(0, solucionExacta.potencia + error.potencia));
+  const potencia = potenciaSinSalirDePantalla(mascara, origenX, anguloGrados, potenciaConError, gravedad, deriva, ancho, alto);
 
   return {
     entrada: { arma: armaId, anguloGrados, potencia, objetivoId: objetivoId ?? 1 },
