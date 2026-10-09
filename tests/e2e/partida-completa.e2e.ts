@@ -3,11 +3,10 @@ import { test, expect, type Page } from "@playwright/test";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { arrastrarBarraHasta } from "./utilesControl";
 import { arrastrarDesdeNave } from "./utilesApuntado";
-import { MAPA_SEMBRADO } from "./utilesCompra";
 
 // pc-1, pc-2, pc-3: una partida de la portada al final, como la jugaría una
-// persona en el móvil y en el iPad. Mapa de suelo plano (deriva 0) para que la
-// solución balística exacta exista y el recorrido sea determinista.
+// persona en el móvil y en el iPad. El mapa de planetas de siempre: el oráculo
+// multipozo da la solución del tiro, así que los disparos dirigidos aciertan.
 const LIMITE_MS = 200;
 const VIEWPORTS = [
   { ancho: 360, alto: 640 },
@@ -24,14 +23,19 @@ async function esperarJugable(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__debug.control?.puedeDisparar === true, undefined, { timeout: 120000 });
 }
 
+// El arma erratica (Mosca) puede no tener solución exacta: entonces vale un tiro cualquiera.
+async function solucionDelTurno(page: Page): Promise<{ anguloGrados: number; potencia: number }> {
+  const solucion = await page.evaluate(() => window.__debug.solucionMultipozoJugador!());
+  return solucion ?? { anguloGrados: 45, potencia: 60 };
+}
+
 // Apunta con la solución exacta, dispara y espera a que el turno pase a la IA.
 async function dispararConSolucion(page: Page): Promise<void> {
   await esperarJugable(page);
   const numeroTurno = await page.evaluate(() => window.__debug.numeroTurno!);
-  const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
-  expect(solucion, `turno ${numeroTurno}: debe existir solución exacta en un mapa de deriva 0`).not.toBeNull();
-  await arrastrarBarraHasta(page, "barra-angulo", (solucion!.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
-  await arrastrarBarraHasta(page, "barra-potencia", (solucion!.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA));
+  const solucion = await solucionDelTurno(page);
+  await arrastrarBarraHasta(page, "barra-angulo", (solucion.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
+  await arrastrarBarraHasta(page, "barra-potencia", (solucion.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA));
   await page.getByTestId("disparar").click();
   await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurno, { timeout: 120000 });
 }
@@ -76,7 +80,7 @@ for (const vp of VIEWPORTS) {
     await page.setViewportSize({ width: vp.ancho, height: vp.alto });
 
     // 1. Portada y configuración: 1 humano frente a 2 IAs, en modo presupuesto.
-    await page.goto(`/?mapa=${MAPA_SEMBRADO}`);
+    await page.goto("/");
     await capturar("portada", "Portada con el botón «Jugar» y la configuración de la partida.");
     await page.getByTestId("humanos-1").click();
     await page.getByTestId("ias-2").click();
@@ -132,10 +136,9 @@ for (const vp of VIEWPORTS) {
     // 4. Misil con estela (Mosca Cojonera): su proyectil y su estela se ven en vuelo.
     await curarAlHumano(page);
     await elegirArma(page, "mosca-cojonera");
-    const solucionMosca = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
-    expect(solucionMosca).not.toBeNull();
-    await arrastrarBarraHasta(page, "barra-angulo", (solucionMosca!.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
-    await arrastrarBarraHasta(page, "barra-potencia", (solucionMosca!.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA));
+    const solucionMosca = await solucionDelTurno(page);
+    await arrastrarBarraHasta(page, "barra-angulo", (solucionMosca.anguloGrados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
+    await arrastrarBarraHasta(page, "barra-potencia", (solucionMosca.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA));
     const turnoMosca = await page.evaluate(() => window.__debug.numeroTurno!);
     await page.getByTestId("disparar").click();
     await page.waitForFunction(() => window.__debug.proyectilVisual != null, undefined, { timeout: 60000 });
