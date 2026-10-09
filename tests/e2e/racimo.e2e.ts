@@ -51,7 +51,9 @@ test("rac-1/rac-2: cinco detonaciones juntas y cinco perdigones en vuelo", async
   expect(racimo).toHaveLength(5);
   for (const a of racimo) {
     for (const b of racimo) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThanOrEqual(1.5 * RADIO_SUBMUNICION + 1e-6);
-    expect(Math.hypot(a.x - medida.impacto!.x, a.y - medida.impacto!.y)).toBeLessThanOrEqual(0.75 * RADIO_SUBMUNICION + 1e-6);
+    // El impacto publicado es el del perdigón central, que ya lleva su propia
+    // variación (≤ 0,15 × radio): la cruz más las dos variaciones, no solo 0,75.
+    expect(Math.hypot(a.x - medida.impacto!.x, a.y - medida.impacto!.y)).toBeLessThanOrEqual(0.9 * RADIO_SUBMUNICION + 1e-6);
   }
   expect(medida.explosiones).toBeGreaterThanOrEqual(5);
   const danioTotal = racimo.reduce((total, d) => total + d.danioAplicado, 0);

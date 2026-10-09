@@ -41,7 +41,11 @@ test("ia-1: sin deriva, sin obstáculos y con error 0, 200 disparos a posiciones
     const intentos = trazarIntentos(mascara, ORIGEN_X, objetivoX, 1.0, 0, ANCHO, ALTO);
     assert.equal(intentos.length > 0, true, `objetivo ${objetivoX}: el solucionador no devolvió ninguna raíz`);
 
-    const mejor = intentos.reduce((a, b) =>
+    // Una raíz que sale de la pantalla se pierde (salida-pantalla): solo
+    // compiten las que de verdad caen.
+    const caen = intentos.filter((i) => i.viable);
+    assert.equal(caen.length > 0, true, `objetivo ${objetivoX}: ninguna raíz cae dentro de la pantalla`);
+    const mejor = caen.reduce((a, b) =>
       Math.abs(a.puntoDeImpacto.x - objetivoX) < Math.abs(b.puntoDeImpacto.x - objetivoX) ? a : b,
     );
 

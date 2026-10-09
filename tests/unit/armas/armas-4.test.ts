@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
 const ANCHO = 1920;
@@ -18,7 +18,7 @@ test("armas-4: la deriva mueve el punto de impacto de forma monótona, y la dife
   // punto central caiga dentro del mapa: con deriva distinta de 0 el punto
   // real se desplaza, pero el ángulo/potencia del disparo son los mismos en
   // las cinco pruebas -- es la deriva, y solo la deriva, la que varía.
-  const [{ anguloGrados, potencia }] = resolverSolucionesBalisticas(origenX, 0, objetivoX, 0, 1.0);
+  const { anguloGrados, potencia } = solucionTensa(origenX, 0, objetivoX, 0, 1.0);
 
   // Cinco valores de deriva, tal y como pide el criterio (armas-4).
   const derivas = [-40, -20, 0, 20, 40];

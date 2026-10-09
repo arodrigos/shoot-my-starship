@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import type { Arma } from "@/sim/armas/tipos";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
@@ -32,7 +32,7 @@ test("armas-1: una arma declarada como dato puro, no importada del catálogo, pr
   // Raíz "de lobo alto" del solucionador exacto para que el impacto caiga
   // cerca de objetivoX sobre suelo plano: no depende de ningún arma del
   // catálogo, solo de la parábola común a todas (misma técnica que nucleo-6).
-  const [solucionLoboAlto] = resolverSolucionesBalisticas(origenX, 0, objetivoX, 0, 1.0);
+  const solucionLoboAlto = solucionTensa(origenX, 0, objetivoX, 0, 1.0);
 
   const resultado = resolverDisparo({
     mascara,

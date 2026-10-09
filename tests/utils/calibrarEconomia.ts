@@ -43,6 +43,8 @@ export interface FilaPrecio {
 // Desviaciones de la curva o de la banda de valor que se declaran en el informe
 // en vez de esconderse: el motivo viaja con el dato.
 export const DESVIACIONES_DECLARADAS: Readonly<Record<string, string>> = {
+  "gancho-pegajoso":
+    "Se pega a un planeta o a una nave y su onda de 1/8 de diagonal la hace la más fácil del catálogo (8,1 %): su daño por crédito queda por encima de la banda y subir más el precio lo pondría por encima de la Despedida.",
   "rayo-laser":
     "Haz instantáneo inmune a la gravedad: la facilidad medida (1,2 %) subestima lo que paga el que no tiene que calcular la curva, así que el precio se queda cerca del máximo y su daño por crédito cae por debajo de la banda.",
 };

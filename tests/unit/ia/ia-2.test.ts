@@ -11,6 +11,11 @@ const ANCHO = 1920;
 const ALTO = 1080;
 const ORIGEN_X = 300;
 const OBJETIVO_X = 900;
+// Con la regla de salida-pantalla un mortero a potencia máxima que asoma por
+// encima del borde superior se pierde. Con gravedad 1 el apex de esta raíz
+// queda fuera del encuadre, así que el escenario usa una gravedad en la que
+// el arco cabe dentro de la pantalla y la raíz sigue siendo comparable.
+const GRAVEDAD = 2;
 
 function conBloqueRectangular(mascara: Mascara, x0: number, x1: number, y0: number, y1: number): Mascara {
   const copia: Mascara = { ancho: mascara.ancho, alto: mascara.alto, datos: new Uint8Array(mascara.datos) };
@@ -35,7 +40,7 @@ function crearEscenarioMuroBajo(): Mascara {
 // origen la intercepta sin tocar la trayectoria rasante, que se mantiene a
 // ras de suelo en ese mismo tramo de x.
 function crearEscenarioMuroYTecho(): Mascara {
-  return conBloqueRectangular(crearEscenarioMuroBajo(), 303, 345, 100, 700);
+  return conBloqueRectangular(crearEscenarioMuroBajo(), 303, 560, 100, 700);
 }
 
 function puntoTocaSolido(mascara: Mascara, x: number, x0: number, x1: number, y0: number, y1: number): boolean {
@@ -44,7 +49,7 @@ function puntoTocaSolido(mascara: Mascara, x: number, x0: number, x1: number, y0
 
 test("ia-2: sin obstáculo, las dos raíces (mortero y tenso) son viables", () => {
   const mascara = crearMascaraPlana(ANCHO, ALTO, 900);
-  const intentos = trazarIntentos(mascara, ORIGEN_X, OBJETIVO_X, 1.0, 0, ANCHO, ALTO);
+  const intentos = trazarIntentos(mascara, ORIGEN_X, OBJETIVO_X, GRAVEDAD, 0, ANCHO, ALTO);
   assert.equal(intentos.length, 2);
   for (const intento of intentos) {
     assert.equal(intento.viable, true, `raíz ${intento.esMortero ? "mortero" : "tenso"}: debería ser viable sin obstáculos`);
@@ -53,7 +58,7 @@ test("ia-2: sin obstáculo, las dos raíces (mortero y tenso) son viables", () =
 
 test("ia-2: con un muro bajo, la raíz tenso queda bloqueada y la de mortero sigue viable", () => {
   const mascara = crearEscenarioMuroBajo();
-  const intentos = trazarIntentos(mascara, ORIGEN_X, OBJETIVO_X, 1.0, 0, ANCHO, ALTO);
+  const intentos = trazarIntentos(mascara, ORIGEN_X, OBJETIVO_X, GRAVEDAD, 0, ANCHO, ALTO);
   const tenso = intentos.find((i) => !i.esMortero);
   const mortero = intentos.find((i) => i.esMortero);
   assert.ok(tenso && mortero);
@@ -67,7 +72,7 @@ test("ia-2: con un muro bajo, la raíz tenso queda bloqueada y la de mortero sig
 
 test("ia-2: con muro y techo, ninguna raíz es viable y la IA dispara a otra cosa en vez de fallar", () => {
   const mascara = crearEscenarioMuroYTecho();
-  const intentos = trazarIntentos(mascara, ORIGEN_X, OBJETIVO_X, 1.0, 0, ANCHO, ALTO);
+  const intentos = trazarIntentos(mascara, ORIGEN_X, OBJETIVO_X, GRAVEDAD, 0, ANCHO, ALTO);
   for (const intento of intentos) {
     assert.equal(intento.viable, false, `raíz ${intento.esMortero ? "mortero" : "tenso"}: no debería ser viable con muro y techo`);
   }
@@ -76,7 +81,7 @@ test("ia-2: con muro y techo, ninguna raíz es viable y la IA dispara a otra cos
     mascara,
     origenX: ORIGEN_X,
     objetivoX: OBJETIVO_X,
-    gravedad: 1.0,
+    gravedad: GRAVEDAD,
     deriva: 0,
     ancho: ANCHO,
     alto: ALTO,

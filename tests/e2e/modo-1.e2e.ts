@@ -15,7 +15,7 @@ const GANANCIA_ANGULO_GRADOS = 120;
 const GANANCIA_POTENCIA = 150;
 // Del catálogo real (src/sim/armas/catalogo.ts): Pepinazo de Cortesía, coste 40.
 const ARMA_ID = "pepinazo-cortesia";
-const COSTE_ARMA = 40;
+const COSTE_ARMA = 35;
 
 async function dispararConGesto(page: import("@playwright/test").Page): Promise<void> {
   const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { simularVuelo } from "@/sim/fisica/vuelo";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { detenerseEnSuelo } from "@/sim/armas/resolver";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
@@ -84,7 +84,7 @@ test("mos-2: revolotea alrededor de la trayectoria marcada, acotado y cruza al m
   for (let semilla = 0; semilla < NUM_SEMILLAS; semilla++) {
     const origenX = 300;
     const distancia = distancias[semilla % distancias.length];
-    const [solucion] = resolverSolucionesBalisticas(origenX, ORIGEN_Y, origenX + distancia, ORIGEN_Y, GRAVEDAD);
+    const solucion = solucionTensa(origenX, ORIGEN_Y, origenX + distancia, ORIGEN_Y, GRAVEDAD);
 
     const referencia = volar(origenX, solucion.anguloGrados, solucion.potencia, null);
     const perturbada = volar(origenX, solucion.anguloGrados, solucion.potencia, semilla);
@@ -124,7 +124,7 @@ test("mos-2: no se pierde por presupuesto de pasos en más del 2% de un lote det
   let perdidos = 0;
 
   for (const { sistema, naveA, naveB, aleatorio } of lote) {
-    const [solucion] = resolverSolucionesBalisticas(naveA.x, naveA.y, naveB.x, naveB.y, MUNDO_MULTIPOZO.gravedad);
+    const solucion = solucionTensa(naveA.x, naveA.y, naveB.x, naveB.y, MUNDO_MULTIPOZO.gravedad);
     const rad = (solucion.anguloGrados * Math.PI) / 180;
     const v = velocidadDesdePotencia(solucion.potencia);
     const inicial = crearProyectil(naveA.x, naveA.y - 26, v * Math.cos(rad), -v * Math.sin(rad));

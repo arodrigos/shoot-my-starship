@@ -271,6 +271,8 @@ function colocarSinViabilidad(sistema: SistemaGenerado, mundo: ParametrosMundo, 
   return { naves: null, aleatorio };
 }
 
+const RECORRIDO_MAXIMO_CORREDOR_PX = 600;
+
 // Último recurso (imp-9): el corredor superior que generarSistema garantiza
 // libre de sólido (MARGEN_CORREDOR_SUPERIOR, sis-3) -- sin sorteo, sin
 // comprobación de viabilidad propia, porque es la red de seguridad que
@@ -281,9 +283,13 @@ function colocarSinViabilidad(sistema: SistemaGenerado, mundo: ParametrosMundo, 
 export function colocacionUltimoRecurso(mundo: ParametrosMundo, cantidad = 2): readonly EstadoNave[] {
   // El corredor mide 90 u: a 66 el casco (22) llega a 88 y sigue dentro.
   const y = MARGEN_MUNDO_NAVE_PX;
-  const recorrido = mundo.ancho - 2 * MARGEN_MUNDO_NAVE_PX;
+  // Pegado al borde superior, un tiro que cruza todo el ancho sube más de lo
+  // que cabe sobre el corredor y se pierde por arriba. Se acota el recorrido
+  // a lo que un tiro tenso alcanza sin salir, centrado en el mundo.
+  const recorrido = Math.min(mundo.ancho - 2 * MARGEN_MUNDO_NAVE_PX, RECORRIDO_MAXIMO_CORREDOR_PX);
+  const inicio = (mundo.ancho - recorrido) / 2;
   return Array.from({ length: cantidad }, (_nave, id) => ({
-    x: MARGEN_MUNDO_NAVE_PX + (recorrido * id) / (cantidad - 1),
+    x: inicio + (recorrido * id) / (cantidad - 1),
     y,
     integridad: 100,
   }));

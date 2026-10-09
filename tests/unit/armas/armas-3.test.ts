@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { alturaSuperficie, resolverDisparo } from "@/sim/armas/resolver";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import { crearMascaraVacia, SOLIDO, type Mascara } from "@/sim/terreno/mascara";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
@@ -54,7 +54,7 @@ test("armas-3: Vertedero Portátil aumenta el número de píxeles sólidos del t
   const solidosAntes = contarSolidos(mascara);
   const origenX = 100;
   const objetivoX = 400;
-  const [{ anguloGrados, potencia }] = resolverSolucionesBalisticas(origenX, 0, objetivoX, 0, 1.0);
+  const { anguloGrados, potencia } = solucionTensa(origenX, 0, objetivoX, 0, 1.0, 400);
 
   const resultado = resolverDisparo({
     mascara,
@@ -81,7 +81,7 @@ test("armas-3: la huella de la Zanjadora Manolita es al menos 3 veces más ancha
   const arma = buscarArma("zanjadora-manolita");
   const origenX = 100;
   const objetivoX = 400;
-  const [{ anguloGrados, potencia }] = resolverSolucionesBalisticas(origenX, 0, objetivoX, 0, 1.0);
+  const { anguloGrados, potencia } = solucionTensa(origenX, 0, objetivoX, 0, 1.0, 400);
 
   const resultado = resolverDisparo({
     mascara: mascaraAntes,
@@ -111,7 +111,7 @@ test("armas-3: la Pelota de Chatarra rueda al menos 40px antes de detonar, sobre
   const mascara = crearMascaraPendiente(ANCHO, ALTO, 250, 0.3);
   const origenX = 100;
   const objetivoX = 400;
-  const [{ anguloGrados, potencia }] = resolverSolucionesBalisticas(origenX, 0, objetivoX, 0, 1.0);
+  const { anguloGrados, potencia } = solucionTensa(origenX, 0, objetivoX, 0, 1.0, 250);
 
   const armaSimple = buscarArma("pepinazo-cortesia");
   const armaRodante = buscarArma("pelota-de-chatarra");

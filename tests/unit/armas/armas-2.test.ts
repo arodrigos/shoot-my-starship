@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
 const ANCHO = 1920;
@@ -24,7 +24,7 @@ test("armas-2: el catálogo tiene al menos 10 armas y ninguna produce el mismo p
   // ALGÚN sitio, pero solo uno que impacte cerca del objetivo distingue de
   // verdad la caída de daño por distancia de cada arma (un impacto lejano
   // daría 0 en todas por igual, sin distinguir nada).
-  const [{ anguloGrados, potencia }] = resolverSolucionesBalisticas(origenX, 0, objetivoX, 0, 1.0);
+  const { anguloGrados, potencia } = solucionTensa(origenX, 0, objetivoX, 0, 1.0);
 
   const firmas = new Map<string, string>();
   for (const arma of CATALOGO_ARMAS) {

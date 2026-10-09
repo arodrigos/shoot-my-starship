@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { resolverDisparo } from "@/sim/armas/resolver";
 import { esComportamientoAdherente } from "@/sim/fisica/comportamientoExtendido";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
+import { solucionTensa } from "../../utils/solucionTensa";
 import type { Arma } from "@/sim/armas/tipos";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
 
@@ -45,7 +45,8 @@ const ARMA_ADHERENTE: Arma = {
 
 function resolverConArma(arma: Arma) {
   const mascara = crearMascaraPlana(ANCHO, ALTO, 900);
-  const [solucion] = resolverSolucionesBalisticas(300, 900, 900, 900, 1);
+  // A potencia máxima el mortero sube más que el mundo y se pierde por arriba.
+  const solucion = solucionTensa(300, 900, 900, 900, 1);
   return resolverDisparo({
     mascara,
     gravedad: 1,

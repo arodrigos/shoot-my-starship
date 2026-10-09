@@ -1,5 +1,5 @@
 import { crearProyectil, type EstadoProyectil } from "@/sim/fisica/proyectil";
-import { MARGEN_SALIDA_U, simularVuelo, techoU, type BordeSalida, type PuntoSalida } from "@/sim/fisica/vuelo";
+import { MARGEN_SALIDA_U, simularVuelo, type BordeSalida, type PuntoSalida } from "@/sim/fisica/vuelo";
 import { pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
 import { dispersionPorPotenciaGrados } from "@/sim/balistica/dispersionPotencia";
@@ -98,15 +98,13 @@ export function alturaSuperficie(mascara: Mascara, x: number): number | null {
 // implementaciones que "deberían" coincidir es como se cuela el desajuste
 // que el criterio quiere atrapar.
 //
-// El techo del vuelo es tres mundos por encima del borde superior (con menos,
-// cambiaba el desenlace de lobs que sí vuelven). Un tiro que se escapa hacia
-// arriba, p. ej. con la gravedad a la mitad, ya no vuelve a verse, y dejarlo
-// agotar el presupuesto de pasos eran ~12 s simulados de animación sin nada
-// en pantalla. Todas las condiciones de parada comparten este corte para que
-// núcleo, trazado de la IA y animador sigan coincidiendo.
+// Un tiro que sale por cualquier borde (arriba incluido) más el margen se pierde
+// en ese punto: dejarlo volar fuera eran segundos de pantalla quieta. Todas las
+// condiciones de parada comparten este corte para que núcleo, trazado de la IA
+// y animador sigan coincidiendo.
 export function detenerseEnSuelo(mascara: Mascara, ancho: number, alto: number) {
   return (p: EstadoProyectil): boolean => {
-    if (p.y >= alto || p.y < -techoU(alto) || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
+    if (p.y >= alto || p.y < -MARGEN_SALIDA_U || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
       return true;
     }
     return esSolido(mascara, Math.round(p.x), Math.round(p.y));
@@ -131,7 +129,7 @@ function crearDetenerseConPenetracion(mascara: Mascara, ancho: number, alto: num
   let anteriorY: number | null = null;
 
   const detenerse = (p: EstadoProyectil): boolean => {
-    if (p.y >= alto || p.y < -techoU(alto) || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
+    if (p.y >= alto || p.y < -MARGEN_SALIDA_U || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) {
       return true;
     }
     const solido = esSolido(mascara, Math.round(p.x), Math.round(p.y));
@@ -166,7 +164,7 @@ function crearDetenerseHaz(mascara: Mascara, ancho: number, alto: number, penetr
   let distanciaEnSolidoPx = 0;
   let anterior: EstadoProyectil | null = null;
   return (p: EstadoProyectil): boolean => {
-    if (p.y >= alto || p.y < -techoU(alto) || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) return true;
+    if (p.y >= alto || p.y < -MARGEN_SALIDA_U || p.x < -MARGEN_SALIDA_U || p.x > ancho + MARGEN_SALIDA_U) return true;
     // El paso de integración puede ser de decenas de píxeles: se recorre el
     // segmento de 1 en 1 para medir la roca realmente cruzada, no el paso.
     if (anterior !== null) {

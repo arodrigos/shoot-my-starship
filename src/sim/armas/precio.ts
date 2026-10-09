@@ -23,9 +23,11 @@ const ESCALA_PRECIO = 160;
 
 // calibrado-600: con 600 créditos fijos, 10 × la mediana de pago tiene que
 // valer 600 ± 50. Medida sobre el catálogo con naves de silueta exacta, salida
-// de pantalla, empuje dirigido y Racimo agrupado: la facilidad no se movió, y
-// 0,78 deja la mediana en 62,5 cr y el arma más cara en 90 (15 % del saldo).
-export const FACTOR_ESCALA_600 = 0.78;
+// de pantalla, empuje dirigido y Racimo agrupado: con la facilidad nueva, 0,76
+// deja la mediana en 57,5 cr y el arma más cara en 90 (15 % del saldo), y es
+// el factor más alto con el que el Racimo (más daño y más fácil) sigue sin
+// quedar al mismo precio que el Pepinazo, que lo haría dominante.
+export const FACTOR_ESCALA_600 = 0.76;
 
 function redondearA5(valor: number): number {
   return Math.round(valor / 5) * 5;

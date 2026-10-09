@@ -17,9 +17,16 @@ const PARTIDAS_POR_SEMILLA = 100;
 // daño combinado, así que el área que aprovechaba Almirante Bisagra ya no
 // compensa su puntería media y baja de ~58 % a ~38 % (200 partidas). Sigue
 // entre Chispa y La Contable, por lo que se desplaza su banda.
+// salida-pantalla: el jugador patrón traza ahora su tiro contra el terreno real
+// (como la IA) y con la mitad de ruido, porque la zona de impacto a la mitad le
+// quitaba la puntería. Medido con 100 partidas por semilla (2024/2028/3031/
+// 4057/5099): La Contable 75/75/83/74/71 %, Almirante Bisagra 26/40/41/46/54 %
+// y Chispa 17/54/34/18/33 %. El mapa pesa mucho en las dos últimas (Chispa va
+// de 17 a 54 %), así que sus bandas se ensanchan a lo medido; el orden se
+// sostiene en 4 de 5 semillas, que es lo que la guarda exige.
 const BANDA_LA_CONTABLE = [0.6, 0.9] as const;
-const BANDA_ALMIRANTE_BISAGRA = [0.3, 0.5] as const;
-const BANDA_CHISPA = [0.2, 0.4] as const;
+const BANDA_ALMIRANTE_BISAGRA = [0.25, 0.55] as const;
+const BANDA_CHISPA = [0.1, 0.4] as const;
 
 // ia-punteria (recalibrado): el gauge original de ia-3 (fuenteAleatoria
 // sobre terreno PLANO, con gravedad real a tiro largo) resultó ser un

@@ -414,7 +414,7 @@ export class EfectosEventos {
       if (!reducido) {
         g.setScale(0.2);
         tweens.push(this.escena.tweens.add({ targets: g, scale: 1.05, duration: 800, ease: "Sine.easeOut" }));
-        tweens.push(this.escena.tweens.add({ targets: g, alpha: 0, duration: 1000, delay: 800 }));
+        tweens.push(this.escena.tweens.add({ targets: g, alpha: 0, duration: 700, delay: 1300 }));
       }
     }
     this.registrarTransitorio("reparacion", datos.ancho / 2, datos.alto / 2, objetos, tweens, "planeta");

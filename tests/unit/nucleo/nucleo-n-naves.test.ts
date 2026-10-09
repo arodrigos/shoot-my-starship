@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import fc from "fast-check";
-import { resolverSolucionesBalisticas } from "@/sim/balistica/solucionador";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { LA_CONTABLE } from "@/sim/ia/personalidades";
 import { avanzar } from "@/sim/partida/avanzar";
 import { comprobarInvariante, crearPartidaInicial, jugarPartida } from "@/sim/partida/motor";
 import { idsNavesVivas, siguienteTurno, type EstadoPartida, type FuenteDeTurno, type IdNave } from "@/sim/partida/tipos";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
+import { solucionTensa } from "../../utils/solucionTensa";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 
 const MUNDO = { ancho: 1920, alto: 1080, gravedad: 1.0, deriva: 0, etiquetaDeriva: "nucleo-n-naves" };
@@ -31,7 +31,7 @@ function fuenteExacta(): FuenteDeTurno {
     const objetivoId = Math.min(...rivales);
     const naveTiradora = estado.naves[tirador];
     const naveObjetivo = estado.naves[objetivoId];
-    const [solucion] = resolverSolucionesBalisticas(naveTiradora.x, ALTURA_SUELO, naveObjetivo.x, ALTURA_SUELO, estado.mundo.gravedad);
+    const solucion = solucionTensa(naveTiradora.x, ALTURA_SUELO, naveObjetivo.x, ALTURA_SUELO, estado.mundo.gravedad);
     return {
       entrada: {
         arma: "pepinazo-cortesia",
@@ -101,7 +101,7 @@ test("nucleo-n-naves-3: el saldo es un campo por nave: disparar cobra solo el pr
     saldos: [1000, 500, undefined, 1000],
   };
 
-  const [solucion] = resolverSolucionesBalisticas(estado.naves[0].x, ALTURA_SUELO, estado.naves[1].x, ALTURA_SUELO, estado.mundo.gravedad);
+  const solucion = solucionTensa(estado.naves[0].x, ALTURA_SUELO, estado.naves[1].x, ALTURA_SUELO, estado.mundo.gravedad);
   const { estado: tras } = avanzar(estado, {
     arma: "pepinazo-cortesia",
     anguloGrados: solucion.anguloGrados,
@@ -109,7 +109,7 @@ test("nucleo-n-naves-3: el saldo es un campo por nave: disparar cobra solo el pr
     objetivoId: 1,
   });
 
-  assert.deepEqual(tras.saldos, [1000 - 40, 500, undefined, 1000], "solo el saldo del tirador baja, exactamente el precio del Pepinazo");
+  assert.deepEqual(tras.saldos, [1000 - 35, 500, undefined, 1000], "solo el saldo del tirador baja, exactamente el precio del Pepinazo");
 });
 
 test("nucleo-n-naves-6: invariantes del modelo de turnos (fast-check)", () => {
