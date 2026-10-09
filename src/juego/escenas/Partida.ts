@@ -1796,12 +1796,35 @@ export class Partida extends Phaser.Scene {
   // jueguen exactamente igual que tras un disparo.
   private usarEquipoEntrada(entrada: EntradaDeTurno, esJugador: boolean): void {
     const estadoAntes = this.estado;
+    if (this.solicitudEnCurso) return;
     if (estadoAntes.resultado.tipo === "terminada" || this.animador.enVuelo()) return;
     limpiarCuentaAtras();
     const tirador: IdNave = estadoAntes.turno;
-    const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = avanzar(estadoAntes, entrada);
-    if (esJugador) this.ultimoHumano = tirador;
+    // respuesta-200ms: los propulsores recolocan la nave simulando el recorrido
+    // y su «descartar»; en el hilo principal eso bloqueaba el toque más de un
+    // segundo en pantallas grandes, así que se resuelve en el trabajador igual
+    // que el disparo.
+    this.solicitudEnCurso = true;
     publicarJugable(false);
+    void this.motor.resolverDisparo({ tipo: "resolverDisparo", estado: estadoAntes, entrada }).then((resultadoAvance) => {
+      this.solicitudEnCurso = false;
+      if (resultadoAvance === null) {
+        publicarJugable(this.puedeJugarAhora());
+        return;
+      }
+      this.cerrarTurnoDeEquipo(estadoAntes, entrada, esJugador, tirador, resultadoAvance);
+    });
+  }
+
+  private cerrarTurnoDeEquipo(
+    estadoAntes: EstadoPartida,
+    entrada: EntradaDeTurno,
+    esJugador: boolean,
+    tirador: IdNave,
+    resultadoAvance: ReturnType<typeof avanzar>,
+  ): void {
+    const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = resultadoAvance;
+    if (esJugador) this.ultimoHumano = tirador;
     this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, undefined, {
       detonaciones,
       alAvanzarTurno: () => {
