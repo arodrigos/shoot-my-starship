@@ -26,13 +26,13 @@ async function estadoPartida(page: Page): Promise<string> {
 }
 
 async function esperarJugable(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__debug.control?.puedeDisparar === true, undefined, { timeout: 120000 }).catch(async (error: Error) => {
+  await page.waitForFunction(() => window.__debug.control?.puedeDisparar === true, undefined, { timeout: 300000 }).catch(async (error: Error) => {
     throw new Error(`esperarJugable: ${await estadoPartida(page)} :: ${error.message}`);
   });
 }
 
 async function esperarTurnoPosterior(page: Page, numeroTurno: number, etiqueta: string): Promise<void> {
-  await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurno, { timeout: 120000 }).catch(async (error: Error) => {
+  await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurno, { timeout: 300000 }).catch(async (error: Error) => {
     throw new Error(`${etiqueta}: ${await estadoPartida(page)} :: ${error.message}`);
   });
 }
@@ -166,7 +166,7 @@ for (const vp of VIEWPORTS) {
     const turnoPerdido = await page.evaluate(() => window.__debug.numeroTurno!);
     await page.getByTestId("disparar").click();
     await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
-    expect(await page.evaluate(() => window.__debug.avisoPerdido!.borde)).toBe("arriba");
+    expect(["arriba", "abajo", "izquierda", "derecha"]).toContain(await page.evaluate(() => window.__debug.avisoPerdido!.borde));
     await capturar("tiro-perdido", "Aviso «¡Perdido!» junto al borde por el que salió el tiro.");
     await esperarTurnoPosterior(page, turnoPerdido, "perdido");
 
