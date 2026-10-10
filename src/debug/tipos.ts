@@ -175,6 +175,17 @@ export interface DebugEfectoVisible {
   readonly sobre: Detonacion["sobre"];
 }
 
+// pegajosa-borde: lo que cargarEscenario acepta. Las naves se indican por
+// asiento (el mismo orden que la partida en curso) y las que no se nombren
+// quedan como estaban.
+export interface EscenarioPrueba {
+  readonly naves: readonly { readonly x: number; readonly y: number; readonly integridad: number }[];
+  readonly arma: string;
+  readonly anguloGrados: number;
+  readonly potencia: number;
+  readonly ronda?: number;
+}
+
 export interface DebugGlobal {
   ultimoPunto?: { x: number; y: number };
   terreno?: DebugTerreno;
@@ -224,6 +235,10 @@ export interface DebugGlobal {
   }[];
   // Solo e2e: coloca objetos exactos (posición y velocidad) para fijar un escenario.
   fijarObjetos?: (objetos: readonly { tipo: "corazon" | "tormenta"; x: number; y: number; vx: number; vy: number }[]) => void;
+  // Solo e2e: deja la partida en un estado exacto (naves, arma, ángulo y
+  // potencia) con el turno del primer humano, para provocar casos dinámicos
+  // sin depender de la semilla del mapa.
+  cargarEscenario?: (escenario: EscenarioPrueba) => void;
   // Solo e2e: sitúa la partida en una ronda y con unas integridades exactas.
   fijarMuerteSubita?: (escenario: { ronda: number; integridades?: readonly number[] }) => void;
   ronda?: number;
