@@ -6,8 +6,11 @@ import { test, expect, type Page } from "@playwright/test";
 // instantes: las capturas (a ~0, 300, 1500 y 6500 ms) son para el juicio visual.
 type Borde = "arriba" | "izquierda" | "derecha" | "abajo";
 
-async function cargar(page: Page, borde: Borde): Promise<void> {
-  await page.setViewportSize({ width: 360, height: 640 });
+type Tamano = { ancho: number; alto: number };
+const MOVIL: Tamano = { ancho: 360, alto: 640 };
+
+async function cargar(page: Page, borde: Borde, tamano: Tamano = MOVIL): Promise<void> {
+  await page.setViewportSize({ width: tamano.ancho, height: tamano.alto });
   await page.goto("/?modo=barra-libre");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
@@ -35,8 +38,8 @@ async function cargar(page: Page, borde: Borde): Promise<void> {
   await page.waitForFunction(() => window.__debug.control!.ajuste.armaId === "gancho-pegajoso" && window.__debug.control!.puedeDisparar === true);
 }
 
-async function captura(page: Page, borde: Borde, ms: number): Promise<void> {
-  if (process.env.CAPTURAS_DIR) await page.screenshot({ path: `${process.env.CAPTURAS_DIR}/pegajosa-borde-${borde}-${ms}ms-360x640.png` });
+async function captura(page: Page, borde: Borde, ms: number, tamano: Tamano = MOVIL): Promise<void> {
+  if (process.env.CAPTURAS_DIR) await page.screenshot({ path: `${process.env.CAPTURAS_DIR}/pegajosa-borde-${borde}-${ms}ms-${tamano.ancho}x${tamano.alto}.png` });
 }
 
 for (const borde of ["arriba", "izquierda", "derecha", "abajo"] as const) {
@@ -75,5 +78,28 @@ for (const borde of ["arriba", "izquierda", "derecha", "abajo"] as const) {
       expect(medida.detonacionesPropias).toBe(0);
       expect(medida.naves).toBe(navesAntes);
     }
+  });
+}
+
+// Mismo recorrido en tableta (vertical y horizontal): el criterio visual pide
+// los tres tamaños, y el borde superior basta porque la lógica es la misma.
+for (const tamano of [{ ancho: 820, alto: 1180 }, { ancho: 1180, alto: 820 }]) {
+  test(`peg-1: el gancho que sale por arriba desaparece a ${tamano.ancho}x${tamano.alto}`, async ({ page }) => {
+    test.setTimeout(120000);
+    await cargar(page, "arriba", tamano);
+    await page.getByTestId("disparar").click();
+    await captura(page, "arriba", 0, tamano);
+    await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
+    await captura(page, "arriba", 300, tamano);
+    await page.waitForTimeout(1500);
+    await captura(page, "arriba", 1500, tamano);
+    await page.waitForTimeout(5000);
+    await captura(page, "arriba", 6500, tamano);
+    const final = await page.evaluate(() => ({
+      gancho: window.__debug.proyectilEnVuelo?.armaId === "gancho-pegajoso",
+      cuenta: window.__debug.cuentaAtrasAdherencia ?? null,
+    }));
+    expect(final.gancho).toBe(false);
+    expect(final.cuenta).toBeNull();
   });
 }
