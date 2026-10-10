@@ -5,6 +5,7 @@ import {
   type PuntoCasco,
   type VarianteNave,
 } from "@/sim/naves/geometriaCasco";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 
 export interface NavePosicion {
   readonly id: IdNave;
@@ -44,7 +45,7 @@ export function dentroDelPoligono(x: number, y: number, puntos: readonly PuntoCa
 
 // El polígono (en coordenadas locales de la nave) que se dibuja y que colisiona.
 export function poligonoDeNave(nave: NavePosicion): readonly PuntoCasco[] {
-  return puntosCascoConDanio(direccionDeNave(nave.id), nivelDanio(nave.integridad ?? 100), varianteDeNave(nave.id));
+  return puntosCascoConDanio(direccionDeNave(nave.id), nivelDanio(nave.integridad ?? INTEGRIDAD_MAXIMA), varianteDeNave(nave.id));
 }
 
 function distanciaPuntoSegmento(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {

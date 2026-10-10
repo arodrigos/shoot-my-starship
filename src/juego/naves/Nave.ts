@@ -6,6 +6,7 @@ import { DURACION_DESTELLO_DANIO_MS } from "@/juego/efectos/realceImpacto";
 import type { VarianteNave } from "@/sim/naves/geometriaCasco";
 import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
 import type { IdNave } from "@/sim/partida/tipos";
+import { porcentajeIntegridad } from "@/sim/naves/vida";
 
 const COLOR_CASCO_SOMBRA = 0x1c1e24;
 const COLOR_CANON = 0xd9dbe0;
@@ -250,7 +251,7 @@ export class Nave {
   // (nve-1), redibuja la silueta con sus abolladuras -- el cambio de forma
   // solo cuesta un dibujarCasco por cruce de tramo, no por fotograma.
   actualizarIntegridad(integridad: number): void {
-    const alfa = 0.35 + (0.65 * Math.max(0, Math.min(100, integridad))) / 100;
+    const alfa = 0.35 + (0.65 * porcentajeIntegridad(integridad)) / 100;
     this.casco.setAlpha(alfa);
 
     const nivel = nivelDanio(integridad);

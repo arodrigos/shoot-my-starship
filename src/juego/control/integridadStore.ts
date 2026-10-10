@@ -1,3 +1,4 @@
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 // Puente React/Phaser para la barra de integridad por nave (imp-11): mismo
 // patrón singleton pub/sub que resultadoTurnoStore.ts. Vive aparte de
 // EstadoControl porque la integridad es un dato de la PARTIDA (las dos
@@ -19,8 +20,8 @@ export interface EstadoIntegridad {
 
 const ESTADO_INICIAL: EstadoIntegridad = {
   naves: [
-    { id: 0, integridad: 100 },
-    { id: 1, integridad: 100 },
+    { id: 0, integridad: INTEGRIDAD_MAXIMA },
+    { id: 1, integridad: INTEGRIDAD_MAXIMA },
   ],
 };
 

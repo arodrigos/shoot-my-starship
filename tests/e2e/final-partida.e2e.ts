@@ -25,7 +25,7 @@ async function gastarTurnoConEscudo(page: Page): Promise<void> {
 test("final de partida: gana el único humano y se le habla en segunda persona", async ({ page }) => {
   test.setTimeout(180000);
   await empezar(page);
-  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 9, integridades: [20, 5] }));
+  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 13, integridades: [20, 4] }));
   await gastarTurnoConEscudo(page);
   await page.waitForFunction(() => window.__debug.ganador !== undefined, undefined, { timeout: 90000 });
   expect(await page.evaluate(() => window.__debug.ganador)).toBe(0);
@@ -36,7 +36,7 @@ test("final de partida: gana el único humano y se le habla en segunda persona",
 test("final de partida: si gana la IA se nombra a la IA", async ({ page }) => {
   test.setTimeout(180000);
   await empezar(page);
-  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 9, integridades: [5, 20] }));
+  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 13, integridades: [4, 20] }));
   await gastarTurnoConEscudo(page);
   await page.waitForFunction(() => window.__debug.ganador !== undefined, undefined, { timeout: 90000 });
   const nombreIA = await page.evaluate(() => window.__debug.controladores![1].nombre);

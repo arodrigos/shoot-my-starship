@@ -15,7 +15,7 @@ async function empezar(page: Page, extra = ""): Promise<void> {
 // El escudo gasta el turno sin depender de la puntería; el drenaje de la
 // muerte súbita mata a la nave con menos integridad.
 async function matarALaIA(page: Page): Promise<void> {
-  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 9, integridades: [60, 5] }));
+  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 13, integridades: [60, 4] }));
   await page.getByTestId("selector-arma-abrir").click();
   await page.getByTestId("pestana-equipo").click();
   await page.getByTestId("equipo-escudo").click();

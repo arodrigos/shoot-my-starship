@@ -4,11 +4,12 @@ import type { EstadoNave, EstadoPartida, IdNave } from "@/sim/partida/tipos";
 // Desde esta ronda todas las naves vivas pierden vida a la vez al empezar cada
 // ronda: es lo que acota por construcción las partidas que ningún bando
 // resuelve (hallazgo de las partidas solo de IAs que no terminaban).
-export const RONDA_MUERTE_SUBITA = 10;
-export const DRENAJE_BASE = 5;
+export const RONDA_MUERTE_SUBITA = 14;
+export const DRENAJE_BASE = 4;
 
-// 5, 10, 15, 20... Crece sin tope: con integridad máxima 100 acumula 105 al
-// empezar la ronda RONDA_MUERTE_SUBITA + 5, así que nadie sobrevive más allá.
+// 4, 8, 12, 16... Crece sin tope: con integridad máxima 150 acumula 180 al
+// empezar la ronda RONDA_MUERTE_SUBITA + 8 (la 22), así que nadie sobrevive
+// más allá.
 export function drenajeDeRonda(ronda: number): number {
   return ronda < RONDA_MUERTE_SUBITA ? 0 : DRENAJE_BASE * (ronda - RONDA_MUERTE_SUBITA + 1);
 }

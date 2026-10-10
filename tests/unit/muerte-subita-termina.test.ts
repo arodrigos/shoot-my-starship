@@ -6,9 +6,10 @@ import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { buscarEquipo } from "@/sim/equipo/catalogo";
 import { colocarNaves } from "@/sim/naves/colocacion";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 import { avanzar } from "@/sim/partida/avanzar";
 import { costeArma } from "@/sim/partida/economia";
-import { avanzarRonda, conMuerteSubita, drenajeDeRonda, RONDA_MUERTE_SUBITA } from "@/sim/partida/muerteSubita";
+import { avanzarRonda, conMuerteSubita, DRENAJE_BASE, drenajeDeRonda, RONDA_MUERTE_SUBITA } from "@/sim/partida/muerteSubita";
 import type { EntradaDeTurno, EstadoPartida, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import { idsNavesVivas } from "@/sim/partida/tipos";
 import { buscarEvento } from "@/sim/universo/catalogoEventos";
@@ -83,7 +84,7 @@ function partida(semilla: number, naves: number, modo: "barra-libre" | "presupue
 // ms-1 (invariante 1) y ms-3: la partida real, con escudo, propulsores,
 // eventos, armas gratis, robot y compra al usar, siempre termina dentro de la
 // cota y nunca cura una vez empezada la muerte súbita.
-test("ms-1: toda partida termina antes de la ronda RONDA_MUERTE_SUBITA + 6 y no hay curas en muerte súbita", () => {
+test("ms-1: toda partida termina antes de la ronda RONDA_MUERTE_SUBITA + 9 y no hay curas en muerte súbita", () => {
   fc.assert(
     fc.property(fc.integer({ min: 1, max: 4 }), fc.integer({ min: 2, max: 4 }), fc.constantFrom("barra-libre" as const, "presupuesto" as const), fc.integer(), (semilla, naves, modo, azarSemilla) => {
       const azar = crearAzar(azarSemilla);
@@ -99,7 +100,7 @@ test("ms-1: toda partida termina antes de la ronda RONDA_MUERTE_SUBITA + 6 y no 
         }
       }
       assert.equal(estado.resultado.tipo, "terminada");
-      assert.ok(estado.numeroTurno <= naves * (RONDA_MUERTE_SUBITA + 5) + 1, `terminó en el turno ${estado.numeroTurno}`);
+      assert.ok(estado.numeroTurno <= naves * (RONDA_MUERTE_SUBITA + 8) + 1, `terminó en el turno ${estado.numeroTurno}`);
       const vivas = idsNavesVivas(estado);
       assert.ok(vivas.length <= 1);
       if (estado.resultado.tipo === "terminada") assert.equal(estado.resultado.ganador, vivas.length === 1 ? vivas[0] : null);
@@ -108,15 +109,15 @@ test("ms-1: toda partida termina antes de la ronda RONDA_MUERTE_SUBITA + 6 y no 
   );
 });
 
-// Invariante 2: el drenaje de la ronda r es 5 × (r − 9) para toda ronda ≥ 10,
+// Invariante 2: el drenaje de la ronda r es DRENAJE_BASE × (r − 13) para toda ronda ≥ 14,
 // se aplica a todas las vivas a la vez y el escudo no lo frena.
-test("ms-1: el drenaje es 5 × (r − RONDA_MUERTE_SUBITA + 1), igual para todas las vivas y sin pasar por el escudo", () => {
+test("ms-1: el drenaje es DRENAJE_BASE × (r − RONDA_MUERTE_SUBITA + 1), igual para todas las vivas y sin pasar por el escudo", () => {
   fc.assert(
-    fc.property(fc.integer({ min: RONDA_MUERTE_SUBITA - 1, max: 40 }), fc.array(fc.integer({ min: 1, max: 100 }), { minLength: 2, maxLength: 4 }), fc.boolean(), (ronda, integridades, escudo) => {
+    fc.property(fc.integer({ min: RONDA_MUERTE_SUBITA - 1, max: 40 }), fc.array(fc.integer({ min: 1, max: INTEGRIDAD_MAXIMA }), { minLength: 2, maxLength: 4 }), fc.boolean(), (ronda, integridades, escudo) => {
       const base = partida(1, 2, "barra-libre");
       const naves = integridades.map((integridad, id) => ({ x: 100 * id, y: 100, integridad, ...(escudo ? { escudoTurnosRestantes: 2 } : {}) }));
       const fase = avanzarRonda({ ...base, ronda: ronda - 1, naves }, naves);
-      const danio = 5 * (ronda - RONDA_MUERTE_SUBITA + 1);
+      const danio = DRENAJE_BASE * (ronda - RONDA_MUERTE_SUBITA + 1);
       assert.equal(fase.ronda, ronda);
       assert.equal(drenajeDeRonda(ronda), danio);
       fase.naves.forEach((nave, id) => assert.equal(nave.integridad, Math.max(0, integridades[id] - danio)));
@@ -124,7 +125,7 @@ test("ms-1: el drenaje es 5 × (r − RONDA_MUERTE_SUBITA + 1), igual para todas
   );
 });
 
-test("ms-1: antes de la ronda 10 el drenaje es 0 y la ronda 9 avisa", () => {
+test("ms-1: antes de la ronda 14 el drenaje es 0 y la ronda 13 avisa", () => {
   assert.equal(drenajeDeRonda(RONDA_MUERTE_SUBITA - 1), 0);
   const base = partida(1, 2, "barra-libre");
   const fase = avanzarRonda({ ...base, ronda: RONDA_MUERTE_SUBITA - 2 }, base.naves);

@@ -4,6 +4,7 @@ import { existeTiroViable, RANGO_ANGULOS_IA, RANGO_ANGULOS_JUGADOR } from "@/sim
 import { esSolido } from "@/sim/terreno/mascara";
 import { generarSistema, type SistemaGenerado } from "@/sim/sistema/generador";
 import type { EstadoNave, ParametrosMundo } from "@/sim/partida/tipos";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 
 // Las tres holguras que separan "aleatorio" de "aleatorio jugable"
 // (nav-2): ninguna nave incrustada en un sólido, ninguna nave pegada a la
@@ -228,7 +229,7 @@ function intentarColocarEnSistema(
           );
     if (!todosViables) continue;
 
-    const naves: EstadoNave[] = puntos.map((punto) => ({ x: punto.x, y: punto.y, integridad: 100 }));
+    const naves: EstadoNave[] = puntos.map((punto) => ({ x: punto.x, y: punto.y, integridad: INTEGRIDAD_MAXIMA }));
     return { naves, aleatorio, intentos: intento };
   }
 
@@ -263,7 +264,7 @@ function colocarSinViabilidad(sistema: SistemaGenerado, mundo: ParametrosMundo, 
         puntos.push(paso.punto);
       }
       if (puntos.length === cantidad) {
-        const naves: EstadoNave[] = puntos.map((punto) => ({ x: punto.x, y: punto.y, integridad: 100 }));
+        const naves: EstadoNave[] = puntos.map((punto) => ({ x: punto.x, y: punto.y, integridad: INTEGRIDAD_MAXIMA }));
         return { naves, aleatorio };
       }
     }
@@ -291,7 +292,7 @@ export function colocacionUltimoRecurso(mundo: ParametrosMundo, cantidad = 2): r
   return Array.from({ length: cantidad }, (_nave, id) => ({
     x: inicio + (recorrido * id) / (cantidad - 1),
     y,
-    integridad: 100,
+    integridad: INTEGRIDAD_MAXIMA,
   }));
 }
 

@@ -117,6 +117,7 @@ import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaA
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
 import type { DebugEfectoVisible } from "@/debug/tipos";
 import "@/debug/tipos";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 
 // cat-2: el haz del Rayo Láser se ve al menos esto antes de apagarse.
 // Holgura entre el vértice de la solución de depuración y el borde superior.
@@ -980,7 +981,7 @@ export class Partida extends Phaser.Scene {
     // resolver: solo el refresco visual y de depuración que un turno real
     // dispara al final.
     window.__debug.forzarIntegridad = (nave, integridad) => {
-      const acotada = Math.max(0, Math.min(100, integridad));
+      const acotada = Math.max(0, Math.min(INTEGRIDAD_MAXIMA, integridad));
       this.estado = {
         ...this.estado,
         naves: this.estado.naves.map((actual, id) => (id === nave ? { ...actual, integridad: acotada } : actual)),
@@ -1405,7 +1406,7 @@ export class Partida extends Phaser.Scene {
           ...this.estado,
           resultado: { tipo: "en-curso" },
           turno: ID_JUGADOR,
-          naves: this.estado.naves.map((actual) => ({ ...actual, integridad: 100 })),
+          naves: this.estado.naves.map((actual) => ({ ...actual, integridad: INTEGRIDAD_MAXIMA })),
         };
         this.refrescarDebugNaves();
       } else if (this.solicitudEnCurso) {
