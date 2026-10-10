@@ -401,6 +401,11 @@ export interface DebugGlobal {
   // declara el núcleo, y las explosiones que la cáscara dibujó para ellas
   // (misma longitud y mismo orden). Se sustituyen en cada turno.
   detonaciones?: readonly Detonacion[];
+  // Cuántas detonaciones declaró cada arma en cada turno resuelto, en orden y
+  // acumulado desde que arranca la partida. `detonaciones` se pisa en cuanto
+  // otro turno se resuelve, y dos turnos pueden resolverse en la misma tarea:
+  // un muestreo por intervalo no los ve. Solo lo leen los tests.
+  registroDetonaciones?: readonly { readonly tirador: number; readonly armaId: string; readonly cantidad: number }[];
   efectosVisibles?: readonly DebugEfectoVisible[];
   // vida-color: lo que pinta la barra de vida de cada nave viva (una nave a
   // 0 no tiene barra y no aparece).
@@ -471,6 +476,9 @@ export interface DebugGlobal {
   // pero sin esperar el reloj real entre pasos, para que un test de pool
   // acotado no tenga que reproducir 20 vuelos a velocidad real.
   dispararRafagaTurbo?: (numeroDeDisparos: number) => Promise<void>;
+  // partida-completa (solo e2e): empuja el reloj de la animación hasta que el
+  // jugador puede volver a disparar, sin esperar fotogramas reales.
+  avanzarHastaTurnoHumano?: () => Promise<void>;
   // imp-11: análogo a solucionBalisticaJugador pero para modo espacial, donde
   // no hay fórmula cerrada -- reutiliza el mismo oráculo real de la IA
   // (barridoRejilla) para dar un disparo con daño > 0 verificado contra el

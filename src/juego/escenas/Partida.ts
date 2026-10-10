@@ -933,6 +933,7 @@ export class Partida extends Phaser.Scene {
 
     window.__debug.jugarTurnosGuionizados = (numero) => this.jugarTurnosGuionizados(numero);
     window.__debug.dispararRafagaTurbo = (numero) => this.dispararRafagaTurbo(numero);
+    window.__debug.avanzarHastaTurnoHumano = () => this.avanzarHastaTurnoHumano();
     window.__debug.forzarFinDePartida = () => this.forzarFinDePartida();
     window.__debug.solucionBalisticaJugador = () => this.calcularSolucionBalistica(this.estado);
     window.__debug.solucionMultipozoJugador = () => this.calcularSolucionMultipozo(this.estado);
@@ -1371,6 +1372,24 @@ export class Partida extends Phaser.Scene {
   // que cada vez que la partida termina dentro de la ráfaga se repone la
   // integridad de ambas naves (y el turno, siempre de vuelta al jugador) y
   // se continúa disparando en el mismo mundo, en vez de cortar la ráfaga.
+  // partida-completa (solo e2e): entre dos toques del jugador pasan los turnos
+  // de las IAs, con sus vuelos y explosiones. En el CI, con el lienzo rasterizado
+  // por software, cada vuelo animado tarda ~70 s de reloj real, así que se
+  // empuja el reloj de la animación con update() como hace la ráfaga turbo. El
+  // estado que se alcanza es el mismo; solo se evita esperar un fotograma real
+  // por paso. Cada tanda cede el hilo para que lleguen el trabajador y los
+  // temporizadores reales (nada de bucle síncrono sin fin).
+  private async avanzarHastaTurnoHumano(): Promise<void> {
+    const PASO_TURBO_MS = 32;
+    const TANDA = 200;
+    for (let guardia = 0; guardia < 400 && this.estado.resultado.tipo !== "terminada" && !this.puedeJugarAhora(); guardia++) {
+      if (!this.solicitudEnCurso) {
+        for (let i = 0; i < TANDA && !this.puedeJugarAhora(); i++) this.update(0, PASO_TURBO_MS);
+      }
+      await new Promise<void>((resolver) => setTimeout(resolver, 0));
+    }
+  }
+
   private async dispararRafagaTurbo(numeroDeDisparos: number): Promise<void> {
     const PASO_TURBO_MS = 32;
     const objetivoTurno = this.estado.numeroTurno + numeroDeDisparos;
@@ -1777,12 +1796,35 @@ export class Partida extends Phaser.Scene {
   // jueguen exactamente igual que tras un disparo.
   private usarEquipoEntrada(entrada: EntradaDeTurno, esJugador: boolean): void {
     const estadoAntes = this.estado;
+    if (this.solicitudEnCurso) return;
     if (estadoAntes.resultado.tipo === "terminada" || this.animador.enVuelo()) return;
     limpiarCuentaAtras();
     const tirador: IdNave = estadoAntes.turno;
-    const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = avanzar(estadoAntes, entrada);
-    if (esJugador) this.ultimoHumano = tirador;
+    // respuesta-200ms: los propulsores recolocan la nave simulando el recorrido
+    // y su «descartar»; en el hilo principal eso bloqueaba el toque más de un
+    // segundo en pantallas grandes, así que se resuelve en el trabajador igual
+    // que el disparo.
+    this.solicitudEnCurso = true;
     publicarJugable(false);
+    void this.motor.resolverDisparo({ tipo: "resolverDisparo", estado: estadoAntes, entrada }).then((resultadoAvance) => {
+      this.solicitudEnCurso = false;
+      if (resultadoAvance === null) {
+        publicarJugable(this.puedeJugarAhora());
+        return;
+      }
+      this.cerrarTurnoDeEquipo(estadoAntes, entrada, esJugador, tirador, resultadoAvance);
+    });
+  }
+
+  private cerrarTurnoDeEquipo(
+    estadoAntes: EstadoPartida,
+    entrada: EntradaDeTurno,
+    esJugador: boolean,
+    tirador: IdNave,
+    resultadoAvance: ReturnType<typeof avanzar>,
+  ): void {
+    const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = resultadoAvance;
+    if (esJugador) this.ultimoHumano = tirador;
     this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, undefined, {
       detonaciones,
       alAvanzarTurno: () => {
@@ -1989,7 +2031,10 @@ export class Partida extends Phaser.Scene {
     let esperaSacudidaMs = 0;
     const movimientoReducido = prefiereMovimientoReducido();
     window.__debug!.detonaciones = detonaciones;
-    if (detonaciones.length > 0) this.medidorFrames.marcar("impacto");
+    if (detonaciones.length > 0) {
+      this.medidorFrames.marcar("impacto");
+      window.__debug!.registroDetonaciones = [...(window.__debug!.registroDetonaciones ?? []), { tirador, armaId: detonaciones[0].armaId, cantidad: detonaciones.length }];
+    }
     if (eventos.some((evento) => evento.tipo === "proyectil-perdido")) this.medidorFrames.marcar("salida");
     const lanzadas = reproducirDetonaciones(
       detonaciones,
