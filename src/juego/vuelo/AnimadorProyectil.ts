@@ -442,10 +442,14 @@ export class AnimadorProyectil {
       if (detenerse(siguiente)) {
         // arma-mina-adherente (min-1): mismo criterio que el impacto de
         // casco -- el contacto con terreno sólido pega en vez de terminar.
-        if (this.pasosHastaDetonarTrasAdherencia !== null) {
+        if (this.pasosHastaDetonarTrasAdherencia !== null && estaDentroDelMundo(siguiente, encuadre)) {
           this.adherido = true;
         } else {
+          // Fuera del mundo no hay roca a la que agarrarse: el núcleo lo da
+          // por perdido (como a cualquier otra arma), así que aquí se corta
+          // el vuelo sin contador ni detonación.
           detenido = true;
+          if (this.pasosHastaDetonarTrasAdherencia !== null) agotado = true;
         }
       }
       // arma-granada-espoleta (gra-1): mismo orden de precedencia que
@@ -490,4 +494,11 @@ export class AnimadorProyectil {
       callback?.(final);
     }
   }
+}
+
+// El gancho solo se agarra dentro del mundo: el mismo recinto que usa el
+// núcleo (estaAnclado) para decidir si lo pierde.
+function estaDentroDelMundo(p: EstadoProyectil, encuadre: EncuadreVuelo | undefined): boolean {
+  if (!encuadre) return true;
+  return p.x >= 0 && p.x < encuadre.ancho && p.y >= 0 && p.y < encuadre.alto;
 }
