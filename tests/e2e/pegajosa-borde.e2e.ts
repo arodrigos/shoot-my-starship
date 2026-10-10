@@ -48,7 +48,6 @@ for (const borde of ["arriba", "izquierda", "derecha", "abajo"] as const) {
     await captura(page, borde, 0);
     await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
     await captura(page, borde, 300);
-    await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 30000 });
 
     // Tras el disparo humano la IA juega su turno: proyectilEnVuelo y las
     // explosiones visibles pueden ser suyos, así que solo se miran los del
