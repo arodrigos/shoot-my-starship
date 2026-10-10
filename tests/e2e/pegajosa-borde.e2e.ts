@@ -50,33 +50,31 @@ for (const borde of ["arriba", "izquierda", "derecha", "abajo"] as const) {
     await captura(page, borde, 300);
     await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 30000 });
 
-    const tras = await page.evaluate(() => ({
-      aviso: window.__debug.avisoPerdido!.borde,
-      enVuelo: window.__debug.proyectilEnVuelo ?? null,
-      cuenta: window.__debug.cuentaAtrasAdherencia ?? null,
-      detonaciones: window.__debug.detonaciones?.length ?? 0,
-      naves: window.__debug.naves!.length,
-    }));
+    // Tras el disparo humano la IA juega su turno: proyectilEnVuelo y las
+    // explosiones visibles pueden ser suyos, así que solo se miran los del
+    // gancho (arma) y los del tirador 0.
+    const leer = () =>
+      page.evaluate(() => ({
+        aviso: window.__debug.avisoPerdido?.borde ?? null,
+        gancho: window.__debug.proyectilEnVuelo?.armaId === "gancho-pegajoso",
+        cuenta: window.__debug.cuentaAtrasAdherencia ?? null,
+        detonacionesPropias: (window.__debug.registroDetonaciones ?? []).filter((r) => r.tirador === 0).reduce((suma, r) => suma + r.cantidad, 0),
+        naves: window.__debug.naves!.length,
+      }));
+    const tras = await leer();
     await page.waitForTimeout(1500);
     await captura(page, borde, 1500);
     // Más que los 5 s de la mecha: si el gancho estuviera pegado, ya habría explotado.
     await page.waitForTimeout(5000);
     await captura(page, borde, 6500);
-    const final = await page.evaluate(() => ({
-      enVuelo: window.__debug.proyectilEnVuelo ?? null,
-      cuenta: window.__debug.cuentaAtrasAdherencia ?? null,
-      explosiones: (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === "explosion").length,
-      detonaciones: window.__debug.detonaciones?.length ?? 0,
-    }));
+    const final = await leer();
 
     expect(["arriba", "abajo", "izquierda", "derecha"]).toContain(tras.aviso);
-    expect(tras.enVuelo).toBeNull();
-    expect(tras.cuenta).toBeNull();
-    expect(tras.detonaciones).toBe(0);
-    expect(tras.naves).toBe(navesAntes);
-    expect(final.enVuelo).toBeNull();
-    expect(final.cuenta).toBeNull();
-    expect(final.explosiones).toBe(0);
-    expect(final.detonaciones).toBe(0);
+    for (const medida of [tras, final]) {
+      expect(medida.gancho).toBe(false);
+      expect(medida.cuenta).toBeNull();
+      expect(medida.detonacionesPropias).toBe(0);
+      expect(medida.naves).toBe(navesAntes);
+    }
   });
 }
