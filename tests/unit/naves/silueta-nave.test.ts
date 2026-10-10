@@ -131,11 +131,12 @@ test("nav-1: cada deterioro cambia la silueta y el morro y la tobera siguen en e
   }
 });
 
-test("nav-1: nivelDanio parte la integridad en tramos 66 / 33", () => {
-  assert.equal(nivelDanio(100), "alta");
-  assert.equal(nivelDanio(67), "alta");
-  assert.equal(nivelDanio(66), "media");
-  assert.equal(nivelDanio(34), "media");
-  assert.equal(nivelDanio(33), "baja");
+test("nav-1: nivelDanio parte la integridad en tramos 66 / 33 % de la vida máxima", () => {
+  // Con 150 de vida máxima, 101 es el 67,3 % y 99 el 66 %.
+  assert.equal(nivelDanio(100 * 1.5), "alta");
+  assert.equal(nivelDanio(101), "alta");
+  assert.equal(nivelDanio(99), "media");
+  assert.equal(nivelDanio(51), "media");
+  assert.equal(nivelDanio(49), "baja");
   assert.equal(nivelDanio(0), "baja");
 });
