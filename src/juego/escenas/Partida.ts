@@ -746,6 +746,21 @@ export class Partida extends Phaser.Scene {
       this.refrescarNaves();
       this.refrescarUniverso([]);
     };
+    window.__debug.cargarEscenario = (escenario) => {
+      const turno = this.estado.ordenTurno.find((id) => this.esHumano(id)) ?? this.estado.turno;
+      this.estado = {
+        ...(escenario.ronda === undefined ? this.estado : conMuerteSubita(this.estado, escenario.ronda)),
+        turno,
+        naves: this.estado.naves.map((nave, id) => {
+          const dado = escenario.naves[id];
+          return dado ? { ...nave, x: dado.x, y: dado.y, integridad: dado.integridad } : nave;
+        }),
+      };
+      seleccionarArma(escenario.arma);
+      fijarApuntadoDirecto(escenario.anguloGrados, escenario.potencia);
+      publicarTurno(turno);
+      this.refrescarNaves();
+    };
     window.__debug.fijarObjetos = (objetos) => {
       const universo = this.estado.universo;
       if (universo === undefined) return;

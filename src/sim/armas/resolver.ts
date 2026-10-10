@@ -512,7 +512,12 @@ function resolverUnDisparo(
     // borde del mundo (o si el presupuesto de vuelo se agota en el vacío) se
     // pierde sin efecto: ni daño ni cambio en la máscara.
     if (!impactoNave && !estaAnclado(mascara, proyectil.x, proyectil.y, ancho, alto)) {
-      return { puntos: [], perdido: true, aleatorio, pasos, salida: salidaDeVuelo(bordeSalida, puntoSalida) };
+      // Por abajo el vuelo se detiene en el fondo del mundo (detenerseEnSuelo)
+      // antes de cruzar el margen, así que simularVuelo no informa del borde:
+      // sin él no hay «¡Perdido!» y la cáscara dejaba el gancho pegado.
+      const salida =
+        salidaDeVuelo(bordeSalida, puntoSalida) ?? (proyectil.y >= alto ? { borde: "abajo" as const, x: proyectil.x, y: alto } : undefined);
+      return { puntos: [], perdido: true, aleatorio, pasos, salida };
     }
     return {
       puntos: [{ x: proyectil.x, y: proyectil.y, impactoNave: impactoNave?.nave, vx: proyectil.vx, vy: proyectil.vy }],
