@@ -14,8 +14,15 @@ rivales de IA (de 2 a 4 naves en total), y se pulsa "Jugar". Para apuntar se
 arrastra por la consola inferior (arriba/abajo ajusta el ángulo, que cubre los
 360°; izquierda/derecha ajusta la potencia) y se dispara con "Disparar". El
 proyectil vuela de verdad, curvado por la gravedad de los planetas: al apuntar
-se dibuja el círculo de influencia de cada pozo y la ruta corta que seguiría
-el disparo, junto con la banda de dispersión.
+se dibujan los halos de cada pozo y la ruta corta que seguiría el disparo,
+junto con la banda de dispersión.
+
+La consola ocupa como mucho el 40 % del alto, anclada abajo (centro,
+izquierda o derecha) y respetando la zona segura de la pantalla. Tiene tres
+estados: desplegada, mínima y oculta; oculta solo deja una pestaña de 48 × 48
+«Mostrar controles». El estado y el anclaje se recuerdan (`consola:estado` y
+`consola:anclaje`). Las bromas y avisos flotan sobre el borde superior de la
+consola.
 
 ### Física: gravedad y potencia
 
@@ -28,6 +35,17 @@ pasa de despreciable a notarse por encima de la potencia
 `UMBRAL_POTENCIA_DISPERSION_VISIBLE`. Es determinista (sale de la semilla de
 la partida, el turno y la nave), así que la previsualización enseña las dos
 trayectorias extremas de esa banda y no miente.
+
+Los halos de gravedad son de 3 a 4 anillos por pozo, calculados con la
+aceleración real (cada anillo marca donde el tirón cae a la mitad que en el
+anterior, `src/sim/gravedad/halos.ts`). Siguen a la masa viva del planeta y a
+los eventos que cambian la gravedad.
+
+Un tiro que sale de la pantalla se pierde: al cruzar cualquiera de los cuatro
+bordes más un margen de 24 u (`MARGEN_SALIDA_U`, `src/sim/fisica/vuelo.ts`),
+también por arriba, el vuelo termina sin detonar ni dañar, y aparece el aviso
+«¡Perdido!» junto al borde de salida. La previsualización corta igual, y la IA
+no gasta turnos en tiros que salen.
 
 ### Los dos modos
 
@@ -94,9 +112,9 @@ de trayectoria empezaría a mentir en cuanto el terreno deja de ser simétrico.
 
 ### Qué cuenta como impacto
 
-La zona de impacto de cada nave es exactamente su silueta dibujada: un
-polígono de 10 a 16 vértices por asiento (`src/sim/naves/geometriaCasco.ts`),
-sin ningún círculo de colisión aparte. Un proyectil impacta en el primer punto
+La zona de impacto de cada nave es exactamente su silueta dibujada (a escala
+1,5, `ESCALA_DIBUJO_NAVE`): un polígono de 10 a 16 vértices por asiento
+(`src/sim/naves/geometriaCasco.ts`), sin ningún círculo de colisión aparte. Un proyectil impacta en el primer punto
 en que su trayectoria corta ese contorno (aunque avance 60 u en un solo paso);
 si pasa fuera, aunque sea a una unidad, sigue de largo. El daño de una
 explosión cae con la distancia 2D real entre el punto donde estalla y el borde
@@ -106,6 +124,22 @@ que roza el borde del radio hace poco daño. Con el deterioro, la silueta se
 abolla y la zona de impacto se abolla con ella. Entender esto es la clave para
 leer por qué un disparo "que parecía bueno" no hizo apenas nada: probablemente
 pasó cerca, no dentro.
+
+El tiro propio no roza a quien dispara: la nave queda inmune a su proyectil
+hasta que este sale de su silueta y se aleja al menos 6 u de ella, sea cual
+sea el arma y el ángulo. Una nave muerta queda en su sitio como fantasma
+translúcido con el nombre del jugador, y no detiene ningún tiro.
+
+### Daño y empuje a la vista
+
+La barra de vida y el nombre de cada nave van en el color de su asiento, y el
+daño recibido sale como un número flotante en el color del atacante. La nave
+golpeada sale despedida en la dirección en que venía el proyectil, curvada por
+los pozos y deslizándose por los bordes; submuniciones, explosiones de área y
+eventos radiales empujan con su propia velocidad. Cada arma tiene forma y
+colores propios (`src/juego/armas/aspecto.ts`), iguales en el selector, en
+reposo y en vuelo, donde apunta a su rumbo y deja estela. Con movimiento
+reducido no hay números flotantes, estelas, giros ni vaivén del fantasma.
 
 ### Qué juzgar al jugar
 
@@ -142,9 +176,9 @@ bloquea el daño y el empuje de los disparos ajenos durante 2 turnos tuyos; no
 frena los objetos de evento ni el drenaje de la muerte súbita. Los
 **propulsores** (60 cr) lanzan la nave con la misma gravedad que un proyectil
 y la cortan al llegar al círculo marcado, de área un cuarto de la pantalla. La
-previsualización dibuja el recorrido. Tras recibir daño, una nave se recoloca
-dentro de un octavo de la diagonal, de modo que repetir el disparo sin volver
-a apuntar no acierta.
+previsualización dibuja el recorrido. Tras recibir daño, una nave se desplaza
+en la dirección del disparo, de modo que repetir el disparo sin volver a
+apuntar no acierta.
 
 ## Eventos del universo
 
@@ -154,8 +188,11 @@ cae). Pueden ser buenos o malos: lotería galáctica, vitaminas (doble daño 3
 turnos), virus (mitad de daño 3 turnos), reparación de planetas, terremoto
 galáctico, gravedad ×2 o ÷2, viento solar, agujero negro errante, y dos
 objetos que flotan bajo la gravedad y actúan si chocan con una nave: el
-corazón galáctico (+50 % de vida) y la tormenta solar (−25 %). Se apagan con
-`?eventos=0` en la URL.
+corazón galáctico (+50 % de vida) y la tormenta solar (−25 %). Cada uno de
+los once eventos se ve en pantalla: los que duran, con aura, icono, estela,
+espiral o latido sobre lo que afectan; los instantáneos, con lluvia de
+monedas, barrido o sacudida con polvo (la sacudida respeta el interruptor
+«Sacudida» y el movimiento reducido). Se apagan con `?eventos=0` en la URL.
 
 ## Muerte súbita
 
@@ -196,6 +233,19 @@ texto, lo avisa una vez y deshabilita el interruptor.
 - Habla de uno en uno (cada chiste corta al anterior), baja la música al 35 %
   mientras habla y calla durante el relevo y al ocultar la pestaña.
 
+## Rendimiento
+
+Objetivo: todo toque pinta su resultado en 200 ms o menos. La
+previsualización, la resolución del disparo y la decisión de la IA se calculan
+en un Web Worker (`src/juego/motor`); sin Worker se calculan en línea con el
+mismo resultado. Mientras la IA decide se muestra «<nombre> está apuntando…».
+Tras un impacto, el terreno solo repinta el rectángulo afectado, con una única
+subida a la GPU por frame.
+
+Para medirlo en tu propio dispositivo, abre el juego con `?rendimiento=1`:
+aparece un recuadro con p95, max, frames largos, INP y un veredicto («Respuesta
+≤ 200 ms» o «Supera 200 ms»). Detalle en `docs/rendimiento.md`.
+
 ## Desarrollo
 
 ```bash
@@ -216,13 +266,60 @@ npm run verificar:activos             # sin activos binarios ni URLs externas (v
 npm run test:unit                     # núcleo de simulación, sin navegador
 PRUEBA_LARGA=1 npm run test:unit      # ídem, con la muestra completa de los tests estadísticos
 npm run test:e2e                      # Playwright, contra un build local
+npm run calibrar:economia             # recalibra precios y saldo, regenera docs/calibracion-economia.md
+npm run medir:eventos                 # calendario de eventos sobre muchas semillas
 ```
 
 El CI (`.github/workflows/ci.yml`) ejecuta todas estas comprobaciones en
 cada push y cada pull request. Los tests estadísticos largos (ia-n*, arm-6,
 partida-3, nav-3, nucleo-4...) corren ahí con una muestra reducida
 (`tests/utils/muestra.ts`); la batería completa (`PRUEBA_LARGA=1`) corre cada
-noche en `.github/workflows/pruebas-largas.yml`. El smoke test de traspaso
+noche en `.github/workflows/pruebas-largas.yml`. La partida completa
+(`tests/e2e/partida-completa.e2e.ts`: de la portada al final en 360x640,
+820x1180 y 1180x820 con CPU ×4, comprobando que cada toque responde en 200 ms
+o menos) va en su propio job, `e2e-partida-completa`, uno por tamaño de
+pantalla; sus capturas y su tabla de respuesta se suben como artefacto del
+CI. El smoke test de traspaso
 (`tests/smoke/traspaso.spec.ts`) es independiente de esta lista: lo ejecuta
 la etapa de traspaso contra la URL real ya desplegada, con
 `BASE_URL="$DEPLOY_URL" npx playwright test tests/smoke/traspaso.spec.ts`.
+
+## Changelog
+
+- **Consola compacta** (#179): la consola no pasa del 40 % del alto, va
+  anclada abajo y se puede minimizar, ocultar y mover a izquierda o derecha.
+- **Rendimiento** (#180, #187): refresco incremental del terreno sin parón
+  antes de la explosión; simulación en un Web Worker con medidor de respuesta;
+  panel `?rendimiento=1` para medir en el dispositivo.
+- **Tiros que salen de la pantalla** (#181, #196, #197): se pierden sin
+  detonar al cruzar el borde más 24 u por cualquiera de los cuatro lados; el
+  aviso «¡Perdido!» se ve junto al borde de salida. El mortero de la IA ajusta
+  la potencia para que el arco quepa en pantalla.
+- **Nave quieta al disparar** (#182): el propio tiro ya no roza al tirador al
+  salir de su silueta.
+- **Halos de gravedad** (#183): anillos por nivel calculados con la física
+  real, que siguen a la masa y a la gravedad vivas.
+- **Siluetas a escala 1,5** (#184): la zona de impacto es la silueta dibujada
+  a su nuevo tamaño.
+- **Minirobot** (#185, #186): cada detonación tiene una sola explosión, el
+  robot desaparece en el mismo instante y, si se va por el borde, sale
+  «¡Perdido!».
+- **Empuje direccional** (#188): la nave golpeada se desplaza en la dirección
+  del disparo, sin dejar de cumplirse que repetir el tiro no acierta.
+- **Vida, daño y fantasmas** (#189, #190): barra de vida en el color del
+  asiento, número de daño flotante en el color del atacante y fantasma
+  translúcido con nombre para las naves muertas.
+- **Racimo de Tuppers** (#191): estalla en cinco perdigones agrupados en el
+  punto de impacto, con un tope de daño combinado por nave.
+- **Eventos visibles** (#192): los once eventos tienen su representación en
+  pantalla.
+- **Aspecto de las armas** (#193): forma y colores propios por arma en el
+  selector, en reposo y en vuelo, con estela y giro.
+- **Voz de los chistes** (#194): lectura en voz alta con voces locales en
+  castellano e interruptor «Voz».
+- **Precios para 600 créditos** (#195): catálogo recalibrado para el saldo de
+  600 créditos (sustituye la calibración intermedia de #184); la calibración y
+  las mediciones de la IA recorren cinco semillas.
+- **Partida completa en el CI** (#198): un test recorre una partida entera en
+  tres tamaños de pantalla, con capturas y medida de respuesta, en el job
+  `e2e-partida-completa`.
