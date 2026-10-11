@@ -22,7 +22,9 @@ import { jugarLote, hashDeLote } from "../../utils/loteAleatorio";
 // cualquier borde (arriba incluido) se pierde, lo que mueve el balance a propósito.
 // Hash actualizado en salida-pantalla (jugador patrón): el patrón traza el tiro con trazarIntentos y
 // tiene la mitad de ruido, así que juega otras partidas a propósito; no es una regresión de este bloque.
-const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "e6e7fa43509676dbec4ea5b53746fac7c0a1138f64bf93f2882902a8d9f5ece8";
+// Hash actualizado en vida-muerte-subita y fuerza-maxima (vida 150, muerte súbita en la ronda 14 y potencia máxima 1050), a propósito. la vida máxima pasa de 100 a 150 y la muerte súbita
+// empieza en la ronda 14, así que las partidas duran otra cosa a propósito; no es una regresión de este bloque.
+const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "14c9278c742bb0b7ab88caa2ba65853cc43bbedbd0bb2372c3b65cb0277585ba";
 
 test("esc-4: 200 partidas dan exactamente el mismo resultado que antes de escala-legible (el balance no se movió)", () => {
   const lote = jugarLote(20260929, 200);

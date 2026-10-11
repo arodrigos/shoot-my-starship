@@ -188,7 +188,7 @@ cae). Pueden ser buenos o malos: lotería galáctica, vitaminas (doble daño 3
 turnos), virus (mitad de daño 3 turnos), reparación de planetas, terremoto
 galáctico, gravedad ×2 o ÷2, viento solar, agujero negro errante, y dos
 objetos que flotan bajo la gravedad y actúan si chocan con una nave: el
-corazón galáctico (+50 % de vida) y la tormenta solar (−25 %). Cada uno de
+corazón galáctico (+75 de vida) y la tormenta solar (−35). Cada uno de
 los once eventos se ve en pantalla: los que duran, con aura, icono, estela,
 espiral o latido sobre lo que afectan; los instantáneos, con lluvia de
 monedas, barrido o sacudida con polvo (la sacudida respeta el interruptor
@@ -196,14 +196,15 @@ monedas, barrido o sacudida con polvo (la sacudida respeta el interruptor
 
 ## Muerte súbita
 
-Para que ninguna partida se alargue sin fin, desde la ronda 10 todas las
-naves vivas pierden vida a la vez al empezar cada ronda: 5, 10, 15, 20…
+Para que ninguna partida se alargue sin fin, desde la ronda 14 todas las
+naves vivas pierden vida a la vez al empezar cada ronda: 4, 8, 12, 16… Cada
+nave empieza con 150 de vida (`src/sim/naves/vida.ts`).
 El escudo no lo frena. Una ronda antes aparece «Muerte súbita en 1 ronda».
 Durante la muerte súbita no hay curas: los corazones flotantes se disuelven y
 no se programan ni corazones ni reparaciones (tampoco los que provocan las
 armas gratis). Si las últimas naves caen en el mismo paso, es un empate real
 («¡Empate!»), también con dos naves. Toda partida acaba antes de empezar la
-ronda 16 (`src/sim/partida/muerteSubita.ts`). Se apaga con `?muerte=0`.
+ronda 22 (`src/sim/partida/muerteSubita.ts`). Se apaga con `?muerte=0`.
 
 ## Música y sonido
 

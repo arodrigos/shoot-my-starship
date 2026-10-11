@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { ClienteSim, type TrabajadorLike } from "@/juego/motor/clienteSim";
 import type { Peticion, Respuesta } from "@/juego/motor/protocolo";
@@ -100,4 +100,36 @@ test("res-1: el medidor guarda la interacción y su peor duración es el INP", (
   const i = m.instantanea();
   assert.equal(i.interacciones.length, 2);
   assert.equal(i.inp, 120);
+});
+
+test("res-5: un trabajador que sigue contestando no se abandona por una petición lenta", () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    let ahora = 0;
+    const { t } = trabajadorManual();
+    const cliente = new ClienteSim(() => t, () => ahora);
+    void cliente.previsualizar(PREVIS);
+    ahora = 50_000;
+    t.responder({ tipo: "previsualizar", idPeticion: 999, idPartida: cliente["idPartida"], resultado: { banda: null, duracionMs: 1 } } as unknown as Respuesta);
+    ahora = 61_000;
+    mock.timers.tick(61_000);
+    assert.equal(cliente.modo, "trabajador");
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("res-5: un trabajador mudo más allá del límite pasa a en línea", () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    let ahora = 0;
+    const { t } = trabajadorManual();
+    const cliente = new ClienteSim(() => t, () => ahora);
+    void cliente.previsualizar(PREVIS);
+    ahora = 61_000;
+    mock.timers.tick(61_000);
+    assert.equal(cliente.modo, "en-linea");
+  } finally {
+    mock.timers.reset();
+  }
 });

@@ -5,6 +5,7 @@ import { colorDeAsiento } from "@/juego/naves/paletaNaves";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
+import { acotarIntegridad, INTEGRIDAD_MAXIMA, porcentajeIntegridad } from "@/sim/naves/vida";
 
 // imp-11: hasta este bloque no existía NINGÚN indicador de integridad en el
 // HUD -- lo único que la reflejaba era el alfa del casco de la nave dentro
@@ -70,7 +71,8 @@ export function IntegridadHUD() {
             id: nave.id,
             colorRelleno: colorDeAsiento(nave.id),
             etiqueta: participantes?.[nave.id]?.nombre ?? etiquetaDeNave(nave.id, control.nombreRival),
-            valor: Math.max(0, Math.min(100, Math.round(nave.integridad))),
+            valor: Math.round(acotarIntegridad(nave.integridad)),
+            porcentaje: Math.round(porcentajeIntegridad(nave.integridad)),
           },
         ];
       }),
@@ -89,7 +91,8 @@ export function IntegridadHUD() {
       }}
     >
       {estado.naves.map((nave) => {
-        const valor = Math.max(0, Math.min(100, Math.round(nave.integridad)));
+        const valor = Math.round(acotarIntegridad(nave.integridad));
+        const porcentaje = Math.round(porcentajeIntegridad(nave.integridad));
         const esTurno = control.turno === nave.id;
         const etiqueta = participantes?.[nave.id]?.nombre ?? etiquetaDeNave(nave.id, control.nombreRival);
         const eliminada = participantes !== null && nave.integridad <= 0;
@@ -122,7 +125,7 @@ export function IntegridadHUD() {
                 role="progressbar"
                 aria-label={`Integridad de ${etiqueta}`}
                 aria-valuemin={0}
-                aria-valuemax={100}
+                aria-valuemax={INTEGRIDAD_MAXIMA}
                 aria-valuenow={valor}
                 style={{
                   marginTop: 4,
@@ -137,7 +140,7 @@ export function IntegridadHUD() {
                 <div
                   data-testid={`integridad-relleno-${nave.id}`}
                   style={{
-                    width: `${valor}%`,
+                    width: `${porcentaje}%`,
                     height: "100%",
                     background: colorDeAsiento(nave.id),
                     transition: transicion,

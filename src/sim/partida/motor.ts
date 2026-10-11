@@ -5,6 +5,7 @@ import type { EventoSimulacion } from "@/sim/partida/eventos";
 import type { EstadoNave, EstadoPartida, FuenteDeTurno, IdNave, ParametrosMundo } from "@/sim/partida/tipos";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { Mascara } from "@/sim/terreno/mascara";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 
 // `planetas` es opcional y el último parámetro a propósito (nucleo-gravedad):
 // todo llamante anterior a este bloque sigue compilando y produciendo
@@ -22,7 +23,7 @@ export function crearPartidaInicial(
   if (xNaves.length < 2 || xNaves.length > 4) {
     throw new Error(`crearPartidaInicial: se esperaban de 2 a 4 naves, llegaron ${xNaves.length}`);
   }
-  const naves: EstadoNave[] = xNaves.map((x) => ({ x, integridad: 100 }));
+  const naves: EstadoNave[] = xNaves.map((x) => ({ x, integridad: INTEGRIDAD_MAXIMA }));
   const ordenTurno: IdNave[] = naves.map((_nave, id) => id);
   return {
     version: 1,
@@ -93,7 +94,7 @@ export function comprobarInvariante(estado: EstadoPartida): string[] {
   const problemas: string[] = [];
 
   for (const [indice, nave] of estado.naves.entries()) {
-    if (nave.integridad < 0 || nave.integridad > 100) {
+    if (nave.integridad < 0 || nave.integridad > INTEGRIDAD_MAXIMA) {
       problemas.push(`nave ${indice}: integridad fuera de rango (${nave.integridad})`);
     }
     if (nave.x < 0 || nave.x > estado.mundo.ancho) {

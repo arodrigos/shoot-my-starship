@@ -116,6 +116,7 @@ import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaA
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
 import type { DebugEfectoVisible } from "@/debug/tipos";
 import "@/debug/tipos";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 
 // cat-2: el haz del Rayo Láser se ve al menos esto antes de apagarse.
 // Holgura entre el vértice de la solución de depuración y el borde superior.
@@ -264,6 +265,7 @@ const RIVAL_POR_DEFECTO = LA_CONTABLE;
 // en 200 turnos en el mapa por defecto).
 const ARMA_DESENLACE = "despedida";
 const TOPE_TURNOS_DESENLACE = 12;
+const VIDA_BASE_TOPE_DESENLACE = 100;
 
 // gravedad-visible (grav-vis-3, corrección): grosor de la mira en píxeles
 // de PANTALLA, no de mundo -- ver actualizarPrevisualizacion().
@@ -1002,7 +1004,7 @@ export class Partida extends Phaser.Scene {
     // resolver: solo el refresco visual y de depuración que un turno real
     // dispara al final.
     window.__debug.forzarIntegridad = (nave, integridad) => {
-      const acotada = Math.max(0, Math.min(100, integridad));
+      const acotada = Math.max(0, Math.min(INTEGRIDAD_MAXIMA, integridad));
       this.estado = {
         ...this.estado,
         naves: this.estado.naves.map((actual, id) => (id === nave ? { ...actual, integridad: acotada } : actual)),
@@ -1427,7 +1429,7 @@ export class Partida extends Phaser.Scene {
           ...this.estado,
           resultado: { tipo: "en-curso" },
           turno: ID_JUGADOR,
-          naves: this.estado.naves.map((actual) => ({ ...actual, integridad: 100 })),
+          naves: this.estado.naves.map((actual) => ({ ...actual, integridad: INTEGRIDAD_MAXIMA })),
         };
         this.refrescarDebugNaves();
       } else if (this.solicitudEnCurso) {
@@ -2886,6 +2888,13 @@ export class Partida extends Phaser.Scene {
   // se dispara Despedida, cuyo autodaño garantizado (fiabilidad 1) acota el
   // número de turnos con independencia de si el impacto acierta al rival.
   private forzarFinDePartida(): void {
+    // El tope de turnos se calculó con una vida máxima de 100: con 150 el
+    // autodaño de Despedida no la agota a tiempo y la secuencia animada en
+    // tiempo real superaba el timeout del e2e de escritorio.
+    this.estado = {
+      ...this.estado,
+      naves: this.estado.naves.map((nave) => ({ ...nave, integridad: Math.min(nave.integridad, VIDA_BASE_TOPE_DESENLACE) })),
+    };
     for (let i = 0; i < TOPE_TURNOS_DESENLACE; i++) {
       if (this.estado.resultado.tipo === "terminada") break;
 

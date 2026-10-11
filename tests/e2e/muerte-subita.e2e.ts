@@ -13,7 +13,7 @@ async function empezar(page: Page): Promise<void> {
 }
 
 // El turno del humano se gasta en el escudo, que no frena el drenaje: así el
-// disparo de la IA no puede matar a nadie antes de que empiece la ronda 10 y
+// disparo de la IA no puede matar a nadie antes de que empiece la ronda 14 y
 // el resultado lo decide solo el drenaje, sin depender de la puntería.
 async function gastarTurnoConEscudo(page: Page): Promise<void> {
   await page.getByTestId("selector-arma-abrir").click();
@@ -22,26 +22,26 @@ async function gastarTurnoConEscudo(page: Page): Promise<void> {
   await page.getByTestId("disparar").click();
 }
 
-// ms-2: aviso en la ronda 9, drenaje simultáneo al empezar la 10 y empate real.
-test("muerte súbita: avisa en la ronda 9 y las dos últimas naves caen a la vez en empate", async ({ page }) => {
+// ms-2: aviso en la ronda 13, drenaje simultáneo al empezar la 14 y empate real.
+test("muerte súbita: avisa en la ronda 13 y las dos últimas naves caen a la vez en empate", async ({ page }) => {
   test.setTimeout(180000);
   await empezar(page);
-  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 9, integridades: [5, 5] }));
+  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 13, integridades: [4, 4] }));
   await expect(page.getByTestId("muerte-subita")).toHaveText("Muerte súbita en 1 ronda");
 
   await gastarTurnoConEscudo(page);
   await page.waitForFunction(() => window.__debug.ganador !== undefined, undefined, { timeout: 90000 });
   const final = await page.evaluate(() => ({ ganador: window.__debug.ganador, ronda: window.__debug.ronda, naves: window.__debug.naves!.map((nave) => nave.integridad) }));
   expect(final.ganador).toBeNull();
-  expect(final.ronda).toBe(10);
+  expect(final.ronda).toBe(14);
   expect(final.naves).toEqual([0, 0]);
   await expect(page.getByTestId("ganador-nombre")).toHaveText("Empate");
 });
 
-test("muerte súbita: con [5, 20] el drenaje solo mata a la primera y gana la segunda, no hay empate", async ({ page }) => {
+test("muerte súbita: con [4, 20] el drenaje solo mata a la primera y gana la segunda, no hay empate", async ({ page }) => {
   test.setTimeout(180000);
   await empezar(page);
-  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 9, integridades: [5, 20] }));
+  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 13, integridades: [4, 20] }));
   await gastarTurnoConEscudo(page);
   await page.waitForFunction(() => window.__debug.ganador !== undefined, undefined, { timeout: 90000 });
   expect(await page.evaluate(() => window.__debug.ganador)).toBe(1);

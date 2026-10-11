@@ -7,10 +7,11 @@ import type { EventoSimulacion } from "@/sim/partida/eventos";
 import { idsNavesVivas, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
 import { sortearIndice } from "@/sim/universo/calendario";
 import type { EstadoUniverso, ObjetoEvento, TipoObjeto } from "@/sim/universo/tipos";
+import { acotarIntegridad } from "@/sim/naves/vida";
 
-// «Si choca con tu nave»: porcentajes sobre la vida máxima (100).
-export const VIDA_CORAZON = 50;
-export const VIDA_TORMENTA = 25;
+// «Si choca con tu nave»: porcentajes sobre la vida máxima (150).
+export const VIDA_CORAZON = 75;
+export const VIDA_TORMENTA = 35;
 export const MAX_OBJETOS_VIVOS = 2;
 export const RONDAS_DE_VIDA_OBJETO = 3;
 // Lo que se mueve un objeto al cerrar cada turno: ventana fija de pasos, la
@@ -84,7 +85,7 @@ export function rutaPrevistaObjeto(estado: EstadoPartida, objeto: ObjetoEvento):
 }
 
 function conVida(nave: EstadoNave, cambio: number): { nave: EstadoNave; aplicado: number } {
-  const integridad = Math.min(100, Math.max(0, nave.integridad + cambio));
+  const integridad = acotarIntegridad(nave.integridad + cambio);
   return { nave: { ...nave, integridad }, aplicado: integridad - nave.integridad };
 }
 

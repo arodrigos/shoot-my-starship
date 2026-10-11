@@ -16,8 +16,8 @@ async function empezar(page: Page): Promise<void> {
 }
 
 // obj-1 (camino crítico): el corazón flota con la gravedad real del mapa, enseña
-// su ruta y, si choca con la nave 0, le devuelve 50 de vida y desaparece.
-test("corazón: ruta punteada, choca con la nave 0 y le devuelve 50 de vida", async ({ page }) => {
+// su ruta y, si choca con la nave 0, le devuelve 75 de vida y desaparece.
+test("corazón: ruta punteada, choca con la nave 0 y le devuelve 75 de vida", async ({ page }) => {
   test.setTimeout(300000);
   await empezar(page);
 
@@ -57,7 +57,7 @@ test("corazón: ruta punteada, choca con la nave 0 y le devuelve 50 de vida", as
   await page.getByTestId("disparar").click();
   const manejador = await page.waitForFunction(() => window.__debug.ultimosEventos?.find((evento) => evento.tipo === "objeto-alcanza") ?? false, undefined, { timeout: 200000 });
   const alcance = await manejador.jsonValue();
-  expect(alcance).toMatchObject({ tipo: "objeto-alcanza", objeto: "corazon", nave: 0, cambio: 50 });
+  expect(alcance).toMatchObject({ tipo: "objeto-alcanza", objeto: "corazon", nave: 0, cambio: 75 });
   expect(await page.evaluate(() => window.__debug.objetos)).toEqual([]);
   await expect(page.getByTestId("resultado-turno")).toContainText("¡Corazón galáctico!");
   await expect(page.getByTestId("objeto-corazon")).toHaveCount(0);

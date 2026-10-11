@@ -48,7 +48,7 @@ test("escudo: se paga, gasta el turno y la IA no le hace daño", async ({ page }
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 60000 });
   expect(await page.evaluate(() => window.__debug.saldo)).toBe(saldoInicial - 90);
   const naves = await page.evaluate(() => window.__debug.naves!);
-  expect(naves[0].integridad).toBe(100);
+  expect(naves[0].integridad).toBe(150);
   // El turno de la IA ya ha pasado: al empezar el nuestro baja de 2 a 1.
   expect(naves[0].escudo).toBe(1);
 

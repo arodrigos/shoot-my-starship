@@ -1,3 +1,4 @@
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fc from "fast-check";
@@ -20,7 +21,7 @@ describe("multi-setup-partida: colocarNaves de 2 a 4 naves", () => {
         const { naves } = colocarNaves(semilla, MUNDO, crearEstadoAleatorio(semilla), cantidad);
         assert.equal(naves.length, cantidad, `semilla ${semilla}`);
         for (const nave of naves) {
-          assert.equal(nave.integridad, 100);
+          assert.equal(nave.integridad, INTEGRIDAD_MAXIMA);
           assert.ok(nave.x >= 0 && nave.x <= MUNDO.ancho, `semilla ${semilla}: x ${nave.x} fuera del mundo`);
           assert.ok(nave.y !== undefined && nave.y >= 0 && nave.y <= MUNDO.alto);
         }
