@@ -14,7 +14,7 @@ export const PASO_EMPUJE_U = 4;
 // cuando el destino natural lo falla.
 export const TRAMO_PROLONGACION_U = 8;
 // Un desvío lateral pegado al impacto acierta a veces con otra dispersión de potencia; el margen lo evita.
-const DESVIO_LATERAL_MINIMO_U = 40;
+const DESVIO_LATERAL_MINIMO_U = 70;
 const BASES_LATERALES_CADA_PASOS = 8;
 const MAX_COMPROBACIONES_LATERALES = 160;
 // Cada comprobación de descartar simula un disparo entero; el tope mantiene

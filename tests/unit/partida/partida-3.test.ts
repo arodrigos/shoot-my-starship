@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { crearEstadoAleatorio, siguienteAleatorio } from "@/sim/aleatorio";
+import { conMuerteSubita } from "@/sim/partida/muerteSubita";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { jugarTurno } from "@/sim/partida/motor";
 import { crearFuenteIA } from "@/sim/ia/fuente";
@@ -64,7 +65,9 @@ interface ResultadoPartidaEspacial {
 // solo para "la IA" como hacía el partida-3 original de suelo plano.
 function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalidad], semillaSistema: number): ResultadoPartidaEspacial {
   const colocacion = colocarNaves(semillaSistema, MUNDO_ESPACIAL, crearEstadoAleatorio(semillaSistema));
-  let estado: EstadoPartida = {
+  // Como en el juego: sin la muerte súbita una pareja de IAs sin tiro útil (por
+  // el semicírculo que la IA no sale) repetiría el mismo disparo sin acabar nunca.
+  let estado: EstadoPartida = conMuerteSubita({
     version: 1,
     mundo: MUNDO_ESPACIAL,
     mascara: colocacion.sistema.mascara,
@@ -75,7 +78,7 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
     aleatorio: colocacion.aleatorio,
     resultado: { tipo: "en-curso" },
     planetas: colocacion.sistema.planetas,
-  };
+  });
 
   const ultimoIntento: [UltimoIntentoIA | null, UltimoIntentoIA | null] = [null, null];
   // fallosConsecutivos solo sube, nunca se resetea con un acierto suelto
