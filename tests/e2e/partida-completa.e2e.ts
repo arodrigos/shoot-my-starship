@@ -405,6 +405,7 @@ for (const vp of VIEWPORTS) {
     const lentas = medida.interacciones.filter((i) => (i.trabajoApp ?? 0) > LIMITE_MS);
     const peor = [...medida.interacciones].sort((x, y) => (y.trabajoApp ?? 0) - (x.trabajoApp ?? 0)).slice(0, 5);
     const resumen = peor.map((i) => `${i.objetivo.slice(0, 18)} ${i.tipo[0]} app=${Math.round(i.trabajoApp ?? 0)} dur=${Math.round(i.duracion)}`).join(" | ");
-    expect(lentas.length, `base=${Math.round(medida.base)} ${resumen}`).toBe(0);
+    const posiciones = medida.interacciones.flatMap((i, indice) => ((i.trabajoApp ?? 0) > LIMITE_MS ? [`#${indice}/${medida.interacciones.length} ${i.tipo[0]} ${Math.round(i.trabajoApp ?? 0)}`] : [])).join(", ");
+    expect(lentas.length, `base=${Math.round(medida.base)} ${resumen} | lentas: ${posiciones}`).toBe(0);
   });
 }
