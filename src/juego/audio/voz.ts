@@ -266,8 +266,10 @@ function crearMotorEasySpeech(): MotorVoz {
     hablar(opciones) {
       if (!modulo) return;
       const { voice, ...resto } = opciones;
+      // noStop: easy-speech cancela por su cuenta antes de cada speak y la cola
+      // ya garantiza que nada suena a la vez.
       modulo
-        .speak({ ...resto, voice: voice as SpeechSynthesisVoice })
+        .speak({ ...resto, voice: voice as SpeechSynthesisVoice, noStop: true })
         // easy-speech rechaza la promesa en error o al cancelar; el
         // manejador error ya lo recoge, aquí solo se evita el aviso.
         .catch(() => undefined);
