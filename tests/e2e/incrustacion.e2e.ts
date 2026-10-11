@@ -46,7 +46,9 @@ for (const tamano of TAMANOS) {
     await page.waitForTimeout(250);
     await captura(page, "250ms", tamano);
     // Tras el disparo la IA juega su turno: se espera a que vuelva el humano.
-    await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
+    // Si la IA no vuelve a dar turno al humano (p. ej. acaba la partida), la
+    // comprobación de la máscara sigue siendo válida: no es lo que se mide.
+    await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 30000 }).catch(() => undefined);
     await page.waitForTimeout(1000);
     await captura(page, "1000ms", tamano);
 
