@@ -192,6 +192,9 @@ function medirDispersionMedia(personalidad: Personalidad, lote: ReturnType<typeo
 // Chispa la dejaban en 50-80 % de victorias, así que su rango sube a ±10°/±14
 // y el orden pasa a La Contable < Chispa < Almirante Bisagra (medido: 86 / 167 /
 // 293 px). La banda de victoria (ia-3) es lo que manda; este orden la sigue.
+// vida-muerte-subita: con 150 de vida La Contable ganaba demasiado y su error sube
+// a ±11,7° / ±10,8 (decisión de Adrián, banda 60-80 %); el orden pasa a Chispa <
+// La Contable < Almirante Bisagra (medido en CI: 167 / 178 / 293 px).
 // Siempre 200 disparos, sin la reducción de muestra(): con 40 la media la
 // mueven unos pocos tiros que un pozo lanza lejos (Chispa 106 px frente a La
 // Contable 46 px) y el orden se invierte respecto al de la muestra completa.
@@ -207,6 +210,6 @@ test(`ia-n4b: la dispersión media en ${NUM_SISTEMAS_DISPERSION} disparos, en mo
   console.log(
     `ia-n4b: dispersión media -- La Contable ${dispersionContable.toFixed(1)}px, Almirante Bisagra ${dispersionBisagra.toFixed(1)}px, Chispa ${dispersionChispa.toFixed(1)}px`,
   );
-  assert.ok(dispersionContable < dispersionChispa, `La Contable (${dispersionContable}) debería tener menos dispersión que Chispa (${dispersionChispa}) con los rangos recalibrados`);
-  assert.ok(dispersionChispa < dispersionBisagra, `Chispa (${dispersionChispa}) debería tener menos dispersión que Almirante Bisagra (${dispersionBisagra})`);
+  assert.ok(dispersionChispa < dispersionContable, `Chispa (${dispersionChispa}) debería tener menos dispersión que La Contable (${dispersionContable}) con los rangos recalibrados`);
+  assert.ok(dispersionContable < dispersionBisagra, `La Contable (${dispersionContable}) debería tener menos dispersión que Almirante Bisagra (${dispersionBisagra})`);
 });

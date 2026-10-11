@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hashPuntos, nivelDanio, puntosCascoConDanio } from "@/juego/naves/formaCasco";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 import { cajaCasco } from "@/sim/naves/geometriaCasco";
 
 // nve-1: los tres tramos de daño dan tres siluetas distintas (hash distinto
@@ -16,12 +17,13 @@ test("nve-1: alta, media y baja producen hashes de silueta distintos en las dos 
   }
 });
 
-test("nve-1: nivelDanio corta en alta (>66), media (34-66) y baja (<=33)", () => {
-  assert.equal(nivelDanio(100), "alta");
-  assert.equal(nivelDanio(67), "alta");
-  assert.equal(nivelDanio(66), "media");
-  assert.equal(nivelDanio(34), "media");
-  assert.equal(nivelDanio(33), "baja");
+test("nve-1: nivelDanio corta en alta (>66 %), media (34-66 %) y baja (<=33 %) de la vida máxima", () => {
+  // Los umbrales son porcentuales: con 150 de vida máxima, 101 es el 67,3 %.
+  assert.equal(nivelDanio(INTEGRIDAD_MAXIMA), "alta");
+  assert.equal(nivelDanio(101), "alta");
+  assert.equal(nivelDanio(99), "media");
+  assert.equal(nivelDanio(51), "media");
+  assert.equal(nivelDanio(49), "baja");
   assert.equal(nivelDanio(0), "baja");
 });
 

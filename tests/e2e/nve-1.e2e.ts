@@ -18,9 +18,9 @@ test("nve-1: a integridad alta, media y baja la silueta de cada nave cambia de h
   }
 
   const tramos: { integridad: number; nivelEsperado: "alta" | "media" | "baja" }[] = [
-    { integridad: 100, nivelEsperado: "alta" },
-    { integridad: 50, nivelEsperado: "media" },
-    { integridad: 10, nivelEsperado: "baja" },
+    { integridad: 150, nivelEsperado: "alta" },
+    { integridad: 75, nivelEsperado: "media" },
+    { integridad: 15, nivelEsperado: "baja" },
   ];
 
   for (const nave of [0, 1] as const) {

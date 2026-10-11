@@ -26,7 +26,7 @@ export interface InformeTerminacion {
 }
 
 export function medirTerminacion(naves: number, semillas: number, modo: ModoJuego): InformeTerminacion {
-  const cotaTurnos = naves * (RONDA_MUERTE_SUBITA + 5) + 1;
+  const cotaTurnos = naves * (RONDA_MUERTE_SUBITA + 8) + 1;
   let terminadas = 0;
   let empates = 0;
   let suma = 0;

@@ -1,3 +1,4 @@
+import { porcentajeIntegridad } from "@/sim/naves/vida";
 // Geometría COMPARTIDA del casco (sin Phaser): vive en src/sim porque la zona
 // de impacto es EXACTAMENTE la silueta que se dibuja (naves-silueta) y el
 // núcleo la necesita con datos deterministas -- src/juego la lee, nunca al
@@ -115,11 +116,12 @@ export const SEMIALTO_MAXIMO_NAVE_PX = Math.ceil(
 export type NivelDanio = "alta" | "media" | "baja";
 
 // Umbrales elegidos para que los tres tramos sean anchos y no se puedan
-// confundir por un punto de integridad de diferencia: >66 intacta, 34-66
-// dañada, <=33 crítica.
+// confundir por un punto de integridad de diferencia: >66 % intacta, 33-66 %
+// dañada, <=33 % crítica, siempre sobre la fracción de la vida máxima.
 export function nivelDanio(integridad: number): NivelDanio {
-  if (integridad > 66) return "alta";
-  if (integridad > 33) return "media";
+  const porcentaje = porcentajeIntegridad(integridad);
+  if (porcentaje > 66) return "alta";
+  if (porcentaje > 33) return "media";
   return "baja";
 }
 

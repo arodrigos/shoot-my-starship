@@ -11,6 +11,9 @@ export interface Intervalo {
 export interface ScriptLoaf {
   readonly inicio: number;
   readonly duracion: number;
+  // Quién lo lanzó (función, invocador y fichero): sirve para atribuir un toque
+  // lento a su causa en vez de re-lanzar el CI a ciegas.
+  readonly origen?: string;
 }
 
 export interface FotogramaLoaf {

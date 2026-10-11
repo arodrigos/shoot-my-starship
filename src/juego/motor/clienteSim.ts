@@ -50,8 +50,15 @@ export class ClienteSim {
   private idPartida = 1;
   private readonly ultimoPorTipo: Partial<Record<TipoPeticion, number>> = {};
   private readonly pendientes = new Map<number, Pendiente>();
+  // Última vez que el trabajador contestó algo: distingue un trabajador roto
+  // (mudo) de uno que solo va por detrás con la cola de peticiones.
+  private ultimaRespuestaMs: number;
 
-  constructor(fabrica: (() => TrabajadorLike) | null) {
+  constructor(
+    fabrica: (() => TrabajadorLike) | null,
+    private readonly reloj: () => number = () => performance.now(),
+  ) {
+    this.ultimaRespuestaMs = reloj();
     this.modo = "en-linea";
     if (fabrica) {
       try {
@@ -89,12 +96,27 @@ export class ClienteSim {
     const peticion = { ...sinCabecera, idPeticion, idPartida: this.idPartida } as Peticion;
     this.ultimoPorTipo[peticion.tipo] = idPeticion;
     return new Promise((resolver) => {
-      const temporizador = setTimeout(() => {
-        this.pasarAEnLinea(`la petición ${peticion.tipo} superó ${TIEMPO_LIMITE_PETICION_MS} ms`);
-      }, TIEMPO_LIMITE_PETICION_MS);
-      this.pendientes.set(idPeticion, { tipo: peticion.tipo, peticion, resolver, temporizador });
+      const pendiente: Pendiente = { tipo: peticion.tipo, peticion, resolver, temporizador: this.armarTemporizador(peticion) };
+      this.pendientes.set(idPeticion, pendiente);
       this.enviar(peticion);
     });
+  }
+
+  // Solo se abandona el trabajador si lleva TIEMPO_LIMITE_PETICION_MS sin
+  // contestar nada. Si ha contestado hace poco, la petición espera su turno
+  // en la cola: pasar al cálculo en línea bloquearía el hilo principal.
+  private armarTemporizador(peticion: Peticion): ReturnType<typeof setTimeout> {
+    const temporizador = setTimeout(() => {
+      const pendiente = this.pendientes.get(peticion.idPeticion);
+      if (!pendiente) return;
+      const mudoMs = this.reloj() - this.ultimaRespuestaMs;
+      if (mudoMs < TIEMPO_LIMITE_PETICION_MS) {
+        this.pendientes.set(peticion.idPeticion, { ...pendiente, temporizador: this.armarTemporizador(peticion) });
+        return;
+      }
+      this.pasarAEnLinea(`la petición ${peticion.tipo} superó ${TIEMPO_LIMITE_PETICION_MS} ms (trabajador mudo ${Math.round(mudoMs)} ms, ${this.pendientes.size} pendientes)`);
+    }, TIEMPO_LIMITE_PETICION_MS);
+    return temporizador;
   }
 
   private enviar(peticion: Peticion): void {
@@ -113,6 +135,7 @@ export class ClienteSim {
   }
 
   private alRecibir(respuesta: Respuesta): void {
+    this.ultimaRespuestaMs = this.reloj();
     const pendiente = this.pendientes.get(respuesta.idPeticion);
     if (!pendiente) return;
     clearTimeout(pendiente.temporizador);
