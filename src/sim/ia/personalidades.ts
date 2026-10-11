@@ -18,7 +18,11 @@ export const LA_CONTABLE: Personalidad = {
   // ejes sobre el valor de ia-punteria) hasta devolverla a banda. Medido
   // con npm run medir:ia (docs/jugador-patron.md, 200 partidas, semilla
   // maestra 2024): 84.5% de victorias, dentro de la banda 75-90%.
-  error: { anguloGrados: { minimo: -4.5, maximo: 4.5 }, potencia: { minimo: -9, maximo: 9 } },
+  // vida-muerte-subita: con 150 de vida las partidas se alargan y La Contable
+  // ganaba 85-96 %. Por decisión de Adrián su banda baja a 60-80 %: el error
+  // angular sube a ±11,7° (x2,6) y el de potencia a ±10,8 (x1,2). Medido con
+  // 100 partidas por semilla: 61/82/77/69/73 %.
+  error: { anguloGrados: { minimo: -11.7, maximo: 11.7 }, potencia: { minimo: -10.8, maximo: 10.8 } },
   trayectoriaPreferida: "tenso",
   // El arma más eficiente por punto de daño entre las fiables, evitando la
   // única arma con fiabilidad < 1 (el Petardo de Feria no es "eficiente",

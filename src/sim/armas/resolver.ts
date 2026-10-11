@@ -702,7 +702,10 @@ export interface ParametrosResolverDisparo {
 // estado -- avanzar() no conoce ningún id de arma, solo llama aquí.
 export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDisparo {
   const { arma } = params;
-  const mascara = clonarMascara(params.mascara);
+  // Copia perezosa: el vuelo solo lee la máscara. Avanzar() resuelve miles de
+  // disparos de comprobación por turno (destino del desplazamiento, viabilidad)
+  // y clonar 1,9 MB en cada uno bloqueaba el trabajador más de 30 s.
+  let mascara = params.mascara;
 
   let aleatorio = params.aleatorio;
   let fallo = false;
@@ -792,6 +795,7 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     };
   }
 
+  mascara = clonarMascara(params.mascara);
   for (const punto of puntosDeImpacto) {
     aplicarHuellaDeArma(mascara, arma, punto);
   }
