@@ -160,7 +160,7 @@ test("hud-canales-2: disparar cambia el indicador de turno y el histórico gana 
 test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en orden tras dos disparos", async ({
   page,
 }) => {
-  test.setTimeout(90000);
+  test.setTimeout(240000);
   await irAPartida(page);
 
   // hud-canales-3: "accesible desde el canal de estado" -- un botón ahí
@@ -170,13 +170,18 @@ test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en ord
   await expect(page.getByTestId("historico-bromas-vacio")).toHaveText("Aún no hay mensajes: aquí aparecerán las bromas y avisos de la partida.");
   await page.getByTestId("historico-bromas-cerrar").click();
 
-  // voz-resumenes: el histórico gana una entrada por resumen (cada tres turnos).
-  await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(3));
+  // voz-resumenes: el histórico gana una entrada por resumen (cada tres
+  // turnos resueltos). Dos turnos guionizados y el disparo real hacen el
+  // tercero; el sexto es la respuesta de la máquina al quinto.
+  await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(2));
+  await dispararTurnoReal(page);
   await page.getByTestId("historico-bromas-toggle").click();
   await expect(page.getByTestId("historico-bromas-entrada-0")).toBeVisible();
   await page.getByTestId("historico-bromas-cerrar").click();
 
-  await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(3));
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 90000 });
+  await dispararTurnoReal(page);
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 90000 });
   await page.getByTestId("historico-bromas-toggle").click();
   await expect(page.getByTestId("historico-bromas-entrada-1")).toBeVisible();
 });
