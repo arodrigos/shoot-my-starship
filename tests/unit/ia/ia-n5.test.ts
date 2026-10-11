@@ -50,7 +50,10 @@ const NAVE_B_PLANA = { id: 1 as const, x: 1400, y: 900 };
 // vez en naves-silueta (la zona de impacto es el polígono, a escala 1,5): 69
 // sale del barrido de las semillas 41 a 110 (razón con escalado 1,05, sin
 // escalado 3,96).
-const SEMILLA_SISTEMA_SENSIBLE = 69;
+// Reelegida otra vez en vida-muerte-subita (La Contable pasa a ±11,7° / ±10,8
+// para bajar su tasa de victorias con 150 de vida): 53 sale del barrido de las
+// semillas 41 a 53 (razón con escalado 0,94, sin escalado 0,39).
+const SEMILLA_SISTEMA_SENSIBLE = 53;
 
 interface Escenario {
   readonly mascara: Mascara;
