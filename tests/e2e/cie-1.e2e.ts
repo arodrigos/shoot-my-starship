@@ -42,7 +42,10 @@ import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apunt
 // del disparo real). Se rebuscaron con el mismo oráculo y la IA real: 2000
 // (Almirante, 5 rondas) y 2001 (La Contable, 5 rondas) acaban con la nave del
 // jugador viva.
-const NUMERO_MAXIMO_DE_RONDAS = 10;
+// fuerza-maxima: con 150 de vida y 1050 u/s de fuerza máxima las partidas de las
+// semillas 2000 y 2001 no acababan en 10 rondas; con 16 la muerte súbita (ronda 14)
+// garantiza un ganador sin buscar otras semillas.
+const NUMERO_MAXIMO_DE_RONDAS = 16;
 
 test("dos sistemas seguidos, cada uno con su propio rival, jugados de verdad con el oráculo real hasta que hay un ganador, sin errores de consola", async ({
   page,

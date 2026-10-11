@@ -28,8 +28,8 @@ import { acotarIntegridad } from "@/sim/naves/vida";
 
 // fuerza-maxima: con la potencia máxima en 1050 u/s el barrido de 120 vuelos
 // dejaba sin tiro viable a destinos que sí lo tenían y el rival «se-queda»
-// donde el disparo repetido volvía a darle (des-1); 240 lo cubre.
-const PRESUPUESTO_VIABILIDAD_DESTINO = 240;
+// donde el disparo repetido volvía a darle (des-1); 360 lo cubre.
+const PRESUPUESTO_VIABILIDAD_DESTINO = 360;
 // Con el arma base y no con la que se acaba de disparar: el rival puede haber
 // usado una de área grande con la que casi siempre hay tiro, y el destino
 // dejaba al otro bando, con su arma de siempre, sin ninguno.
