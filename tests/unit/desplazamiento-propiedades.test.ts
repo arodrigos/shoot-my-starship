@@ -87,8 +87,12 @@ test("des-2: solo se mueven las naves que pierden integridad", () => {
           return; // arma de pago sin saldo u otra entrada que el núcleo rechaza
         }
         const movidas = new Set(despues.eventos.flatMap((e) => (e.tipo === "desplazamiento" ? [e.nave] : [])));
+        // naves-nunca-dentro: si el relleno del Vertedero deja a una nave sin
+        // daño dentro del sólido, asentarNaves la mueve (con su propio evento).
+        const asentadas = new Set(despues.eventos.flatMap((e) => (e.tipo === "nave-asentada" ? [e.nave] : [])));
         despues.estado.naves.forEach((nave, id) => {
           const previa = antes.naves[id];
+          if (asentadas.has(id)) return;
           if (nave.integridad >= previa.integridad) {
             assert.deepEqual({ x: nave.x, y: nave.y }, { x: previa.x, y: previa.y }, `la nave ${id} sin daño no se mueve`);
           }
