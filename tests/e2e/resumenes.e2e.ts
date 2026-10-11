@@ -150,13 +150,28 @@ test("res-v1: el resumen se queda en pantalla al menos max(6000, 70 × caractere
   await page.setViewportSize({ width: 360, height: 640 });
   await instalarDoble(page, [ES_ES]);
   await empezar(page);
+  // El instante en que aparece lo anota la página, no el test: entre que el
+  // bocadillo sale y el test lo ve pasa tiempo que falsearía la medida.
+  await page.evaluate(() => {
+    const marcas: { vista: number | null; oculta: number | null } = { vista: null, oculta: null };
+    (window as unknown as { __marcasResumen: typeof marcas }).__marcasResumen = marcas;
+    new MutationObserver(() => {
+      const presente = document.querySelector('[data-testid="resumen-texto"]') !== null;
+      if (presente && marcas.vista === null) marcas.vista = performance.now();
+      if (!presente && marcas.vista !== null && marcas.oculta === null) marcas.oculta = performance.now();
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  });
   await jugarTurnos(page, 3);
   const resumen = page.getByTestId("resumen-texto");
   await expect(resumen).toBeVisible();
   const longitud = (await resumen.textContent())!.length;
-  const inicio = Date.now();
   await expect(resumen).toBeHidden({ timeout: 20000 });
-  expect(Date.now() - inicio).toBeGreaterThanOrEqual(Math.max(6000, 70 * longitud) - 500);
+  const marcas = await page.evaluate(
+    () => (window as unknown as { __marcasResumen: { vista: number | null; oculta: number | null } }).__marcasResumen,
+  );
+  expect(marcas.vista).not.toBeNull();
+  expect(marcas.oculta).not.toBeNull();
+  expect(marcas.oculta! - marcas.vista!).toBeGreaterThanOrEqual(Math.max(6000, 70 * longitud) - 200);
 });
 
 test("res-v1: con 6 turnos salen 2 resúmenes con plantillas distintas", async ({ page }) => {
