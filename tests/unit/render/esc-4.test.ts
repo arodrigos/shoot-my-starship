@@ -22,7 +22,7 @@ import { jugarLote, hashDeLote } from "../../utils/loteAleatorio";
 // cualquier borde (arriba incluido) se pierde, lo que mueve el balance a propósito.
 // Hash actualizado en salida-pantalla (jugador patrón): el patrón traza el tiro con trazarIntentos y
 // tiene la mitad de ruido, así que juega otras partidas a propósito; no es una regresión de este bloque.
-const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "8fcdd4a27d56e6011841725813feb6038bd095ea0e70acfe6c9d48f17c94ec87";
+const HASH_LOTE_PREVIO_A_ESCALA_LEGIBLE = "e6e7fa43509676dbec4ea5b53746fac7c0a1138f64bf93f2882902a8d9f5ece8";
 
 test("esc-4: 200 partidas dan exactamente el mismo resultado que antes de escala-legible (el balance no se movió)", () => {
   const lote = jugarLote(20260929, 200);
