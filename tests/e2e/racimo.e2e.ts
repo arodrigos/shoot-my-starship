@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apuntado";
-import { RADIO_SUBMUNICION, DANIO_MAXIMO_RACIMO_COMBINADO } from "@/sim/armas/resolver";
+import { SEPARACION_PERDIGON_U } from "@/sim/armas/resolver";
 
 async function arrastrarHasta(page: Page, anguloObjetivo: number, potenciaObjetivo: number, ancho: number, alto: number): Promise<void> {
   const ajusteAntes = (await page.evaluate(() => window.__debug.control!.ajuste))!;
@@ -15,10 +15,11 @@ async function arrastrarHasta(page: Page, anguloObjetivo: number, potenciaObjeti
   await page.mouse.up();
 }
 
-// rac-1 y rac-2: el Racimo, con la solución dirigida al casco del rival,
-// detona cinco veces pegado al impacto y en vuelo se abre en cinco perdigones
-// en los últimos 40 u. Todo se lee del estado de depuración, sin esperas fijas.
-test("rac-1/rac-2: cinco detonaciones juntas y cinco perdigones en vuelo", async ({ page }) => {
+// rac-1 y rac-2: el Racimo, con la solución dirigida al casco del rival, se
+// abre en tres perdigones en fila, separados >= 70 u, y en vuelo se abre en
+// tres en los últimos 40 u. Todo se lee del estado de depuración, sin esperas
+// fijas. Las capturas (CAPTURAS_DIR) son para el juicio visual del gatekeeper.
+test("rac-1/rac-2: tres detonaciones separadas y tres perdigones en vuelo", async ({ page }) => {
   test.setTimeout(180000);
   await page.setViewportSize({ width: 1180, height: 820 });
   await page.goto("/?mapa=calma-de-los-restos");
@@ -39,25 +40,26 @@ test("rac-1/rac-2: cinco detonaciones juntas y cinco perdigones en vuelo", async
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   await page.getByTestId("disparar").click();
   await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) >= n + 1, turnoAntes, { timeout: 150000 });
+  if (process.env.CAPTURAS_DIR) await page.screenshot({ path: `${process.env.CAPTURAS_DIR}/racimo-separado-1180x820.png` });
 
   const medida = await page.evaluate(() => ({
     detonaciones: window.__debug.detonaciones ?? [],
     explosiones: (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === undefined || e.tipo === "explosion").length,
     perdigones: window.__debug.proyectil?.perdigonesMaximo,
-    impacto: window.__debug.ultimoDisparo?.impacto,
   }));
 
   const racimo = medida.detonaciones.filter((d) => d.armaId === "racimo-de-tuppers");
-  expect(racimo).toHaveLength(5);
+  // El central siempre detona; los laterales solo se descartan fuera del mundo.
+  expect(racimo.length).toBeGreaterThanOrEqual(2);
+  expect(racimo.length).toBeLessThanOrEqual(3);
   for (const a of racimo) {
-    for (const b of racimo) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeLessThanOrEqual(1.5 * RADIO_SUBMUNICION + 1e-6);
-    // El impacto publicado es el del perdigón central, que ya lleva su propia
-    // variación (≤ 0,15 × radio): la cruz más las dos variaciones, no solo 0,75.
-    expect(Math.hypot(a.x - medida.impacto!.x, a.y - medida.impacto!.y)).toBeLessThanOrEqual(0.9 * RADIO_SUBMUNICION + 1e-6);
+    for (const b of racimo) {
+      if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(SEPARACION_PERDIGON_U - 0.5);
+    }
   }
-  expect(medida.explosiones).toBeGreaterThanOrEqual(5);
-  const danioTotal = racimo.reduce((total, d) => total + d.danioAplicado, 0);
-  expect(danioTotal).toBeLessThanOrEqual(DANIO_MAXIMO_RACIMO_COMBINADO);
-  // rac-2: en vuelo el portador pasó de 1 a 5 perdigones.
-  expect(medida.perdigones).toBe(5);
+  expect(medida.explosiones).toBeGreaterThanOrEqual(racimo.length);
+  // Una nave recibe solo el daño de su perdigón más fuerte (20).
+  expect(Math.max(0, ...racimo.map((d) => d.danioAplicado))).toBeLessThanOrEqual(20);
+  // rac-2: en vuelo el portador pasó de 1 a 3 perdigones.
+  expect(medida.perdigones).toBe(3);
 });

@@ -16,21 +16,21 @@ aparte que mantener sincronizada con el resolutor.
 
 | Arma | Daño máx. | Radio de efecto (px) | Tiempo de vuelo medio | Facilidad medida | Coste |
 | --- | --- | --- | --- | --- | --- |
-| Pepinazo de Cortesía | 18 | 55 | 1.31s | 2.4% | 55 |
-| Mortero Lamentable | 24 | 70 | 1.27s | 2.5% | 65 |
-| Zanjadora Manolita | 4 | 56 | 1.32s | 2.0% | 0 |
+| Pepinazo de Cortesía | 18 | 55 | 1.00s | 2.2% | 35 |
+| Mortero Lamentable | 24 | 70 | 0.97s | 2.4% | 45 |
+| Zanjadora Manolita | 4 | 56 | 1.02s | 2.1% | 0 |
 | Vertedero Portátil | 0 | 0 | n/a | 0.0% | 15 |
-| Racimo de Tuppers | 20 | 62 | 1.27s | 2.5% | 60 |
-| Petardo de Feria | 13 | 62 | 1.40s | 1.5% | 0 |
-| La Pelota de Chatarra | 8 | 30 | 1.26s | 1.8% | 0 |
+| Racimo de Tuppers | 20 | 30 | 0.98s | 2.1% | 40 |
+| Petardo de Feria | 13 | 62 | 0.94s | 1.7% | 0 |
+| La Pelota de Chatarra | 8 | 30 | 1.00s | 1.9% | 0 |
 | Gravitón de Segunda Mano | 0 | 0 | n/a | 0.0% | 45 |
-| Despedida | 55 | 115 | 1.16s | 3.2% | 125 |
-| Barrena Planetaria | 44 | 38 | 1.28s | 2.3% | 90 |
-| Rayo Láser | 46 | 80 | 0.49s | 0.9% | 115 |
-| Mosca Cojonera | 28 | 50 | 1.25s | 2.8% | 75 |
-| Granada de Espoleta | 34 | 62 | 1.30s | 2.4% | 80 |
-| Gancho Pegajoso | 24 | 38 | 1.09s | 7.9% | 118 |
-| Minirobot Saltaplanetas | 40 | 50 | 1.29s | 2.2% | 85 |
+| Despedida | 55 | 115 | 0.92s | 2.9% | 85 |
+| Barrena Planetaria | 44 | 38 | 0.99s | 2.0% | 65 |
+| Rayo Láser | 46 | 80 | 0.46s | 1.1% | 80 |
+| Mosca Cojonera | 28 | 50 | 0.93s | 2.3% | 50 |
+| Granada de Espoleta | 34 | 62 | 0.99s | 2.3% | 55 |
+| Gancho Pegajoso | 24 | 38 | 0.81s | 8.1% | 90 |
+| Minirobot Saltaplanetas | 40 | 50 | 0.99s | 2.0% | 60 |
 
 ## Dominancia
 

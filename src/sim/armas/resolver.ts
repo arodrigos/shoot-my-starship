@@ -261,55 +261,84 @@ function resolverRodadura(mascara: Mascara, xInicial: number, yInicial: number, 
 }
 
 // El Racimo de Tuppers (comportamiento "submuniciones"): vuela como cualquier
-// otro disparo hasta su punto de impacto P y ahí estallan juntos los cinco
-// perdigones, como una escopeta. Antes se repartían desde el ápice y caían
-// dispersos por toda la pantalla, sin una lógica que se entendiera.
+// otro disparo hasta su punto de impacto P y ahí se abre en tres perdigones en
+// fila, perpendicular al rumbo, bien separados: ya no es un impacto de área
+// más, sino tres cráteres pequeños con roca entre ellos.
 // `planetas`, igual que en simularVuelo, es opcional y aditivo (nucleo-
 // gravedad): el portador vuela con el mismo tirón de N cuerpos que cualquier
 // disparo (grav-4, congelada hasta que el turno cierra en avanzar()).
 
 // Radio del cráter de cada perdigón (huella del Racimo en el catálogo).
 export const RADIO_SUBMUNICION = 17;
-// Distancia del centro a cada perdigón de la cruz, y variación máxima por
-// perdigón: ambas relativas al radio, de modo que ninguno queda a más de
-// 0,75 × RADIO_SUBMUNICION de P.
-export const FRACCION_CRUZ_SUBMUNICION = 0.6;
-export const FRACCION_VARIACION_SUBMUNICION = 0.15;
-// Tope del daño que las cinco detonaciones pueden sumar sobre una misma nave:
-// agrupadas casi en el mismo punto, sin tope harían cinco veces el daño de una
-// sola explosión (Pocket Tanks limita igual a sus escopetas).
-export const DANIO_MAXIMO_RACIMO_COMBINADO = 40;
+// Distancia entre perdigones consecutivos medida sobre el eje perpendicular al
+// rumbo. Mayor que dos radios de cráter, así que nunca se solapan.
+export const SEPARACION_PERDIGON_U = 70;
 
-// Variación determinista a partir de la posición y del índice, sin consumir
-// EstadoAleatorio: el mismo disparo da siempre las mismas cinco posiciones.
-function variacionPerdigon(x: number, y: number, indice: number, eje: number): number {
-  const semilla = Math.sin(x * 12.9898 + y * 78.233 + indice * 37.719 + eje * 4.1414) * 43758.5453;
-  return (semilla - Math.floor(semilla)) * 2 - 1;
+interface EntornoPerdigones {
+  readonly mascara: Mascara;
+  readonly ancho: number;
+  readonly alto: number;
 }
 
-// Centro más cruz orientada con el rumbo del portador al detonar.
-export function patronPerdigones(p: EstadoProyectil, cantidad: number): readonly { readonly x: number; readonly y: number }[] {
-  const rumbo = Math.atan2(p.vy, p.vx);
-  const brazos = Math.max(1, cantidad - 1);
-  const alcance = RADIO_SUBMUNICION * FRACCION_CRUZ_SUBMUNICION;
-  const variacion = RADIO_SUBMUNICION * FRACCION_VARIACION_SUBMUNICION;
-  return Array.from({ length: cantidad }, (_, i) => {
-    const angulo = rumbo + ((i - 1) * 2 * Math.PI) / brazos;
-    const base = i === 0 ? { x: 0, y: 0 } : { x: Math.cos(angulo) * alcance, y: Math.sin(angulo) * alcance };
-    // La variación se reparte en un cuadrado de lado variacion / √2 por eje
-    // para que su módulo no pase de `variacion`.
-    const k = variacion / Math.SQRT2;
-    return { x: p.x + base.x + variacionPerdigon(p.x, p.y, i, 0) * k, y: p.y + base.y + variacionPerdigon(p.x, p.y, i, 1) * k };
-  });
+// Primer sólido a lo largo del rumbo, desde SEPARACION_PERDIGON_U antes hasta
+// SEPARACION_PERDIGON_U después del punto nominal. Sin sólido, el punto
+// nominal: el perdigón detona en el aire.
+function ajustarASuperficie(
+  nominal: { readonly x: number; readonly y: number },
+  rumbo: { readonly x: number; readonly y: number },
+  entorno: EntornoPerdigones,
+): { readonly x: number; readonly y: number } {
+  for (let d = -SEPARACION_PERDIGON_U; d <= SEPARACION_PERDIGON_U; d += 1) {
+    const x = nominal.x + rumbo.x * d;
+    const y = nominal.y + rumbo.y * d;
+    if (x < 0 || x >= entorno.ancho || y < 0 || y >= entorno.alto) continue;
+    if (esSolido(entorno.mascara, Math.round(x), Math.round(y))) return { x, y };
+  }
+  return nominal;
 }
 
-// Reparte el daño de las detonaciones sobre una misma nave sin pasar del tope
-// del Racimo. Para el resto de armas devuelve la lista tal cual.
+// Centro más un perdigón a cada lado, orientados con el rumbo del portador al
+// detonar. Determinista y sin EstadoAleatorio. Con `entorno`, los laterales se
+// pegan a la superficie y los que caen fuera del mundo se descartan.
+export function patronPerdigones(
+  p: EstadoProyectil,
+  cantidad: number,
+  entorno?: EntornoPerdigones,
+): readonly { readonly x: number; readonly y: number }[] {
+  const modulo = Math.hypot(p.vx, p.vy);
+  const rumbo = modulo > 0 ? { x: p.vx / modulo, y: p.vy / modulo } : { x: 1, y: 0 };
+  const perpendicular = { x: -rumbo.y, y: rumbo.x };
+  const puntos: { x: number; y: number }[] = [{ x: p.x, y: p.y }];
+  for (let i = 1; i < cantidad; i++) {
+    const lado = i % 2 === 1 ? -1 : 1;
+    const orden = Math.ceil(i / 2);
+    const nominal = {
+      x: p.x + perpendicular.x * lado * orden * SEPARACION_PERDIGON_U,
+      y: p.y + perpendicular.y * lado * orden * SEPARACION_PERDIGON_U,
+    };
+    if (!entorno) {
+      puntos.push(nominal);
+      continue;
+    }
+    const ajustado = ajustarASuperficie(nominal, rumbo, entorno);
+    if (ajustado.x < 0 || ajustado.x >= entorno.ancho || ajustado.y < 0 || ajustado.y >= entorno.alto) continue;
+    puntos.push({ x: ajustado.x, y: ajustado.y });
+  }
+  return puntos;
+}
+
+// Una nave recibe el daño del perdigón más fuerte que la alcanza, nunca la
+// suma: el resto de perdigones quedan a 0. Para el resto de armas devuelve la
+// lista tal cual.
 export function limitarDanioCombinado(arma: Arma, danios: readonly number[]): number[] {
   if (arma.comportamiento.tipo !== "submuniciones") return [...danios];
-  const total = danios.reduce((suma, danio) => suma + danio, 0);
-  if (total <= DANIO_MAXIMO_RACIMO_COMBINADO) return [...danios];
-  return danios.map((danio) => Math.floor((danio * DANIO_MAXIMO_RACIMO_COMBINADO) / total));
+  const maximo = Math.max(0, ...danios);
+  let usado = false;
+  return danios.map((danio) => {
+    if (usado || danio !== maximo) return 0;
+    usado = true;
+    return danio;
+  });
 }
 
 interface ResultadoPuntosDeImpacto {
@@ -358,7 +387,7 @@ function resolverSubmuniciones(
   }
   // Todos los perdigones llevan la velocidad del portador (empuje) y el
   // casco que detuvo el vuelo, si lo hubo.
-  const puntos = patronPerdigones(proyectil, cantidad).map((posicion) => ({
+  const puntos = patronPerdigones(proyectil, cantidad, { mascara, ancho, alto }).map((posicion) => ({
     x: posicion.x,
     y: posicion.y,
     impactoNave: impactoNave?.nave,

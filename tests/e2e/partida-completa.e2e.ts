@@ -187,14 +187,14 @@ for (const vp of VIEWPORTS) {
     expect(pepinazo.explosiones, "una explosión por cada detonación").toBeGreaterThanOrEqual(1);
     await capturar("pepinazo-impacto", "Explosión del Pepinazo en el punto de impacto, sin pantalla bloqueada.");
 
-    // 3. Racimo: cinco perdigones juntos y el saldo baja con la compra.
+    // 3. Racimo: tres perdigones en fila y el saldo baja con la compra.
     await curarAlHumano(page);
     await elegirArma(page, "racimo-de-tuppers");
     await capturar("racimo-en-reposo", "El Racimo de Tuppers elegido en el selector, con su dibujo propio.");
     const saldoAntes = (await page.evaluate(() => window.__debug.saldo)) as number;
     const detonacionesPrevias = await page.evaluate(() => window.__debug.registroDetonaciones?.length ?? 0);
     // Sin solución del oráculo el tiro a ciegas puede perder al portador y no
-    // detonar nada; hacia el planeta, los cinco perdigones estallan seguro.
+    // detonar nada; hacia el planeta, los perdigones estallan seguro.
     if (await colocarSobrePlaneta(page)) {
       await arrastrarBarraHasta(page, "barra-angulo", (270 - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS));
       await arrastrarBarraHasta(page, "barra-potencia", 0.3);
@@ -209,9 +209,9 @@ for (const vp of VIEWPORTS) {
       saldo: window.__debug.saldo as number,
     }), detonacionesPrevias);
     const perdigones = Math.max(0, ...racimo.registro.filter((r) => r.tirador === 0 && r.armaId === "racimo-de-tuppers").map((r) => r.cantidad));
-    expect(perdigones, `el Racimo detona sus 5 perdigones (${JSON.stringify(racimo.registro)})`).toBeGreaterThanOrEqual(5);
+    expect(perdigones, `el Racimo detona al menos dos de sus 3 perdigones (${JSON.stringify(racimo.registro)})`).toBeGreaterThanOrEqual(2);
     expect(racimo.saldo, "el saldo baja con cada compra").toBeLessThan(saldoAntes);
-    await capturar("racimo-perdigones", "Perdigones del Racimo estallando muy juntos, cerca del punto de impacto.");
+    await capturar("racimo-perdigones", "Perdigones del Racimo estallando en fila y separados, en torno al punto de impacto.");
 
     // 4. Misil con estela (Mosca Cojonera): su proyectil y su estela se ven en vuelo.
     await curarAlHumano(page);
