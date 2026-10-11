@@ -110,7 +110,9 @@ test("hud-canales-1: el canal de estado es permanente y la broma se desvanece so
   await expect(page.getByTestId("integridad-nave-0")).toBeVisible();
   await expect(page.getByTestId("integridad-nave-1")).toBeVisible();
 
-  await dispararTurnoReal(page);
+  // voz-resumenes: el bocadillo solo sale cada tres turnos resueltos; tres
+  // turnos guionizados lo publican al instante y sin esperar vuelos animados.
+  await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(3));
   await expect(page.getByTestId("canal-estado")).toBeVisible();
   await expect(page.getByTestId("panel-bromas")).toBeVisible();
 
@@ -132,14 +134,11 @@ test("hud-canales-1: el canal de estado es permanente y la broma se desvanece so
 
   await page.screenshot({ path: "capturas/hud-canales-1-360x640.png" });
 
-  // Se espera a que también resuelva el turno de la máquina -- su propia
-  // broma reiniciaría el temporizador de desvanecido, igual que lay-4 espera
-  // lo mismo antes de descartar a mano (misma carrera real, no del test).
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 30000 });
+  // El plazo es max(6000 ms, 70 ms × caracteres): 140 caracteres como mucho.
   await page.waitForFunction(
     () => document.querySelector('[data-testid="panel-bromas"]') === null,
     undefined,
-    { timeout: 7000 },
+    { timeout: 14000 },
   );
   await expect(page.getByTestId("canal-estado")).toBeVisible();
 });
@@ -161,7 +160,7 @@ test("hud-canales-2: disparar cambia el indicador de turno y el histórico gana 
 test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en orden tras dos disparos", async ({
   page,
 }) => {
-  test.setTimeout(90000);
+  test.setTimeout(240000);
   await irAPartida(page);
 
   // hud-canales-3: "accesible desde el canal de estado" -- un botón ahí
@@ -171,13 +170,18 @@ test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en ord
   await expect(page.getByTestId("historico-bromas-vacio")).toHaveText("Aún no hay mensajes: aquí aparecerán las bromas y avisos de la partida.");
   await page.getByTestId("historico-bromas-cerrar").click();
 
+  // voz-resumenes: el histórico gana una entrada por resumen (cada tres
+  // turnos resueltos). Dos turnos guionizados y el disparo real hacen el
+  // tercero; el sexto es la respuesta de la máquina al quinto.
+  await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(2));
   await dispararTurnoReal(page);
   await page.getByTestId("historico-bromas-toggle").click();
   await expect(page.getByTestId("historico-bromas-entrada-0")).toBeVisible();
   await page.getByTestId("historico-bromas-cerrar").click();
 
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 90000 });
   await dispararTurnoReal(page);
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 90000 });
   await page.getByTestId("historico-bromas-toggle").click();
   await expect(page.getByTestId("historico-bromas-entrada-1")).toBeVisible();
 });

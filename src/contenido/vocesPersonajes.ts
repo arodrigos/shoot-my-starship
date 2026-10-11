@@ -1,6 +1,7 @@
 import type { IdVoz } from "@/contenido/bancoBromas";
 
-// voz-chistes (voz-5): los tres personajes comparten la misma voz del sistema
+// voz-resumenes: velocidad normal (0,9 a 1,0) y tonos casi neutros; antes
+// Chispa leía a 1,15 y no daba tiempo a entenderla. Origen: voz-chistes (voz-5): los tres personajes comparten la misma voz del sistema
 // y se distinguen solo por velocidad y tono. Así un chiste nuevo en el banco
 // ya tiene voz sin ningún fichero de audio (ACTIVOS.md los prohíbe).
 export interface TimbreVoz {
@@ -9,10 +10,10 @@ export interface TimbreVoz {
 }
 
 export const TIMBRE_POR_VOZ: Readonly<Record<IdVoz, TimbreVoz>> = {
-  // Seca y mesurada: lenta y grave, como quien lee un balance.
-  "la-contable": { rate: 0.92, pitch: 0.85 },
+  // Seca y mesurada: algo más lenta y grave, como quien lee un balance.
+  "la-contable": { rate: 0.9, pitch: 0.95 },
   // Grandilocuente: pausado y de pecho.
-  "almirante-bisagra": { rate: 0.98, pitch: 0.95 },
-  // Nerviosa y aguda.
-  chispa: { rate: 1.15, pitch: 1.35 },
+  "almirante-bisagra": { rate: 1, pitch: 1 },
+  // Nerviosa: algo más aguda, sin acelerar.
+  chispa: { rate: 0.95, pitch: 1.1 },
 };

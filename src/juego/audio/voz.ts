@@ -1,4 +1,4 @@
-// voz-chistes: los chistes se leen en voz alta con la Web Speech API del
+// voz-resumenes: los resúmenes y avisos se leen en voz alta con la Web Speech API del
 // navegador (vía easy-speech, que absorbe las rarezas de Chrome, Safari y
 // Android). Nada sale del dispositivo: solo se usan voces LOCALES en
 // castellano. Una voz remota (las «Google español» de Chrome de escritorio)
@@ -9,7 +9,7 @@ import { atenuarMusica } from "@/juego/audio/motor";
 
 export const CLAVE_VOZ = "voz:activada";
 export const FACTOR_MUSICA_HABLANDO = 0.35;
-export const AVISO_SIN_VOZ = "Tu dispositivo no tiene voz en castellano: los chistes seguirán en texto";
+export const AVISO_SIN_VOZ = "Tu dispositivo no tiene voz en castellano: los resúmenes seguirán en texto";
 
 export interface VozSistema {
   readonly name: string;
@@ -20,12 +20,20 @@ export interface VozSistema {
 // Android devuelve «es_ES» y el resto «es-ES»; «est-…» no es castellano.
 const ES_CASTELLANO = /^es([-_]|$)/i;
 
-// Invariante de voz-chistes: el resultado es null o una voz es-* local. Entre
-// las válidas se prefiere es-ES y, si no, la primera, para que la elección no
+// Las voces del sistema que se anuncian como mejoradas suenan bastante menos
+// robóticas que las básicas.
+const NOMBRE_DE_CALIDAD = /mejorad|enhanced|premium|natural/i;
+
+function puntuarVoz(voz: VozSistema): number {
+  return (NOMBRE_DE_CALIDAD.test(voz.name) ? 2 : 0) + (/^es[-_]ES$/i.test(voz.lang) ? 1 : 0);
+}
+
+// Invariante: el resultado es null o una voz es-* local. Entre las válidas gana
+// la de mayor puntuación y, a igualdad, la primera, para que la elección no
 // dependa del azar.
 export function elegirVoz<T extends VozSistema>(voces: readonly T[]): T | null {
   const validas = voces.filter((voz) => voz.localService === true && ES_CASTELLANO.test(voz.lang));
-  return validas.find((voz) => /^es[-_]ES$/i.test(voz.lang)) ?? validas[0] ?? null;
+  return validas.reduce<T | null>((mejor, voz) => (mejor === null || puntuarVoz(voz) > puntuarVoz(mejor) ? voz : mejor), null);
 }
 
 // Cualquier valor que no sea exactamente "false" cuenta como activada: un
@@ -70,7 +78,8 @@ export interface EstadoVoz {
 
 export interface Locutor {
   iniciar(): void;
-  hablar(personaje: IdVoz, texto: string): void;
+  // prioritario: un anuncio de evento pasa por delante del resumen pendiente.
+  hablar(personaje: IdVoz, texto: string, prioritario?: boolean): void;
   callar(): void;
   alternar(): boolean;
   estado(): EstadoVoz;
@@ -90,6 +99,11 @@ export interface DependenciasLocutor {
 
 const TOPE_LLAMADAS_REGISTRADAS = 50;
 
+interface PendienteVoz {
+  readonly personaje: IdVoz;
+  readonly texto: string;
+}
+
 export function crearLocutor(deps: DependenciasLocutor): Locutor {
   let activada = sanearPreferenciaVoz(deps.leerPreferencia());
   let disponibilidad: DisponibilidadVoz = "desconocida";
@@ -102,6 +116,12 @@ export function crearLocutor(deps: DependenciasLocutor): Locutor {
   // tarde y no deben subir la música ni bajar la del chiste siguiente.
   let vigente = 0;
   let hablando = false;
+  // Cola sin cortes: lo que suena termina y como mucho hay un texto esperando
+  // por clase (anuncio de evento y resumen); el más nuevo sustituye al pendiente
+  // de su clase y los anuncios se hablan antes que los resúmenes.
+  let sonando = false;
+  let pendientePrioritario: PendienteVoz | null = null;
+  let pendienteNormal: PendienteVoz | null = null;
   const escuchas = new Set<() => void>();
 
   function avisar(): void {
@@ -124,8 +144,15 @@ export function crearLocutor(deps: DependenciasLocutor): Locutor {
   }
 
   function callar(): void {
+    const habiaVoz = sonando;
     vigente += 1;
+    sonando = false;
+    pendientePrioritario = null;
+    pendienteNormal = null;
     if (disponibilidad !== "si") return;
+    // Sin nada sonando no hay qué cortar: un cancel espurio (p. ej. al montar
+    // la escena) rompe la regla de no cancelar salvo al silenciar de verdad.
+    if (!habiaVoz) return;
     cancelar();
     restaurarMusica();
   }
@@ -160,36 +187,49 @@ export function crearLocutor(deps: DependenciasLocutor): Locutor {
     void arrancar();
   }
 
+  function decir(personaje: IdVoz, texto: string): void {
+    if (!voz) return;
+    const timbre = TIMBRE_POR_VOZ[personaje];
+    const elegida = voz;
+    vigente += 1;
+    const mio = vigente;
+    sonando = true;
+    registrar({ tipo: "speak", texto, lang: elegida.lang, rate: timbre.rate, pitch: timbre.pitch });
+    const terminar = (): void => {
+      if (mio !== vigente) return;
+      sonando = false;
+      restaurarMusica();
+      const siguiente = pendientePrioritario ?? pendienteNormal;
+      if (pendientePrioritario) pendientePrioritario = null;
+      else pendienteNormal = null;
+      if (siguiente) decir(siguiente.personaje, siguiente.texto);
+    };
+    deps.motor.hablar({
+      text: texto,
+      voice: elegida,
+      lang: elegida.lang,
+      rate: timbre.rate,
+      pitch: timbre.pitch,
+      start: () => {
+        if (mio !== vigente) return;
+        hablando = true;
+        deps.atenuarMusica(FACTOR_MUSICA_HABLANDO);
+      },
+      end: terminar,
+      error: terminar,
+    });
+  }
+
   return {
     iniciar,
-    hablar(personaje, texto) {
+    hablar(personaje, texto, prioritario = false) {
       if (!activada || disponibilidad !== "si" || !voz || texto.trim() === "") return;
-      const timbre = TIMBRE_POR_VOZ[personaje];
-      const elegida = voz;
-      // Cola de uno: cada chiste corta al anterior en vez de apilarse.
-      cancelar();
-      restaurarMusica();
-      vigente += 1;
-      const mio = vigente;
-      registrar({ tipo: "speak", texto, lang: elegida.lang, rate: timbre.rate, pitch: timbre.pitch });
-      deps.motor.hablar({
-        text: texto,
-        voice: elegida,
-        lang: elegida.lang,
-        rate: timbre.rate,
-        pitch: timbre.pitch,
-        start: () => {
-          if (mio !== vigente) return;
-          hablando = true;
-          deps.atenuarMusica(FACTOR_MUSICA_HABLANDO);
-        },
-        end: () => {
-          if (mio === vigente) restaurarMusica();
-        },
-        error: () => {
-          if (mio === vigente) restaurarMusica();
-        },
-      });
+      if (sonando) {
+        if (prioritario) pendientePrioritario = { personaje, texto };
+        else pendienteNormal = { personaje, texto };
+        return;
+      }
+      decir(personaje, texto);
     },
     callar,
     alternar() {
@@ -226,8 +266,12 @@ function crearMotorEasySpeech(): MotorVoz {
     hablar(opciones) {
       if (!modulo) return;
       const { voice, ...resto } = opciones;
+      // noStop: easy-speech cancela por su cuenta antes de cada speak y la cola
+      // ya garantiza que nada suena a la vez.
+      // Las definiciones de tipos de easy-speech 2.4.0 no declaran noStop.
+      const sinCortar = { ...resto, voice: voice as SpeechSynthesisVoice, noStop: true };
       modulo
-        .speak({ ...resto, voice: voice as SpeechSynthesisVoice })
+        .speak(sinCortar)
         // easy-speech rechaza la promesa en error o al cancelar; el
         // manejador error ya lo recoge, aquí solo se evita el aviso.
         .catch(() => undefined);
