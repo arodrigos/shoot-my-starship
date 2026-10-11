@@ -22,7 +22,7 @@ export const LA_CONTABLE: Personalidad = {
   // ganaba 85-96 %. Por decisión de Adrián su banda baja a 60-80 %: el error
   // angular sube a ±11,7° (x2,6) y el de potencia a ±10,8 (x1,2). Medido con
   // 100 partidas por semilla: 61/82/77/69/73 %.
-  error: { anguloGrados: { minimo: -11.7, maximo: 11.7 }, potencia: { minimo: -10.8, maximo: 10.8 } },
+  error: { anguloGrados: { minimo: -14.5, maximo: 14.5 }, potencia: { minimo: -13.5, maximo: 13.5 } },
   trayectoriaPreferida: "tenso",
   // El arma más eficiente por punto de daño entre las fiables, evitando la
   // única arma con fiabilidad < 1 (el Petardo de Feria no es "eficiente",
