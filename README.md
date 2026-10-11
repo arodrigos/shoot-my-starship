@@ -87,7 +87,7 @@ de Chatarra**) son el fondo de armario.
 | Mortero Lamentable | 50 | área máxima permitida: perdona el error de ángulo, cuesta en consecuencia |
 | Zanjadora Manolita | 0 | gratis, de daño bajo y difícil de acertar -- fondo de armario |
 | Vertedero Portátil | 15 | utilitaria: rellena terreno, precio por volumen afectado, no por daño |
-| Racimo de Tuppers | 45 | tres perdigones en fila, bien separados: cubre ancho con tres cráteres pequeños y cada nave recibe solo el daño del más fuerte |
+| Racimo de Tuppers | 40 | tres perdigones en fila, bien separados: cubre ancho con tres cráteres pequeños y cada nave recibe solo el daño del más fuerte |
 | Petardo de Feria | 0 | gratis, de daño bajo, difícil y además una de cada cuatro falla del todo |
 | La Pelota de Chatarra | 0 | gratis, de daño bajo: rueda hasta un agujero, pero no garantiza cuál |
 | Gravitón de Segunda Mano | 45 | utilitaria: reposiciona, precio por magnitud del desplazamiento, no por daño |

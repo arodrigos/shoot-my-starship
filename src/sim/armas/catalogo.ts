@@ -88,7 +88,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 17, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 30, danioMaximo: 20 },
     fiabilidad: 1,
-    coste: 45,
+    coste: 40,
     rol: "tres perdigones en fila, bien separados: cubre ancho con tres cráteres pequeños y cada nave recibe solo el daño del más fuerte",
     notaAyuda: "Se abre en tres perdigones en fila, a 70 u entre sí: una nave recibe como mucho el daño de uno.",
   },
