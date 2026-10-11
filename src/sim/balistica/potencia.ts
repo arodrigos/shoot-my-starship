@@ -4,7 +4,7 @@
 // misma conversión, y antes de este bloque solo existía una mitad, privada
 // dentro de avanzar.ts.
 export const POTENCIA_MINIMA_PX_S = 300;
-export const POTENCIA_MAXIMA_PX_S = 1400;
+export const POTENCIA_MAXIMA_PX_S = 1050;
 
 export function velocidadDesdePotencia(potencia: number): number {
   const p = Math.min(100, Math.max(0, potencia)) / 100;

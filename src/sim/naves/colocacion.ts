@@ -57,7 +57,14 @@ const MAX_INTENTOS_PUNTO = 500;
 // viabilidad barre una vuelta entera (40 combinaciones a la primera
 // potencia, con paso de 9°). La IA
 // conserva su semicírculo: solo lanza hacia arriba.
-const PRESUPUESTO_INTENTOS_VIABILIDAD = 40;
+//
+// fuerza-maxima (fza-2): con la potencia máxima en 1050 u/s, la primera
+// potencia de la rejilla (40 %, 40 combinaciones) ya no alcanzaba a muchos
+// pares y la colocación caía al corredor (≈ 5-8 % de las semillas medidas).
+// 90 cubre también la segunda potencia (55 %); medido con 100 semillas, ≥ 99 %
+// vuelven a salir de recolocación o regeneración. Solo cambia las semillas que
+// antes fallaban: las que ya encontraban tiro lo encuentran en el mismo orden.
+const PRESUPUESTO_INTENTOS_VIABILIDAD = 90;
 // Offset primo para la "semilla derivada" de cada regeneración -- cualquier
 // desplazamiento fijo sirve, un primo grande evita que dos semillas de las
 // 500 de imp-9 colisionen entre sí al derivarse.
