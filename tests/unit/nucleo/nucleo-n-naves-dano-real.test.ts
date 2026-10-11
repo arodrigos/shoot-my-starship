@@ -8,6 +8,7 @@ import { crearPartidaInicial } from "@/sim/partida/motor";
 import type { EstadoPartida, IdNave } from "@/sim/partida/tipos";
 import { SOLIDO } from "@/sim/terreno/mascara";
 import { crearMascaraPlana } from "../../utils/terrenoPlano";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 
 const MUNDO = { ancho: 1920, alto: 1080, gravedad: 1.0, deriva: 0, etiquetaDeriva: "nucleo-n-naves-dano-real" };
 const ALTURA_SUELO = 900;
@@ -37,21 +38,21 @@ test("nucleo-n-naves-2: el daño sale del punto de impacto real, no del objetivo
   const aNave2 = dispararA(estado, 1720, 2);
   const aNave2DeclarandoNave1 = dispararA(estado, 1720, 1);
 
-  assert.ok(aNave2.estado.naves[2].integridad < 100, "acertar a la nave 2 le quita vida");
+  assert.ok(aNave2.estado.naves[2].integridad < INTEGRIDAD_MAXIMA, "acertar a la nave 2 le quita vida");
   assert.deepEqual(
     aNave2DeclarandoNave1.estado.naves.map((nave) => nave.integridad),
     aNave2.estado.naves.map((nave) => nave.integridad),
     "declarar otro objetivo no cambia quién pierde vida",
   );
-  assert.equal(aNave2DeclarandoNave1.estado.naves[1].integridad, 100, "la nave 1, lejos del impacto, no recibe daño");
+  assert.equal(aNave2DeclarandoNave1.estado.naves[1].integridad, INTEGRIDAD_MAXIMA, "la nave 1, lejos del impacto, no recibe daño");
   assert.ok(aNave2DeclarandoNave1.eventos.some((e) => e.tipo === "danio-colateral" && e.nave === 2));
 });
 
 test("nucleo-n-naves-2: un disparo de área daña a las dos naves que alcanza, no solo a la declarada", () => {
   const estado = partidaPlana([200, 1700, 1740]);
   const { estado: tras } = dispararA(estado, 1720, 1);
-  assert.ok(tras.naves[1].integridad < 100, "la declarada pierde vida");
-  assert.ok(tras.naves[2].integridad < 100, "la de al lado, dentro del radio, también");
+  assert.ok(tras.naves[1].integridad < INTEGRIDAD_MAXIMA, "la declarada pierde vida");
+  assert.ok(tras.naves[2].integridad < INTEGRIDAD_MAXIMA, "la de al lado, dentro del radio, también");
 });
 
 test("nucleo-n-naves-2: una tercera nave que cae en el turno cuenta para la eliminación y el último en pie", () => {

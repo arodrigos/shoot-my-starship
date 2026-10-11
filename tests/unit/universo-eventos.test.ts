@@ -22,6 +22,7 @@ import { aplicarEvento, avanzarUniverso, conUniverso, factorDanio, ID_AGUJERO_NE
 import type { EventoProgramado, EstadoUniverso, TipoEvento } from "@/sim/universo/tipos";
 import { MUNDO_ALTO, MUNDO_ANCHO } from "../utils/sistemaGenerado";
 import { comprobarCalendarioDeEventos, NUM_SEMILLAS_EVT_1_RAPIDO } from "../utils/calendarioEventos";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 
 const MUNDO: ParametrosMundo = { ancho: MUNDO_ANCHO, alto: MUNDO_ALTO, gravedad: 0, deriva: 0, etiquetaDeriva: "" };
 const SEMILLA_SISTEMA = 31;
@@ -355,7 +356,7 @@ test("evt-1: vitaminas doblan y virus reducen a la mitad el daño de un disparo 
     { enTurnos: 99, tipo: "virus", afectado: 1 },
   );
   const disparar = (estado: EstadoPartida, anguloGrados: number, potencia: number): number =>
-    100 - avanzar(estado, { arma: "pepinazo-cortesia", anguloGrados, potencia, objetivoId: 1 }).estado.naves[1].integridad;
+    INTEGRIDAD_MAXIMA - avanzar(estado, { arma: "pepinazo-cortesia", anguloGrados, potencia, objetivoId: 1 }).estado.naves[1].integridad;
   let encontrado: { angulo: number; potencia: number; danio: number } | null = null;
   for (let angulo = 0; angulo < 360 && encontrado === null; angulo += 2) {
     for (const potencia of [30, 45, 60, 75, 90]) {
@@ -367,7 +368,7 @@ test("evt-1: vitaminas doblan y virus reducen a la mitad el daño de un disparo 
     }
   }
   assert.ok(encontrado !== null, "ninguna combinación de la rejilla acierta: cambia de semilla");
-  assert.ok(encontrado.danio <= 50, "el escenario tiene que dejar margen para doblar sin topar con 100");
+  assert.ok(encontrado.danio <= 50, "el escenario tiene que dejar margen para doblar sin topar con el máximo de vida");
   const conEfecto = (tipo: "vitaminas" | "virus"): EstadoPartida => aplicarEvento(base, { enTurnos: 0, tipo, afectado: 0 }, "calendario").estado;
   // El daño se redondea a entero por disparo, de ahí la tolerancia de ±1.
   assert.ok(Math.abs(disparar(conEfecto("vitaminas"), encontrado.angulo, encontrado.potencia) - 2 * encontrado.danio) <= 1);
