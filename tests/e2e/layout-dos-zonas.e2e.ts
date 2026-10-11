@@ -143,13 +143,9 @@ for (const [nombreViewport, viewport] of Object.entries({ "360x640": VIEWPORT_MO
 test("lay-4: el resumen se descarta con un objetivo >=44x44 sin mover el resto de controles", async ({ page }) => {
   test.setTimeout(60000);
   await irAPartida(page, VIEWPORT_MOVIL);
-  await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(2));
-  await dispararTurnoReal(page);
-  // Se espera a que la máquina también resuelva su turno antes de descartar:
-  // si no, su propia broma puede sustituir a la del jugador justo entre la
-  // lectura de las cajas "antes" y el click, y el descarte compararía contra
-  // una clave ya vieja (carrera real, no del test).
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 30000 });
+  // Tres turnos guionizados publican el resumen al instante: esperar a la
+  // respuesta animada de la máquina lo dejaría caducar (6 s) antes de medir.
+  await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(3));
   await expect(page.getByTestId("panel-bromas")).toBeVisible();
 
   const controles = ["reticulo", "paso-angulo-mas", "paso-angulo-menos", "selector-arma-abrir", "disparar"];
