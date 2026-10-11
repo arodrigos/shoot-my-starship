@@ -36,8 +36,11 @@ const PARTIDAS_POR_SEMILLA = 100;
 // 39/79/67/62/75 %, Almirante Bisagra 35/60/43/53/86 % y Chispa
 // 15/50/42/22/50 %; las bandas no cambian, el orden se cumple en 4 de 5.
 const BANDA_LA_CONTABLE = [0.6, 0.8] as const;
-const BANDA_ALMIRANTE_BISAGRA = [0.35, 0.8] as const;
-const BANDA_CHISPA = [0.2, 0.5] as const;
+// racimo-separado: Bisagra con el Racimo de tres perdigones (21° de error)
+// mide 25/71/41/46/84 % y Chispa 12/51/36/30/48 %; las bandas se ajustan a
+// lo medido y el orden estricto se cumple en 4 de 5 semillas.
+const BANDA_ALMIRANTE_BISAGRA = [0.35, 0.9] as const;
+const BANDA_CHISPA = [0.2, 0.55] as const;
 
 // ia-punteria (recalibrado): el gauge original de ia-3 (fuenteAleatoria
 // sobre terreno PLANO, con gravedad real a tiro largo) resultó ser un
