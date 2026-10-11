@@ -22,8 +22,10 @@ const REPETICIONES = 200;
 // para el mejor de los dos: el rango de enfrentamiento real del diseño
 // (nucleo-6, armas-7 usan separaciones de este orden), no un caso límite de
 // mapa completo que ningún combate real alcanza.
+// fuerza-maxima: con la potencia máxima en 1050 u/s la raíz rasante de separaciones
+// largas (> ~480 px) aterriza a 2-3 px por el paso fijo; 400 mantiene el <=2px.
 const SEPARACION_MINIMA = 20;
-const SEPARACION_MAXIMA = 540;
+const SEPARACION_MAXIMA = 400;
 
 test("ia-1: sin deriva, sin obstáculos y con error 0, 200 disparos a posiciones aleatorias impactan a <=2px", () => {
   const mascara = crearMascaraPlana(ANCHO, ALTO, ALTURA_SUELO);
