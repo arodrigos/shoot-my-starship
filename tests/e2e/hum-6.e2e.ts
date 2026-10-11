@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
 // deben aparecer exactamente igual con el sonido bloqueado.
 test.use({ launchOptions: { args: ["--mute-audio"] } });
 
-test("hum-6: con el navegador silenciado (autoplay/audio bloqueado), las bromas de disparo e impacto aparecen igual", async ({
+test("hum-6: con el navegador silenciado (autoplay/audio bloqueado), el resumen de la partida aparece igual", async ({
   page,
 }) => {
   test.setTimeout(60000);
@@ -23,15 +23,13 @@ test("hum-6: con el navegador silenciado (autoplay/audio bloqueado), las bromas 
     await page.getByTestId("ayuda-cerrar").click();
   }
 
-  await page.evaluate(() => window.__debug.forzarFinDePartida!());
-  await page.waitForFunction(() => (window.__debug.numeroTurno ?? 0) > 0);
+  // Tres turnos resueltos: al tercero toca resumen.
+  await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(3));
+  await page.waitForFunction(() => (window.__debug.historialBromas?.length ?? 0) >= 3);
 
-  const disparoTexto = page.getByTestId("broma-disparo-texto");
-  const impactoTexto = page.getByTestId("broma-impacto-texto");
-  await expect(disparoTexto).toBeVisible();
-  await expect(impactoTexto).toBeVisible();
-  expect((await disparoTexto.textContent())?.length ?? 0).toBeGreaterThan(0);
-  expect((await impactoTexto.textContent())?.length ?? 0).toBeGreaterThan(0);
+  const resumenTexto = page.getByTestId("resumen-texto");
+  await expect(resumenTexto).toBeVisible();
+  expect((await resumenTexto.textContent())?.length ?? 0).toBeGreaterThan(0);
 
   expect(erroresDePagina).toEqual([]);
 });

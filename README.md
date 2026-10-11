@@ -215,9 +215,11 @@ dos crea el audio hasta un gesto tuyo: pulsar «Jugar» o el propio control.
 La música es un bucle sobre una escala pentatónica que tarda más de 60 s en
 repetirse y suena por debajo de los efectos.
 
-## Voz de los chistes
+## Voz y resúmenes
 
-Los chistes se leen en voz alta con la Web Speech API del navegador, a través
+Cada tres turnos resueltos, un resumen gracioso de cómo va la partida (quién gana,
+rachas, muerte súbita cercana) aparece en el bocadillo y se lee en voz alta.
+Ya no hay chiste por disparo. Los resúmenes se leen en voz alta con la Web Speech API del navegador, a través
 de `easy-speech` (fijada en 2.4.0). No hay ficheros de audio ni servicios de
 terceros: solo se usan voces **locales** en castellano (`es-*` con
 `localService`), porque las voces remotas (las «Google español» de Chrome de
@@ -229,9 +231,11 @@ texto, lo avisa una vez y deshabilita el interruptor.
   en `voz:activada`. No afecta a la música ni a los efectos.
 - La síntesis se desbloquea en el gesto de «Jugar» (o al pulsar el
   interruptor), igual que la música.
-- Cada personaje tiene su timbre (velocidad y tono, en
-  `src/contenido/vocesPersonajes.ts`) sobre la misma voz del sistema.
-- Habla de uno en uno (cada chiste corta al anterior), baja la música al 35 %
+- Cada personaje tiene su timbre (velocidad 0,9–1,0 y tono 0,95–1,1, en
+  `src/contenido/vocesPersonajes.ts`) sobre la misma voz del sistema, que es la
+  de mejor calidad entre las locales en castellano.
+- Habla de uno en uno sin cortes (la frase en curso termina; como mucho queda
+  una pendiente), baja la música al 35 %
   mientras habla y calla durante el relevo y al ocultar la pestaña.
 
 ## Rendimiento
