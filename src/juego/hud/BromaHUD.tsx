@@ -72,7 +72,7 @@ export function BromaHUD() {
           data-categoria={estado.categoriaImpacto ?? undefined}
           role="status"
           style={{
-                        color: "#ffe08a",
+            color: "#ffe08a",
             font: "12px system-ui, sans-serif",
             textAlign: "center",
             wordBreak: "break-word",
