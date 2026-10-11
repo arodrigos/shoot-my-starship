@@ -69,7 +69,6 @@ import { anguloDesdeDedo, potenciaDesdeDistancia } from "@/juego/control/apuntad
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
-import { crearSelectorBromas, type SelectorBromas } from "@/contenido/selectorBromas";
 import { vozDeNave } from "@/contenido/bancoBromas";
 import {
   memoriaIAInicial,
@@ -82,9 +81,9 @@ import {
 import { contarHumanos, etiquetaMinirobot } from "@/juego/textosPartida";
 import { publicarGanador, publicarParticipantes, reiniciarParticipantes } from "@/juego/control/participantesStore";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
-import { debeMostrarBromaDeDisparo, FRECUENCIA_BROMAS_POR_DEFECTO } from "@/contenido/frecuenciaBromas";
+import { MEMORIA_PLANTILLAS, resumenPartida, tocaResumen } from "@/sim/partida/resumenPartida";
 import { COLORES_NAVE, colorDeAsiento } from "@/juego/naves/paletaNaves";
-import { inyectarHistorico, obtenerBromas, publicarBromaDisparo, publicarBromaImpacto, reiniciarBromas } from "@/juego/control/broma";
+import { inyectarHistorico, publicarResumen, reiniciarBromas } from "@/juego/control/broma";
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
 import { FantasmaNave } from "@/juego/naves/FantasmaNave";
 import { publicarFantasmas } from "@/juego/control/fantasmasStore";
@@ -449,7 +448,12 @@ export class Partida extends Phaser.Scene {
     readonly pasosHastaDetonarTrasAdherencia?: number;
   } | null = null;
   private selectorFrases!: SelectorFrases;
-  private selectorBromas!: SelectorBromas;
+  // voz-resumenes: el locutor de partida habla cada TURNOS_ENTRE_RESUMENES
+  // turnos resueltos, de cualquier asiento.
+  private semillaResumenes = 0;
+  private turnosResueltos = 0;
+  private plantillasRecientes: string[] = [];
+  private fallosSeguidos: number[] = [];
   // Estadísticas reales por nave (humor-7): se acumulan turno a turno, nunca
   // se recalculan a posteriori, para que el parte de guerra final describa
   // exactamente lo que pasó y no una aproximación.
@@ -635,7 +639,7 @@ export class Partida extends Phaser.Scene {
       const { terreno } = crearTerrenoPhaser(this, mascara, "terreno-partida", mapa.paleta);
       this.terreno = terreno;
       this.selectorFrases = crearSelectorFrases(mapa.semillaPartida);
-      this.selectorBromas = crearSelectorBromas(mapa.semillaPartida);
+      this.semillaResumenes = mapa.semillaPartida;
     } else {
       // Hito jugable render-espacio: sistema planetario generado, naves
       // flotando entre planetas (colocacion-naves) -- sin la comodidad de
@@ -714,7 +718,7 @@ export class Partida extends Phaser.Scene {
         return pozo === undefined ? undefined : aceleracionPozo(pozo, r);
       };
       this.selectorFrases = crearSelectorFrases(semillaSistema);
-      this.selectorBromas = crearSelectorBromas(semillaSistema);
+      this.semillaResumenes = semillaSistema;
     }
 
     const texturaCanvas = this.textures.get("terreno-partida") as Phaser.Textures.CanvasTexture;
@@ -820,6 +824,9 @@ export class Partida extends Phaser.Scene {
     // por encima del terreno y las naves.
     this.graficosPrevisualizacion = this.add.graphics().setDepth(30);
     this.estadisticas = this.estado.naves.map(() => estadisticasIniciales());
+    this.fallosSeguidos = this.estado.naves.map(() => 0);
+    this.turnosResueltos = 0;
+    this.plantillasRecientes = [];
 
     const lienzoParticula = this.make.graphics({ x: 0, y: 0 });
     lienzoParticula.fillStyle(0xffcc66, 1);
@@ -1901,7 +1908,6 @@ export class Partida extends Phaser.Scene {
       (suma, nave, id) => (id === tirador ? suma : suma + Math.max(0, nave.integridad - estadoDespues.naves[id].integridad)),
       0,
     );
-    const impacto = obtenerBromas().impacto;
     this.relevoPendiente = true;
     obtenerLocutor().callar();
     publicarJugable(false);
@@ -1916,7 +1922,7 @@ export class Partida extends Phaser.Scene {
           nave.integridad > 0 && estadoDespues.naves[id].integridad <= 0 ? [nombreDeNave(this.controladores, id)] : [],
         ),
       },
-      impacto,
+      null,
     );
   }
 
@@ -2165,8 +2171,10 @@ export class Partida extends Phaser.Scene {
     // vería el robot vivo junto a su propia explosión.
     if (eventos.some((evento) => evento.tipo === "robot-detona")) this.retirarRobotsDetonados(estadoDespues);
     this.reaccionarAHumor(eventos);
-    if (categoriaBroma) {
-      this.reaccionarABroma(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos, armaId ? buscarArma(armaId) : undefined);
+    // Cuenta como turno resuelto el que dispara (o pierde el tiro); un turno
+    // de equipo no es un disparo y el que cierra la partida lo cuenta el parte.
+    if ((categoriaBroma || eventos.some((evento) => evento.tipo === "disparo")) && estadoDespues.resultado.tipo !== "terminada") {
+      this.narrarPartida(tirador, estadoAntes.numeroTurno, categoriaBroma, eventos, estadoDespues);
     }
     // multi-setup-partida: con varios jugadores, una eliminación se anuncia
     // con el nombre de quien cae, en el mismo canal del resumen del turno.
@@ -2253,6 +2261,9 @@ export class Partida extends Phaser.Scene {
       0,
     );
     const pixelesDestruidos = contarPixelesDestruidos(estadoAntes.mascara, estadoDespues.mascara);
+    // Racha para el resumen: un disparo sin daño al rival corta la racha de
+    // aciertos y suma un fallo.
+    this.fallosSeguidos[tirador] = danioAlEnemigo > 0 ? 0 : (this.fallosSeguidos[tirador] ?? 0) + 1;
 
     this.estadisticas[tirador] = {
       disparos: previas.disparos + 1,
@@ -2284,51 +2295,44 @@ export class Partida extends Phaser.Scene {
     }
   }
 
-  // humor-por-turno (hum-1, hum-6): a diferencia de reaccionarAHumor, esto se
-  // llama en CADA turno, sin excepción -- la broma de impacto siempre se
-  // publica, y la de disparo solo si frecuenciaBromas lo permite (hum-5). No
-  // depende de reproducirTono ni de ningún estado de audio (hum-6): un audio
-  // bloqueado por el navegador no puede impedir que la frase aparezca.
-  private reaccionarABroma(
+  // voz-resumenes: cada tercer turno resuelto el locutor resume cómo va la
+  // partida, con datos reales del estado. Es texto y voz a la vez, y el texto
+  // no depende del audio: un navegador con la voz bloqueada lo muestra igual.
+  private narrarPartida(
     tirador: IdNave,
-    numeroTurnoAntes: number,
-    categoria: CategoriaBroma,
+    numeroTurno: number,
+    categoria: CategoriaBroma | undefined,
     eventos: readonly EventoSimulacion[],
-    arma?: Arma,
+    estadoDespues: EstadoPartida,
   ): void {
+    this.turnosResueltos += 1;
     const personalidadTirador = this.controladores[tirador]?.personalidad;
     const voz = personalidadTirador ? vozDeNave(1, personalidadTirador.id) : vozDeNave(0, this.rival.id);
-    let textoDisparo: string | null = null;
-    if (debeMostrarBromaDeDisparo(FRECUENCIA_BROMAS_POR_DEFECTO, numeroTurnoAntes)) {
-      textoDisparo = this.selectorBromas.elegirDisparo(voz);
-      // arma-mosca (mos-5): la broma propia del arma se AÑADE a la de la voz,
-      // nunca la sustituye -- así hum-1..hum-7 siguen viendo intacta la frase
-      // de personalidad de siempre, y el catálogo entero salvo el arma que
-      // declare bromaPropia se comporta exactamente como antes de este bloque.
-      if (arma?.bromaPropia) {
-        textoDisparo = `${textoDisparo} ${this.selectorBromas.elegirDisparoArma(arma.id, arma.bromaPropia.disparo)}`;
-      }
-      publicarBromaDisparo(numeroTurnoAntes, textoDisparo);
+    let resumen: string | null = null;
+    if (tocaResumen(this.turnosResueltos)) {
+      const elegido = resumenPartida(
+        {
+          asientos: estadoDespues.naves.map((nave, id) => ({
+            nombre: nombreDeNave(this.controladores, id),
+            integridad: nave.integridad,
+            viva: nave.integridad > 0,
+            fallosSeguidos: this.fallosSeguidos[id] ?? 0,
+            credito: estadoDespues.saldos?.[id],
+          })),
+          ronda: estadoDespues.ronda ?? 1,
+          recientes: this.plantillasRecientes,
+        },
+        this.semillaResumenes + this.turnosResueltos,
+      );
+      this.plantillasRecientes = [...this.plantillasRecientes, elegido.plantilla].slice(-MEMORIA_PLANTILLAS);
+      resumen = elegido.texto;
+      publicarResumen(numeroTurno, resumen, tirador);
+      // Durante el relevo la pantalla tapa el juego y no debe hablar nadie.
+      if (!this.relevoPendiente) obtenerLocutor().hablar(voz, resumen);
     }
-    let textoImpacto = this.selectorBromas.elegirImpacto(voz, categoria);
-    if (arma?.bromaPropia) {
-      textoImpacto = `${textoImpacto} ${this.selectorBromas.elegirImpactoArma(arma.id, arma.bromaPropia.impacto)}`;
-    }
-    publicarBromaImpacto(numeroTurnoAntes, textoImpacto, categoria, tirador);
-    // voz-chistes: se lee lo mismo que se ve (disparo y luego impacto, en un
-    // solo enunciado porque la cola es de uno). Durante el relevo la pantalla
-    // tapa el juego y no debe hablar nadie.
-    if (!this.relevoPendiente) {
-      obtenerLocutor().hablar(voz, [textoDisparo, textoImpacto].filter((texto) => texto !== null).join(" "));
-    }
-
-    // hum-1: un registro por turno, para que el test pueda comprobar "sin
-    // excepción" a lo largo de varios turnos y cruzar la frase contra el
-    // banco de la nave y la categoría reales -- broma.ts solo guarda la
-    // última de cada tipo, insuficiente para eso.
     window.__debug!.historialBromas = [
       ...(window.__debug!.historialBromas ?? []),
-      { numeroTurno: numeroTurnoAntes, tirador, voz, categoria, textoDisparo, textoImpacto, eventos },
+      { numeroTurno, tirador, voz, categoria, resumen, eventos },
     ];
   }
 

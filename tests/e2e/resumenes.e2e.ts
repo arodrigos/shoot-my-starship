@@ -12,7 +12,7 @@ declare global {
   }
 }
 
-// voz-chistes: speechSynthesis se sustituye por un doble que registra cada
+// voz-resumenes: speechSynthesis se sustituye por un doble que registra cada
 // cancel y cada speak (con el estado de activación del usuario en ese
 // instante) y emite start y end sin hablar de verdad, así el test es
 // determinista y no depende de las voces del Chromium del CI.
@@ -83,42 +83,92 @@ async function empezar(page: Page): Promise<void> {
 const habladas = (page: Page) =>
   page.evaluate(() => window.__dobleVoz.llamadas.filter((llamada) => llamada.tipo === "speak" && (llamada.texto ?? "") !== ""));
 
-async function jugarUnTurno(page: Page): Promise<void> {
-  await page.evaluate(() => window.__debug.dispararRafagaTurbo!(1));
-  await page.waitForFunction(() => (window.__debug.historialBromas?.length ?? 0) >= 1);
+// Juega N turnos resueltos (de cualquier asiento) y espera a que el registro
+// los cuente, sin esperas fijas.
+async function jugarTurnos(page: Page, cuantos: number): Promise<void> {
+  const antes = await page.evaluate(() => window.__debug.historialBromas?.length ?? 0);
+  await page.evaluate((n) => window.__debug.jugarTurnosGuionizados!(n), cuantos);
+  await page.waitForFunction(([base, n]) => (window.__debug.historialBromas?.length ?? 0) >= base + n, [antes, cuantos] as const);
 }
 
-// voz-1 (camino crítico).
-test("voz-1: con la voz activada la broma se lee en es-ES con el timbre del personaje, tras un cancel", async ({ page }) => {
+const TAMANOS = [
+  { ancho: 360, alto: 640 },
+  { ancho: 820, alto: 1180 },
+  { ancho: 1180, alto: 820 },
+] as const;
+
+async function capturar(page: Page, nombre: string, ancho: number, alto: number): Promise<void> {
+  const carpeta = process.env.CAPTURAS_DIR;
+  if (carpeta) await page.screenshot({ path: `${carpeta}/${nombre}-${ancho}x${alto}.png` });
+}
+
+// res-v1 y res-v2 (camino crítico): ningún chiste por disparo, y al tercer
+// turno un resumen que se lee a velocidad normal, sin cancelar nada.
+for (const { ancho, alto } of TAMANOS) {
+  test(`res-v1: a ${ancho}x${alto} no hay chiste en los turnos 1 y 2 y el tercero trae un resumen hablado`, async ({ page }) => {
+    test.setTimeout(90000);
+    await page.setViewportSize({ width: ancho, height: alto });
+    await instalarDoble(page, [EN_US, ES_ES]);
+    await empezar(page);
+
+    const todas = await page.evaluate(() => window.__dobleVoz.llamadas);
+    const desbloqueo = todas.find((llamada) => llamada.tipo === "speak");
+    expect(desbloqueo?.activacion, "el primer speak ocurre dentro del gesto de Jugar").toBe(true);
+    const base = (await habladas(page)).length;
+
+    for (const turno of [1, 2]) {
+      await jugarTurnos(page, 1);
+      await expect(page.getByTestId("resumen-texto")).toHaveCount(0);
+      expect(await habladas(page)).toHaveLength(base);
+      await capturar(page, `voz-resumenes-turno${turno}`, ancho, alto);
+    }
+    await jugarTurnos(page, 1);
+    const resumen = page.getByTestId("resumen-texto");
+    await expect(resumen).toBeVisible();
+    await capturar(page, "voz-resumenes-turno3", ancho, alto);
+
+    const historial = await page.evaluate(() => window.__debug.historialBromas!);
+    const texto = historial.at(-1)!.resumen;
+    expect(texto).not.toBeNull();
+    expect(texto!.length).toBeLessThanOrEqual(140);
+    await expect(resumen).toHaveText(texto!);
+
+    const llamadas = await page.evaluate(() => window.__dobleVoz.llamadas);
+    const dichas = llamadas.filter((l) => l.tipo === "speak" && (l.texto ?? "") !== "");
+    expect(dichas.slice(base).map((l) => l.texto)).toEqual([texto]);
+    const hablada = dichas.at(-1)!;
+    expect(hablada.lang).toBe("es-ES");
+    expect(hablada.voz).toBe("Voz ES");
+    expect(hablada.rate).toBeLessThanOrEqual(1);
+    expect(hablada.rate).toBeGreaterThanOrEqual(0.9);
+    expect(llamadas.filter((l) => l.tipo === "cancel")).toHaveLength(0);
+  });
+}
+
+test("res-v1: el resumen se queda en pantalla al menos max(6000, 70 × caracteres) ms", async ({ page }) => {
   test.setTimeout(60000);
   await page.setViewportSize({ width: 360, height: 640 });
-  await instalarDoble(page, [EN_US, ES_ES]);
+  await instalarDoble(page, [ES_ES]);
   await empezar(page);
+  await jugarTurnos(page, 3);
+  const resumen = page.getByTestId("resumen-texto");
+  await expect(resumen).toBeVisible();
+  const longitud = (await resumen.textContent())!.length;
+  const inicio = Date.now();
+  await expect(resumen).toBeHidden({ timeout: 20000 });
+  expect(Date.now() - inicio).toBeGreaterThanOrEqual(Math.max(6000, 70 * longitud) - 500);
+});
 
-  const todas = await page.evaluate(() => window.__dobleVoz.llamadas);
-  const desbloqueo = todas.find((llamada) => llamada.tipo === "speak");
-  expect(desbloqueo?.activacion, "el primer speak ocurre dentro del gesto de Jugar").toBe(true);
-
-  await jugarUnTurno(page);
-  const bromas = await page.evaluate(() => window.__debug.historialBromas!);
-  const broma = bromas[0];
-  const esperado = [broma.textoDisparo, broma.textoImpacto].filter((t) => t !== null).join(" ");
-  await expect.poll(async () => (await habladas(page)).map((l) => l.texto)).toContain(esperado);
-
-  const llamadas = await page.evaluate(() => window.__dobleVoz.llamadas);
-  const indice = llamadas.findIndex((llamada) => llamada.tipo === "speak" && llamada.texto === esperado);
-  expect(llamadas[indice - 1].tipo).toBe("cancel");
-  expect(llamadas[indice].lang).toBe("es-ES");
-  expect(llamadas[indice].voz).toBe("Voz ES");
-  // Almirante Bisagra no es el personaje de esta partida: se contrasta con la
-  // tabla de timbres de su voz (la del tirador).
-  const timbres: Record<string, { rate: number; pitch: number }> = {
-    "la-contable": { rate: 0.92, pitch: 0.85 },
-    "almirante-bisagra": { rate: 0.98, pitch: 0.95 },
-    chispa: { rate: 1.15, pitch: 1.35 },
-  };
-  expect(llamadas[indice].rate).toBeCloseTo(timbres[broma.voz].rate, 5);
-  expect(llamadas[indice].pitch).toBeCloseTo(timbres[broma.voz].pitch, 5);
+test("res-v1: con 6 turnos salen 2 resúmenes con plantillas distintas", async ({ page }) => {
+  test.setTimeout(60000);
+  await page.setViewportSize({ width: 360, height: 640 });
+  await instalarDoble(page, [ES_ES]);
+  await empezar(page);
+  await jugarTurnos(page, 6);
+  const historial = await page.evaluate(() => window.__debug.historialBromas!);
+  const resumenes = historial.map((e) => e.resumen).filter((t): t is string => t !== null);
+  expect(resumenes).toHaveLength(2);
+  expect(resumenes[0]).not.toBe(resumenes[1]);
 });
 
 // voz-2 (camino crítico).
@@ -137,12 +187,12 @@ test("voz-2: el interruptor silencia, se recuerda al recargar y no toca la músi
   expect(await page.evaluate(() => window.localStorage.getItem("voz:activada"))).toBe("false");
   expect(await page.evaluate(() => window.__debug.musica!().estado)).toBe(musicaAntes);
 
-  await jugarUnTurno(page);
+  await jugarTurnos(page, 3);
   expect(await habladas(page)).toEqual([]);
 
   await page.reload();
   await empezar(page);
-  await jugarUnTurno(page);
+  await jugarTurnos(page, 3);
   expect(await habladas(page)).toEqual([]);
   await expect(page.getByTestId("toggle-voz")).toHaveAttribute("aria-pressed", "false");
 });
@@ -155,9 +205,9 @@ test("voz-3: sin voz es local no habla, avisa una vez y deshabilita el interrupt
   await empezar(page);
   await expect(page.getByTestId("toggle-voz")).toBeDisabled();
   await expect(page.getByTestId("voz-aviso")).toHaveText(
-    "Tu dispositivo no tiene voz en castellano: los chistes seguirán en texto",
+    "Tu dispositivo no tiene voz en castellano: los resúmenes seguirán en texto",
   );
-  await jugarUnTurno(page);
+  await jugarTurnos(page, 3);
   expect(await habladas(page)).toEqual([]);
   await expect(page.getByTestId("voz-aviso")).toHaveCount(1);
 });
