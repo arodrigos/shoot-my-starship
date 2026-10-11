@@ -87,7 +87,7 @@ de Chatarra**) son el fondo de armario.
 | Mortero Lamentable | 45 | área máxima permitida: perdona el error de ángulo, cuesta en consecuencia |
 | Zanjadora Manolita | 0 | gratis, de daño bajo y difícil de acertar -- fondo de armario |
 | Vertedero Portátil | 15 | utilitaria: rellena terreno, precio por volumen afectado, no por daño |
-| Racimo de Tuppers | 40 | cinco perdigones que estallan juntos en el punto de impacto: área media con daño combinado limitado |
+| Racimo de Tuppers | 40 | tres perdigones en fila, bien separados: cubre ancho con tres cráteres pequeños y cada nave recibe solo el daño del más fuerte |
 | Petardo de Feria | 0 | gratis, de daño bajo, difícil y además una de cada cuatro falla del todo |
 | La Pelota de Chatarra | 0 | gratis, de daño bajo: rueda hasta un agujero, pero no garantiza cuál |
 | Gravitón de Segunda Mano | 45 | utilitaria: reposiciona, precio por magnitud del desplazamiento, no por daño |
@@ -314,8 +314,8 @@ la etapa de traspaso contra la URL real ya desplegada, con
 - **Vida, daño y fantasmas** (#189, #190): barra de vida en el color del
   asiento, número de daño flotante en el color del atacante y fantasma
   translúcido con nombre para las naves muertas.
-- **Racimo de Tuppers** (#191): estalla en cinco perdigones agrupados en el
-  punto de impacto, con un tope de daño combinado por nave.
+- **Racimo de Tuppers** (#191): se abre en tres perdigones en fila, a 70 u entre
+  sí, y cada nave recibe solo el daño del más fuerte.
 - **Eventos visibles** (#192): los once eventos tienen su representación en
   pantalla.
 - **Aspecto de las armas** (#193): forma y colores propios por arma en el

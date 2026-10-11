@@ -474,7 +474,7 @@ export interface DebugGlobal {
   // de vuelo) -- para comprobar visibilidad/solapo con el HUD sin leer
   // píxeles de pantalla.
   proyectilEnVuelo?: { x: number; y: number; armaId: string } | null;
-  // racimo-perdigones: perdigones dibujados ahora (1 el portador entero, 5 el
+  // racimo-perdigones: perdigones dibujados ahora (1 el portador entero, 3 el
   // Racimo en los últimos 40 u; 0 sin vuelo) y el máximo del último vuelo.
   proyectil?: { perdigones: number; perdigonesMaximo: number };
   // armas-aspecto: la textura y la rotación REALES del proyectil en vuelo

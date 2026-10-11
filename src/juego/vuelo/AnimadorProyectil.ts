@@ -10,7 +10,7 @@ import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { puntosSilueta } from "@/juego/proyectiles/geometriaProyectil";
 import { siguientePerturbacionErratica } from "@/sim/fisica/comportamientoExtendido";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
-import { FRACCION_CRUZ_SUBMUNICION, RADIO_SUBMUNICION } from "@/sim/armas/resolver";
+import { SEPARACION_PERDIGON_U } from "@/sim/armas/resolver";
 
 const PASO_FIJO_S = PASO_FIJO_MS / 1000;
 
@@ -162,17 +162,19 @@ export class AnimadorProyectil {
       return;
     }
     this.perdigonesVisibles = this.racimo.cantidad;
-    // La cruz se abre de 0 a su alcance final a medida que se acerca: la misma
-    // forma (centro más cruz con el rumbo) que detonará en el núcleo.
-    const apertura = (1 - restante / DISTANCIA_APERTURA_PERDIGONES_U) * RADIO_SUBMUNICION * FRACCION_CRUZ_SUBMUNICION;
-    const rumbo = Math.atan2(p.vy, p.vx);
-    const brazos = Math.max(1, this.racimo.cantidad - 1);
+    // La fila se abre de 0 a su separación final a medida que se acerca: la
+    // misma forma (centro y uno a cada lado, perpendicular al rumbo) que
+    // detonará en el núcleo.
+    const apertura = (1 - restante / DISTANCIA_APERTURA_PERDIGONES_U) * SEPARACION_PERDIGON_U;
+    const modulo = Math.hypot(p.vx, p.vy) || 1;
+    const px = -p.vy / modulo;
+    const py = p.vx / modulo;
     this.punto.setVisible(false);
     this.graficoPerdigones.clear().setVisible(true).fillStyle(COLOR_PROYECTIL, 1);
     for (let i = 0; i < this.racimo.cantidad; i++) {
-      const angulo = rumbo + ((i - 1) * 2 * Math.PI) / brazos;
-      const d = i === 0 ? 0 : apertura;
-      this.graficoPerdigones.fillCircle(p.x + Math.cos(angulo) * d, p.y + Math.sin(angulo) * d, RADIO_PERDIGON_PX);
+      const lado = i === 0 ? 0 : i % 2 === 1 ? -1 : 1;
+      const d = lado * Math.ceil(i / 2) * apertura;
+      this.graficoPerdigones.fillCircle(p.x + px * d, p.y + py * d, RADIO_PERDIGON_PX);
     }
   }
 

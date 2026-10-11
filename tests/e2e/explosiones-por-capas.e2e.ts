@@ -88,7 +88,7 @@ test("exl-1: el impacto con daño dispara destello, onda y escombros en instante
 });
 
 // exl-4 (camino_critico): las explosiones encadenadas de un arma de
-// submuniciones (cinco detonaciones del mismo disparo) no dejan la partida
+// submuniciones (tres detonaciones del mismo disparo) no dejan la partida
 // bloqueada -- el turno avanza y el resultado se declara dentro del límite
 // de tiempo de un turno real.
 test("exl-4: un disparo de submuniciones con varias explosiones encadenadas cierra el turno", async ({ page }) => {
@@ -109,7 +109,7 @@ test("exl-4: un disparo de submuniciones con varias explosiones encadenadas cier
 
   // Mismo arco bajo-y-potente que proy-5/pyl-3: se mantiene dentro del campo
   // de batalla y garantiza impacto contra terreno o planeta, que es lo que
-  // hace saltar las cinco submuniciones.
+  // hace saltar las tres submuniciones.
   await arrastrarHasta(page, 18, 90);
 
   const numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
