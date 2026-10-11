@@ -22,7 +22,8 @@ import { jugarLote, hashDeLote } from "../../utils/loteAleatorio";
 // cualquier borde (arriba incluido) se pierde, lo que mueve el balance a propósito.
 // Hash actualizado en salida-pantalla (jugador patrón): el patrón traza el tiro con trazarIntentos y
 // tiene la mitad de ruido, así que juega otras partidas a propósito; no es una regresión de este bloque.
-const HASH_LOTE_PREVIO_A_VUELO_EXTENSIBLE = "8fcdd4a27d56e6011841725813feb6038bd095ea0e70acfe6c9d48f17c94ec87";
+// Hash actualizado en vida-muerte-subita: la vida máxima pasa a 150 y la muerte súbita a la ronda 14, a propósito.
+const HASH_LOTE_PREVIO_A_VUELO_EXTENSIBLE = "285b1680e137648ee3869d5f576fb16378f473fb9fe1fe92a80b4a64b85fe803";
 
 test("vex-5: 200 partidas dan exactamente el mismo resultado que antes de vuelo-extensible", () => {
   const lote = jugarLote(20260929, 200);
