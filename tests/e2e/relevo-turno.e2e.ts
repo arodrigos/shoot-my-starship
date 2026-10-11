@@ -58,14 +58,14 @@ test("relevo-turno-1/2/3/6: entre dos humanos el relevo bloquea el juego, oculta
   test.setTimeout(240000);
   await empezar(page, 2, 0);
 
-  // Ana acierta: el relevo de Luis enseña el resumen con daño y arma, y una broma.
+  // Ana acierta: el relevo de Luis enseña el resumen con daño y arma, y ninguna broma (ahora habla el locutor cada tres turnos).
   await disparar(page, true);
   const relevo = page.getByTestId("pantalla-relevo");
   await expect(relevo).toBeVisible();
   await expect(page.getByTestId("relevo-jugador")).toHaveText("Turno de Luis");
   const resumen = (await page.getByTestId("relevo-resumen").textContent()) ?? "";
   expect(resumen).toMatch(/^Ana ha disparado .+ y ha hecho [1-9]\d* de daño\.$/);
-  await expect(page.getByTestId("relevo-broma")).not.toBeEmpty();
+  await expect(page.getByTestId("relevo-broma")).toHaveCount(0);
 
   // relevo-turno-1: nada apuntable ni disparable hasta confirmar.
   expect(await page.evaluate(() => window.__debug.control!.puedeDisparar)).toBe(false);

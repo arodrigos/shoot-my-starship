@@ -31,7 +31,7 @@ async function inyectar30(page: Page): Promise<void> {
         emisor: i % 2,
         disparo: i === 4 ? largo : `Disparo del turno ${i}`,
         impacto: `Impacto del turno ${i}`,
-        categoriaImpacto: "acierto" as const,
+        categoriaImpacto: "resumen" as const,
       })),
     );
   });

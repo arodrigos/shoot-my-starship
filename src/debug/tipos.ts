@@ -137,19 +137,16 @@ export interface DebugNave {
   readonly colorAsiento: string;
 }
 
-// hum-1: un registro por turno de lo que reaccionarABroma publicó de
-// verdad, con la atribución completa (quién disparó, qué voz sonó, qué
-// categoría de resultado se mostró) -- el HUD/broma.ts solo guarda la ÚLTIMA
-// broma de cada tipo, así que sin este historial un test no puede comprobar
-// "sin excepción" a lo largo de varios turnos ni cruzar la frase mostrada
-// contra el banco de la nave y la categoría que ocurrieron de verdad.
+// Un registro por turno resuelto de lo que narrarPartida publicó (quién
+// disparó, qué voz habló y si tocaba resumen): el HUD solo guarda el último
+// texto, insuficiente para comprobar la cadencia a lo largo de varios turnos.
 export interface DebugBromaEntry {
   readonly numeroTurno: number;
   readonly tirador: IdNave;
   readonly voz: IdVoz;
-  readonly categoria: CategoriaBroma;
-  readonly textoDisparo: string | null;
-  readonly textoImpacto: string;
+  readonly categoria?: CategoriaBroma;
+  // Texto del resumen si este turno tocaba (cada tercero), null si no.
+  readonly resumen: string | null;
   readonly eventos: readonly EventoSimulacion[];
 }
 

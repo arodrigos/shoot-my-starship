@@ -3,12 +3,15 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 
-// hud-canales-1: la broma ahora vive en el canal PASIVO -- se desvanece sola
-// entre 3 y 6 s sin que nadie la cierre (a diferencia del diseño de hum-1,
-// que la dejaba fija hasta la siguiente). 5000 ms es un punto medio FIJO, no
-// aleatorio, para que el e2e espere un plazo conocido en vez de sondear un
-// rango (issue #151: nada de temporizadores que hagan el test flaky).
-const DURACION_VISIBLE_MS = 5000;
+// hud-canales-1: el bocadillo vive en el canal PASIVO -- se desvanece solo sin
+// que nadie lo cierre. El plazo es FIJO para cada texto (issue #151: nada de
+// temporizadores que hagan el test flaky).
+// voz-resumenes: el tiempo para leer el resumen entero crece con su longitud.
+export const MS_MINIMOS_RESUMEN = 6000;
+export const MS_POR_CARACTER = 70;
+export function duracionResumenMs(texto: string): number {
+  return Math.max(MS_MINIMOS_RESUMEN, MS_POR_CARACTER * texto.length);
+}
 
 export function BromaHUD() {
   const estado = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
@@ -19,11 +22,11 @@ export function BromaHUD() {
   const [claveOculta, setClaveOculta] = useState<number | null>(null);
 
   useEffect(() => {
-    const temporizador = setTimeout(() => setClaveOculta(estado.clave), DURACION_VISIBLE_MS);
+    const temporizador = setTimeout(() => setClaveOculta(estado.clave), duracionResumenMs(estado.impacto ?? ""));
     return () => clearTimeout(temporizador);
-  }, [estado.clave]);
+  }, [estado.clave, estado.impacto]);
 
-  if (!estado.disparo && !estado.impacto) return null;
+  if (!estado.impacto) return null;
   if (claveOculta === estado.clave) return null;
 
   return (
@@ -63,50 +66,17 @@ export function BromaHUD() {
         paddingRight: 40,
       }}
     >
-      {estado.disparo && (
+      {estado.impacto && (
         <div
-          data-testid="broma-disparo-texto"
+          data-testid="resumen-texto"
+          data-categoria={estado.categoriaImpacto ?? undefined}
           role="status"
           style={{
-            color: "#cfe8ff",
+                        color: "#ffe08a",
             font: "12px system-ui, sans-serif",
             textAlign: "center",
             wordBreak: "break-word",
             overflowWrap: "anywhere",
-            // hud-canales (undécima corrección): disparo + impacto a la vez
-            // (el caso normal, hum-1 garantiza que pasa en todo turno) pedían
-            // hasta 83px de alto cuando el panel solo tiene 44 disponibles
-            // si fila-avisos también muestra el aviso -- más alto que eso
-            // rompía encuadre-movil-2 en la octava corrección. Recortar a
-            // una línea con puntos suspensivos explícitos (en vez de dejar
-            // que el overflow seccione el glifo a medias) es lo que hace que
-            // el contenido quepa siempre en el mínimo del panel, sin
-            // depender de cuánto sitio le quede libre en la fila.
-            display: "-webkit-box",
-            WebkitLineClamp: 1,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {estado.disparo}
-        </div>
-      )}
-      {estado.impacto && (
-        <div
-          data-testid="broma-impacto-texto"
-          data-categoria={estado.categoriaImpacto ?? undefined}
-          role="status"
-          style={{
-            marginTop: estado.disparo ? 2 : 0,
-            color: "#ffe08a",
-            font: "13px system-ui, sans-serif",
-            textAlign: "center",
-            wordBreak: "break-word",
-            overflowWrap: "anywhere",
-            display: "-webkit-box",
-            WebkitLineClamp: 1,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
           }}
         >
           {estado.impacto}

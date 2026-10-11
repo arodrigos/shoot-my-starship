@@ -28,6 +28,19 @@ test("voz-3: [en-US local] → null; [es-ES remota] → null; [es-MX local] → 
   assert.equal(elegirVoz([]), null);
 });
 
+// res-v3: entre las locales gana la de mejor calidad; una remota nunca, por buena que sea.
+test("res-v3: se prefiere la voz mejorada local y nunca una remota «Natural»", () => {
+  const basica = voz("es-ES", true, "Mónica");
+  const mejorada = voz("es-ES", true, "Mónica (mejorada)");
+  assert.equal(elegirVoz([basica, mejorada]), mejorada);
+  assert.equal(elegirVoz([mejorada, basica]), mejorada);
+  const remota = voz("es-ES", false, "X Natural");
+  const local = voz("es-ES", true, "Y");
+  assert.equal(elegirVoz([remota, local]), local);
+  const premiumMx = voz("es-MX", true, "Paulina Premium");
+  assert.equal(elegirVoz([local, premiumMx]), premiumMx);
+});
+
 // Invariante: para cualquier lista de voces, null o es-* local.
 test("invariante: la voz elegida es null o es-* con localService", () => {
   const arbVoz = fc.record({
@@ -98,11 +111,11 @@ async function locutorListo(banco: Banco) {
   return locutor;
 }
 
-test("voz-1: el chiste se pide con la voz es-ES y el timbre del personaje, tras un cancel", async () => {
+test("voz-1: el texto se pide con la voz es-ES y el timbre del personaje, sin cancelar nada", async () => {
   const banco = crearBanco([voz("en-US", true), voz("es-ES", true)]);
   const locutor = await locutorListo(banco);
   locutor.hablar("almirante-bisagra", "Un chiste");
-  assert.deepEqual(banco.orden, ["cancel", "speak"]);
+  assert.deepEqual(banco.orden, ["speak"]);
   const [opciones] = banco.pendientes;
   assert.equal(opciones.text, "Un chiste");
   assert.equal(opciones.lang, "es-ES");
@@ -111,27 +124,52 @@ test("voz-1: el chiste se pide con la voz es-ES y el timbre del personaje, tras 
   assert.equal(banco.desbloqueos, 1);
 });
 
-// Invariante: nunca hay más de un utterance vivo; cada speak va tras un cancel.
-test("invariante: para cualquier secuencia de chistes, cada speak va precedido de cancel y hay uno vivo", async () => {
-  const banco = crearBanco([voz("es-ES", true)]);
-  const locutor = await locutorListo(banco);
+// res-v2: la frase en curso nunca se corta por otra.
+test("invariante: para cualquier secuencia de textos, solo suena el primero y no se llama a cancel", async () => {
   await fc.assert(
     fc.asyncProperty(
-      fc.array(fc.tuple(fc.constantFrom(...VOCES_BROMAS), fc.string({ minLength: 1 }).filter((t) => t.trim() !== "")), { maxLength: 20 }),
-      async (chistes) => {
-        banco.orden.length = 0;
-        for (const [personaje, texto] of chistes) {
-          locutor.hablar(personaje, texto);
-          if (banco.pendientes.length > 1) return false;
-        }
-        banco.orden.forEach((llamada, i) => {
-          if (llamada === "speak" && banco.orden[i - 1] !== "cancel") throw new Error("speak sin cancel");
-        });
-        return banco.pendientes.length <= 1;
+      fc.array(fc.tuple(fc.constantFrom(...VOCES_BROMAS), fc.string({ minLength: 1 }).filter((t) => t.trim() !== ""), fc.boolean()), {
+        minLength: 1,
+        maxLength: 20,
+      }),
+      async (textos) => {
+        const banco = crearBanco([voz("es-ES", true)]);
+        const locutor = await locutorListo(banco);
+        for (const [personaje, texto, prioritario] of textos) locutor.hablar(personaje, texto, prioritario);
+        return banco.orden.length === 1 && banco.orden[0] === "speak" && banco.pendientes.length === 1;
       },
     ),
     { numRuns: 100 },
   );
+});
+
+test("res-v2: cola sin cortes: R1, luego el anuncio A1 y luego R2; el pendiente se sustituye", async () => {
+  const banco = crearBanco([voz("es-ES", true)]);
+  const locutor = await locutorListo(banco);
+  locutor.hablar("chispa", "R1");
+  locutor.hablar("chispa", "R2");
+  locutor.hablar("chispa", "A1", true);
+  locutor.hablar("chispa", "R3");
+  const textos = (): string[] => locutor.llamadas().filter((l) => l.tipo === "speak").map((l) => l.texto ?? "");
+  assert.deepEqual(textos(), ["R1"]);
+  banco.pendientes.at(-1)!.end();
+  assert.deepEqual(textos(), ["R1", "A1"]);
+  banco.pendientes.at(-1)!.end();
+  assert.deepEqual(textos(), ["R1", "A1", "R3"]);
+  banco.pendientes.at(-1)!.end();
+  assert.deepEqual(textos(), ["R1", "A1", "R3"]);
+  assert.equal(locutor.llamadas().filter((l) => l.tipo === "cancel").length, 0);
+  assert.ok(locutor.llamadas().every((l) => l.tipo !== "speak" || (l.rate ?? 1) <= 1));
+});
+
+test("res-v2: silenciar mientras suena corta una vez y vacía la cola", async () => {
+  const banco = crearBanco([voz("es-ES", true)]);
+  const locutor = await locutorListo(banco);
+  locutor.hablar("chispa", "R1");
+  locutor.hablar("chispa", "R2");
+  locutor.alternar();
+  assert.equal(locutor.llamadas().filter((l) => l.tipo === "cancel").length, 1);
+  assert.equal(locutor.llamadas().filter((l) => l.tipo === "speak").length, 1);
 });
 
 test("voz-3: sin voz castellana local no se habla, se avisa una vez y se deshabilita", async () => {
@@ -185,12 +223,13 @@ test("voz-4: la música baja a 0,35 al empezar y vuelve a 1 al terminar o fallar
   assert.equal(banco.factores.at(-1), 1);
 });
 
-test("voz-4: el fin tardío de un chiste cancelado no sube la música del siguiente", async () => {
+test("voz-4: el fin tardío de un texto cortado por callar no sube la música del siguiente", async () => {
   const banco = crearBanco([voz("es-ES", true)]);
   const locutor = await locutorListo(banco);
   locutor.hablar("chispa", "Uno");
   const primero = banco.pendientes[0];
   primero.start();
+  locutor.callar();
   locutor.hablar("chispa", "Dos");
   banco.pendientes[0].start();
   const antes = banco.factores.length;
@@ -199,7 +238,7 @@ test("voz-4: el fin tardío de un chiste cancelado no sube la música del siguie
   assert.equal(banco.factores.at(-1), FACTOR_MUSICA_HABLANDO);
 });
 
-test("callar corta el chiste y devuelve la música", async () => {
+test("callar corta el texto y devuelve la música", async () => {
   const banco = crearBanco([voz("es-ES", true)]);
   const locutor = await locutorListo(banco);
   locutor.hablar("chispa", "Uno");
@@ -215,8 +254,8 @@ test("voz-5: cada personalidad tiene timbre propio dentro de rango y sin pares r
   const pares = new Set<string>();
   for (const id of VOCES_BROMAS) {
     const { rate, pitch } = TIMBRE_POR_VOZ[id];
-    assert.ok(rate >= 0.9 && rate <= 1.2, `${id} rate`);
-    assert.ok(pitch >= 0.8 && pitch <= 1.4, `${id} pitch`);
+    assert.ok(rate >= 0.9 && rate <= 1, `${id} rate`);
+    assert.ok(pitch >= 0.95 && pitch <= 1.1, `${id} pitch`);
     pares.add(`${rate}/${pitch}`);
   }
   assert.equal(pares.size, VOCES_BROMAS.length);
