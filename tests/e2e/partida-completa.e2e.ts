@@ -394,7 +394,7 @@ for (const vp of VIEWPORTS) {
         {
           inp: medida.inp,
           baseMaquetacion: medida.base,
-          interacciones: medida.interacciones.map(({ tipo, objetivo, trabajoApp, duracion, retrasoEntrada, renderLienzo }) => ({ tipo, objetivo, trabajoApp, duracion, retrasoEntrada, renderLienzo })),
+          interacciones: medida.interacciones.map(({ tipo, objetivo, trabajoApp, duracion, retrasoEntrada, renderLienzo, culpables }) => ({ tipo, objetivo, trabajoApp, duracion, retrasoEntrada, renderLienzo, culpables })),
         },
         null,
         1,
@@ -404,7 +404,7 @@ for (const vp of VIEWPORTS) {
     expect(medida.interacciones.length, "interacciones registradas").toBeGreaterThanOrEqual(40);
     const lentas = medida.interacciones.filter((i) => (i.trabajoApp ?? 0) > LIMITE_MS);
     const peor = [...medida.interacciones].sort((x, y) => (y.trabajoApp ?? 0) - (x.trabajoApp ?? 0)).slice(0, 5);
-    const resumen = peor.map((i) => `${i.objetivo.slice(0, 18)} ${i.tipo[0]} app=${Math.round(i.trabajoApp ?? 0)} dur=${Math.round(i.duracion)}`).join(" | ");
+    const resumen = peor.map((i) => `${i.objetivo.slice(0, 18)} ${i.tipo[0]} app=${Math.round(i.trabajoApp ?? 0)} dur=${Math.round(i.duracion)} render=${Math.round(i.renderLienzo)} [${(i.culpables ?? []).join("; ")}]`).join(" | ");
     const posiciones = medida.interacciones.flatMap((i, indice) => ((i.trabajoApp ?? 0) > LIMITE_MS ? [`#${indice}/${medida.interacciones.length} ${i.tipo[0]} ${Math.round(i.trabajoApp ?? 0)}`] : [])).join(", ");
     expect(lentas.length, `base=${Math.round(medida.base)} ${resumen} | lentas: ${posiciones}`).toBe(0);
   });

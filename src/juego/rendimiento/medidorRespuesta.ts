@@ -30,6 +30,8 @@ export interface InteraccionMedida extends InteraccionRegistrada {
   // null si el navegador no tiene Long Animation Frames (WebKit, Firefox).
   readonly trabajoApp: number | null;
   readonly renderLienzo: number;
+  // Los scripts más largos de la ventana, solo cuando superan 100 ms.
+  readonly culpables?: readonly string[];
 }
 
 export interface InstantaneaRespuesta {
@@ -91,13 +93,30 @@ export class MedidorRespuesta {
   }
 
   private registrarEntradaLoaf(e: PerformanceEntry): void {
-    const loaf = e as PerformanceEntry & { styleAndLayoutStart?: number; scripts?: readonly { startTime: number; duration: number }[] };
+    const loaf = e as PerformanceEntry & {
+      styleAndLayoutStart?: number;
+      scripts?: readonly { startTime: number; duration: number; sourceFunctionName?: string; invoker?: string; sourceURL?: string }[];
+    };
     this.registrarFotogramaLoaf({
       inicio: e.startTime,
       fin: e.startTime + e.duration,
-      scripts: (loaf.scripts ?? []).map((s) => ({ inicio: s.startTime, duracion: s.duration })),
+      scripts: (loaf.scripts ?? []).map((s) => ({
+        inicio: s.startTime,
+        duracion: s.duration,
+        origen: `${s.sourceFunctionName || s.invoker || "?"}@${(s.sourceURL ?? "").split("/").pop()?.slice(0, 40) ?? ""}`,
+      })),
       inicioEstiloMaquetacion: loaf.styleAndLayoutStart ?? 0,
     });
+  }
+
+  private scriptsLargos(ventana: Intervalo): string[] {
+    return this.fotogramas
+      .filter((f) => f.inicio < ventana.fin && ventana.inicio < f.fin)
+      .flatMap((f) => f.scripts)
+      .filter((s) => s.inicio < ventana.fin && ventana.inicio < s.inicio + s.duracion)
+      .sort((a, b) => b.duracion - a.duracion)
+      .slice(0, 3)
+      .map((s) => `${Math.round(s.duracion)}ms ${s.origen ?? "?"}`);
   }
 
   registrar(interaccion: InteraccionRegistrada): void {
@@ -123,7 +142,8 @@ export class MedidorRespuesta {
       // Sin ninguna entrada LoAF en la ventana todas las tareas duraron < 50 ms:
       // vale lo que midió el manejador.
       const trabajoApp = hayEntrada ? calcularTrabajoApp(ventana, this.fotogramas, this.renders, base) : (i.manejador ?? 0);
-      return { ...i, trabajoApp, renderLienzo };
+      const culpables = trabajoApp > 100 ? this.scriptsLargos(ventana) : undefined;
+      return { ...i, trabajoApp, renderLienzo, culpables };
     });
     const duraciones = this.renders.map((r) => r.fin - r.inicio);
     return {
