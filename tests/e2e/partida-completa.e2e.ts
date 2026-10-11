@@ -306,6 +306,13 @@ for (const vp of VIEWPORTS) {
       // El humano es la única nave que se mantiene viva: si el evento cayera
       // sobre una IA ya destruida, el núcleo lo anuncia como perdido y no hay efecto.
       await curarAlHumano(page);
+      if (tipo === "gravedad-x2") {
+        // Si un evento natural de la partida ya dejó la gravedad al doble, forzar
+        // otro ×2 no cambia los halos: se parte siempre de la mitad.
+        const halosPrevios = await page.evaluate(() => JSON.stringify(window.__debug.halos));
+        await page.evaluate(() => window.__debug.forzarEvento!("gravedad-mitad", 0));
+        await page.waitForFunction((antes) => JSON.stringify(window.__debug.halos) !== antes, halosPrevios, { timeout: 8000 }).catch(() => undefined); // ya estaba a la mitad: no hay cambio que esperar
+      }
       const halosAntes = await page.evaluate(() => JSON.stringify(window.__debug.halos));
       await page.evaluate((t) => window.__debug.forzarEvento!(t, 0), tipo);
       await page.waitForFunction((t) => (window.__debug.efectosVisibles ?? []).some((e) => e.tipo === `evento-${t}`), tipo, { timeout: 30000 });
