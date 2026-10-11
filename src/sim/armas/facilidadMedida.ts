@@ -9,7 +9,7 @@ export const FACILIDAD_MEDIDA_PCT: Readonly<Record<string, number>> = {
   "mortero-lamentable": 2.8,
   "zanjadora-manolita": 2.5,
   "vertedero-portatil": 0.0,
-  "racimo-de-tuppers": 2.4,
+  "racimo-de-tuppers": 2.5,
   "petardo-de-feria": 2.2,
   "pelota-de-chatarra": 2.4,
   "graviton-segunda-mano": 0.0,
