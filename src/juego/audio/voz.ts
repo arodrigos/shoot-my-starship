@@ -144,11 +144,15 @@ export function crearLocutor(deps: DependenciasLocutor): Locutor {
   }
 
   function callar(): void {
+    const habiaVoz = sonando;
     vigente += 1;
     sonando = false;
     pendientePrioritario = null;
     pendienteNormal = null;
     if (disponibilidad !== "si") return;
+    // Sin nada sonando no hay qué cortar: un cancel espurio (p. ej. al montar
+    // la escena) rompe la regla de no cancelar salvo al silenciar de verdad.
+    if (!habiaVoz) return;
     cancelar();
     restaurarMusica();
   }
