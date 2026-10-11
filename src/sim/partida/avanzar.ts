@@ -24,6 +24,7 @@ import { entrarEnMuerteSubita } from "@/sim/universo/efectos";
 import { buscarEquipo, TURNOS_ESCUDO } from "@/sim/equipo/catalogo";
 import { volarConPropulsores } from "@/sim/equipo/propulsores";
 import { siguienteTurno, type AccionDeTurno, type EntradaDeTurno, type EstadoNave, type EstadoPartida, type IdNave } from "@/sim/partida/tipos";
+import { acotarIntegridad } from "@/sim/naves/vida";
 
 const PRESUPUESTO_VIABILIDAD_DESTINO = 120;
 // Con el arma base y no con la que se acaba de disparar: el rival puede haber
@@ -45,7 +46,7 @@ function gastarTurnoDeEscudo(naves: EstadoNave[], dueno: IdNave): EstadoNave[] {
 }
 
 function conIntegridad(nave: EstadoNave, integridad: number): EstadoNave {
-  return { ...nave, integridad: Math.min(100, Math.max(0, integridad)) };
+  return { ...nave, integridad: acotarIntegridad(integridad) };
 }
 
 function conDesplazamiento(nave: EstadoNave, desplazamientoPx: number, anchoMundo: number): EstadoNave {

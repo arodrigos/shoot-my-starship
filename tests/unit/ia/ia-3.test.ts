@@ -24,9 +24,14 @@ const PARTIDAS_POR_SEMILLA = 100;
 // y Chispa 17/54/34/18/33 %. El mapa pesa mucho en las dos últimas (Chispa va
 // de 17 a 54 %), así que sus bandas se ensanchan a lo medido; el orden se
 // sostiene en 4 de 5 semillas, que es lo que la guarda exige.
-const BANDA_LA_CONTABLE = [0.6, 0.9] as const;
-const BANDA_ALMIRANTE_BISAGRA = [0.25, 0.55] as const;
-const BANDA_CHISPA = [0.1, 0.4] as const;
+// vida-muerte-subita: con 150 de vida y muerte súbita en la ronda 14 las
+// partidas se resuelven más a menudo. Medido con 100 partidas por semilla:
+// La Contable 89/91/96/85/85 %, Almirante Bisagra 42/71/54/64/73 % y Chispa
+// 29/67/42/25/44 %. El orden se cumple en las 5 semillas; las bandas se
+// desplazan a lo medido, dejando 4 de 5 dentro.
+const BANDA_LA_CONTABLE = [0.75, 0.98] as const;
+const BANDA_ALMIRANTE_BISAGRA = [0.35, 0.8] as const;
+const BANDA_CHISPA = [0.2, 0.5] as const;
 
 // ia-punteria (recalibrado): el gauge original de ia-3 (fuenteAleatoria
 // sobre terreno PLANO, con gravedad real a tiro largo) resultó ser un

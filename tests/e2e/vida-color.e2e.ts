@@ -58,7 +58,7 @@ test("vid-1: la vida de cada nave va en su color y baja con el daño", async ({ 
   await page.waitForTimeout(400);
   const despues = await page.evaluate(() => ({ vidas: window.__debug.hud!.vidas, naves: window.__debug.naves! }));
   const rival = despues.naves.find((nave) => nave.id === 1)!;
-  expect(rival.integridad).toBeLessThan(100);
+  expect(rival.integridad).toBeLessThan(150);
   expect(despues.vidas.find((vida) => vida.id === 1)!.valor).toBe(Math.round(rival.integridad));
 
   const axe = await new AxeBuilder({ page }).include('[data-testid="integridad-nave-0"]').withRules(["color-contrast"]).analyze();

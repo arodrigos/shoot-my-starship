@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fc from "fast-check";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
 import { colocarNaves } from "@/sim/naves/colocacion";
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 import { crearMascaraVacia } from "@/sim/terreno/mascara";
 import type { EstadoNave, EstadoPartida, ParametrosMundo } from "@/sim/partida/tipos";
 import { aplicarEvento, avanzarUniverso, conUniverso } from "@/sim/universo/efectos";
@@ -35,7 +36,7 @@ function estadoVacio(naves: readonly EstadoNave[], mundo: ParametrosMundo = MUND
   });
 }
 
-function nave(x: number, y: number, integridad = 100, extra: Partial<EstadoNave> = {}): EstadoNave {
+function nave(x: number, y: number, integridad = INTEGRIDAD_MAXIMA, extra: Partial<EstadoNave> = {}): EstadoNave {
   return { x, y, integridad, ...extra };
 }
 
@@ -50,11 +51,11 @@ function conObjetos(estado: EstadoPartida, objetos: readonly ObjetoEvento[]): Es
 // Un objeto a 100 u/s hacia +x desde (100, 500) cruza el casco de una nave en (400, 500).
 const HACIA_NAVE = objeto("corazon", 100, 500, 100, 0);
 
-// obj-1: colisión unitaria del corazón, con el tope de 100.
-test("obj-1: el corazón devuelve 50 de vida, con tope en 100, y desaparece", () => {
+// obj-1: colisión unitaria del corazón, con el tope de la vida máxima.
+test("obj-1: el corazón devuelve 75 de vida, con tope en 150, y desaparece", () => {
   for (const [antes, despues] of [
-    [30, 80],
-    [70, 100],
+    [30, 105],
+    [120, INTEGRIDAD_MAXIMA],
   ]) {
     const estado = conObjetos(estadoVacio([nave(400, 500, antes), nave(700, 900)]), [HACIA_NAVE]);
     const fase = avanzarObjetos(estado, estado.naves);
@@ -65,10 +66,10 @@ test("obj-1: el corazón devuelve 50 de vida, con tope en 100, y desaparece", ()
 });
 
 // obj-2: el escudo no bloquea la tormenta.
-test("obj-2: la tormenta quita 25 de vida aunque la nave tenga el escudo activo", () => {
-  const estado = conObjetos(estadoVacio([nave(400, 500, 100, { escudoTurnosRestantes: 2 }), nave(700, 900)]), [{ ...HACIA_NAVE, tipo: "tormenta" }]);
+test("obj-2: la tormenta quita 35 de vida aunque la nave tenga el escudo activo", () => {
+  const estado = conObjetos(estadoVacio([nave(400, 500, INTEGRIDAD_MAXIMA, { escudoTurnosRestantes: 2 }), nave(700, 900)]), [{ ...HACIA_NAVE, tipo: "tormenta" }]);
   const fase = avanzarObjetos(estado, estado.naves);
-  assert.equal(fase.naves[0].integridad, 75);
+  assert.equal(fase.naves[0].integridad, INTEGRIDAD_MAXIMA - 35);
   assert.equal(fase.naves[0].escudoTurnosRestantes, 2);
 });
 
@@ -167,7 +168,7 @@ test("obj-1: con 2 objetos vivos, un evento de objeto se anuncia perdido y no cr
 // cruce dos veces el casco o haya dos naves en el camino.
 test("invariante: el efecto de un choque se aplica una vez y el objeto desaparece en ese paso", () => {
   fc.assert(
-    fc.property(fc.integer({ min: 0, max: 60 }), fc.integer({ min: 1, max: 100 }), fc.boolean(), (desvio, integridad, esCorazon) => {
+    fc.property(fc.integer({ min: 0, max: 60 }), fc.integer({ min: 1, max: INTEGRIDAD_MAXIMA }), fc.boolean(), (desvio, integridad, esCorazon) => {
       // La nave 0 es la silueta de caza: su ala sobresale 32 u del eje. Los
       // desvíos justo en el filo (32 u) se descartan; es el caso límite que
       // cubre casco-poligono.test.ts.
@@ -176,7 +177,7 @@ test("invariante: el efecto de un choque se aplica una vez y el objeto desaparec
       const fase = avanzarObjetos(estado, estado.naves);
       const alcanzado = desvio < 32;
       assert.deepEqual(fase.universo.objetos, alcanzado ? [] : (fase.universo.objetos as ObjetoEvento[]));
-      const esperado = alcanzado ? Math.min(100, Math.max(0, integridad + (esCorazon ? 50 : -25))) : integridad;
+      const esperado = alcanzado ? Math.min(INTEGRIDAD_MAXIMA, Math.max(0, integridad + (esCorazon ? 75 : -35))) : integridad;
       assert.equal(fase.naves[0].integridad, esperado);
       assert.equal(fase.eventos.length, alcanzado ? 1 : 0);
     }),

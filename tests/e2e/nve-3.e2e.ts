@@ -9,9 +9,13 @@ const GANANCIA_POTENCIA = 150;
 const ANGULO_INICIAL_GRADOS = 45;
 const POTENCIA_INICIAL = 50;
 
+// Los tramos son porcentajes de la vida máxima (150).
+const VIDA_MAXIMA = 150;
+
 function nivelDanioEsperado(integridad: number): "alta" | "media" | "baja" {
-  if (integridad > 66) return "alta";
-  if (integridad > 33) return "media";
+  const porcentaje = (integridad / VIDA_MAXIMA) * 100;
+  if (porcentaje > 66) return "alta";
+  if (porcentaje > 33) return "media";
   return "baja";
 }
 
@@ -74,7 +78,7 @@ test("nve-3: tras un impacto real, el tramo de daño dibujado corresponde a la i
   );
 
   const rival = (await page.evaluate(() => window.__debug.naves))!.find((nave) => nave.id === 1)!;
-  expect(rival.integridad).toBeLessThan(100);
+  expect(rival.integridad).toBeLessThan(VIDA_MAXIMA);
   expect(rival.nivelDanio).toBe(nivelDanioEsperado(rival.integridad));
 
   const numeroTurnoDespues = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;

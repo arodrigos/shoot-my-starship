@@ -1,3 +1,4 @@
+import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 // Equipo: acciones que compiten con el disparo por el turno. Viven aparte del
 // catálogo de armas porque no tienen efecto de daño, huella ni vuelo propio y
 // mezclarlas obligaría a cada consumidor de Arma a descartarlas.
@@ -43,4 +44,4 @@ export const COSTE_ESCUDO = 90;
 // Turnos propios que protege: baja al empezar cada turno del dueño.
 export const TURNOS_ESCUDO = 2;
 // Condición de la IA para pagar el escudo (esc-3).
-export const INTEGRIDAD_MAXIMA_IA_ESCUDO = 50;
+export const INTEGRIDAD_MAXIMA_IA_ESCUDO = INTEGRIDAD_MAXIMA / 2;
