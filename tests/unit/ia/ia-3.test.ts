@@ -31,6 +31,10 @@ const PARTIDAS_POR_SEMILLA = 100;
 // desplazan a lo medido, dejando 4 de 5 dentro.
 // Decisión de Adrián: La Contable queda en 60-80 % con 150 de vida (su
 // puntería se afloja en personalidades.ts); medido 61/82/77/69/73 %.
+// fuerza-maxima: con 1050 de fuerza se reajustan los tres errores (ver
+// personalidades.ts). Medido con 100 partidas por semilla: La Contable
+// 39/79/67/62/75 %, Almirante Bisagra 35/60/43/53/86 % y Chispa
+// 15/50/42/22/50 %; las bandas no cambian, el orden se cumple en 4 de 5.
 const BANDA_LA_CONTABLE = [0.6, 0.8] as const;
 const BANDA_ALMIRANTE_BISAGRA = [0.35, 0.8] as const;
 const BANDA_CHISPA = [0.2, 0.5] as const;

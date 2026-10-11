@@ -61,7 +61,10 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
   // npm run medir:ia: 50.5% de victorias, dentro de la banda 45-65%.
   // salida-pantalla: recalibrada contra el jugador patrón con tiro trazado (ver
   // ia-3): con la puntería nueva del patrón sube a ~47 % de media.
-  error: { anguloGrados: { minimo: -20, maximo: 20 }, potencia: { minimo: 35, maximo: 65 } },
+  // fuerza-maxima: con 1050 de fuerza el tiro es más difícil para todos y
+  // Bisagra (73 % de media) pasaba por encima de La Contable. ±40° mide
+  // 35/60/43/53/86 %: entre Chispa y La Contable en 4 de 5 semillas.
+  error: { anguloGrados: { minimo: -40, maximo: 40 }, potencia: { minimo: 35, maximo: 65 } },
   trayectoriaPreferida: "mortero",
   // Prefiere el mortero y las armas con retardo (el Racimo de Tuppers se
   // abre a media altura), que le dan tiempo a hablar antes del impacto.
@@ -99,7 +102,9 @@ export const CHISPA: Personalidad = {
   // npm run medir:ia: 25.0% de victorias, dentro de la banda 20-40%.
   // salida-pantalla: ±2° la dejaba en 50-80 % contra el patrón nuevo; con este
   // rango baja a ~31 % de media (17-54 % según el mapa).
-  error: { anguloGrados: { minimo: -10, maximo: 10 }, potencia: { minimo: -14, maximo: 14 } },
+  // fuerza-maxima: ±10° / ±14 subía a 25/58/59/35/62 %, fuera de su banda;
+  // ±14° / ±16 mide 15/50/42/22/50 % (4 de 5 en 20-50 %).
+  error: { anguloGrados: { minimo: -14, maximo: 14 }, potencia: { minimo: -16, maximo: 16 } },
   trayectoriaPreferida: "tenso",
   // Las armas raras, las de terreno y el Petardo de Feria antes que nada
   // fiable.

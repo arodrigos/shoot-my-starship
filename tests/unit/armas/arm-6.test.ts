@@ -42,7 +42,10 @@ const TECHO_PROPORCION_PROYECTIL_PERDIDO = 0.2;
 // margen generoso para 40 turnos de ráfaga real (hasta 3 vuelos por disparo
 // de Andanada) -- si esto se dispara, "añadir armas" ha roto en silencio el
 // presupuesto de cómputo del solucionador.
-const PRESUPUESTO_VUELOS_POR_PARTIDA = 250_000;
+// fuerza-maxima: con más fuerza y errores mayores en las IAs hay más tiros
+// fallidos por partida y la peor llega a 376 253 vuelos; 450 000 sigue
+// acotando el cómputo con la misma holgura de antes.
+const PRESUPUESTO_VUELOS_POR_PARTIDA = 450_000;
 
 const MUNDO_ESPACIAL: ParametrosMundo = {
   ancho: MUNDO_ANCHO,
