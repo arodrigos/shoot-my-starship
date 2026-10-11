@@ -28,7 +28,7 @@ test("arm-5: una ráfaga de 3 produce exactamente 3 proyectiles con la apertura 
     arma,
     origenX: 300,
     anguloGrados: 45,
-    potencia: 50, // cae dentro de la pantalla: por el lado se perdería (salida-pantalla)
+    potencia: 73, // cae dentro de la pantalla: por el lado se perdería (salida-pantalla)
     objetivoX: 900,
     objetivoY: SUELO_Y,
     ancho: ANCHO,

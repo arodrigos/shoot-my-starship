@@ -31,7 +31,7 @@ const fuenteMaquina: FuenteDeTurno = (estado) => ({
   entrada: {
     arma: "pepinazo-cortesia",
     anguloGrados: estado.turno === 0 ? 45 : 135,
-    potencia: 60,
+    potencia: 88,
     objetivoId: estado.turno === 0 ? 1 : 0,
   },
   estado,
@@ -85,8 +85,8 @@ test("nucleo-6: FuenteDeTurno soporta humano-vs-máquina, máquina-vs-máquina y
   // caen a menos de 1px del centro exacto, lo que da mucho más margen antes
   // de que la deriva del terreno las saque del radio de daño.
   const colaHumano: EntradaDeTurno[] = [
-    { arma: "pepinazo-cortesia", anguloGrados: 76.0, potencia: 100, objetivoId: 1 },
-    { arma: "pepinazo-cortesia", anguloGrados: 69.3, potencia: 80, objetivoId: 1 },
+    { arma: "pepinazo-cortesia", anguloGrados: 61.53, potencia: 100, objetivoId: 1 },
+    { arma: "pepinazo-cortesia", anguloGrados: 51.8, potencia: 90, objetivoId: 1 },
   ];
   // Espejo de colaHumano (180 - ángulo) para disparar desde x=1620 hacia
   // x=300: el mismo guion no sirve para las dos naves porque no apuntan al

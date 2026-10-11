@@ -14,7 +14,7 @@ const fuenteCentroFijo: FuenteDeTurno = (estado) => ({
   entrada: {
     arma: "pepinazo-cortesia",
     anguloGrados: estado.turno === 0 ? 45 : 135,
-    potencia: 60,
+    potencia: 88,
     objetivoId: estado.turno === 0 ? 1 : 0,
   },
   estado,
