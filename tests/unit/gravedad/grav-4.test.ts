@@ -71,7 +71,7 @@ test("grav-4: la masa se queda congelada durante todo el vuelo de un disparo de 
   const detenerse = detenerseEnSuelo(mascara, ANCHO, ALTO);
   const encuadre = { ancho: ANCHO, alto: ALTO };
   const { proyectil, perdido } = simularVuelo(inicial, 0, 0, detenerse, { planetas: [planeta], encuadre });
-  const puntosEsperados = perdido ? [] : patronPerdigones(proyectil, cantidad);
+  const puntosEsperados = perdido ? [] : patronPerdigones(proyectil, cantidad, { mascara, ancho: ANCHO, alto: ALTO });
 
   assert.equal(resultado.puntosDeImpacto.length, puntosEsperados.length);
   resultado.puntosDeImpacto.forEach((punto, indice) => {

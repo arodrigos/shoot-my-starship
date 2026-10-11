@@ -20,7 +20,7 @@ aparte que mantener sincronizada con el resolutor.
 | Mortero Lamentable | 24 | 70 | 1.03s | 2.8% | 50 |
 | Zanjadora Manolita | 4 | 56 | 1.07s | 2.5% | 0 |
 | Vertedero Portátil | 0 | 0 | n/a | 0.0% | 15 |
-| Racimo de Tuppers | 20 | 62 | 1.03s | 2.8% | 45 |
+| Racimo de Tuppers | 20 | 30 | 1.03s | 2.4% | 45 |
 | Petardo de Feria | 13 | 62 | 1.01s | 2.2% | 0 |
 | La Pelota de Chatarra | 8 | 30 | 1.08s | 2.4% | 0 |
 | Gravitón de Segunda Mano | 0 | 0 | n/a | 0.0% | 45 |
