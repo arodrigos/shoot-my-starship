@@ -2397,6 +2397,29 @@ export class Partida extends Phaser.Scene {
     const fantasmas: { nave: number; x: number; y: number }[] = [];
     const recorridos: { nave: number; puntos: readonly { x: number; y: number }[]; motivoParada: string }[] = [];
     for (const evento of eventos) {
+      if (evento.tipo === "nave-asentada") {
+        // Sin marca «Estaba aquí»: no es un empuje que el jugador deba leer,
+        // solo la nave apoyándose fuera del sólido. Si ese mismo turno ya se
+        // desliza por otro motivo, espera a que termine para no pisarlo.
+        if (movimientoReducido) continue;
+        const nave = this.naves[evento.nave];
+        const desdeY = alturaRenderNave(evento.desdeY, evento.desdeY);
+        const haciaY = alturaRenderNave(evento.y, evento.y);
+        const yaSeDesliza = eventos.some((otro) => (otro.tipo === "desplazamiento" || otro.tipo === "propulsores") && otro.nave === evento.nave);
+        const progreso = { t: 0 };
+        if (!yaSeDesliza) nave.posicionarEn(evento.desdeX, desdeY);
+        this.tweens.add({
+          targets: progreso,
+          t: 1,
+          delay: yaSeDesliza ? DURACION_DESLIZAMIENTO_MS : 0,
+          duration: DURACION_DESLIZAMIENTO_MS,
+          ease: "Sine.easeInOut",
+          onStart: () => nave.posicionarEn(evento.desdeX, desdeY),
+          onUpdate: () => nave.posicionarEn(evento.desdeX + (evento.x - evento.desdeX) * progreso.t, desdeY + (haciaY - desdeY) * progreso.t),
+          onComplete: () => nave.posicionarEn(evento.x, haciaY),
+        });
+        continue;
+      }
       if (evento.tipo !== "desplazamiento" && evento.tipo !== "propulsores") continue;
       if (evento.tipo === "desplazamiento" && evento.reserva === "se-queda") continue;
       if (evento.tipo === "propulsores" && evento.desdeX === evento.x && evento.desdeY === evento.y) continue;

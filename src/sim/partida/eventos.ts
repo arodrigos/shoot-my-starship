@@ -125,6 +125,17 @@ export type EventoSimulacion =
       readonly puntos: readonly { readonly x: number; readonly y: number }[];
       readonly motivoParada: "longitud" | "planeta" | "nave" | "esquina";
     }
+  // naves-nunca-dentro: la nave terminó el turno en una posición inválida
+  // (dentro de un sólido, del borde o de otra nave) y se ha apoyado en el
+  // sitio válido más cercano. La presentación la desliza en vez de saltar.
+  | {
+      readonly tipo: "nave-asentada";
+      readonly nave: IdNave;
+      readonly desdeX: number;
+      readonly desdeY: number;
+      readonly x: number;
+      readonly y: number;
+    }
   // minirobot: el robot se ha posado tras el disparo, ha saltado a otro planeta
   // (con el número de saltos hechos) o ha detonado sobre su objetivo. La
   // detonación llega además en resultadoTurno.detonaciones para dibujarla.
