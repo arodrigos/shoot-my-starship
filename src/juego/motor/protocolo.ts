@@ -73,7 +73,10 @@ export type Respuesta =
   | (Cabecera & { readonly tipo: "decidirIA"; readonly resultado: ResultadoDecidirIA })
   | (Cabecera & { readonly tipo: "error"; readonly mensaje: string });
 
-export const TIEMPO_LIMITE_PETICION_MS = 10_000;
+// Con la máquina saturada (lienzo por software y CPU limitada) una búsqueda de
+// la IA tarda más de 10 s sin que el trabajador esté roto; caer entonces al
+// cálculo en línea bloquearía el hilo principal justo en el toque siguiente.
+export const TIEMPO_LIMITE_PETICION_MS = 60_000;
 
 const TIPOS: readonly string[] = ["previsualizar", "resolverDisparo", "decidirIA"];
 
