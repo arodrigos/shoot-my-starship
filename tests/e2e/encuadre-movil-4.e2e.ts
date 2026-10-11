@@ -10,24 +10,24 @@ import { arrastrarBarraHasta } from "./utilesControl";
 // balística exacta que expone window.__debug (mismo patrón que
 // control-1.e2e.ts). Se navega con ?mapa=calma-de-los-restos (deriva 0)
 // precisamente porque ahí la solución es exacta turno a turno: con 5
-// impactos de 20 de daño basta para vaciar la integridad de cualquiera de
-// las dos naves, así que el enfrentamiento converge en pocos turnos sin
+// impactos de 20 de daño bastaban con 100 de vida; con 150 hacen falta 8 y
+// se deja margen por los impactos que no son de centro, así que el enfrentamiento converge en pocos turnos sin
 // depender de que la IA "pierda" por accidente. forzarFinDePartida() se
 // conserva solo como red de seguridad del timeout (nunca como camino
 // normal): si el límite de turnos se agotase sin ganador -- indicio real de
 // que algo rompió la convergencia, no algo a esconder -- el test falla en
 // vez de disfrazarlo con el modal forzado.
 const MAPA_SEMBRADO = "calma-de-los-restos";
-const MAXIMO_TURNOS_JUGADOS = 12;
+const MAXIMO_TURNOS_JUGADOS = 18;
 
 test("partida de punta a punta a 360x640 con el encuadre nuevo, jugada hasta que hay un ganador real", async ({ page }) => {
-  // La partida juega hasta 12 turnos reales y cada turno incluye la búsqueda
+  // La partida juega hasta 18 turnos reales y cada turno incluye la búsqueda
   // de la IA (hasta 192 vuelos simulados); en un shard de CI con 2 vCPU el
   // test tarda ~2,5 min, justo en el borde de los 150 s anteriores y el
   // merge de multi-setup-partida lo agotó dos veces seguidas sin que el diff
   // tocase la partida de 2 naves. La aserción de convergencia en
   // MAXIMO_TURNOS_JUGADOS no cambia: solo el margen de reloj.
-  test.setTimeout(300000);
+  test.setTimeout(480000);
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto(`/?mapa=${MAPA_SEMBRADO}`);
   await page.getByTestId("boton-jugar").click();
