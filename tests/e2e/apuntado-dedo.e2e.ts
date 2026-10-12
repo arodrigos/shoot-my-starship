@@ -27,7 +27,7 @@ async function cargarEscenario(page: Page): Promise<void> {
         { x: mundo.ancho / 2, y: mundo.alto * 0.75, integridad: 150 },
         { x: mundo.ancho * 0.2, y: mundo.alto * 0.2, integridad: 150 },
       ],
-      arma: "pepinazo",
+      arma: "pepinazo-cortesia",
       anguloGrados: 45,
       potencia: 50,
     });
