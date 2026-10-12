@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import fc from "fast-check";
 import { abreviarNombre } from "@/juego/hud/IntegridadHUD";
 
@@ -17,8 +18,19 @@ test("ini-2: un nombre de un solo término demasiado largo se corta con elipsis"
   assert.equal(abreviarNombre("0123456789ABCDEF", 2), "0123456789ABCDEF");
 });
 
-test("ini-2: «Jugador 2» conserva el número que distingue al jugador", () => {
-  assert.equal(abreviarNombre("Jugador 2", 4), "Jugad… 2");
+test("ini-2: «Jugador 2» pasa a «J2» cuando no cabe, y se queda entero si cabe", () => {
+  assert.equal(abreviarNombre("Jugador 2", 4), "J2");
+  assert.equal(abreviarNombre("Jugador 2", 3), "Jugador 2");
+});
+
+test("ini-2: los nombres reales de las IA, tal como llegan al HUD, se leen enteros", () => {
+  for (const p of PERSONALIDADES) {
+    for (const naves of [2, 3, 4]) {
+      const visible = abreviarNombre(p.nombre, naves);
+      assert.ok(!visible.endsWith("…"), `${p.nombre} con ${naves} naves: ${visible}`);
+    }
+  }
+  assert.equal(abreviarNombre("Almirante Bisagra", 2), "Bisagra");
 });
 
 test("ini-2: un nombre que ya cabe se queda como está", () => {

@@ -52,36 +52,51 @@ for (const { ancho, alto } of TAMANOS) {
     expect((await page.evaluate(() => window.__debug.musica!())).estado).toBe("parada");
   });
 
-  test(`ini-2: con 4 jugadores las pestañas se leen enteras, con su vida (${ancho}x${alto})`, async ({ page }) => {
-    test.setTimeout(180000);
-    await page.setViewportSize({ width: ancho, height: alto });
-    await page.goto("/");
-    await page.getByTestId("humanos-4").click();
-    const nombres = ["Capitana Sobrenombre", "0123456789ABCDEF", "Ana", "Luis"];
-    for (const [i, nombre] of nombres.entries()) await page.getByTestId(`nombre-jugador-${i}`).fill(nombre);
-    await page.getByTestId("boton-jugar").click();
-    await esperarPartida(page);
+  // ini-2: se prueba con los nombres reales del juego y con cada composición
+  // de asientos, porque el recorte salía del JS (nombre ya acortado) y un
+  // scrollWidth <= clientWidth no lo detecta: se comprueba el texto visible.
+  const CASOS = [
+    { id: "1v1", humanos: 1, ias: 1, visibles: ["Tu nave", "La Contable"], completos: ["Tu nave", "La Contable"] },
+    { id: "1h2ia", humanos: 1, ias: 2, visibles: ["Jugador 1", "Contable", "Bisagra"], completos: ["Jugador 1", "La Contable", "Almirante Bisagra"] },
+    { id: "1h3ia", humanos: 1, ias: 3, visibles: ["J1", "Contable", "Bisagra", "Chispa"], completos: ["Jugador 1", "La Contable", "Almirante Bisagra", "Chispa"] },
+    { id: "4h", humanos: 4, ias: 0, visibles: ["J1", "J2", "J3", "J4"], completos: ["Jugador 1", "Jugador 2", "Jugador 3", "Jugador 4"] },
+  ] as const;
 
-    for (let id = 0; id < 4; id++) {
-      const pestana = page.getByTestId(`integridad-nave-${id}`);
-      const m = await pestana.evaluate((el) => {
-        const caja = el.getBoundingClientRect();
-        const etiqueta = el.firstElementChild!;
-        return {
-          izq: caja.left,
-          der: caja.right,
-          cortada: el.scrollWidth > el.clientWidth || etiqueta.scrollWidth > etiqueta.clientWidth,
-          ancho: window.innerWidth,
-          detalle: `${el.scrollWidth}/${el.clientWidth}, etiqueta ${etiqueta.scrollWidth}/${etiqueta.clientWidth}`,
-        };
-      });
-      expect(m.izq, `pestaña ${id} fuera por la izquierda`).toBeGreaterThanOrEqual(0);
-      expect(m.der, `pestaña ${id} fuera por la derecha`).toBeLessThanOrEqual(m.ancho);
-      expect(m.cortada, `pestaña ${id} cortada (${m.detalle})`).toBe(false);
-      // Vida visible, con el nombre completo accesible aunque se abrevie.
-      await expect(pestana.getByRole("progressbar", { name: `Integridad de ${nombres[id].slice(0, 16)}` })).toHaveAttribute("aria-valuenow", "150");
-      await expect(pestana).toContainText(nombres[id].slice(0, 16));
-    }
-    await capturar(page, "ini-2-pestanas", ancho, alto);
-  });
+  for (const caso of CASOS) {
+    test(`ini-2: pestañas enteras con nombres reales, ${caso.id} (${ancho}x${alto})`, async ({ page }) => {
+      test.setTimeout(180000);
+      await page.setViewportSize({ width: ancho, height: alto });
+      await page.goto("/");
+      if (caso.humanos > 1 || caso.ias > 1) {
+        await page.getByTestId(`humanos-${caso.humanos}`).click();
+        await page.getByTestId(`ias-${caso.ias}`).click();
+      }
+      await page.getByTestId("boton-jugar").click();
+      await esperarPartida(page);
+
+      for (let id = 0; id < caso.visibles.length; id++) {
+        const pestana = page.getByTestId(`integridad-nave-${id}`);
+        const m = await pestana.evaluate((el) => {
+          const caja = el.getBoundingClientRect();
+          const etiqueta = el.firstElementChild!;
+          const visible = etiqueta.querySelector('[aria-hidden="true"]')!.textContent ?? "";
+          return {
+            izq: caja.left,
+            der: caja.right,
+            cortada: el.scrollWidth > el.clientWidth || etiqueta.scrollWidth > etiqueta.clientWidth,
+            ancho: window.innerWidth,
+            visible,
+            detalle: `${el.scrollWidth}/${el.clientWidth}, etiqueta ${etiqueta.scrollWidth}/${etiqueta.clientWidth}`,
+          };
+        });
+        expect(m.izq, `pestaña ${id} fuera por la izquierda`).toBeGreaterThanOrEqual(0);
+        expect(m.der, `pestaña ${id} fuera por la derecha`).toBeLessThanOrEqual(m.ancho);
+        expect(m.cortada, `pestaña ${id} cortada (${m.detalle})`).toBe(false);
+        expect(m.visible, `texto visible de la pestaña ${id}`).toBe(caso.visibles[id]);
+        // Vida visible y nombre completo (sin recortar) accesible aunque se abrevie.
+        await expect(pestana.getByRole("progressbar", { name: `Integridad de ${caso.completos[id]}` })).toHaveAttribute("aria-valuenow", "150");
+      }
+      await capturar(page, `ini-2-pestanas-${caso.id}`, ancho, alto);
+    });
+  }
 }

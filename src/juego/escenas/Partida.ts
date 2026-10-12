@@ -595,7 +595,9 @@ export class Partida extends Phaser.Scene {
     ];
     this.controladores = jugadores.map((jugador, indice) => ({
       tipo: jugador.tipo,
-      nombre: sanearNombre(jugador.nombre, `Nave ${indice + 1}`),
+      // Los nombres de las IA son fijos y salen de la personalidad: acotarlos
+      // a 16 letras los convertía en «Almirante Bisagr» antes de llegar al HUD.
+      nombre: jugador.tipo === "ia" ? jugador.nombre : sanearNombre(jugador.nombre, `Nave ${indice + 1}`),
       personalidad:
         jugador.tipo === "ia" ? (jugador.personalidadId ? buscarPersonalidad(jugador.personalidadId) : personalidadBase) : null,
     }));
