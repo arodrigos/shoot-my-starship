@@ -130,7 +130,7 @@ export function PantallaInicio({ onJugar }: Props) {
       >
       <p data-testid="descripcion-juego" style={{ maxWidth: 360, margin: 0 }}>
         Naves varadas en el Cinturón de la Deriva que se tiran chatarra a cañonazos: apoya el dedo en cualquier punto
-        y desliza: de lado giras la dirección, y acercándote o alejándote de tu nave bajas o subes la fuerza. Pulsa
+        y arrastra: de lado giras la dirección, y acercándote o alejándote de tu nave bajas o subes la fuerza. Pulsa
         Disparar cuando apuntes bien.
       </p>
 
