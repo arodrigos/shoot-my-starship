@@ -5,7 +5,6 @@ import { colorDeAsiento } from "@/juego/naves/paletaNaves";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
-import { MAX_NOMBRE_JUGADOR } from "@/juego/jugadores";
 import { acotarIntegridad, INTEGRIDAD_MAXIMA, porcentajeIntegridad } from "@/sim/naves/vida";
 
 // imp-11: hasta este bloque no existía NINGÚN indicador de integridad en el
@@ -32,7 +31,7 @@ export function etiquetaDeNave(id: number, nombreRival: string): string {
 // se corta con elipsis. El nombre completo queda para lectores de pantalla
 // (span oculto) y para el title.
 function maximoLetras(naves: number): number {
-  return naves >= 4 ? 8 : naves === 3 ? 10 : MAX_NOMBRE_JUGADOR;
+  return naves >= 4 ? 8 : naves === 3 ? 10 : 8;
 }
 
 function cortar(texto: string, maximo: number): string {
@@ -47,6 +46,9 @@ export function abreviarNombre(nombre: string, naves: number): string {
   // «Jugador 2»: el número es lo que distingue al jugador, así que se conserva.
   const numero = palabras.length > 1 && /^\d+$/.test(palabras[palabras.length - 1]!) ? palabras[palabras.length - 1]! : null;
   if (numero !== null) {
+    // «Jugador 1» es el nombre por defecto del humano: «J1» se lee entero y
+    // «Jugad… 1» no, aunque en el iPad sobrara sitio.
+    if (palabras.length === 2 && palabras[0]!.toLowerCase() === "jugador") return `J${numero}`;
     const resto = palabras.slice(0, -1).join(" ");
     return `${cortar(resto, Math.max(3, maximo - numero.length - 1))} ${numero}`;
   }
@@ -173,7 +175,9 @@ export function IntegridadHUD() {
               {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
               <span aria-hidden="true">{abreviarNombre(etiqueta, estado.naves.length)}</span>
               <span style={SOLO_LECTORES}>{etiqueta}</span>
-              {participantes ? "" : esTurno ? " · turno" : ""}
+              {/* En el 1 contra 1 el turno ya se ve por el resaltado y aria-current:
+                  el sufijo visible cortaba «Tu nave · t…» en 105 px. */}
+              {participantes || !esTurno ? null : <span style={SOLO_LECTORES}> · turno</span>}
             </div>
             {nave.integridad > 0 ? (
               <div

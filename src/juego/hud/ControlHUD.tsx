@@ -421,7 +421,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             gap: 6,
           }}
         >
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: navesEnPartida > 2 ? "100%" : "56%", minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: navesEnPartida > 2 ? "100%" : "44%", minWidth: 0 }}>
           <div
             role="status"
             data-testid="resultado-turno"
@@ -452,7 +452,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             </div>
           )}
         </div>
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, ...(navesEnPartida > 2 ? { flex: "1 1 100%" } : {}) }}>
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0, ...(navesEnPartida > 2 ? { flex: "1 1 100%" } : { flex: "1 1 140px" }) }}>
           <IntegridadHUD />
         </div>
         </div>
