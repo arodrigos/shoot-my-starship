@@ -38,8 +38,8 @@ export function BromaHUD() {
         // hud-canales-1 (quinta corrección): alignSelf (no alignItems del
         // padre) es lo que pega este panel al borde derecho de la columna de
         // fila-avisos.
-        alignSelf: "flex-end",
-        maxWidth: "74%",
+        alignSelf: "center",
+        maxWidth: "100%",
         minWidth: 0,
         width: "100%",
         // hud-canales (décima corrección): flexShrink:0 (octava corrección)

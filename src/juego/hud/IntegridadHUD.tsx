@@ -26,12 +26,41 @@ export function etiquetaDeNave(id: number, nombreRival: string): string {
 
 // La fila de pestañas no pasa de unos 300 px ni siquiera en el iPad: con tres
 // o cuatro naves quedan ~83 o ~63 px útiles por pestaña (medidos con el
-// marcador de turno incluido) y un nombre de hasta 16 letras no cabe: se abrevia a lo que cabe y el nombre completo
-// queda para lectores de pantalla (span oculto) y para el title.
+// marcador de turno incluido). Un nombre que no cabe se abrevia quitando
+// primero los títulos de delante («Almirante Bisagra» → «Bisagra», «La
+// Contable» → «Contable») para que lo que queda se lea; solo si ni así cabe
+// se corta con elipsis. El nombre completo queda para lectores de pantalla
+// (span oculto) y para el title.
+function maximoLetras(naves: number): number {
+  return naves >= 4 ? 8 : naves === 3 ? 10 : MAX_NOMBRE_JUGADOR;
+}
+
+function cortar(texto: string, maximo: number): string {
+  const letras = Array.from(texto);
+  return letras.length <= maximo ? texto : `${letras.slice(0, maximo - 1).join("")}…`;
+}
+
 export function abreviarNombre(nombre: string, naves: number): string {
-  const maximo = naves >= 4 ? 6 : naves === 3 ? 8 : MAX_NOMBRE_JUGADOR;
-  const letras = Array.from(nombre);
-  return letras.length <= maximo ? nombre : `${letras.slice(0, maximo - 1).join("")}…`;
+  const maximo = maximoLetras(naves);
+  if (Array.from(nombre).length <= maximo) return nombre;
+  const palabras = nombre.split(/\s+/).filter((p) => p !== "");
+  // «Jugador 2»: el número es lo que distingue al jugador, así que se conserva.
+  const numero = palabras.length > 1 && /^\d+$/.test(palabras[palabras.length - 1]!) ? palabras[palabras.length - 1]! : null;
+  if (numero !== null) {
+    const resto = palabras.slice(0, -1).join(" ");
+    return `${cortar(resto, Math.max(3, maximo - numero.length - 1))} ${numero}`;
+  }
+  for (let i = 1; i < palabras.length; i++) {
+    const candidato = palabras.slice(i).join(" ");
+    if (Array.from(candidato).length >= 3 && Array.from(candidato).length <= maximo) return candidato;
+  }
+  return cortar(nombre, maximo);
+}
+
+// Con cuatro naves el marcador va pegado al nombre: cada letra cuenta.
+function marcadorDeEstado(eliminada: boolean, esTurno: boolean, naves: number): string {
+  const marca = eliminada ? "✖" : esTurno ? "▶" : "";
+  return marca === "" || naves >= 4 ? marca : `${marca} `;
 }
 
 const SOLO_LECTORES: React.CSSProperties = {
@@ -125,6 +154,7 @@ export function IntegridadHUD() {
               ...BARRA_ESTILO,
               position: "relative",
               padding: estado.naves.length >= 4 ? "4px" : BARRA_ESTILO.padding,
+              ...(estado.naves.length >= 4 ? { fontSize: 11 } : {}),
               background: esTurno ? "var(--color-roce-fondo)" : "var(--color-cromado-fondo)",
               color: esTurno ? "var(--color-roce-texto)" : "var(--color-cromado-texto)",
               border: esTurno ? "1px solid var(--color-roce-borde)" : "1px solid transparent",
@@ -140,7 +170,7 @@ export function IntegridadHUD() {
               {/* Con varios jugadores el estado va DELANTE del nombre: con cuatro
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
-              {participantes ? (eliminada ? "✖ " : esTurno ? "▶ " : "") : ""}
+              {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
               <span aria-hidden="true">{abreviarNombre(etiqueta, estado.naves.length)}</span>
               <span style={SOLO_LECTORES}>{etiqueta}</span>
               {participantes ? "" : esTurno ? " · turno" : ""}
