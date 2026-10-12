@@ -48,10 +48,10 @@ for (const { ancho, alto } of TAMANOS) {
   test(`res-v1: a ${ancho}x${alto} el resumen del tercer turno se ve con 1 humano contra 2 IA, con la consola apartada y oculta`, async ({ page }) => {
     test.setTimeout(240000);
     await empezarContraDosIA(page, ancho, alto);
-    await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(2));
-    await page.waitForFunction(() => (window.__debug.historialBromas?.length ?? 0) >= 2);
-    // El tercer turno lo juega la IA de verdad, con el control del humano apartado.
-    await page.waitForFunction(() => (window.__debug.historialBromas?.length ?? 0) >= 3, undefined, { timeout: 120000 });
+    // El humano dispara y las dos IA juegan de verdad con animación: el tercer
+    // turno se resuelve con el control del humano apartado.
+    await page.getByTestId("disparar").click();
+    await page.waitForFunction(() => (window.__debug.historialBromas?.length ?? 0) >= 3, undefined, { timeout: 150000 });
     const resumen = page.getByTestId("resumen-texto");
     await expect(resumen).toBeVisible();
     expect(await opacidadEfectiva(resumen)).toBe(1);
