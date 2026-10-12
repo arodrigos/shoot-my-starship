@@ -37,7 +37,7 @@ export function AyudaApuntadoHUD() {
         boxSizing: "border-box",
       }}
     >
-      <span style={{ flex: 1 }}>Arrastra desde tu nave hacia donde quieras disparar: más lejos, más fuerte</span>
+      <span style={{ flex: 1 }}>Desliza a los lados para girar, y acércate o aléjate de la nave para la fuerza</span>
       <button
         type="button"
         data-testid="ayuda-apuntado-cerrar"

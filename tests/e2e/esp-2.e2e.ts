@@ -1,7 +1,6 @@
 import { test, expect } from "@playwright/test";
 import type { EventoSimulacion } from "@/sim/partida/eventos";
-import { FRACCION_LADO_MENOR_POTENCIA_MAXIMA } from "@/juego/control/apuntado";
-import { arrastrarDesdeNave, plegarConsola } from "./utilesApuntado";
+import { FRACCION_LADO_MENOR_POTENCIA_MAXIMA, arrastrarDesdeNave, plegarConsola } from "./utilesApuntado";
 
 // esp-2 (camino crítico): lo que se renderiza es lo que colisiona. Un mismo
 // disparo (mismo ángulo, misma potencia, mismo origen -- las naves no se

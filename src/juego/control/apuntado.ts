@@ -116,43 +116,74 @@ export function potenciaDesdeFraccionControl(fraccionHorizontal: number): number
   return clampPotencia(POTENCIA_MINIMA + t * (POTENCIA_MAXIMA - POTENCIA_MINIMA));
 }
 
-// apuntado-y-relevo: apuntado directo sobre el lienzo, al estilo de arrastrar
-// la goma de un tirachinas: el ángulo es la dirección nave→dedo y la
-// potencia, la distancia entre ambos. Es lo que da precisión en el móvil: a
-// 120 px de la nave un píxel de dedo son ~0,5°, frente a los ~1,2° por
-// píxel de la barra horizontal. Trabaja en píxeles CSS de pantalla (y hacia
-// abajo), no en unidades de mundo, para que el gesto se sienta igual con
-// cualquier escala de mundo.
-//
-// Dentro de este radio la dirección nave→dedo es ruido (el dedo tapa la nave):
-// se ignora el gesto en vez de girar el ángulo a saltos.
-export const ZONA_MUERTA_APUNTADO_PX = 8;
-// Fracción del lado menor del viewport a la que la potencia llega a 100.
-export const FRACCION_LADO_MENOR_POTENCIA_MAXIMA = 0.4;
+// apuntado-dedo: gesto relativo desde cualquier punto del lienzo. El dedo no
+// manda la dirección por dónde está (así no tapa la nave ni la flecha): manda
+// cuánto se mueve. Lo que se mueve perpendicular a la línea nave→dedo gira la
+// dirección, y lo que se acerca o se aleja de la nave cambia la fuerza. Trabaja
+// en píxeles CSS de pantalla (y hacia abajo), no en unidades de mundo, para que
+// el gesto se sienta igual con cualquier escala de mundo.
+export const GRADOS_POR_PX_GIRO = 0.25;
+export const FUERZA_POR_PX_RADIAL = 0.3;
+// Dentro de este radio la línea nave→dedo es ruido: el eje radial pasa a ser
+// la dirección actual de la flecha, y el gesto funciona igual.
+export const RADIO_CERCA_NAVE_PX = 30;
+// Un toque que no llega a moverse tanto no es un gesto (el temblor del dedo al
+// apoyarlo no debe mover el apuntado).
+export const UMBRAL_TOQUE_PX = 4;
 
 export interface PuntoPantalla {
   readonly x: number;
   readonly y: number;
 }
 
-// null dentro de la zona muerta: quien llama conserva el ángulo anterior.
-export function anguloDesdeDedo(nave: PuntoPantalla, dedo: PuntoPantalla): number | null {
-  const dx = dedo.x - nave.x;
-  // La y de pantalla crece hacia abajo; el ángulo del juego crece hacia
-  // arriba (90° = arriba), de ahí la inversión.
-  const dy = nave.y - dedo.y;
-  if (Math.hypot(dx, dy) <= ZONA_MUERTA_APUNTADO_PX) return null;
-  const grados = (Math.atan2(dy, dx) * 180) / Math.PI;
-  const normalizado = grados < 0 ? grados + 360 : grados;
-  // atan2 de un valor negativo diminuto puede sumar 360 y dejar exactamente
-  // 360: es el mismo ángulo que 0, y el rango publicado es [0, 360).
-  return normalizado >= 360 ? 0 : normalizado;
+export interface GestoApuntado {
+  // Último punto ya consumido: el movimiento se mide contra él, no contra el
+  // anterior evento, para que un temblor bajo el umbral no se pierda al cruzarlo.
+  readonly previo: PuntoPantalla;
+  readonly iniciado: boolean;
 }
 
-export function potenciaDesdeDistancia(distanciaPx: number, ladoMenorViewportPx: number): number {
-  if (!(ladoMenorViewportPx > 0) || !Number.isFinite(distanciaPx)) return POTENCIA_MINIMA;
-  const fraccion = distanciaPx / (FRACCION_LADO_MENOR_POTENCIA_MAXIMA * ladoMenorViewportPx);
-  return clampPotencia(POTENCIA_MINIMA + fraccion * (POTENCIA_MAXIMA - POTENCIA_MINIMA));
+export interface ResultadoGesto {
+  readonly gesto: GestoApuntado;
+  readonly anguloGrados: number;
+  readonly potencia: number;
+}
+
+export function iniciarGesto(dedo: PuntoPantalla): GestoApuntado {
+  return { previo: dedo, iniciado: false };
+}
+
+export function avanzarGesto(
+  gesto: GestoApuntado,
+  nave: PuntoPantalla,
+  dedo: PuntoPantalla,
+  anguloGrados: number,
+  potencia: number,
+): ResultadoGesto {
+  const dx = dedo.x - gesto.previo.x;
+  const dy = dedo.y - gesto.previo.y;
+  if (!gesto.iniciado && Math.hypot(dx, dy) < UMBRAL_TOQUE_PX) {
+    return { gesto, anguloGrados, potencia };
+  }
+  // Los ejes se calculan sobre la línea nave→dedo ANTERIOR: es la que el
+  // jugador veía cuando decidió mover el dedo.
+  const rx = gesto.previo.x - nave.x;
+  const ry = nave.y - gesto.previo.y;
+  const lejos = Math.hypot(rx, ry) >= RADIO_CERCA_NAVE_PX;
+  const rad = (anguloGrados * Math.PI) / 180;
+  const ux = lejos ? rx / Math.hypot(rx, ry) : Math.cos(rad);
+  const uy = lejos ? ry / Math.hypot(rx, ry) : Math.sin(rad);
+  // Movimiento en ejes de juego (y hacia arriba) descompuesto en radial y en
+  // tangencial antihorario (-uy, ux).
+  const mx = dx;
+  const my = -dy;
+  const radial = mx * ux + my * uy;
+  const tangencial = -mx * uy + my * ux;
+  return {
+    gesto: { previo: dedo, iniciado: true },
+    anguloGrados: clampAngulo(anguloGrados + tangencial * GRADOS_POR_PX_GIRO),
+    potencia: clampPotencia(potencia + radial * FUERZA_POR_PX_RADIAL),
+  };
 }
 
 // ctl-6: saneado del ajuste persistido en localStorage -- un valor corrupto

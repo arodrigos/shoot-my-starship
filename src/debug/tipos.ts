@@ -188,6 +188,26 @@ export interface EscenarioPrueba {
 
 export interface DebugGlobal {
   ultimoPunto?: { x: number; y: number };
+  // apuntado-dedo: últimas medidas del gesto de apuntado (pointermove → primer
+  // frame con la flecha), la flecha tal como se pintó y un atajo para fijar
+  // ángulo y fuerza sin gesto (lo usan los e2e que apuntan solo como medio).
+  latencias?: () => readonly { readonly nombre: "apuntado"; readonly ms: number }[];
+  flechaApuntado?: {
+    readonly anguloGrados: number;
+    readonly potencia: number;
+    readonly etiqueta: string;
+    readonly puntaX: number;
+    readonly puntaY: number;
+    readonly etiquetaX: number;
+    readonly etiquetaY: number;
+    // Nave del turno y dedo en píxeles CSS, para que el e2e componga el gesto
+    // sobre la misma geometría que usa el juego.
+    readonly naveX: number;
+    readonly naveY: number;
+    readonly dedoX: number;
+    readonly dedoY: number;
+  };
+  fijarApuntado?: (anguloGrados: number, potencia: number) => void;
   terreno?: DebugTerreno;
   ultimoDisparo?: DebugUltimoDisparo;
   // arma-mosca (mos-3): posición inicial y de cada paso animado del último

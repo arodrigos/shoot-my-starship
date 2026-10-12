@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { posicionPantallaNave } from "./utilesApuntado";
+import { FRACCION_LADO_MENOR_POTENCIA_MAXIMA, arrastrarDesdeNave } from "./utilesApuntado";
 
 // pan-2 (camino crítico): de punta a punta con la consola plegada.
 test("jugar-plegado: se apunta en el lienzo, se dispara desde la barra mínima, hay daño y pasa el turno", async ({ page }) => {
@@ -20,14 +20,8 @@ test("jugar-plegado: se apunta en el lienzo, se dispara desde la barra mínima, 
   const solucion = await page.evaluate(() => window.__debug.solucionMultipozoJugador!());
   expect(solucion && solucion.danio > 0, "la semilla debe tener una solución con daño").toBe(true);
   const { anguloGrados, potencia } = solucion!;
-  const nave = await posicionPantallaNave(page, 0);
-  const distancia = (potencia / 100) * 0.4 * 360;
-  const rad = (anguloGrados * Math.PI) / 180;
-  await page.mouse.move(nave.x + Math.cos(rad) * 20, nave.y - Math.sin(rad) * 20);
-  await page.mouse.down();
-  await page.mouse.move(nave.x + Math.cos(rad) * distancia * 0.5, nave.y - Math.sin(rad) * distancia * 0.5, { steps: 3 });
-  await page.mouse.move(nave.x + Math.cos(rad) * distancia, nave.y - Math.sin(rad) * distancia, { steps: 3 });
-  await page.mouse.up();
+  // El gesto es relativo (apuntado-dedo): el apuntado se fija por el gancho; el gesto lo prueba apuntado-dedo.e2e.
+  await arrastrarDesdeNave(page, 0, anguloGrados, (potencia / 100) * FRACCION_LADO_MENOR_POTENCIA_MAXIMA * 360);
 
   const antes = await page.evaluate(() => ({ turno: window.__debug.numeroTurno ?? 0, rival: window.__debug.naves!.find((n) => n.id === 1)!.integridad }));
   await page.getByTestId("disparar").click();

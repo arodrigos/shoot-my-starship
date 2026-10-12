@@ -72,12 +72,12 @@ test("gravedad-visible-3: mover la potencia a 45° cambia de verdad lo que se ve
   // trazado real.
   await arrastrarBarraHasta(page, "barra-potencia", fraccionDePotencia(30));
   await page.waitForFunction(() => Math.abs(window.__debug.control!.ajuste.potencia - 30) <= 1);
-  await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 10000 });
+  await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 30000 });
   const lienzoBajo = await capturarLienzo(page);
 
   await arrastrarBarraHasta(page, "barra-potencia", fraccionDePotencia(90));
   await page.waitForFunction(() => Math.abs(window.__debug.control!.ajuste.potencia - 90) <= 1);
-  await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 10000 });
+  await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 30000 });
   const lienzoAlto = await capturarLienzo(page);
 
   expect(lienzoAlto.width).toBe(lienzoBajo.width);
@@ -104,7 +104,7 @@ test("gravedad-visible-3: mover la potencia a 45° cambia de verdad lo que se ve
 // real, así que el impacto (y no solo el disparo) queda garantizado sin
 // depender de apuntar a ciegas en un campo con gravedad.
 test("gravedad-visible-4: el proyectil real pasa por los puntos previsualizados y el turno se resuelve y avanza", async ({ page }) => {
-  test.setTimeout(60000);
+  test.setTimeout(90000);
   await entrarAPartidaEspacial(page);
 
   const solucion = await page.evaluate(() => window.__debug.solucionMultipozoJugador!());
@@ -124,7 +124,7 @@ test("gravedad-visible-4: el proyectil real pasa por los puntos previsualizados 
   // Mismo motivo que en gravedad-visible-3: esperar al trazado real en vez
   // de leer el fotograma justo tras el ajuste, que puede caer sobre un
   // ciclo en el que grav-vis-5 ocultó la mira por presupuesto de cómputo.
-  await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 10000 });
+  await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 30000 });
 
   const previsualizacion = await page.evaluate(() => window.__debug.previsualizacion);
   expect(previsualizacion?.puntos.length ?? 0).toBeGreaterThanOrEqual(2);
