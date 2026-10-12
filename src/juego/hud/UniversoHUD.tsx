@@ -84,12 +84,8 @@ export function CartelEventoHUD() {
       data-testid="cartel-evento"
       role="status"
       style={{
-        position: "fixed",
-        // En el tercio superior pero por debajo de la fila de interruptores.
-        top: "calc(10vh + env(safe-area-inset-top))",
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: "min(92vw, 340px)",
+        // Vive en CapaAvisosHUD, que lo coloca arriba y fuera de la consola.
+        width: "100%",
         boxSizing: "border-box",
         background: "rgba(20, 16, 48, 0.92)",
         border: "2px solid #ffd23f",
@@ -100,7 +96,6 @@ export function CartelEventoHUD() {
         textAlign: "center",
         overflowWrap: "anywhere",
         pointerEvents: "none",
-        zIndex: 40,
       }}
     >
       <div data-testid="cartel-evento-titulo" style={{ font: "700 16px/1.3 system-ui, sans-serif", color: "#ffd23f" }}>

@@ -38,11 +38,10 @@ import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/
 import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
-import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { FantasmasHUD } from "@/juego/hud/FantasmasHUD";
 import { ObjetosHUD } from "@/juego/hud/ObjetosHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
-import { CartelEventoHUD, MuerteSubitaHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
+import { MuerteSubitaHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
 import { contarMensajes } from "@/juego/control/broma";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import "@/debug/tipos";
@@ -826,7 +825,6 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
         <ObjetosHUD />
         <MuerteSubitaHUD />
         <PronosticoHUD />
-        <CartelEventoHUD />
         {avisoAccionImposible && (
           <div
             role="status"
@@ -852,7 +850,6 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             {avisoAccionImposible}
           </div>
         )}
-        <BromaHUD />
       </div>
 
       {/* fila-armas: selector de arma y disparo/repetir -- el paso fino de
@@ -1088,7 +1085,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             )}
             <p data-testid="explicacion-modo">
               {estado.modo === "presupuesto"
-                ? `Modo con presupuesto: empiezas con ${estado.saldo ?? 0} créditos, cada arma de pago se cobra al dispararla. Las tres gratis siempre están, con el daño reducido al 25 %.`
+                ? `Modo con presupuesto: empiezas con ${estado.saldo ?? 0} créditos, cada arma de pago se cobra al dispararla. Las dos gratis siempre están, con el daño reducido al 25 %.`
                 : "Modo barra libre: todas las armas están disponibles siempre, sin coste."}
             </p>
             <button type="button" data-testid="ayuda-cerrar" onClick={cerrarAyuda} style={botonEstilo}>
