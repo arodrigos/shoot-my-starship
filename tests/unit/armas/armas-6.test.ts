@@ -12,11 +12,11 @@ const N_DISPAROS = 1000;
 // Dispara N_DISPAROS veces en secuencia (encadenando el estado aleatorio de
 // un disparo al siguiente, igual que haría avanzar() turno a turno) y
 // devuelve la secuencia de éxito/fallo. Es la misma resolverDisparo real, no
-// una tirada de moneda aparte -- si el catálogo cambiara la fiabilidad del
-// Petardo, este test la seguiría automáticamente.
+// una tirada de moneda aparte -- si el catálogo cambiara la fiabilidad de la
+// Pelota, este test la seguiría automáticamente.
 function secuenciaDeFallos(semilla: number): boolean[] {
   const mascara = crearMascaraPlana(ANCHO, ALTO, 900);
-  const arma = buscarArma("petardo-de-feria");
+  const arma = buscarArma("pelota-de-chatarra");
   let aleatorio: EstadoAleatorio = crearEstadoAleatorio(semilla);
   const secuencia: boolean[] = [];
 
@@ -41,7 +41,7 @@ function secuenciaDeFallos(semilla: number): boolean[] {
   return secuencia;
 }
 
-test("armas-6: el Petardo de Feria falla a la tasa declarada (25% ±3 puntos) de forma reproducible con semilla fija", () => {
+test("armas-6: la Pelota de Chatarra falla a la tasa declarada (15% ±3 puntos) de forma reproducible con semilla fija", () => {
   const SEMILLA = 24680;
   const primeraEjecucion = secuenciaDeFallos(SEMILLA);
   const segundaEjecucion = secuenciaDeFallos(SEMILLA);
@@ -54,7 +54,7 @@ test("armas-6: el Petardo de Feria falla a la tasa declarada (25% ±3 puntos) de
 
   const fallos = primeraEjecucion.filter(Boolean).length;
   const proporcionFallos = fallos / N_DISPAROS;
-  const tasaFalloDeclarada = 1 - buscarArma("petardo-de-feria").fiabilidad;
+  const tasaFalloDeclarada = 1 - buscarArma("pelota-de-chatarra").fiabilidad;
 
   assert.equal(
     Math.abs(proporcionFallos - tasaFalloDeclarada) <= 0.03,

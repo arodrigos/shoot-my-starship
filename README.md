@@ -60,7 +60,7 @@ no gasta turnos en tiros que salen.
   entrada sin cambiar el estado. **No hay ingreso por daño**: el saldo depende
   solo del presupuesto y del gasto. Cada partida empieza con
   los 600 créditos fijos, sin importar lo que sobró en la anterior. Las
-  tres armas gratis siempre están y no cobran, pero hacen solo el 25 % del daño
+  dos armas gratis siempre están y no cobran, pero hacen solo el 25 % del daño
   del arma de pago más floja. Cada IA decide su compra en cada turno según su
   perfil de gasto (`decidirCompraTurno`). El saldo vive solo en memoria de la
   pestaña.
@@ -73,31 +73,29 @@ que tapa el campo, resume el turno anterior y exige un toque ("Soy ...") antes
 de enseñar nada; el ajuste "todos vemos todo" desactiva el relevo. Gana la última nave
 en pie.
 
-### El catálogo: quince armas, cada una con su papel
+### El catálogo: doce armas, cada una con su papel
 
 El precio sale de la combinación de daño y facilidad de acierto medida con el
 simulador real (`npm run medir:armas`, informe en `docs/facilidad-armas.md`):
-caras = mucho daño y fáciles; baratas = poco daño y difíciles. Las tres
-armas de coste 0 (**Zanjadora Manolita**, **Petardo de Feria** y **La Pelota
-de Chatarra**) son el fondo de armario.
+caras = mucho daño y fáciles; baratas = poco daño y difíciles. Las dos
+armas de coste 0 (**Zanjadora Manolita** y **La Pelota de Chatarra**) son el
+fondo de armario. Los motivos de las tres armas retiradas están en
+`docs/catalogo-armas.md`.
 
 | Arma | Precio (cr) | Papel |
 | --- | --- | --- |
-| Pepinazo de Cortesía | 40 | equilibrada: ni la más floja ni la más fuerte |
-| Mortero Lamentable | 50 | área máxima permitida: perdona el error de ángulo, cuesta en consecuencia |
+| Pepinazo de Cortesía | 35 | equilibrada: ni la más floja ni la más fuerte |
 | Zanjadora Manolita | 0 | gratis, de daño bajo y difícil de acertar -- fondo de armario |
 | Vertedero Portátil | 15 | utilitaria: rellena terreno, precio por volumen afectado, no por daño |
 | Racimo de Tuppers | 40 | tres perdigones en fila, bien separados: cubre ancho con tres cráteres pequeños y cada nave recibe solo el daño del más fuerte |
-| Petardo de Feria | 0 | gratis, de daño bajo, difícil y además una de cada cuatro falla del todo |
 | La Pelota de Chatarra | 0 | gratis, de daño bajo: rueda hasta un agujero, pero no garantiza cuál |
 | Gravitón de Segunda Mano | 45 | utilitaria: reposiciona, precio por magnitud del desplazamiento, no por daño |
-| Despedida | 85 | la más cara y la más dañina: un solo uso, con autodaño real de por medio |
-| Barrena Planetaria | 70 | atraviesa terreno y pega fuerte: cara y de las de más daño |
-| Rayo Láser | 80 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
-| Mosca Cojonera | 55 | trayectoria errática: difícil de planear, castiga bien si llega |
-| Granada de Espoleta | 60 | cuenta atrás desde el disparo: área grande, momento de detonar incierto |
-| Gancho Pegajoso | 80 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
-| Minirobot Saltaplanetas | 65 | lento pero seguro: tarda unos turnos en llegar y te deja jugar mientras tanto |
+| Despedida | 80 | la más cara y la más dañina: un solo uso, con autodaño real de por medio |
+| Barrena Planetaria | 65 | atraviesa terreno y pega fuerte: cara y de las de más daño |
+| Rayo Láser | 75 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
+| Mosca Cojonera | 50 | trayectoria errática: difícil de planear, castiga bien si llega |
+| Gancho Pegajoso | 75 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
+| Minirobot Saltaplanetas | 60 | lento pero seguro: tarda unos turnos en llegar y te deja jugar mientras tanto |
 
 ### Qué le pasa a un planeta al que le arrancas un trozo
 
@@ -164,7 +162,7 @@ En el modo «Con presupuesto» cada arma de pago, el escudo y los propulsores
 se cobran al usarlos, no al seleccionarlos. El precio de cada arma sale de su
 daño y de lo fácil que es acertar con ella (`src/sim/armas/precio.ts`); el
 saldo de partida (fijo, sin arrastre) está en `src/sim/economia/parametros.ts`. La
-lotería galáctica solo existe en este modo. Las tres armas gratis nunca se
+lotería galáctica solo existe en este modo. Las dos armas gratis nunca se
 agotan, pero hacen un 25 % del daño de la de pago más floja y cada disparo
 tiene un 25 % de provocar un evento al azar sobre cualquier nave viva.
 

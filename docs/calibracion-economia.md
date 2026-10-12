@@ -19,16 +19,14 @@ sana es [0.6; 1.6].
 
 | Arma | Coste | Daño máx. | Facilidad | Curva | Desviación | Valor |
 | --- | --- | --- | --- | --- | --- | --- |
-| Pepinazo de Cortesía | 40 | 18 | 2.6 % | 40 | 0 % | 0.79 |
-| Mortero Lamentable | 50 | 24 | 2.8 % | 50 | 0 % | 0.91 |
-| Racimo de Tuppers | 40 | 20 | 2.5 % | 40 | 0 % | 0.85 |
-| Despedida | 85 | 55 | 3.3 % | 85 | 0 % | 1.45 |
-| Barrena Planetaria | 70 | 44 | 2.5 % | 70 | 0 % | 1.06 |
-| Rayo Láser | 80 | 46 | 0.8 % | 55 | 45 % | 0.31 |
-| Mosca Cojonera | 55 | 28 | 2.9 % | 55 | 0 % | 1.00 |
-| Granada de Espoleta | 60 | 34 | 2.7 % | 60 | 0 % | 1.04 |
-| Gancho Pegajoso | 80 | 24 | 6.9 % | 80 | 0 % | 1.40 |
-| Minirobot Saltaplanetas | 65 | 40 | 2.4 % | 65 | 0 % | 1.00 |
+| Pepinazo de Cortesía | 35 | 18 | 2.6 % | 35 | 0 % | 0.83 |
+| Racimo de Tuppers | 40 | 20 | 2.5 % | 40 | 0 % | 0.78 |
+| Despedida | 80 | 55 | 3.3 % | 80 | 0 % | 1.41 |
+| Barrena Planetaria | 65 | 44 | 2.5 % | 65 | 0 % | 1.05 |
+| Rayo Láser | 75 | 46 | 0.8 % | 55 | 36 % | 0.30 |
+| Mosca Cojonera | 50 | 28 | 2.9 % | 50 | 0 % | 1.01 |
+| Gancho Pegajoso | 75 | 24 | 6.9 % | 75 | 0 % | 1.37 |
+| Minirobot Saltaplanetas | 60 | 40 | 2.4 % | 60 | 0 % | 0.99 |
 
 ### Desviaciones declaradas
 
@@ -38,10 +36,10 @@ sana es [0.6; 1.6].
 
 | Comprador | Compras de arma de pago |
 | --- | --- |
-| Medio (la de precio más cercano a M) | 10 |
-| Caro (la más cara asequible, Despedida una vez) | 7 |
-| Barato (la de pago más barata) | 15 |
-| Medio con dos escudos pagados | 7 |
+| Medio (la de precio más cercano a M) | 9 |
+| Caro (la más cara asequible, Despedida una vez) | 8 |
+| Barato (la de pago más barata) | 17 |
+| Medio con dos escudos pagados | 6 |
 
 ## Partidas de 3 IAs con la misma puntería (no ejecutado en esta pasada)
 

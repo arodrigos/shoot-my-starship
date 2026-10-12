@@ -3,8 +3,8 @@ import { abrirSelector, dispararConSolucionExacta, empezarPresupuesto, esperarJu
 
 // cat-3: de punta a punta por la UI real, a 360x640. Una celda con icono por
 // arma, pulsable con comodidad, y el arma elegida es la que se dispara.
-// El minirobot subió el catálogo de 14 a 15 armas: el conteo es parte de lo que se comprueba.
-const ARMAS_EN_CATALOGO = 15;
+// armas-recorte bajó el catálogo de 15 a 12 armas: el conteo es parte de lo que se comprueba.
+const ARMAS_EN_CATALOGO = 12;
 
 test("selector-iconos: una celda con icono por arma, ≥ 44 px y 6 px de separación, sin scroll horizontal", async ({ page }) => {
   test.setTimeout(240000);
@@ -45,9 +45,9 @@ test("selector-iconos: una celda con icono por arma, ≥ 44 px y 6 px de separac
   await expect(page.getByTestId("eje-graviton-segunda-mano")).toContainText("Empuje:");
 
   // Con saldo 40: cada celda de pago muestra su precio y las de más de 40 quedan deshabilitadas.
-  await expect(page.getByTestId("precio-mortero-lamentable")).toContainText("50 cr");
-  await expect(page.getByTestId("arma-mortero-lamentable")).toBeDisabled();
-  await expect(page.getByTestId("faltan-mortero-lamentable")).toContainText("Te faltan 10 cr");
+  await expect(page.getByTestId("precio-mosca-cojonera")).toContainText("50 cr");
+  await expect(page.getByTestId("arma-mosca-cojonera")).toBeDisabled();
+  await expect(page.getByTestId("faltan-mosca-cojonera")).toContainText("Te faltan 10 cr");
   await expect(page.getByTestId("arma-pepinazo-cortesia")).toBeEnabled();
 });
 
@@ -55,12 +55,12 @@ test("selector-iconos: elegir una arma y disparar dispara esa arma y su icono qu
   test.setTimeout(240000);
   await empezarPresupuesto(page, { saldo: 200 });
   await abrirSelector(page);
-  await page.getByTestId("arma-mortero-lamentable").click();
-  await dispararConSolucionExacta(page, "mortero-lamentable");
+  await page.getByTestId("arma-racimo-de-tuppers").click();
+  await dispararConSolucionExacta(page, "racimo-de-tuppers");
   await esperarJugable(page);
   // ultimaEntrada ya sería la de la IA (esperarJugable espera a que vuelva el turno): el último disparo del humano vive en el control.
-  expect(await page.evaluate(() => window.__debug.control!.ultimoDisparo?.armaId)).toBe("mortero-lamentable");
+  expect(await page.evaluate(() => window.__debug.control!.ultimoDisparo?.armaId)).toBe("racimo-de-tuppers");
   // Plegada la consola, la barra mínima enseña el icono del arma elegida.
   await page.getByTestId("boton-plegar-consola").click();
-  await expect(page.getByTestId("barra-minima").locator('svg[data-testid="icono-mortero-lamentable"]')).toHaveCount(1);
+  await expect(page.getByTestId("barra-minima").locator('svg[data-testid="icono-racimo-de-tuppers"]')).toHaveCount(1);
 });
