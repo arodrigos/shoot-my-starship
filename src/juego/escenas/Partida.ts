@@ -3036,10 +3036,9 @@ export class Partida extends Phaser.Scene {
   // jugador, sin animación -- el test no depende de esperar fotogramas, solo
   // del estado ya resuelto.
   private jugarTurnosGuionizados(numero: number): void {
-    const fuentes: readonly [ReturnType<typeof crearFuenteIA>, ReturnType<typeof crearFuenteIA>] = [
-      crearFuenteIA(LA_CONTABLE),
-      crearFuenteIA(ALMIRANTE_BISAGRA),
-    ];
+    // Una fuente por asiento, alternando las dos IA de siempre: con 1 contra 2
+    // o 1 contra 3 el motor pide fuentes[turno] para cada nave viva.
+    const fuentes = this.estado.naves.map((_, asiento) => crearFuenteIA(asiento % 2 === 0 ? LA_CONTABLE : ALMIRANTE_BISAGRA));
 
     for (let i = 0; i < numero; i++) {
       if (this.estado.resultado.tipo === "terminada") {
