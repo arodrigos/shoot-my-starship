@@ -97,6 +97,7 @@ import { aplicarEvento, conUniverso } from "@/sim/universo/efectos";
 import { EfectosEventos, type DatosEventos } from "@/juego/efectos/eventos/EfectosEventos";
 import type { TipoEvento } from "@/sim/universo/tipos";
 import { conMuerteSubita, drenajeDeRonda, RONDA_MUERTE_SUBITA } from "@/sim/partida/muerteSubita";
+import { duracionPropulsoresMs, duracionSaltosMs, easeInOut, longitudDeRuta, muestraDeSalto, puntoDelRecorrido } from "@/juego/vuelo/ritmo";
 import { MAX_SALTOS_ROBOT, type EstadoRobot } from "@/sim/armas/minirobot";
 import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integridadStore";
 import { guardarUltimaPartida } from "@/juego/control/progreso";
@@ -306,20 +307,18 @@ function fraccionDeVentana(clienteX: number, clienteY: number): PuntoFraccion {
 // desplazamiento de SEMIALTO_MAXIMO_NAVE_PX la nave se dibujaría hundida hasta la
 // mitad en el terreno. window.__debug.naves NO aplica este ajuste: sigue
 // reportando la misma altura que usa avanzar() para la colisión real.
-// Punto a la fracción t (0..1) de la longitud de una poligonal.
-function puntoDelRecorrido(camino: readonly { x: number; y: number }[], t: number): { x: number; y: number } {
-  let total = 0;
-  for (let i = 1; i < camino.length; i++) total += Math.hypot(camino[i].x - camino[i - 1].x, camino[i].y - camino[i - 1].y);
-  let restante = total * Math.min(1, Math.max(0, t));
-  for (let i = 1; i < camino.length; i++) {
-    const largo = Math.hypot(camino[i].x - camino[i - 1].x, camino[i].y - camino[i - 1].y);
-    if (restante <= largo && largo > 0) {
-      const f = restante / largo;
-      return { x: camino[i - 1].x + (camino[i].x - camino[i - 1].x) * f, y: camino[i - 1].y + (camino[i].y - camino[i - 1].y) * f };
+// cargarEscenario: el planeta cuya superficie queda más cerca del punto.
+function planetaMasCercano(planetas: EstadoPartida["planetas"], x: number, y: number): number {
+  let mejor = 0;
+  let distanciaMejor = Infinity;
+  for (const planeta of planetas ?? []) {
+    const distancia = Math.abs(Math.hypot(x - planeta.cx, y - planeta.cy) - planeta.radio);
+    if (distancia < distanciaMejor) {
+      distanciaMejor = distancia;
+      mejor = planeta.id;
     }
-    restante -= largo;
   }
-  return camino[camino.length - 1];
+  return mejor;
 }
 
 function alturaRenderNave(naveY: number | undefined, alturaDerivada: number): number {
@@ -408,6 +407,12 @@ export class Partida extends Phaser.Scene {
   // (proy-4, proy-5, hum-1) avanza turnos con un bucle síncrono que llama a
   // this.update() a mano sin que corra el bucle real de Phaser por debajo:
   // un delayedCall ahí se quedaría pendiente para siempre.
+  // ritmo-robot-propulsores: reproducciones largas (propulsores, saltos del
+  // robot) movidas por el delta de update() y no por tweens, para que la ráfaga
+  // turbo las avance igual que el bucle real. Mientras haya alguna, el turno
+  // siguiente espera.
+  private movimientos: { transcurridoMs: number; readonly duracionMs: number; readonly aplicar: (ms: number) => void; readonly terminar: () => void }[] = [];
+  private alTerminarMovimientos: (() => void) | null = null;
   private avanceTurnoPendiente: { restanteMs: number; avanzar: () => void } | null = null;
   // arma-mina-adherente (min-2): cuenta atrás anclada al mundo del vuelo
   // REAL en curso -- nunca el de repetición, mismo criterio que la estela y
@@ -529,6 +534,8 @@ export class Partida extends Phaser.Scene {
 
   create(): void {
     window.__debug = window.__debug ?? {};
+    this.movimientos = [];
+    this.alTerminarMovimientos = null;
     // explosiones-por-capas (exl-1): función PURA (no lee nada de la escena
     // ni del DOM) -- el e2e la usa para preguntar "¿qué capas tocan a los X
     // ms del impacto?" sin depender de un sleep ni de la velocidad real del
@@ -761,6 +768,22 @@ export class Partida extends Phaser.Scene {
           return dado ? { ...nave, x: dado.x, y: dado.y, integridad: dado.integridad } : nave;
         }),
       };
+      if (escenario.robots) {
+        const rival = this.estado.naves.findIndex((_nave, id) => id !== turno);
+        this.estado = {
+          ...this.estado,
+          robots: escenario.robots.map((dado) => ({
+            dueno: dado.dueno,
+            objetivoId: dado.dueno === turno ? rival : turno,
+            armaId: "minirobot-saltaplanetas",
+            planetaId: planetaMasCercano(this.estado.planetas, dado.x, dado.y),
+            x: dado.x,
+            y: dado.y,
+            saltos: 0,
+          })),
+        };
+        this.refrescarRobots();
+      }
       seleccionarArma(escenario.arma);
       fijarApuntadoDirecto(escenario.anguloGrados, escenario.potencia);
       publicarTurno(turno);
@@ -1087,6 +1110,8 @@ export class Partida extends Phaser.Scene {
         avanzar();
       }
     }
+
+    this.avanzarMovimientos(delta);
 
     const jugable = this.puedeJugarAhora();
     publicarJugable(jugable);
@@ -1450,7 +1475,7 @@ export class Partida extends Phaser.Scene {
           true,
           true,
         );
-      } else if (this.animador.enVuelo() || this.animadorRepeticion.enVuelo() || this.avanceTurnoPendiente) {
+      } else if (this.animador.enVuelo() || this.animadorRepeticion.enVuelo() || this.avanceTurnoPendiente || this.movimientos.length > 0) {
         // realce-impacto (rlc-1): avanceTurnoPendiente también cuenta como
         // "sigue resolviéndose" -- sin este caso, un impacto directo dentro
         // de la ráfaga caería en la guardia defensiva de abajo y la ráfaga
@@ -1477,6 +1502,7 @@ export class Partida extends Phaser.Scene {
       // "sigue siendo tu turno, sin animación", y el botón de disparar se
       // reactivaría antes de que el turno real haya pasado.
       !this.avanceTurnoPendiente &&
+      this.movimientos.length === 0 &&
       !this.relevoPendiente &&
       !this.solicitudEnCurso
     );
@@ -2200,6 +2226,7 @@ export class Partida extends Phaser.Scene {
       this.animarDesplazamientos(eventos);
       this.refrescarEconomia();
       this.refrescarRobots();
+      this.reproducirSaltosRobot(eventos, prefiereMovimientoReducido());
       this.refrescarObjetos();
       this.refrescarUniverso(eventos);
       window.__debug!.turno = this.estado.turno;
@@ -2229,6 +2256,12 @@ export class Partida extends Phaser.Scene {
         // está disponible, guardarUltimaPartida se degrada en silencio (ver
         // progreso.ts) y la partida ya jugada no se pierde por eso.
         guardarUltimaPartida(parte, estadisticasGanador);
+      }
+      // ritmo-robot-propulsores: el turno siguiente (la IA incluida) espera a
+      // que acabe de verse el vuelo o el salto.
+      if (this.movimientos.length > 0 && opciones?.alAvanzarTurno) {
+        this.alTerminarMovimientos = opciones.alAvanzarTurno;
+        return;
       }
       opciones?.alAvanzarTurno?.();
     };
@@ -2405,13 +2438,15 @@ export class Partida extends Phaser.Scene {
         const nave = this.naves[evento.nave];
         const desdeY = alturaRenderNave(evento.desdeY, evento.desdeY);
         const haciaY = alturaRenderNave(evento.y, evento.y);
-        const yaSeDesliza = eventos.some((otro) => (otro.tipo === "desplazamiento" || otro.tipo === "propulsores") && otro.nave === evento.nave);
+        const vuelo = eventos.find((otro): otro is Extract<EventoSimulacion, { tipo: "propulsores" }> => otro.tipo === "propulsores" && otro.nave === evento.nave);
+        const yaSeDesliza = vuelo !== undefined || eventos.some((otro) => otro.tipo === "desplazamiento" && otro.nave === evento.nave);
+        const esperaMs = vuelo ? duracionPropulsoresMs(longitudDeRuta(vuelo.puntos), false) : DURACION_DESLIZAMIENTO_MS;
         const progreso = { t: 0 };
         if (!yaSeDesliza) nave.posicionarEn(evento.desdeX, desdeY);
         this.tweens.add({
           targets: progreso,
           t: 1,
-          delay: yaSeDesliza ? DURACION_DESLIZAMIENTO_MS : 0,
+          delay: yaSeDesliza ? esperaMs : 0,
           duration: DURACION_DESLIZAMIENTO_MS,
           ease: "Sine.easeInOut",
           onStart: () => nave.posicionarEn(evento.desdeX, desdeY),
@@ -2423,6 +2458,21 @@ export class Partida extends Phaser.Scene {
       if (evento.tipo !== "desplazamiento" && evento.tipo !== "propulsores") continue;
       if (evento.tipo === "desplazamiento" && evento.reserva === "se-queda") continue;
       if (evento.tipo === "propulsores" && evento.desdeX === evento.x && evento.desdeY === evento.y) continue;
+      if (evento.tipo === "propulsores") {
+        this.reproducirPropulsores(evento, movimientoReducido);
+        // La marca «Estaba aquí» sigue saliendo como con cualquier desplazamiento.
+        const desdeYMarca = alturaRenderNave(evento.desdeY, evento.desdeY);
+        const marca = this.add.graphics().setDepth(29);
+        marca.lineStyle(4, 0xffffff, 0.7).strokeCircle(evento.desdeX, desdeYMarca, RADIO_MARCA_FANTASMA_U);
+        const etiqueta = this.add
+          .text(evento.desdeX, desdeYMarca + RADIO_MARCA_FANTASMA_U + 6, "Estaba aquí", { fontSize: `${TAMANO_TEXTO_FANTASMA_PX}px`, color: "#ffffff" })
+          .setOrigin(0.5, 0)
+          .setAlpha(0.8)
+          .setDepth(29);
+        this.marcasFantasma.push(marca, etiqueta);
+        fantasmas.push({ nave: evento.nave, x: evento.desdeX, y: desdeYMarca });
+        continue;
+      }
       const nave = this.naves[evento.nave];
       const desdeY = alturaRenderNave(evento.desdeY, evento.desdeY);
       const haciaY = alturaRenderNave(evento.y, evento.y);
@@ -2441,8 +2491,8 @@ export class Partida extends Phaser.Scene {
       fantasmas.push({ nave: evento.nave, x: evento.desdeX, y: desdeY });
       // La nave sigue los mismos puntos que calculó el núcleo (curva por la
       // gravedad, deslizamiento por el borde), no una recta de origen a destino.
-      const camino = evento.tipo === "desplazamiento" ? evento.puntos : [{ x: evento.desdeX, y: evento.desdeY }, { x: evento.x, y: evento.y }];
-      if (evento.tipo === "desplazamiento") recorridos.push({ nave: evento.nave, puntos: evento.puntos, motivoParada: evento.motivoParada });
+      const camino = evento.puntos;
+      recorridos.push({ nave: evento.nave, puntos: evento.puntos, motivoParada: evento.motivoParada });
 
       if (movimientoReducido) continue;
       nave.posicionarEn(evento.desdeX, desdeY);
@@ -2464,6 +2514,119 @@ export class Partida extends Phaser.Scene {
     publicarFantasmas(
       fantasmas.map(({ nave }) => ({ nave, texto: `Estaba aquí: ${nombreDeNave(this.controladores, nave)} fue desplazada de este punto.` })),
     );
+  }
+
+  // ritmo-robot-propulsores: la nave ya está en su destino en el estado; aquí
+  // se reproduce el vuelo a 300 u/s (1,5-3 s) con aceleración y frenada, y la
+  // ruta punteada se va borrando por detrás. __debug.reproduccion publica la
+  // posición pintada para que el e2e la muestree sin depender de capturas.
+  private reproducirPropulsores(evento: Extract<EventoSimulacion, { tipo: "propulsores" }>, reducido: boolean): void {
+    const nave = this.naves[evento.nave];
+    const camino = evento.puntos.map((punto) => ({ x: punto.x, y: alturaRenderNave(punto.y, punto.y) }));
+    const duracionMs = duracionPropulsoresMs(longitudDeRuta(camino), reducido);
+    const ruta = this.add.graphics().setDepth(29);
+    const grosor = ANCHO_MIRA_CSS_PX * this.scale.displayScale.x;
+    const pintar = (t: number): void => {
+      const punto = puntoDelRecorrido(camino, t);
+      nave.posicionarEn(punto.x, punto.y);
+      ruta.clear().lineStyle(grosor, 0xffd23f, 0.95);
+      // Solo lo que queda por recorrer: la parte ya volada se borra.
+      const recorrida = longitudDeRuta(camino) * t;
+      let acumulado = 0;
+      for (let i = 1; i < camino.length; i++) {
+        const largo = Math.hypot(camino[i].x - camino[i - 1].x, camino[i].y - camino[i - 1].y);
+        acumulado += largo;
+        if (acumulado <= recorrida || i % 2 === 0) continue;
+        ruta.lineBetween(camino[i - 1].x, camino[i - 1].y, camino[i].x, camino[i].y);
+      }
+      this.publicarReproduccion({ nave: evento.nave, x: punto.x, y: punto.y });
+    };
+    pintar(0);
+    this.encolarMovimiento({
+      duracionMs,
+      aplicar: (ms) => pintar(easeInOut(ms / duracionMs)),
+      terminar: () => {
+        ruta.destroy();
+        nave.posicionarEn(evento.x, alturaRenderNave(evento.y, evento.y));
+        this.publicarReproduccion(undefined);
+      },
+    });
+    window.__debug!.duracionPropulsoresMs = duracionMs;
+  }
+
+  // ritmo-robot-propulsores (rit-2): cada salto es realce (300 ms), arco
+  // (1100 ms) y pausa al aterrizar (300 ms). El robot del estado ya está en
+  // el destino; mientras dura la reproducción se pinta aparte el que viaja.
+  private reproducirSaltosRobot(eventos: readonly EventoSimulacion[], reducido: boolean): void {
+    const saltos = eventos.filter((evento): evento is Extract<EventoSimulacion, { tipo: "robot-salta" }> => evento.tipo === "robot-salta");
+    if (saltos.length === 0) return;
+    const escala = reducido ? 0.5 : 1;
+    // Todos los saltos de un mismo inicio de turno corren a la vez.
+    const duracionMs = duracionSaltosMs(1, reducido);
+    this.dibujarRobots(this.estado.robots ?? [], new Set(saltos.map((salto) => `${salto.x},${salto.y}`)));
+    const cuerpo = this.add.graphics().setDepth(28);
+    const contadores = saltos.map(() => this.add.text(0, 0, "", { fontSize: `${TAMANO_TEXTO_FANTASMA_PX}px`, color: "#ffffff" }).setOrigin(0.5, 1).setDepth(28));
+    const pintar = (ms: number): void => {
+      cuerpo.clear();
+      const robotsDebug: { dueno: number; x: number; y: number; fase: string }[] = [];
+      saltos.forEach((salto, indice) => {
+        const muestra = muestraDeSalto({ x: salto.desdeX, y: alturaRenderNave(salto.desdeY, salto.desdeY) }, { x: salto.x, y: alturaRenderNave(salto.y, salto.y) }, ms, escala);
+        const radio = RADIO_ROBOT_U * (1 + 0.35 * (muestra.fase === "realce" ? Math.sin(Math.PI * muestra.realce) : 0));
+        if (muestra.fase === "realce") cuerpo.lineStyle(4, 0xffd23f, 0.9).strokeCircle(muestra.x, muestra.y - RADIO_ROBOT_U, RADIO_ROBOT_U * (1.4 + 0.8 * muestra.realce));
+        cuerpo.fillStyle(0xe8743b, 1).fillCircle(muestra.x, muestra.y - RADIO_ROBOT_U, radio);
+        cuerpo.lineStyle(3, 0xffffff, 0.9).strokeCircle(muestra.x, muestra.y - RADIO_ROBOT_U, radio);
+        contadores[indice].setPosition(muestra.x, muestra.y - 2 * RADIO_ROBOT_U - 4).setText(`${salto.saltos}/${MAX_SALTOS_ROBOT}`);
+        robotsDebug.push({ dueno: salto.nave, x: muestra.x, y: muestra.y, fase: muestra.fase });
+      });
+      window.__debug!.reproduccion = { ...(window.__debug!.reproduccion ?? { activa: true, naves: [] }), activa: true, robots: robotsDebug };
+    };
+    pintar(0);
+    this.encolarMovimiento({
+      duracionMs,
+      aplicar: pintar,
+      terminar: () => {
+        cuerpo.destroy();
+        for (const contador of contadores) contador.destroy();
+        this.refrescarRobots();
+        window.__debug!.reproduccion = { activa: true, naves: window.__debug!.reproduccion?.naves ?? [], robots: [] };
+      },
+    });
+    window.__debug!.duracionSaltoRobotMs = duracionMs;
+  }
+
+  private encolarMovimiento(movimiento: { duracionMs: number; aplicar: (ms: number) => void; terminar: () => void }): void {
+    this.movimientos.push({ transcurridoMs: 0, ...movimiento });
+  }
+
+  private publicarReproduccion(nave: { nave: number; x: number; y: number } | undefined): void {
+    const previa = window.__debug!.reproduccion;
+    const naves = nave ? [...(previa?.naves ?? []).filter((otra) => otra.nave !== nave.nave), nave] : [];
+    window.__debug!.reproduccion = { activa: nave !== undefined, naves, robots: previa?.robots ?? [] };
+  }
+
+  private avanzarMovimientos(delta: number): void {
+    if (this.movimientos.length === 0) return;
+    const vivos: typeof this.movimientos = [];
+    for (const movimiento of this.movimientos) {
+      movimiento.transcurridoMs += delta;
+      if (movimiento.transcurridoMs >= movimiento.duracionMs) {
+        movimiento.aplicar(movimiento.duracionMs);
+        movimiento.terminar();
+      } else {
+        movimiento.aplicar(movimiento.transcurridoMs);
+        vivos.push(movimiento);
+      }
+    }
+    this.movimientos = vivos;
+    // `ms` es el reloj de la escena (el del delta), no el de pared: con el WebGL
+    // por software un frame tarda mucho más que su delta y solo el reloj de la
+    // escena dice cuánto de la animación se ha reproducido.
+    window.__debug!.reproduccion = { naves: [], robots: [], ...window.__debug!.reproduccion, activa: vivos.length > 0, ms: Math.max(0, ...vivos.map((m) => m.transcurridoMs)) };
+    if (vivos.length === 0 && this.alTerminarMovimientos) {
+      const siguiente = this.alTerminarMovimientos;
+      this.alTerminarMovimientos = null;
+      siguiente();
+    }
   }
 
   private refrescarNaves(): void {
@@ -2588,10 +2751,11 @@ export class Partida extends Phaser.Scene {
     );
   }
 
-  private dibujarRobots(robots: readonly EstadoRobot[]): void {
+  private dibujarRobots(robots: readonly EstadoRobot[], ocultos?: ReadonlySet<string>): void {
     for (const marca of this.marcasRobot) marca.destroy();
     this.marcasRobot = [];
     for (const robot of robots) {
+      if (ocultos?.has(`${robot.x},${robot.y}`)) continue;
       const y = alturaRenderNave(robot.y, robot.y);
       const cuerpo = this.add.graphics().setDepth(28);
       cuerpo.fillStyle(0xe8743b, 1).fillCircle(robot.x, y - RADIO_ROBOT_U, RADIO_ROBOT_U);

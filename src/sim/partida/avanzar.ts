@@ -527,7 +527,7 @@ function avanzarConEquipo(
       otras,
     });
     naves[tirador] = { ...nave, x: vuelo.destino.x, y: vuelo.destino.y };
-    eventos.push({ tipo: "propulsores", nave: tirador, desdeX: nave.x, desdeY: nave.y, x: vuelo.destino.x, y: vuelo.destino.y, motivo: vuelo.motivo });
+    eventos.push({ tipo: "propulsores", nave: tirador, desdeX: nave.x, desdeY: nave.y, x: vuelo.destino.x, y: vuelo.destino.y, motivo: vuelo.motivo, puntos: vuelo.ruta.map((punto) => ({ x: punto.x, y: punto.y })) });
   }
   // Un turno de equipo no dispara: sin categoría de broma, la cáscara no comenta.
   return cerrarTurno({

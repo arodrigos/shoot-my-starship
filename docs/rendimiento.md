@@ -96,3 +96,20 @@ Coste añadido al vuelo, por construcción:
 
 El CI rasteriza el lienzo por software, así que no puede juzgar el +15 % de arm-4; queda para
 el recuadro de `?rendimiento=1` en el móvil y el iPad.
+
+## Propulsores y saltos del Minirobot a ritmo visible
+
+Los propulsores (300 u/s, entre 1,5 y 3 s) y los saltos del Minirobot (1,7 s
+cada uno) se reproducen con el delta de `update()` y no con tweens, así que
+no añaden trabajo por frame más allá de repintar un gráfico pequeño. Para
+comparar en un dispositivo: abre el juego con `?rendimiento=1`, anota `p95`
+en reposo, enciende los propulsores o espera un salto y anota `p95` mientras
+se mueve. En CI y en máquinas sin GPU el WebGL es por software (frames de 400-900 ms),
+así que `tests/e2e/ritmo.e2e.ts` imprime esas cifras con la etiqueta
+`[rit-3]` pero no las afirma.
+
+| Caso | p95 en reposo | p95 en movimiento |
+| --- | --- | --- |
+| Propulsores 360x640 (WebGL por software) | 399 ms | 387 ms |
+| Propulsores 1180x820 (WebGL por software) | 619 ms | 629 ms |
+| Dispositivo real (móvil, iPad) | pendiente de Adrián | pendiente de Adrián |
