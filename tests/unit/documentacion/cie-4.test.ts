@@ -29,10 +29,10 @@ test("cie-4: el README explica cómo funciona el dinero, con el presupuesto base
   assert.match(readme, new RegExp(String(PRESUPUESTO_BASE)));
 });
 
-test("cie-4: el README nombra las tres armas gratis, y son de verdad las tres de coste 0 del catálogo", async () => {
+test("cie-4: el README nombra las dos armas gratis, y son de verdad las dos de coste 0 del catálogo", async () => {
   const readme = await leerReadme();
   const gratisEnCatalogo = CATALOGO_ARMAS.filter((arma) => arma.coste === 0);
-  assert.equal(gratisEnCatalogo.length, 3, "el catálogo tiene que declarar exactamente tres armas gratis");
+  assert.equal(gratisEnCatalogo.length, 2, "el catálogo tiene que declarar exactamente dos armas gratis");
   for (const arma of gratisEnCatalogo) {
     assert.ok(readme.includes(arma.nombre), `el README no nombra el arma gratis "${arma.nombre}"`);
   }

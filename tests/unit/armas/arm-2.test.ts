@@ -20,7 +20,10 @@ test("arm-2: cada eje nuevo (coste, penetración, dispersión, ráfaga, radio de
 
   assert.ok(coste.size >= 2, `coste solo tiene ${coste.size} valor(es) distintos`);
   assert.ok(penetracion.size >= 2, `penetración solo tiene ${penetracion.size} valor(es) distintos`);
-  assert.ok(dispersion.size >= 2, `dispersión solo tiene ${dispersion.size} valor(es) distintos`);
+  // armas-recorte retiró el Petardo de Feria (única con dispersión): el motor
+  // conserva el eje, probado en arm-1 y potencia-dispersion-1-2, pero ya no
+  // hay arma real que lo ejercite.
+  assert.ok(dispersion.size >= 1);
   // catalogo-y-selector retiró la Andanada de Flechas (única ráfaga): el motor
   // conserva el eje, probado en arm-5 con un arma de prueba, pero ya no hay
   // arma real que lo ejercite.

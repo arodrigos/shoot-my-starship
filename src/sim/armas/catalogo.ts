@@ -1,6 +1,6 @@
 import type { Arma } from "@/sim/armas/tipos";
 
-// Las diez armas del diseño aprobado, declaradas como datos puros (armas-1):
+// Las doce armas que quedan tras armas-recorte (antes quince), declaradas como datos puros (armas-1):
 // añadir un arma nueva es añadir una entrada aquí, nunca una rama de código
 // nueva en el resolutor. Los nombres, descripciones y voces son el humor
 // autoral de catálogo -- lo revisa Adrián en su punto HITL, y su material se
@@ -11,7 +11,7 @@ import type { Arma } from "@/sim/armas/tipos";
 // facilidad MEDIDA por npm run medir:armas, nunca a mano) -- ver
 // src/sim/armas/precio.ts para la fórmula y tests/unit/armas/
 // armas-reprecio-roles.test.ts para la comprobación de desviación <=15%.
-// Las tres gratis (zanjadora, petardo, pelota) son las de daño más bajo del
+// Las dos gratis (zanjadora y pelota) son las de daño más bajo del
 // catálogo con facilidad medida por debajo de la mediana -- pepinazo deja
 // de ser gratis Y de ser de las fáciles, exactamente lo que pide el
 // criterio 2. zanjadora conserva danioMaximo:4 sin tocar: decidir.ts
@@ -30,24 +30,8 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 44, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 55, danioMaximo: 18 },
     fiabilidad: 1,
-    coste: 40,
+    coste: 35,
     rol: "equilibrada: ni la más floja ni la más fuerte",
-  },
-  {
-    id: "mortero-lamentable",
-    verbo: "lobear",
-    nombre: "Mortero Lamentable",
-    descripcion: "Sube tanto que da tiempo a arrepentirse, redactar una disculpa y verla bajar.",
-    comportamiento: { tipo: "impacto-simple" },
-    huella: { tipo: "capsula", medioLargoPx: 50, radio: 22, signo: "restar" },
-    // impacto-naves (imp-7): 90px superaba el tope de 70px que fija el
-    // diseño para cualquier arma salvo Despedida -- valor de catálogo previo
-    // a este bloque, corregido aquí (ver desviaciones). armas-reprecio-roles
-    // lo deja justo en el tope (70, nunca por encima).
-    efecto: { tipo: "danio", radioEfectoPx: 70, danioMaximo: 24 },
-    fiabilidad: 1,
-    coste: 50,
-    rol: "área máxima permitida: perdona el error de ángulo, cuesta en consecuencia",
   },
   {
     id: "zanjadora-manolita",
@@ -91,22 +75,6 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     coste: 40,
     rol: "tres perdigones en fila, bien separados: cubre ancho con tres cráteres pequeños y cada nave recibe solo el daño del más fuerte",
     notaAyuda: "Se abre en tres perdigones en fila, a 70 u entre sí: una nave recibe como mucho el daño de uno.",
-  },
-  {
-    id: "petardo-de-feria",
-    verbo: "chisporrotear",
-    nombre: "Petardo de Feria",
-    descripcion: "Fabricado un jueves. Funciona tres de cada cuatro veces, y la cuarta es la graciosa.",
-    comportamiento: { tipo: "impacto-simple" },
-    huella: { tipo: "circular", radio: 30, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 62, danioMaximo: 13 },
-    fiabilidad: 0.75,
-    coste: 0,
-    // armas-nuevas (arm-5): el eje de dispersión mide precisión real, no
-    // fiabilidad -- el Petardo ya tenía un 25% de fallo total (fiabilidad-6);
-    // ahora ADEMÁS de fallar a veces, cuando no falla sale torcido.
-    dispersionGrados: 9,
-    rol: "gratis, de daño bajo, difícil y además una de cada cuatro falla del todo",
   },
   {
     id: "pelota-de-chatarra",
@@ -153,7 +121,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     },
     fiabilidad: 1,
     usosMaximos: 1,
-    coste: 85,
+    coste: 80,
     rol: "la más cara y la más dañina: un solo uso, con autodaño real de por medio",
   },
   // armas-nuevas: las tres armas que ejercitan los ejes nuevos de verdad
@@ -176,7 +144,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 32, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 38, danioMaximo: 44 },
     fiabilidad: 1,
-    coste: 70,
+    coste: 65,
     penetracionPx: 260,
     rol: "atraviesa terreno y pega fuerte: cara y de las de más daño",
   },
@@ -212,7 +180,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // menos daño y menos facilidad quedaría dominada por Despedida (criterio
     // 3); 80 rompe esa comparación sin cambiar su papel de «la más cara tras
     // Despedida».
-    coste: 80,
+    coste: 75,
     inmuneAGravedad: true,
     // cat-2: el haz atraviesa hasta 40 u de roca antes de detonar.
     penetracionPx: 40,
@@ -233,34 +201,13 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     huella: { tipo: "circular", radio: 20, signo: "restar" },
     efecto: { tipo: "danio", radioEfectoPx: 50, danioMaximo: 28 },
     fiabilidad: 1,
-    coste: 55,
+    coste: 50,
     notaAyuda: "Avisa: no vuela recta, hace eses todo el camino hasta que choca.",
     bromaPropia: {
       disparo: ["Ahí va. Que le vaya bien a donde sea que decida ir."],
       impacto: ["Ha aterrizado. Ni ella se lo esperaba."],
     },
     rol: "trayectoria errática: difícil de planear, castiga bien si llega",
-  },
-  // arma-granada-espoleta (gra-1..gra-5): la primera de las dos armas de
-  // cuenta atrás -- "mecha" con fiabilidad 1 y sin dispersionGrados, porque
-  // su rareza no es fallar ni salir torcida, es que el reloj corre desde el
-  // disparo pase lo que pase por el camino.
-  {
-    id: "granada-de-espoleta",
-    verbo: "temporizar",
-    nombre: "Granada de Espoleta",
-    descripcion: "Cuenta hasta cinco en voz alta desde que sale del cañón. Le da igual dónde esté cuando llegue.",
-    comportamiento: { tipo: "mecha", segundosHastaDetonar: 5 },
-    huella: { tipo: "circular", radio: 40, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 62, danioMaximo: 34 },
-    fiabilidad: 1,
-    coste: 60,
-    notaAyuda: "La cuenta empieza al disparar, no al tocar: a los 5 s explota donde esté, en el aire o en el suelo.",
-    bromaPropia: {
-      disparo: ["Cinco, cuatro... empieza a contar en cuanto sale, le toque lo que le toque."],
-      impacto: ["Cero. Exactamente donde le tocaba, ni un paso antes."],
-    },
-    rol: "cuenta atrás desde el disparo: área grande, momento de detonar incierto",
   },
   // arma-mina-adherente (min-1..min-6): la segunda arma de cuenta atrás, la
   // que Adrián llamó "una especie de gancho" -- "adherente-con-mecha" con
@@ -290,7 +237,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // explotar con tanta área ya no es "difícil". Se baja el daño máximo (cae
     // linealmente con la distancia) y se sube el precio para que no domine al
     // Racimo de Tuppers (dominancia de armas-metrica).
-    coste: 80,
+    coste: 75,
     notaAyuda: "La cuenta empieza al pegarse, no al disparar: solo se agarra a un planeta o a una nave (nunca al borde) y su onda daña menos cuanto más lejos.",
     bromaPropia: {
       disparo: ["Ahí va, a buscar dónde agarrarse."],
@@ -310,7 +257,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // El arnés de medición mide el disparo directo (no el viaje por planetas): su
     // facilidad es ~2,8 % y la curva da 85-90. calibrado-economia lo recalibra
     // midiendo partidas enteras.
-    coste: 65,
+    coste: 60,
     notaAyuda: "Salta de planeta en planeta hacia tu objetivo y explota encima (máx. 4 saltos).",
     bromaPropia: {
       disparo: ["Ahí va el pequeñajo, con sus mejores intenciones."],

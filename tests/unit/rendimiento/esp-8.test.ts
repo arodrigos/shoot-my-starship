@@ -137,14 +137,13 @@ test("esp-8: coste de simulación+draw-prep por fotograma en el peor caso (6 pla
 // diferencia del vuelo+efectos de arriba, eso ocurre SIN proyectil en vuelo
 // (jugable == true es, por construcción, "sin animación en curso"), así que
 // es un presupuesto propio, no una suma sobre el de arriba. Se cubren las
-// cuatro ramas de comportamiento que calcularPrevisualizacion trata
-// distinto (impacto-simple, erratico, mecha, adherente-con-mecha) con un
+// tres ramas de comportamiento que calcularPrevisualizacion trata
+// distinto (impacto-simple, erratico, adherente-con-mecha) con un
 // arma real del catálogo cada una, sobre el mismo peor sistema (6 planetas,
 // 2 anillos, 40 asteroides) que el resto de esp-8.
 const ARMAS_REPRESENTATIVAS_PREVISUALIZACION = [
   "pepinazo-cortesia",
   "mosca-cojonera",
-  "granada-de-espoleta",
   "gancho-pegajoso",
 ] as const;
 

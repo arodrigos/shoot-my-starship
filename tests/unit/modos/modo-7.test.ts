@@ -67,10 +67,10 @@ function fuenteJugadorConSaldo(): FuenteDeTurno {
   };
 }
 
-test("modo-7: el catálogo garantiza que siempre hay un arma asequible (las tres gratis, coste 0)", () => {
+test("modo-7: el catálogo garantiza que siempre hay un arma asequible (las dos gratis, coste 0)", () => {
   for (let saldo = 0; saldo <= PRESUPUESTO_BASE; saldo += 50) {
     const asequibles = CATALOGO_ARMAS.filter((arma) => costeArma(arma) <= saldo);
-    assert.ok(asequibles.length >= 3, `saldo ${saldo}: menos de 3 armas asequibles`);
+    assert.ok(asequibles.length >= 2, `saldo ${saldo}: menos de 2 armas asequibles`);
     assert.ok(
       asequibles.some((arma) => (arma.efecto.tipo !== "empuje" ? arma.efecto.danioMaximo : 0) > 0),
       `saldo ${saldo}: ninguna arma asequible hace daño real`,

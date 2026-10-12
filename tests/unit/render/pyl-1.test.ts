@@ -15,7 +15,7 @@ import type { PuntoProyectil } from "@/juego/proyectiles/geometriaProyectil";
 // no se desincronice si el catálogo cambia de armas.
 const REPRESENTANTE_POR_FAMILIA: Record<Exclude<FamiliaVisual, "flecha">, string> = {
   bomba: "pepinazo-cortesia",
-  capsula: "mortero-lamentable",
+  capsula: "zanjadora-manolita",
   racimo: "racimo-de-tuppers",
   chatarra: "pelota-de-chatarra",
   orbe: "graviton-segunda-mano",

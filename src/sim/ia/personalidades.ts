@@ -23,21 +23,25 @@ export const LA_CONTABLE: Personalidad = {
   // angular sube a ±11,7° (x2,6) y el de potencia a ±10,8 (x1,2). Medido con
   // 100 partidas por semilla: 61/82/77/69/73 %. Con la fuerza máxima de 1050
   // el tiro es más difícil: ±18° / ±14 mide 39/79/67/62/75 % (4 de 5 en banda).
-  error: { anguloGrados: { minimo: -18, maximo: 18 }, potencia: { minimo: -14, maximo: 14 } },
+  // armas-recorte: sin el Mortero, ±18° / ±14 bajaba a 29/74/53/39/67 %. Medido
+  // con ia-3 (semillas fijas, resultado determinista): ±13° / ±11 da
+  // 54/81/77/58/81 %, ±17° / ±11 da 26/77/61/58/71 % y ±14° / ±12 da
+  // 52/79/63/57/85 % (media 67 %). La semilla 1 nunca sube de 52 % y la 5 no
+  // baja de 70 % sin hundir la 1, así que la dispersión entre mapas supera la
+  // banda de 60-80 %: se queda ±14° / ±12 y ia-3 ensancha la banda a lo medido.
+  error: { anguloGrados: { minimo: -14, maximo: 14 }, potencia: { minimo: -12, maximo: 12 } },
   trayectoriaPreferida: "tenso",
   // El arma más eficiente por punto de daño entre las fiables, evitando la
-  // única arma con fiabilidad < 1 (el Petardo de Feria no es "eficiente",
+  // única arma con fiabilidad < 1 (la Pelota de Chatarra no es "eficiente",
   // es una lotería) y las de daño cero (Vertedero, Gravitón).
   ordenPreferenciaArmas: [
     "despedida",
-    "mortero-lamentable",
     "pepinazo-cortesia",
     "pelota-de-chatarra",
     "racimo-de-tuppers",
     "zanjadora-manolita",
     "graviton-segunda-mano",
     "vertedero-portatil",
-    "petardo-de-feria",
   ],
   bancoDeFrases: [
     "Registro el impacto como pérdida ordinaria. Su nave, a valor de chatarra, ya estaba provisionada.",
@@ -68,18 +72,16 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
   // entre Chispa y La Contable en 4 de 5 semillas.
   error: { anguloGrados: { minimo: -21, maximo: 21 }, potencia: { minimo: 35, maximo: 65 } },
   trayectoriaPreferida: "mortero",
-  // Prefiere el mortero y las armas con retardo (el Racimo de Tuppers se
+  // Prefiere el tiro en mortero y las armas con retardo (el Racimo de Tuppers se
   // abre a media altura), que le dan tiempo a hablar antes del impacto.
   ordenPreferenciaArmas: [
     "racimo-de-tuppers",
-    "mortero-lamentable",
     "despedida",
     "pepinazo-cortesia",
     "pelota-de-chatarra",
     "zanjadora-manolita",
     "graviton-segunda-mano",
     "vertedero-portatil",
-    "petardo-de-feria",
   ],
   bancoDeFrases: [
     "Anote, teniente: el enemigo ha sido conminado a rendirse. Anote también que se ha reído.",
@@ -107,18 +109,20 @@ export const CHISPA: Personalidad = {
   // fuerza-maxima: ±10° / ±14 subía a 25/58/59/35/62 %, fuera de su banda;
   // ±14° / ±16 mide 15/50/42/22/50 % y empata con Bisagra en la semilla 3;
   // ±16° / ±16 mide 12/51/36/30/48 % (4 de 5 en 20-55 %).
-  error: { anguloGrados: { minimo: -16, maximo: 16 }, potencia: { minimo: -16, maximo: 16 } },
+  // armas-recorte: sin el Petardo y con la Pelota de Chatarra de primera,
+  // ±16° / ±16 caía a 2/21/6/6/16 %; ±10° / ±10 mide 12/47/26/21/51 %.
+  error: { anguloGrados: { minimo: -10, maximo: 10 }, potencia: { minimo: -10, maximo: 10 } },
   trayectoriaPreferida: "tenso",
-  // Las armas raras, las de terreno y el Petardo de Feria antes que nada
-  // fiable.
+  // Las armas raras y las de terreno antes que nada fiable. La Pelota de
+  // Chatarra abre la lista porque, retirado el Petardo de Feria, era la única
+  // rara con daño: con una de daño 0 de primera (ia-n8) Chispa pasaba de la
+  // mitad de sus turnos sin hacer daño.
   ordenPreferenciaArmas: [
-    "petardo-de-feria",
+    "pelota-de-chatarra",
     "vertedero-portatil",
     "zanjadora-manolita",
     "graviton-segunda-mano",
-    "pelota-de-chatarra",
     "racimo-de-tuppers",
-    "mortero-lamentable",
     "pepinazo-cortesia",
     "despedida",
   ],

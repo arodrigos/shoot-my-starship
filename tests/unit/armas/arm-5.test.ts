@@ -13,6 +13,9 @@ const SUELO_Y = 900;
 // catalogo-y-selector retiró la Andanada del catálogo; el motor de ráfaga y
 // de dispersión sigue vivo y se prueba con armas de prueba derivadas del
 // Pepinazo.
+// armas-recorte retiró el Petardo de Feria, único con 6° de dispersión: se
+// conserva el eje con un arma de prueba derivada del Pepinazo.
+const ARMA_TORCIDA = { ...buscarArma("pepinazo-cortesia"), dispersionGrados: 6 };
 const ARMA_RAFAGA = { ...buscarArma("pepinazo-cortesia"), disparosSimultaneos: { cantidad: 3, aperturaGrados: 12 }, dispersionGrados: 3 };
 
 test("arm-5: una ráfaga de 3 produce exactamente 3 proyectiles con la apertura angular declarada", () => {
@@ -86,13 +89,13 @@ function desviacionTipicaDeCaida(arma: Arma): number {
 }
 
 test("arm-5: el orden de las armas por dispersión MEDIDA sobre 200 disparos coincide con el orden declarado", () => {
-  // Orden declarado en el catálogo: pepinazo (0°) < andanada (3°) < petardo (6°).
+  // Orden declarado en el catálogo: pepinazo (0°) < andanada (3°) < torcida (6°).
   const desviacionPepinazo = desviacionTipicaDeCaida(buscarArma("pepinazo-cortesia"));
   const desviacionAndanada = desviacionTipicaDeCaida(ARMA_RAFAGA);
-  const desviacionPetardo = desviacionTipicaDeCaida(buscarArma("petardo-de-feria"));
+  const desviacionTorcida = desviacionTipicaDeCaida(ARMA_TORCIDA);
 
   console.log(
-    `arm-5: desviación típica medida -- pepinazo(0°)=${desviacionPepinazo.toFixed(2)}px, andanada(3°)=${desviacionAndanada.toFixed(2)}px, petardo(6°)=${desviacionPetardo.toFixed(2)}px`,
+    `arm-5: desviación típica medida -- pepinazo(0°)=${desviacionPepinazo.toFixed(2)}px, andanada(3°)=${desviacionAndanada.toFixed(2)}px, torcida(6°)=${desviacionTorcida.toFixed(2)}px`,
   );
 
   assert.ok(
@@ -100,7 +103,7 @@ test("arm-5: el orden de las armas por dispersión MEDIDA sobre 200 disparos coi
     `pepinazo (0°) debería dispersar menos que andanada (3°): ${desviacionPepinazo} vs ${desviacionAndanada}`,
   );
   assert.ok(
-    desviacionAndanada < desviacionPetardo,
-    `andanada (3°) debería dispersar menos que petardo (6°): ${desviacionAndanada} vs ${desviacionPetardo}`,
+    desviacionAndanada < desviacionTorcida,
+    `andanada (3°) debería dispersar menos que la torcida (6°): ${desviacionAndanada} vs ${desviacionTorcida}`,
   );
 });

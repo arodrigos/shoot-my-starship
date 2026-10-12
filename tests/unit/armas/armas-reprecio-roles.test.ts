@@ -22,10 +22,10 @@ function metricaDe(id: string) {
 // armas-reprecio-roles-1: ninguna arma de daño real se desvía de la curva
 // más de un 15% sin motivo declarado. rayo-laser y despedida llevan su
 // motivo escrito en el catálogo (inmunidad a la gravedad, uso único); las
-// tres gratis y las dos utilitarias no se miden contra esta curva porque
+// dos gratis y las dos utilitarias no se miden contra esta curva porque
 // su precio sale de otro eje (ver criterios 2 y 5) -- compararlas aquí
 // sería aplicar la fórmula fuera de su dominio, no detectar un hueco real.
-const EXENTAS_DE_LA_CURVA = new Set(["zanjadora-manolita", "petardo-de-feria", "pelota-de-chatarra", "vertedero-portatil", "graviton-segunda-mano"]);
+const EXENTAS_DE_LA_CURVA = new Set(["zanjadora-manolita", "pelota-de-chatarra", "vertedero-portatil", "graviton-segunda-mano"]);
 const DESVIACION_DECLARADA = new Set(["rayo-laser"]);
 const TOLERANCIA_CURVA = 0.15;
 
@@ -45,12 +45,12 @@ test("armas-reprecio-roles-1: el coste de cada arma de daño real se desvía <=1
   }
 });
 
-// armas-reprecio-roles-2: las tres gratis son de daño tercil bajo y
+// armas-reprecio-roles-2: las dos gratis son de daño tercil bajo y
 // facilidad por debajo de la mediana; pepinazo-cortesia ya no es ni gratis
 // ni la más fácil.
-test("armas-reprecio-roles-2: las tres armas gratis están en el tercil bajo de daño y bajo la mediana de facilidad", () => {
+test("armas-reprecio-roles-2: las dos armas gratis están en el tercil bajo de daño y bajo la mediana de facilidad", () => {
   const gratis = metricas.filter((m) => m.coste === 0);
-  assert.equal(gratis.length, 3, `se esperaban exactamente 3 armas gratis, hay ${gratis.length}: ${gratis.map((g) => g.id).join(", ")}`);
+  assert.equal(gratis.length, 2, `se esperaban exactamente 2 armas gratis, hay ${gratis.length}: ${gratis.map((g) => g.id).join(", ")}`);
 
   const danios = [...metricas].map((m) => m.danioMaximo).sort((a, b) => a - b);
   const terceraParte = Math.ceil(danios.length / 3);
@@ -91,7 +91,7 @@ test("armas-reprecio-roles-3: enumeración exhaustiva de pares -- ninguna arma d
       assert.ok(!aDominaB, `${a.id} domina a ${b.id} (daño ${a.danioMaximo}>=${b.danioMaximo}, facilidad ${a.facilidad}>=${b.facilidad}, coste ${a.coste}<=${b.coste})`);
     }
   }
-  assert.ok(paresRevisados >= 120, `se esperaban al menos 120 pares entre las armas comparables, se revisaron ${paresRevisados}`);
+  assert.ok(paresRevisados >= 90, `se esperaban al menos 90 pares entre las armas comparables, se revisaron ${paresRevisados}`);
 });
 
 test("armas-reprecio-roles-3 (propiedad): ningún par de índices del catálogo comparable produce dominancia", () => {
