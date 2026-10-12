@@ -37,6 +37,12 @@ jobs:
         run: |
           [[ "$TIPO" =~ ^(e2e|unit)$ ]] || { echo "::error::tipo inválido"; exit 1; }
           [[ "$SPECS" =~ ^[A-Za-z0-9_./*@,\ -]{0,500}$ ]] || { echo "::error::specs con caracteres no permitidos"; exit 1; }
+          # «@larga» pide la muestra completa de los tests estadísticos (como la
+          # pasada nocturna) sin tener que repartir una suite de más de 40 min.
+          if [[ " $SPECS " == *" @larga "* ]]; then
+            echo "PRUEBA_LARGA=1" >> "$GITHUB_ENV"
+            SPECS="${SPECS//@larga/}"
+          fi
           echo "PRUEBAS_SPECS=$SPECS" >> "$GITHUB_ENV"
       - run: npm ci
       - name: unitarios
