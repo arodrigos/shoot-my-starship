@@ -18,6 +18,7 @@ import {
   idLiderDerrumbado,
 } from "@/sim/partida/eventosHumor";
 import { existeTiroViable, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
+import { asentarNaves } from "@/sim/naves/asentamiento";
 import { longitudDeEmpuje, recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
 import { avanzarRonda, drenajeDeRonda, empiezaRonda } from "@/sim/partida/muerteSubita";
 import { entrarEnMuerteSubita } from "@/sim/universo/efectos";
@@ -65,10 +66,28 @@ function conDesplazamiento(nave: EstadoNave, desplazamientoPx: number, anchoMund
 // disparo único de nucleo-turnos por el catálogo real y la colisión contra
 // la máscara: avanzar() ya no conoce ninguna física ni ningún id de arma
 // propios, solo llama a resolverDisparo con lo que declara el catálogo.
-export function avanzar(
-  estado: EstadoPartida,
-  entrada: EntradaDeTurno,
-): { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma | undefined; detonaciones: Detonacion[] } {
+type ResultadoAvanzar = { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma | undefined; detonaciones: Detonacion[] };
+
+// naves-nunca-dentro: el asentamiento envuelve a TODO el turno (disparo, escudo,
+// propulsores, robots, eventos, muerte súbita) y no cada operación que mueve
+// naves o cambia el terreno, porque son varias y una nueva volvería a abrir
+// el agujero. Una nave destruida por no hallar sitio cuenta como baja.
+export function avanzar(estado: EstadoPartida, entrada: EntradaDeTurno): ResultadoAvanzar {
+  const turno = avanzarSinAsentar(estado, entrada);
+  const asentamiento = asentarNaves(turno.estado.naves, turno.estado.mundo, turno.estado.mascara);
+  if (asentamiento.naves === turno.estado.naves) return turno;
+  const eventos = [
+    ...turno.eventos,
+    ...asentamiento.asentadas.map((a): EventoSimulacion => ({ tipo: "nave-asentada", nave: a.nave, desdeX: a.desde.x, desdeY: a.desde.y, x: a.hasta.x, y: a.hasta.y })),
+  ];
+  const vivos = asentamiento.naves.flatMap((nave, id) => (nave.integridad > 0 ? [id as IdNave] : []));
+  const termina = asentamiento.destruidas.length > 0 && turno.estado.resultado.tipo === "en-curso" && vivos.length <= 1;
+  if (termina) eventos.push({ tipo: "partida-fin", ganador: vivos.length === 1 ? vivos[0] : null });
+  const resultado = termina ? { tipo: "terminada" as const, ganador: vivos.length === 1 ? vivos[0] : null } : turno.estado.resultado;
+  return { ...turno, estado: { ...turno.estado, naves: asentamiento.naves, resultado }, eventos };
+}
+
+function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): ResultadoAvanzar {
   if (estado.resultado.tipo === "terminada") {
     throw new Error("avanzar: la partida ya ha terminado, no admite más turnos");
   }
