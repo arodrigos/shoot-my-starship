@@ -70,7 +70,10 @@ test("des-1: repetir el mismo disparo tras un impacto no vuelve a acertar (pepin
     assert.ok(desplazamiento && desplazamiento.tipo === "desplazamiento", `semilla ${semilla}: el rival dañado se recoloca`);
     const distancia = Math.hypot(desplazamiento.x - desplazamiento.desdeX, desplazamiento.y - desplazamiento.desdeY);
     const minima = distanciaMinimaDesplazamiento(MUNDO, radioEfecto);
-    if (desplazamiento.reserva === "ninguna") {
+    // Un obstáculo (planeta, nave, esquina) puede cortar el recorrido antes de la
+    // distancia mínima: ahí la nave se queda donde topó y lo que cuenta es que
+    // repetir el disparo no acierte, que se mide más abajo.
+    if (desplazamiento.reserva === "ninguna" && desplazamiento.motivoParada === "longitud") {
       assert.ok(distancia >= minima - 1e-6 && distancia <= octavoDelMundo(MUNDO) + 1e-6, `semilla ${semilla}: distancia ${distancia} fuera de [${minima}, ${octavoDelMundo(MUNDO)}]`);
     }
 
