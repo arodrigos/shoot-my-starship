@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import { almacenamientoDisponible, guardarRivalElegido, leerProgreso } from "@/juego/control/progreso";
 import { desbloquearAudio } from "@/juego/audio/motor";
 import { obtenerLocutor } from "@/juego/audio/voz";
+import { alternarMusicaActiva, obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
@@ -40,6 +41,10 @@ export function PantallaInicio({ onJugar }: Props) {
   const [nombres, setNombres] = useState<readonly string[]>(["", "", "", ""]);
   const esMultijugador = humanos > 1 || rivalesIA > 1;
   const modoEfectivo: ModoJuego = modo;
+  // Mismo espejo que usa el interruptor de la partida (store.ts), no el
+  // estado interno del motor: así la elección hecha aquí ya está reflejada
+  // cuando la partida monta su HUD.
+  const { musicaActiva } = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
 
   function elegirHumanos(cantidad: number): void {
     setHumanos(cantidad);
@@ -77,6 +82,10 @@ export function PantallaInicio({ onJugar }: Props) {
     onJugar(rivalId, modoEfectivo, jugadores, humanos > 1 && todosVemosTodo);
   }
 
+  // La pantalla es más alta que un móvil de 640 px: el título con la música
+  // arriba y «Jugar» abajo son barras pegadas (sticky) para que se vean sin
+  // desplazarse, y el contenido se centra con margin:auto, no con
+  // justify-content:center, que recortaría su parte superior al desbordar.
   return (
     <div
       data-testid="pantalla-inicio"
@@ -87,17 +96,38 @@ export function PantallaInicio({ onJugar }: Props) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
-        gap: 16,
         background: "#12141a",
         color: "#e8eaf0",
         font: "14px system-ui, sans-serif",
         textAlign: "center",
-        padding: 24,
         overflowY: "auto",
       }}
     >
-      <h1 style={{ margin: 0, fontSize: 22 }}>Shoot my starship</h1>
+      <header style={{ ...barraPegadaEstilo, top: 0, justifyContent: "space-between", gap: 8 }}>
+        <h1 style={{ margin: 0, fontSize: 20, textAlign: "left" }}>Shoot my starship</h1>
+        <button
+          type="button"
+          data-testid="inicio-toggle-musica"
+          aria-pressed={musicaActiva}
+          onClick={() => alternarMusicaActiva()}
+          title={musicaActiva ? "Quitar la música" : "Poner la música"}
+          style={{ ...botonEstilo, minWidth: 44, minHeight: 44, font: "13px system-ui, sans-serif" }}
+        >
+          Música: {musicaActiva ? "Sí" : "No"}
+        </button>
+      </header>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 16,
+          margin: "auto",
+          width: "100%",
+          padding: "16px 24px",
+          boxSizing: "border-box",
+        }}
+      >
       <p data-testid="descripcion-juego" style={{ maxWidth: 360, margin: 0 }}>
         Naves varadas en el Cinturón de la Deriva que se tiran chatarra a cañonazos: arrastra en la mitad inferior de
         la pantalla para fijar ángulo y potencia, y pulsa Disparar cuando apuntes bien.
@@ -299,17 +329,32 @@ export function PantallaInicio({ onJugar }: Props) {
         )}
       </section>
 
-      <button
-        type="button"
-        data-testid="boton-jugar"
-        onClick={alJugar}
-        style={{ ...botonEstilo, background: "#ff6b4a", minWidth: 140, minHeight: 44, font: "16px system-ui, sans-serif" }}
-      >
-        Jugar
-      </button>
+      </div>
+      <footer style={{ ...barraPegadaEstilo, bottom: 0, justifyContent: "center" }}>
+        <button
+          type="button"
+          data-testid="boton-jugar"
+          onClick={alJugar}
+          style={{ ...botonEstilo, background: "#ff6b4a", minWidth: 140, minHeight: 44, font: "16px system-ui, sans-serif" }}
+        >
+          Jugar
+        </button>
+      </footer>
     </div>
   );
 }
+
+const barraPegadaEstilo: React.CSSProperties = {
+  position: "sticky",
+  zIndex: 1,
+  display: "flex",
+  alignItems: "center",
+  flex: "0 0 auto",
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "8px 16px",
+  background: "#12141a",
+};
 
 const botonCantidadEstilo: React.CSSProperties = {
   flex: 1,
