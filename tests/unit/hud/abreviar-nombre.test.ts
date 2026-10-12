@@ -15,7 +15,7 @@ test("ini-2: con 4 naves se quitan los títulos de delante y el nombre se lee en
 test("ini-2: un nombre de un solo término demasiado largo se corta con elipsis", () => {
   assert.equal(abreviarNombre("0123456789ABCDEF", 4), "0123456…");
   assert.equal(abreviarNombre("0123456789ABCDEF", 3), "012345678…");
-  assert.equal(abreviarNombre("0123456789ABCDEF", 2), "0123456789ABCDEF");
+  assert.equal(abreviarNombre("0123456789ABCDEF", 2), "0123456…");
 });
 
 test("ini-2: «Jugador 2» pasa a «J2» cuando no cabe, y se queda entero si cabe", () => {
@@ -47,7 +47,7 @@ test("ini-2 (propiedad): sin número final, nunca pasa del máximo de su pestañ
   fc.assert(
     fc.property(fc.array(palabra, { minLength: 1, maxLength: 4 }), fc.integer({ min: 2, max: 4 }), (palabras, naves) => {
       const nombre = palabras.join(" ");
-      const maximo = naves >= 4 ? 8 : naves === 3 ? 10 : 16;
+      const maximo = naves === 3 ? 10 : 8;
       const resultado = abreviarNombre(nombre, naves);
       const cabe = Array.from(nombre).length <= maximo;
       return Array.from(resultado).length <= maximo && (!cabe || resultado === nombre);

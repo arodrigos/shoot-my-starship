@@ -5,7 +5,6 @@ import { colorDeAsiento } from "@/juego/naves/paletaNaves";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
-import { MAX_NOMBRE_JUGADOR } from "@/juego/jugadores";
 import { acotarIntegridad, INTEGRIDAD_MAXIMA, porcentajeIntegridad } from "@/sim/naves/vida";
 
 // imp-11: hasta este bloque no existía NINGÚN indicador de integridad en el
@@ -32,7 +31,7 @@ export function etiquetaDeNave(id: number, nombreRival: string): string {
 // se corta con elipsis. El nombre completo queda para lectores de pantalla
 // (span oculto) y para el title.
 function maximoLetras(naves: number): number {
-  return naves >= 4 ? 8 : naves === 3 ? 10 : MAX_NOMBRE_JUGADOR;
+  return naves >= 4 ? 8 : naves === 3 ? 10 : 8;
 }
 
 function cortar(texto: string, maximo: number): string {
