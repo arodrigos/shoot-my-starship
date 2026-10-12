@@ -22,7 +22,7 @@ for (const tamano of [
     await expect(page.getByTestId("arma-racimo-de-tuppers")).toHaveCount(1);
 
     for (const id of ["arma-zanjadora-manolita", "arma-pelota-de-chatarra"]) {
-      await expect(page.getByTestId(id)).toContainText("Sin coste");
+      await expect(page.getByTestId(id)).toContainText("Gratis");
     }
     const precios = await page.locator('[data-testid^="precio-"]').allTextContents();
     for (const texto of precios) {
