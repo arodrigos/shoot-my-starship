@@ -49,6 +49,7 @@ import { ClienteSim } from "@/juego/motor/clienteSim";
 import { crearTrabajadorSim } from "@/juego/motor/crearTrabajador";
 import { mostrarApuntandoIA, ocultarApuntandoIA } from "@/juego/hud/indicadorApuntandoIA";
 import { montarHudRendimiento } from "@/juego/rendimiento/hudRendimiento";
+import { limpiarLatenciasApuntado, registrarLatenciaApuntado, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
 import {
   fijarModo,
   fijarModoEspacial,
@@ -65,7 +66,7 @@ import {
   reiniciarControl,
   seleccionarArma,
 } from "@/juego/control/store";
-import { anguloDesdeDedo, potenciaDesdeDistancia } from "@/juego/control/apuntado";
+import { avanzarGesto, iniciarGesto, type GestoApuntado } from "@/juego/control/apuntado";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
@@ -518,6 +519,15 @@ export class Partida extends Phaser.Scene {
   // ninguno). Un segundo dedo o un arrastre que empezó en la consola no
   // mueven el apuntado.
   private punteroApuntando: number | null = null;
+  // apuntado-dedo: gesto relativo en curso, último punto del dedo (para
+  // pintar la flecha sin tapar la etiqueta) y marca de la última interacción
+  // aún sin medir hasta su primer frame.
+  private gestoApuntado: GestoApuntado | null = null;
+  private dedoApuntado: { x: number; y: number } | null = null;
+  private marcaApuntadoPendiente: string | null = null;
+  private contadorMarcasApuntado = 0;
+  private graficosFlecha!: Phaser.GameObjects.Graphics;
+  private etiquetaFlecha!: Phaser.GameObjects.Text;
 
   constructor() {
     super("Partida");
@@ -848,6 +858,14 @@ export class Partida extends Phaser.Scene {
     // existe durante el vuelo, cuando la previsualización ya está oculta),
     // por encima del terreno y las naves.
     this.graficosPrevisualizacion = this.add.graphics().setDepth(30);
+    this.graficosFlecha = this.add.graphics().setDepth(31);
+    this.etiquetaFlecha = this.add
+      .text(0, 0, "", { fontSize: "34px", color: "#ffffff", backgroundColor: "#101a33", padding: { x: 8, y: 4 } })
+      .setOrigin(0.5)
+      .setDepth(32)
+      .setVisible(false);
+    this.gestoApuntado = null;
+    this.punteroApuntando = null;
     this.estadisticas = this.estado.naves.map(() => estadisticasIniciales());
     this.fallosSeguidos = this.estado.naves.map(() => 0);
     this.turnosResueltos = 0;
@@ -896,6 +914,13 @@ export class Partida extends Phaser.Scene {
       get: () => ({ modo: this.motor.modo, motivo: this.motor.motivoEnLinea }),
     });
     window.__debug.bloquearHilo = (ms: number) => this.medidorRespuesta.bloquearHilo(ms);
+    // apuntado-dedo: latencia del gesto (pointermove → primer frame con la
+    // flecha) y atajo de prueba para fijar el apuntado sin gesto. Mismas
+    // condiciones de exposición que el resto de __debug (juego local, sin
+    // marcador compartido).
+    limpiarLatenciasApuntado();
+    window.__debug.latencias = () => ultimasLatenciasApuntado();
+    window.__debug.fijarApuntado = (anguloGrados: number, potencia: number) => fijarApuntadoDirecto(anguloGrados, potencia);
     // Lo que cuesta pintar el lienzo se mide aparte: en el CI lo hace la CPU.
     const alInicioRender = (): void => this.medidorRespuesta.marcarInicioRender();
     const alFinRender = (): void => this.medidorRespuesta.marcarFinRender();
@@ -903,7 +928,7 @@ export class Partida extends Phaser.Scene {
     this.game.events.on(Phaser.Core.Events.POST_RENDER, alFinRender);
     const dejarDeObservar = this.medidorFrames.observarFramesLargos();
     const dejarDeMedirRespuesta = this.medidorRespuesta.observar();
-    const quitarHud = new URLSearchParams(window.location.search).get("rendimiento") === "1" ? montarHudRendimiento(this.medidorFrames, this.medidorRespuesta) : null;
+    const quitarHud = new URLSearchParams(window.location.search).get("rendimiento") === "1" ? montarHudRendimiento(this.medidorFrames, this.medidorRespuesta, ultimasLatenciasApuntado) : null;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       dejarDeObservar();
       dejarDeMedirRespuesta();
@@ -1118,6 +1143,7 @@ export class Partida extends Phaser.Scene {
 
 
     this.actualizarPrevisualizacion(jugable);
+    this.actualizarFlechaApuntado();
     // paron-explosion: la subida del terreno a la GPU, una vez por frame y
     // después de lanzar las explosiones del frame (el destello va primero).
     this.terreno.vaciarCola();
@@ -1551,21 +1577,32 @@ export class Partida extends Phaser.Scene {
     // la consola o en un panel superpuesto siguen su camino normal.
     if (evento.target === this.game.canvas && this.puedeJugarAhora()) {
       this.punteroApuntando = evento.pointerId;
-      this.apuntarHacia(evento.clientX, evento.clientY);
+      this.dedoApuntado = { x: evento.clientX, y: evento.clientY };
+      // El primer toque no cambia nada: solo ancla el gesto.
+      this.gestoApuntado = iniciarGesto(this.dedoApuntado);
     }
   }
 
   private alPointerMove(evento: PointerEvent): void {
     if (this.punteroApuntando !== evento.pointerId) return;
     if (!this.puedeJugarAhora()) {
-      this.punteroApuntando = null;
+      this.soltarApuntado();
       return;
     }
     this.apuntarHacia(evento.clientX, evento.clientY);
   }
 
   private alPointerFin(evento: PointerEvent): void {
-    if (this.punteroApuntando === evento.pointerId) this.punteroApuntando = null;
+    if (this.punteroApuntando === evento.pointerId) this.soltarApuntado();
+  }
+
+  private soltarApuntado(): void {
+    this.punteroApuntando = null;
+    this.gestoApuntado = null;
+    this.dedoApuntado = null;
+    this.marcaApuntadoPendiente = null;
+    this.graficosFlecha?.clear();
+    this.etiquetaFlecha?.setVisible(false);
   }
 
   // Posición de la nave del turno en píxeles CSS, medida contra el rectángulo
@@ -1578,13 +1615,75 @@ export class Partida extends Phaser.Scene {
   }
 
   private apuntarHacia(clienteX: number, clienteY: number): void {
-    const nave = this.posicionPantallaNaveDelTurno();
+    if (this.gestoApuntado === null) return;
     const dedo = { x: clienteX, y: clienteY };
-    const ladoMenor = Math.min(window.innerWidth, window.innerHeight);
-    fijarApuntadoDirecto(
-      anguloDesdeDedo(nave, dedo),
-      potenciaDesdeDistancia(Math.hypot(dedo.x - nave.x, dedo.y - nave.y), ladoMenor),
-    );
+    const marca = `apuntado-${this.contadorMarcasApuntado++}`;
+    performance.mark(marca);
+    const { anguloGrados, potencia } = obtenerEstadoControl().ajuste;
+    const resultado = avanzarGesto(this.gestoApuntado, this.posicionPantallaNaveDelTurno(), dedo, anguloGrados, potencia);
+    this.gestoApuntado = resultado.gesto;
+    this.dedoApuntado = dedo;
+    if (resultado.anguloGrados !== anguloGrados || resultado.potencia !== potencia) {
+      fijarApuntadoDirecto(resultado.anguloGrados, resultado.potencia);
+    }
+    // Solo se mide la última marca sin pintar: si llegan varios pointermove
+    // antes del frame, todos se pintan en el mismo y el más viejo es el peor caso.
+    this.marcaApuntadoPendiente ??= marca;
+  }
+
+  // apuntado-dedo: flecha desde la nave con la dirección y una longitud
+  // proporcional a la fuerza, y la etiqueta «grados · fuerza» en su punta,
+  // desplazada si el dedo quedaría encima. Se dibuja en el frame, y es en ese
+  // mismo frame donde se cierra la medida de latencia del gesto.
+  private actualizarFlechaApuntado(): void {
+    const g = this.graficosFlecha;
+    g.clear();
+    if (this.punteroApuntando === null || this.dedoApuntado === null || !this.puedeJugarAhora()) {
+      this.etiquetaFlecha.setVisible(false);
+      return;
+    }
+    const rect = this.game.canvas.getBoundingClientRect();
+    const mundoPorPx = MUNDO_ANCHO / rect.width;
+    const naveP = this.posicionPantallaNaveDelTurno();
+    const { anguloGrados, potencia } = obtenerEstadoControl().ajuste;
+    const rad = (anguloGrados * Math.PI) / 180;
+    const dx = Math.cos(rad);
+    const dy = -Math.sin(rad);
+    const largoPx = 36 + (potencia / 100) * 90;
+    const punta = { x: naveP.x + dx * largoPx, y: naveP.y + dy * largoPx };
+    const aMundo = (p: { x: number; y: number }): { x: number; y: number } => ({ x: (p.x - rect.left) * mundoPorPx, y: (p.y - rect.top) * mundoPorPx });
+    const origenM = aMundo({ x: naveP.x + dx * 18, y: naveP.y + dy * 18 });
+    const puntaM = aMundo(punta);
+    g.lineStyle(5 * mundoPorPx, 0xffd166, 0.95);
+    g.lineBetween(origenM.x, origenM.y, puntaM.x, puntaM.y);
+    // Cabeza de la flecha: dos trazos a ±150° de la dirección.
+    for (const giro of [2.62, -2.62]) {
+      const cx = Math.cos(rad + giro);
+      const cy = -Math.sin(rad + giro);
+      const finM = aMundo({ x: punta.x + cx * 12, y: punta.y + cy * 12 });
+      g.lineBetween(puntaM.x, puntaM.y, finM.x, finM.y);
+    }
+    // Etiqueta: más allá de la punta, o a un lado si el dedo está debajo.
+    const dedo = this.dedoApuntado;
+    const candidatos = [
+      { x: punta.x + dx * 26, y: punta.y + dy * 26 },
+      { x: punta.x - dy * 44, y: punta.y + dx * 44 },
+      { x: punta.x + dy * 44, y: punta.y - dx * 44 },
+    ];
+    const lejos = (c: { x: number; y: number }): number => Math.hypot(c.x - dedo.x, c.y - dedo.y);
+    const elegido = candidatos.find((c) => lejos(c) >= 56) ?? candidatos.reduce((a, b) => (lejos(b) > lejos(a) ? b : a));
+    const etiquetaM = aMundo(elegido);
+    this.etiquetaFlecha.setText(`${Math.round(anguloGrados)}° · ${Math.round(potencia)}`);
+    // 14 px CSS de texto, con independencia de la escala del mundo.
+    this.etiquetaFlecha.setScale((14 * mundoPorPx) / 34);
+    this.etiquetaFlecha.setPosition(etiquetaM.x, etiquetaM.y).setVisible(true);
+    window.__debug!.flechaApuntado = { anguloGrados, potencia, etiqueta: this.etiquetaFlecha.text, puntaX: punta.x, puntaY: punta.y, etiquetaX: elegido.x, etiquetaY: elegido.y, naveX: naveP.x, naveY: naveP.y, dedoX: dedo.x, dedoY: dedo.y };
+    if (this.marcaApuntadoPendiente !== null) {
+      const marca = this.marcaApuntadoPendiente;
+      this.marcaApuntadoPendiente = null;
+      const medida = performance.measure(`${marca}-frame`, marca);
+      registrarLatenciaApuntado(medida.duration);
+    }
   }
 
   // Resuelve el disparo YA (avanzar es puro y síncrono) y anima el vuelo con

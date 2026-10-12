@@ -32,7 +32,7 @@ test("relevo-apuntado: cada asiento recupera su ángulo y potencia; la ayuda sal
   await plegarConsola(page);
 
   // apu-6: aparece en el primer turno de Ana.
-  const textoAyuda = "Arrastra desde tu nave hacia donde quieras disparar: más lejos, más fuerte";
+  const textoAyuda = "Desliza a los lados para girar, y acércate o aléjate de la nave para la fuerza";
   await expect(page.getByTestId("ayuda-apuntado")).toContainText(textoAyuda);
   await page.getByTestId("ayuda-apuntado-cerrar").click();
   await expect(page.getByTestId("ayuda-apuntado")).toHaveCount(0);

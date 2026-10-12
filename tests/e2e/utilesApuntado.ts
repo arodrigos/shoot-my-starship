@@ -17,19 +17,25 @@ export async function plegarConsola(page: Page): Promise<void> {
   await page.getByTestId("barra-minima").waitFor();
 }
 
-// Arrastra sobre el lienzo desde la nave del turno hasta un punto a
-// `distancia` píxeles CSS en la dirección `grados` (0° a la derecha, 90°
-// arriba). down+move+up reales, como un dedo.
-export async function arrastrarDesdeNave(page: Page, id: number, grados: number, distancia: number): Promise<void> {
-  const nave = await posicionPantallaNave(page, id);
-  const rad = (grados * Math.PI) / 180;
-  const destinoX = nave.x + Math.cos(rad) * distancia;
-  const destinoY = nave.y - Math.sin(rad) * distancia;
-  await page.mouse.move(nave.x + Math.cos(rad) * 20, nave.y - Math.sin(rad) * 20);
-  await page.mouse.down();
-  await page.mouse.move((nave.x + destinoX) / 2, (nave.y + destinoY) / 2, { steps: 3 });
-  await page.mouse.move(destinoX, destinoY, { steps: 3 });
-  await page.mouse.up();
+// Fracción del lado menor del viewport a la que la fuerza llegaba a 100 en el
+// apuntado de tirachinas. El gesto actual es relativo (apuntado-dedo), así que
+// ya no es una regla del producto: se conserva solo para que los e2e que
+// apuntan como MEDIO sigan hablando de «dirección y distancia desde la nave».
+export const FRACCION_LADO_MENOR_POTENCIA_MAXIMA = 0.4;
+
+// Fija el apuntado en `grados` (0° a la derecha, 90° arriba) y la fuerza que
+// correspondería a `distancia` píxeles CSS, por el gancho de prueba y no con
+// un gesto: el gesto relativo necesita cientos de píxeles para recorrer un
+// giro grande, y estos tests no son sobre el gesto (eso es apuntado-dedo.e2e).
+export async function arrastrarDesdeNave(page: Page, _id: number, grados: number, distancia: number): Promise<void> {
+  await page.evaluate(
+    ({ g, d, fraccion }) => {
+      const lado = Math.min(window.innerWidth, window.innerHeight);
+      const potencia = Math.max(0, Math.min(100, (d / (fraccion * lado)) * 100));
+      window.__debug.fijarApuntado!(((g % 360) + 360) % 360, potencia);
+    },
+    { g: grados, d: distancia, fraccion: FRACCION_LADO_MENOR_POTENCIA_MAXIMA },
+  );
 }
 
 // consola-compacta: la consola ocupa el 40 % del ancho y sus controles

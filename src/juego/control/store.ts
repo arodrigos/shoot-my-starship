@@ -99,6 +99,31 @@ export interface EstadoControl {
 
 const CLAVE_AYUDA_VISTA = "control-apuntado:ayuda-vista";
 
+// apuntado-dedo: la ayuda del gesto relativo tiene clave propia, para que
+// quien ya cerró la del tirachinas antiguo vea la nueva una vez.
+const CLAVE_AYUDA_APUNTADO_VISTA = "apuntado-dedo:ayuda-vista";
+
+function ayudaApuntadoYaVista(): boolean {
+  try {
+    return window.localStorage.getItem(CLAVE_AYUDA_APUNTADO_VISTA) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function marcarAyudaApuntadoVista(): void {
+  try {
+    window.localStorage.setItem(CLAVE_AYUDA_APUNTADO_VISTA, "1");
+  } catch {
+    // Sin almacenamiento la ayuda vuelve a salir: fallo visible y sin consecuencias.
+  }
+}
+
+// Se lee al montar la partida, no en cada cierre: la ayuda sigue siendo de
+// cada asiento dentro de una misma sesión (apu-6), y solo un navegador que ya
+// la vio en otra visita se la ahorra entera.
+let ayudaApuntadoVistaAlArrancar = false;
+
 function ayudaYaVista(): boolean {
   try {
     return window.localStorage.getItem(CLAVE_AYUDA_VISTA) === "1";
@@ -390,7 +415,7 @@ export function publicarTurno(turno: IdNave): void {
   fijar({
     turno,
     ajuste: { ...estado.ajuste, anguloGrados: propio.anguloGrados, potencia: propio.potencia },
-    ayudaApuntadoVisible: !asientosConAyudaApuntadoVista.has(turno),
+    ayudaApuntadoVisible: !ayudaApuntadoVistaAlArrancar && !asientosConAyudaApuntadoVista.has(turno),
   });
 }
 
@@ -404,6 +429,7 @@ export function fijarApuntadoDirecto(anguloGrados: number | null, potencia: numb
 
 export function cerrarAyudaApuntado(): void {
   asientosConAyudaApuntadoVista.add(estado.turno);
+  marcarAyudaApuntadoVista();
   fijar({ ayudaApuntadoVisible: false });
 }
 
@@ -516,6 +542,7 @@ export function reiniciarControl(): void {
   ayudaDispersionYaMostrada = false;
   apuntadoPorAsiento.clear();
   asientosConAyudaApuntadoVista.clear();
+  ayudaApuntadoVistaAlArrancar = ayudaApuntadoYaVista();
   fijar({
     ajuste: { anguloGrados: ANGULO_INICIAL_GRADOS, potencia: POTENCIA_INICIAL, armaId: CATALOGO_ARMAS[0].id },
     usosPorArma: {},
@@ -529,7 +556,7 @@ export function reiniciarControl(): void {
     nombreRival: "Rival",
     equipoId: null,
     escudoPropioTurnos: 0,
-    ayudaApuntadoVisible: true,
+    ayudaApuntadoVisible: !ayudaApuntadoVistaAlArrancar,
     // preparando no se toca: lo gobierna el montaje de la partida, y la
     // escena llama a reiniciarControl dentro de la propia preparación.
   });
