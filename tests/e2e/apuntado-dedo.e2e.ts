@@ -8,6 +8,7 @@ import { plegarConsola } from "./utilesApuntado";
 type Tamano = { ancho: number; alto: number };
 const MOVIL: Tamano = { ancho: 360, alto: 640 };
 const TABLETA: Tamano = { ancho: 820, alto: 1180 };
+const HORIZONTAL: Tamano = { ancho: 1180, alto: 820 };
 
 async function preparar(page: Page, tamano: Tamano, query = ""): Promise<void> {
   await page.setViewportSize({ width: tamano.ancho, height: tamano.alto });
@@ -63,7 +64,7 @@ async function apoyar(page: Page, dx: number): Promise<{ nave: { x: number; y: n
   return { nave, dedo };
 }
 
-for (const tamano of [MOVIL, TABLETA]) {
+for (const tamano of [MOVIL, TABLETA, HORIZONTAL]) {
   test(`dedo-1: el gesto relativo gira con el movimiento lateral y cambia la fuerza al alejarse (${tamano.ancho}x${tamano.alto})`, async ({ page }) => {
     test.setTimeout(180000);
     await preparar(page, tamano);
