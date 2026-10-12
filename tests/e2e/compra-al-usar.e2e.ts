@@ -26,18 +26,18 @@ test("compra-al-usar: todo está en el selector, el arma de pago se cobra al dis
 
   await dispararConSolucionExacta(page, "pepinazo-cortesia");
   await esperarJugable(page);
-  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 20 cr");
+  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 25 cr");
 
   await abrirSelector(page);
   await expect(page.getByTestId("arma-pepinazo-cortesia")).toBeDisabled();
-  await expect(page.getByTestId("faltan-pepinazo-cortesia")).toContainText("Te faltan 15 cr");
+  await expect(page.getByTestId("faltan-pepinazo-cortesia")).toContainText("Te faltan 10 cr");
   for (const gratis of ["zanjadora-manolita", "pelota-de-chatarra"]) {
     await expect(page.getByTestId(`arma-${gratis}`)).toBeEnabled();
   }
   await page.getByTestId("arma-zanjadora-manolita").click();
   await dispararConSolucionExacta(page, "zanjadora-manolita");
   await esperarJugable(page);
-  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 20 cr");
+  await expect(page.getByTestId("saldo")).toHaveText("Saldo: 25 cr");
 });
 
 // eco-5
