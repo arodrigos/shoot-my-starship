@@ -14,7 +14,7 @@ test("compra-al-usar: todo está en el selector, el arma de pago se cobra al dis
   await abrirSelector(page);
   await expect(page.locator('[data-testid^="arma-"]')).toHaveCount(12);
   await expect(page.getByTestId("arma-despedida")).toBeDisabled();
-  await expect(page.getByTestId("faltan-despedida")).toContainText("Te faltan 25 cr");
+  await expect(page.getByTestId("faltan-despedida")).toContainText("Te faltan 20 cr");
   // eco-3: el selector avisa del daño reducido de cada gratis.
   await expect(page.getByTestId("gratis-reducida-zanjadora-manolita")).toContainText("Gratis · daño reducido al 25 %");
 
@@ -30,7 +30,7 @@ test("compra-al-usar: todo está en el selector, el arma de pago se cobra al dis
 
   await abrirSelector(page);
   await expect(page.getByTestId("arma-pepinazo-cortesia")).toBeDisabled();
-  await expect(page.getByTestId("faltan-pepinazo-cortesia")).toContainText("Te faltan 20 cr");
+  await expect(page.getByTestId("faltan-pepinazo-cortesia")).toContainText("Te faltan 15 cr");
   for (const gratis of ["zanjadora-manolita", "pelota-de-chatarra"]) {
     await expect(page.getByTestId(`arma-${gratis}`)).toBeEnabled();
   }
