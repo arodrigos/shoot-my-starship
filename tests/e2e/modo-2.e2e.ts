@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 
 // Tras el reprecio de armas-reprecio-roles, pepinazo-cortesia ya no es
-// gratis (coste 40): las tres armas gratis reales son zanjadora-manolita,
-// petardo-de-feria y pelota-de-chatarra (src/sim/armas/catalogo.ts).
+// gratis (coste 40): las dos armas gratis reales son zanjadora-manolita
+// y pelota-de-chatarra (src/sim/armas/catalogo.ts).
 const ARMA_GRATIS_ID = "zanjadora-manolita";
-const ARMA_DE_PAGO_ID = "mortero-lamentable";
+const ARMA_DE_PAGO_ID = "racimo-de-tuppers";
 
-// modo-2: con el saldo forzado a 0, las tres gratis siguen disparables de
+// modo-2: con el saldo forzado a 0, las dos gratis siguen disparables de
 // punta a punta y las de pago aparecen deshabilitadas pero visibles con su
 // precio -- el criterio que impide un modo presupuesto con callejón sin
 // salida.

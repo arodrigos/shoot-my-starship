@@ -40,7 +40,7 @@ function deTurno(estado: EstadoPartida, entrada: EntradaDeTurno): EntradaDeTurno
 
 const ACTIVAR: EntradaDeTurno = { accion: "escudo", arma: "escudo", anguloGrados: 0, potencia: 0, objetivoId: 1 };
 const PEPINAZO_A_A: EntradaDeTurno = { arma: "pepinazo-cortesia", anguloGrados: 90, potencia: 60, objetivoId: 0 };
-const PETARDO_AL_VACIO: EntradaDeTurno = { arma: "petardo-de-feria", anguloGrados: 0, potencia: 40, objetivoId: 1 };
+const GRATIS_AL_VACIO: EntradaDeTurno = { arma: "zanjadora-manolita", anguloGrados: 0, potencia: 40, objetivoId: 1 };
 
 // esc-1 (núcleo): activar cuesta, gasta el turno, y protege exactamente dos
 // disparos ajenos; el tercero hace daño.
@@ -56,19 +56,19 @@ test("esc-1: el escudo cobra 90, gasta el turno y para dos disparos ajenos", () 
   assert.deepEqual({ x: estado.naves[0].x, y: estado.naves[0].y }, { x: 520, y: 700 }, "no se desplaza");
   assert.equal(estado.naves[0].escudoTurnosRestantes, 1, "baja al empezar el turno de A");
 
-  estado = avanzar(estado, deTurno(estado, PETARDO_AL_VACIO)).estado; // A dispara al vacío
+  estado = avanzar(estado, deTurno(estado, GRATIS_AL_VACIO)).estado; // A dispara al vacío
   estado = avanzar(estado, deTurno(estado, PEPINAZO_A_A)).estado; // B repite
   assert.equal(estado.naves[0].integridad, 100, "segundo disparo parado");
   assert.equal(estado.naves[0].escudoTurnosRestantes, 0, "al empezar el tercer turno de A ya no protege");
 
-  estado = avanzar(estado, deTurno(estado, PETARDO_AL_VACIO)).estado;
+  estado = avanzar(estado, deTurno(estado, GRATIS_AL_VACIO)).estado;
   estado = avanzar(estado, deTurno(estado, PEPINAZO_A_A)).estado;
   assert.ok(estado.naves[0].integridad < 100, "el tercer disparo sí hace daño");
 });
 
 test("esc-1: no se puede reactivar mientras está activo ni activar sin saldo", () => {
   const activo = avanzar(escenario("presupuesto"), ACTIVAR).estado;
-  const conSaldo = avanzar(activo, deTurno(activo, PETARDO_AL_VACIO)).estado; // turno de B pasa a A con escudo 1
+  const conSaldo = avanzar(activo, deTurno(activo, GRATIS_AL_VACIO)).estado; // turno de B pasa a A con escudo 1
   assert.throws(() => avanzar(conSaldo, deTurno(conSaldo, ACTIVAR)), /ya tiene el escudo activo/);
 
   const pobre = escenario("presupuesto", [50, 850]);
@@ -87,7 +87,7 @@ test("en barra libre el escudo no cuesta ni toca saldos", () => {
 // dispara con o sin escudo.
 test("esc-1 límite: el autodaño de una Despedida con el escudo activo sí resta vida", () => {
   let estado = avanzar(escenario("barra-libre"), ACTIVAR).estado;
-  estado = avanzar(estado, deTurno(estado, PETARDO_AL_VACIO)).estado; // B
+  estado = avanzar(estado, deTurno(estado, GRATIS_AL_VACIO)).estado; // B
   assert.ok((estado.naves[0].escudoTurnosRestantes ?? 0) > 0);
   const tras = avanzar(estado, deTurno(estado, { arma: "despedida", anguloGrados: 270, potencia: 30, objetivoId: 1 })).estado;
   assert.ok(tras.naves[0].integridad < 100, "el tirador paga su propia Despedida");
@@ -97,7 +97,7 @@ test("esc-1 límite: el autodaño de una Despedida con el escudo activo sí rest
 // contador nunca es negativo, nunca sube salvo al activarlo, y cada turno
 // consume exactamente una acción (numeroTurno +1).
 test("esc-1 propiedad: el contador del escudo nunca es negativo ni sube sin activarlo", () => {
-  const accion = fc.constantFrom<EntradaDeTurno>(ACTIVAR, PEPINAZO_A_A, PETARDO_AL_VACIO);
+  const accion = fc.constantFrom<EntradaDeTurno>(ACTIVAR, PEPINAZO_A_A, GRATIS_AL_VACIO);
   fc.assert(
     fc.property(fc.array(accion, { minLength: 1, maxLength: 12 }), (secuencia) => {
       let estado = escenario("barra-libre");
@@ -125,7 +125,7 @@ test("esc-1 propiedad: el contador del escudo nunca es negativo ni sube sin acti
 // Invariante 2 (propiedad): con escudo, ningún disparo ajeno hace daño ni mueve.
 test("esc-1 propiedad: con escudo activo no hay daño ni desplazamiento de disparos ajenos", () => {
   fc.assert(
-    fc.property(fc.integer({ min: 0, max: 359 }), fc.integer({ min: 10, max: 100 }), fc.constantFrom("pepinazo-cortesia", "petardo-de-feria", "racimo-de-tuppers"), (angulo, potencia, arma) => {
+    fc.property(fc.integer({ min: 0, max: 359 }), fc.integer({ min: 10, max: 100 }), fc.constantFrom("pepinazo-cortesia", "zanjadora-manolita", "racimo-de-tuppers"), (angulo, potencia, arma) => {
       const protegida = avanzar(escenario("barra-libre"), ACTIVAR).estado; // turno de B
       const tras = avanzar(protegida, { arma, anguloGrados: angulo, potencia, objetivoId: 0 }).estado;
       assert.equal(tras.naves[0].integridad, 100);

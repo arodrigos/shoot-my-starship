@@ -72,55 +72,16 @@ test("snd-1: activar el sonido crea el AudioContext y persiste tras recargar", a
   await expect(page.getByTestId("toggle-silenciado")).toHaveAttribute("aria-pressed", "true");
 });
 
-// snd-2 (no camino_critico): el impacto queda registrado con su timbre
-// (ids) distintos en el historial de depuración -- se comprueba leyendo el
-// registro, no escuchando audio real, para que el test no dependa de que el
-// Chromium headless del CI reproduzca sonido de verdad (mismo principio que
-// humor-6 para la reacción visual).
-test("snd-2: el impacto queda registrado con su sonido", async ({ page }) => {
-  await entrarAPartida(page);
-  await page.getByTestId("toggle-silenciado").click();
-
-  await page.evaluate(() => window.__debug.dispararEventoImpactoReal!(1, 200, 300, 30));
-  const historialTrasImpacto = await page.evaluate(() => window.__debug.audio!().historial);
-  expect(historialTrasImpacto[historialTrasImpacto.length - 1]?.id).toBe("impacto");
-});
-
-// snd-2 (no camino_critico): las dos armas de cuenta atrás suenan con
-// timbres distintos entre sí -- se fuerza una mecha corta y determinista
-// (mismo hook forzarFusibleMechaPasos/forzarFusibleAdherenciaPasos que
-// gra-2/min-2, ya que ningún mundo jugable deja que el vuelo natural supere
-// el presupuesto de pasos) y se comprueba el historial durante el vuelo en
-// curso, sin esperar a que la IA resuelva su turno de respuesta.
-test("snd-2: la mecha y la mina suenan con tic-tac distintos entre sí", async ({ page }) => {
+// snd-2 (no camino_critico): la mina suena con su propio tic-tac -- se fuerza
+// una mecha corta y determinista (forzarFusibleAdherenciaPasos, como min-2,
+// ya que ningún mundo jugable deja que el vuelo natural supere el
+// presupuesto de pasos) y se comprueba el historial durante el vuelo en
+// curso. armas-recorte retiró la Granada, así que ya no hay tic-tac de mecha
+// con el que contrastarlo.
+test("snd-2: la mina suena con su tic-tac", async ({ page }) => {
   test.setTimeout(120000);
   await entrarAPartida(page);
   await page.getByTestId("toggle-silenciado").click();
-
-  await page.getByTestId("selector-arma-abrir").click();
-  await page.getByTestId("arma-granada-de-espoleta").click();
-  await page.waitForFunction(() => window.__debug.control!.ajuste.armaId === "granada-de-espoleta");
-  await page.evaluate(() => window.__debug.forzarFusibleMechaPasos!(100));
-  await apuntar(page, 45, 80);
-
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
-  const numeroTurnoMecha = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
-  await page.getByTestId("disparar").click();
-  await page.waitForFunction(
-    (n) => window.__debug.animacionEnCurso === true && (window.__debug.numeroTurno ?? 0) === n,
-    numeroTurnoMecha,
-  );
-
-  await expect
-    .poll(
-      async () =>
-        page.evaluate(() => window.__debug.audio!().historial.some((e) => e.id === "tictac-mecha")),
-      { timeout: 10000, intervals: [50, 100] },
-    )
-    .toBe(true);
-
-  await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurnoMecha);
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
 
   await page.getByTestId("selector-arma-abrir").click();
   await page.getByTestId("arma-gancho-pegajoso").click();

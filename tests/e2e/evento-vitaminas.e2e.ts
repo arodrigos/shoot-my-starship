@@ -82,7 +82,7 @@ test("armas gratis: la celda avisa de que puede provocar un evento", async ({ pa
   test.setTimeout(120000);
   await empezar(page, "modo=presupuesto");
   await page.getByTestId("selector-arma-abrir").click();
-  await expect(page.getByTestId("gratis-evento-petardo-de-feria")).toContainText("25 % de provocar un evento");
+  await expect(page.getByTestId("gratis-evento-zanjadora-manolita")).toContainText("25 % de provocar un evento");
 });
 
 // Un turno propio con la solución balística exacta contra el rival: devuelve

@@ -26,18 +26,16 @@ export const LA_CONTABLE: Personalidad = {
   error: { anguloGrados: { minimo: -18, maximo: 18 }, potencia: { minimo: -14, maximo: 14 } },
   trayectoriaPreferida: "tenso",
   // El arma más eficiente por punto de daño entre las fiables, evitando la
-  // única arma con fiabilidad < 1 (el Petardo de Feria no es "eficiente",
+  // única arma con fiabilidad < 1 (la Pelota de Chatarra no es "eficiente",
   // es una lotería) y las de daño cero (Vertedero, Gravitón).
   ordenPreferenciaArmas: [
     "despedida",
-    "mortero-lamentable",
     "pepinazo-cortesia",
     "pelota-de-chatarra",
     "racimo-de-tuppers",
     "zanjadora-manolita",
     "graviton-segunda-mano",
     "vertedero-portatil",
-    "petardo-de-feria",
   ],
   bancoDeFrases: [
     "Registro el impacto como pérdida ordinaria. Su nave, a valor de chatarra, ya estaba provisionada.",
@@ -68,18 +66,16 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
   // entre Chispa y La Contable en 4 de 5 semillas.
   error: { anguloGrados: { minimo: -21, maximo: 21 }, potencia: { minimo: 35, maximo: 65 } },
   trayectoriaPreferida: "mortero",
-  // Prefiere el mortero y las armas con retardo (el Racimo de Tuppers se
+  // Prefiere el tiro en mortero y las armas con retardo (el Racimo de Tuppers se
   // abre a media altura), que le dan tiempo a hablar antes del impacto.
   ordenPreferenciaArmas: [
     "racimo-de-tuppers",
-    "mortero-lamentable",
     "despedida",
     "pepinazo-cortesia",
     "pelota-de-chatarra",
     "zanjadora-manolita",
     "graviton-segunda-mano",
     "vertedero-portatil",
-    "petardo-de-feria",
   ],
   bancoDeFrases: [
     "Anote, teniente: el enemigo ha sido conminado a rendirse. Anote también que se ha reído.",
@@ -109,16 +105,13 @@ export const CHISPA: Personalidad = {
   // ±16° / ±16 mide 12/51/36/30/48 % (4 de 5 en 20-55 %).
   error: { anguloGrados: { minimo: -16, maximo: 16 }, potencia: { minimo: -16, maximo: 16 } },
   trayectoriaPreferida: "tenso",
-  // Las armas raras, las de terreno y el Petardo de Feria antes que nada
-  // fiable.
+  // Las armas raras y las de terreno antes que nada fiable.
   ordenPreferenciaArmas: [
-    "petardo-de-feria",
     "vertedero-portatil",
     "zanjadora-manolita",
     "graviton-segunda-mano",
     "pelota-de-chatarra",
     "racimo-de-tuppers",
-    "mortero-lamentable",
     "pepinazo-cortesia",
     "despedida",
   ],
