@@ -5,6 +5,7 @@ import { colorDeAsiento } from "@/juego/naves/paletaNaves";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
+import { MAX_NOMBRE_JUGADOR } from "@/juego/jugadores";
 import { acotarIntegridad, INTEGRIDAD_MAXIMA, porcentajeIntegridad } from "@/sim/naves/vida";
 
 // imp-11: hasta este bloque no existía NINGÚN indicador de integridad en el
@@ -22,6 +23,27 @@ export function etiquetaDeNave(id: number, nombreRival: string): string {
   if (id === 1) return nombreRival;
   return `Nave ${id + 1}`;
 }
+
+// La fila de pestañas no pasa de unos 300 px ni siquiera en el iPad: con tres
+// o cuatro naves quedan ~83 o ~63 px útiles por pestaña (medidos con el
+// marcador de turno incluido) y un nombre de hasta 16 letras no cabe: se abrevia a lo que cabe y el nombre completo
+// queda para lectores de pantalla (span oculto) y para el title.
+export function abreviarNombre(nombre: string, naves: number): string {
+  const maximo = naves >= 4 ? 6 : naves === 3 ? 8 : MAX_NOMBRE_JUGADOR;
+  const letras = Array.from(nombre);
+  return letras.length <= maximo ? nombre : `${letras.slice(0, maximo - 1).join("")}…`;
+}
+
+const SOLO_LECTORES: React.CSSProperties = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  width: 1,
+  height: 1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+};
 
 // hud-canales-1: ancho flexible (no 76px fijo) para que hasta cuatro barras
 // se repartan el mismo hueco sin desbordarlo -- con 76px fijos, dos naves ya
@@ -101,6 +123,8 @@ export function IntegridadHUD() {
             key={nave.id}
             style={{
               ...BARRA_ESTILO,
+              position: "relative",
+              padding: estado.naves.length >= 4 ? "4px" : BARRA_ESTILO.padding,
               background: esTurno ? "var(--color-roce-fondo)" : "var(--color-cromado-fondo)",
               color: esTurno ? "var(--color-roce-texto)" : "var(--color-cromado-texto)",
               border: esTurno ? "1px solid var(--color-roce-borde)" : "1px solid transparent",
@@ -117,7 +141,8 @@ export function IntegridadHUD() {
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
               {participantes ? (eliminada ? "✖ " : esTurno ? "▶ " : "") : ""}
-              {etiqueta}
+              <span aria-hidden="true">{abreviarNombre(etiqueta, estado.naves.length)}</span>
+              <span style={SOLO_LECTORES}>{etiqueta}</span>
               {participantes ? "" : esTurno ? " · turno" : ""}
             </div>
             {nave.integridad > 0 ? (
