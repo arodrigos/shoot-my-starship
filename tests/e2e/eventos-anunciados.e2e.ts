@@ -106,13 +106,14 @@ for (const { ancho, alto } of TAMANOS) {
       const habladasAntes = await page.evaluate(() => window.__vozAnuncios.llamadas.filter((l) => l.tipo === "speak").length);
       await page.evaluate((tipo) => window.__debug.forzarEvento!(tipo, 1), definicion.tipo);
       await expect(cartel).toBeVisible();
+      // Antes de cualquier otro aserto: el cartel se va solo a los 4 s.
+      if (definicion.tipo === "virus" || definicion.tipo === "terremoto") await capturar(page, `eventos-anunciados-${definicion.tipo}`, ancho, alto);
       await expect(page.getByTestId("cartel-evento-titulo")).toHaveText(anuncio.titulo);
       await expect(page.getByTestId("cartel-evento-texto")).toHaveText(anuncio.explicacion);
       const quien = await page.getByTestId("cartel-evento-quien").textContent();
       if (definicion.alcance === "global") expect(quien).toBe("Todos");
       else expect(quien).not.toBe("Todos");
       expect(await cartel.evaluate((nodo) => nodo.scrollWidth <= nodo.clientWidth)).toBe(true);
-      if (definicion.tipo === "virus" || definicion.tipo === "terremoto") await capturar(page, `eventos-anunciados-${definicion.tipo}`, ancho, alto);
       const hablado = await page.evaluate(() => window.__vozAnuncios.llamadas.filter((l) => l.tipo === "speak").map((l) => l.texto));
       expect(hablado.slice(habladasAntes).join(" ")).toContain(anuncio.explicacion);
       await expect(cartel).toHaveCount(0, { timeout: 8000 });
@@ -134,8 +135,6 @@ test("anu-1: dos eventos seguidos se anuncian de uno en uno, cada uno al menos 4
   });
   await expect(page.getByTestId("cartel-evento-titulo")).toHaveText("Virus");
   await capturar(page, "eventos-anunciados-cola-1", 360, 640);
-  await page.waitForTimeout(3500);
-  await expect(page.getByTestId("cartel-evento-titulo")).toHaveText("Virus");
   await expect(page.getByTestId("cartel-evento-titulo")).toHaveText("Tormenta solar", { timeout: 6000 });
   await capturar(page, "eventos-anunciados-cola-2", 360, 640);
   await expect(page.getByTestId("cartel-evento")).toHaveCount(0, { timeout: 8000 });

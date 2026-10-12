@@ -91,7 +91,7 @@ import { publicarFantasmas } from "@/juego/control/fantasmasStore";
 import { publicarObjetos } from "@/juego/control/objetosStore";
 import { publicarRobots } from "@/juego/control/robotsStore";
 import { dibujarObjetoEvento } from "@/juego/efectos/dibujarObjetoEvento";
-import { RONDAS_DE_VIDA_OBJETO, rutaPrevistaObjeto } from "@/sim/universo/objetos";
+import { RONDAS_DE_VIDA_OBJETO, rutaPrevistaObjeto, VIDA_CORAZON, VIDA_TORMENTA } from "@/sim/universo/objetos";
 import { publicarCartel, publicarMuerteSubita, publicarPronostico, reiniciarUniverso } from "@/juego/control/universoStore";
 import { buscarEvento } from "@/sim/universo/catalogoEventos";
 import { aplicarEvento, conUniverso } from "@/sim/universo/efectos";
@@ -2798,7 +2798,7 @@ export class Partida extends Phaser.Scene {
       objetos.map((objeto) => ({
         id: objeto.id,
         tipo: objeto.tipo,
-        texto: objeto.tipo === "corazon" ? "Corazón galáctico: +50 de vida si toca tu nave" : "Tormenta solar: −25 de vida si toca tu nave",
+        texto: objeto.tipo === "corazon" ? `Corazón galáctico: +${VIDA_CORAZON} de vida si toca tu nave` : `Tormenta solar: −${VIDA_TORMENTA} de vida si toca tu nave`,
       })),
     );
   }
