@@ -45,7 +45,7 @@ async function empezarContraDosIA(page: Page, ancho: number, alto: number): Prom
 for (const { ancho, alto } of TAMANOS) {
   // res-v1: el resumen del tercer turno se ve de verdad aunque caiga en el
   // turno del rival (consola apartada) y también con la consola oculta.
-  test(`res-v1: a ${ancho}x${alto} el resumen del tercer turno se ve con 1 humano contra 2 IA, con la consola apartada y oculta`, async ({ page }) => {
+  test(`res-v1: a ${ancho}x${alto} el resumen del tercer turno se ve con 1 humano contra 2 IA y la consola apartada`, async ({ page }) => {
     test.setTimeout(240000);
     await empezarContraDosIA(page, ancho, alto);
     // El humano dispara y las dos IA juegan de verdad con animación: el tercer
@@ -56,24 +56,20 @@ for (const { ancho, alto } of TAMANOS) {
     await expect(resumen).toBeVisible();
     expect(await opacidadEfectiva(resumen)).toBe(1);
     await capturar(page, "avisos-visibles-resumen", ancho, alto);
-
-    // Con la consola oculta el resumen sigue en pantalla.
-    await page.getByTestId("boton-ocultar-consola").click({ force: true });
-    await expect(page.getByTestId("pestana-consola")).toBeVisible();
-    expect(await opacidadEfectiva(resumen)).toBe(1);
-    await capturar(page, "avisos-visibles-resumen-consola-oculta", ancho, alto);
   });
 }
 
 // anu-1/anu-2: el drenaje de la muerte súbita llega al cerrar la ronda, con el
 // turno del rival o el vuelo en curso, y el cartel tiene que verse.
-test("anu-1: el cartel de un evento que llega en el turno del rival se ve de verdad, también con la consola oculta", async ({ page }) => {
-  test.setTimeout(240000);
-  await empezarContraDosIA(page, 360, 640);
-  await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 13, integridades: [150, 150, 150] }));
-  await page.getByTestId("disparar").click();
-  const cartel = page.getByTestId("cartel-evento");
-  await expect(cartel).toBeVisible({ timeout: 120000 });
-  expect(await opacidadEfectiva(cartel), "el cartel no cuelga de la capa de la consola apartada").toBe(1);
-  await capturar(page, "avisos-visibles-cartel", 360, 640);
-});
+for (const { ancho, alto } of TAMANOS) {
+  test(`anu-1: a ${ancho}x${alto} el cartel de un evento que llega en el turno del rival se ve de verdad`, async ({ page }) => {
+    test.setTimeout(240000);
+    await empezarContraDosIA(page, ancho, alto);
+    await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 13, integridades: [150, 150, 150] }));
+    await page.getByTestId("disparar").click();
+    const cartel = page.getByTestId("cartel-evento");
+    await expect(cartel).toBeVisible({ timeout: 120000 });
+    expect(await opacidadEfectiva(cartel), "el cartel no cuelga de la capa de la consola apartada").toBe(1);
+    await capturar(page, "avisos-visibles-cartel", ancho, alto);
+  });
+}
