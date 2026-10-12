@@ -163,6 +163,9 @@ export type EventoSimulacion =
       readonly x: number;
       readonly y: number;
       readonly motivo: "alcance" | "obstaculo" | "tiempo";
+      // Ruta simulada, del origen al destino: la cáscara reproduce la nave por
+      // ella y borra la punteada por detrás.
+      readonly puntos: readonly { readonly x: number; readonly y: number }[];
     }
   // eventos-objetos: un corazón o una tormenta ha tocado el casco de `nave`.
   // `cambio` es la vida realmente ganada (+) o perdida (-), ya con el tope.

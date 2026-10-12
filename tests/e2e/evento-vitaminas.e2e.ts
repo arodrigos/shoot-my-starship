@@ -64,9 +64,11 @@ test("vitaminas: llega en el turno programado, se anuncia y deja el efecto con 3
   expect(registro.alto).toBeLessThanOrEqual(56);
   expect(registro.hasta - registro.desde).toBeGreaterThanOrEqual(2200);
   // Un temporizador reiniciado por un cambio de identidad del cartel añadiría
-  // segundos enteros tras la sonda; el retraso de la carga no.
+  // segundos enteros tras la sonda (2500 ms); el retraso de la carga no. Con
+  // el shard saturado el retraso medido llegó a 365 ms, así que el corte va
+  // a la mitad del reinicio que se quiere detectar.
   expect(registro.sonda).not.toBeNull();
-  expect(registro.hasta - (registro.sonda ?? 0)).toBeLessThanOrEqual(300);
+  expect(registro.hasta - (registro.sonda ?? 0)).toBeLessThanOrEqual(1250);
 
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true && window.__debug.animacionEnCurso === false, undefined, { timeout: 60000 });
   const efectos = await page.evaluate(() => window.__debug.efectos);
