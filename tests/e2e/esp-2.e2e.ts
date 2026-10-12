@@ -59,7 +59,10 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
   // aquí son DOS disparos completos (más el turno de la máquina entre
   // medias), así que 150s no bastó en la práctica (medido: supera los
   // 150000ms totales bajo contención alta); se sube al doble de margen.
-  test.setTimeout(280000);
+  // En el shard 1 del CI, junto a cie-1 (8 min) y el resto de specs de
+  // eventos, 280s tampoco bastó dos veces seguidas aunque el spec pasa
+  // aislado: se amplía a 480s sin tocar ninguna aserción.
+  test.setTimeout(480000);
   await page.goto("/?semilla=20");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
@@ -87,7 +90,7 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
   let numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno))!;
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   await page.getByTestId("disparar").click();
-  await page.waitForFunction((antes) => window.__debug.numeroTurno! > antes, numeroTurnoAntes, { timeout: 120000 });
+  await page.waitForFunction((antes) => window.__debug.numeroTurno! > antes, numeroTurnoAntes, { timeout: 200000 });
 
   const eventosPrimerDisparo = (await page.evaluate(() => window.__debug.ultimosEventos))!;
   const primerImpacto = eventosPrimerDisparo.find(esEventoImpacto);
@@ -97,14 +100,14 @@ test("un disparo repetido atraviesa el cráter del primero, y máscara y textura
   // (la máquina ya ha respondido y la animación ha terminado) antes de
   // repetir el mismo ajuste -- store.ts no reinicia `ajuste` entre turnos,
   // así que sigue apuntando exactamente igual sin un segundo gesto.
-  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 120000 });
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 200000 });
   const ajusteAntesSegundo = await page.evaluate(() => window.__debug.control!.ajuste);
   expect(ajusteAntesSegundo.anguloGrados).toBeCloseTo(ANGULO_OBJETIVO_GRADOS, 0);
   expect(ajusteAntesSegundo.potencia).toBeCloseTo(POTENCIA_OBJETIVO, 0);
 
   numeroTurnoAntes = (await page.evaluate(() => window.__debug.numeroTurno))!;
   await page.getByTestId("disparar").click();
-  await page.waitForFunction((antes) => window.__debug.numeroTurno! > antes, numeroTurnoAntes, { timeout: 120000 });
+  await page.waitForFunction((antes) => window.__debug.numeroTurno! > antes, numeroTurnoAntes, { timeout: 200000 });
 
   const eventosSegundoDisparo = (await page.evaluate(() => window.__debug.ultimosEventos))!;
   const segundoImpacto = eventosSegundoDisparo.find(esEventoImpacto);
