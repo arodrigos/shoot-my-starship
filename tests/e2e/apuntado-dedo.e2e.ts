@@ -97,9 +97,10 @@ for (const tamano of [MOVIL, TABLETA]) {
     await captura(page, "arrastre", tamano);
 
     await page.mouse.up();
-    const turno = await page.evaluate(() => window.__debug.numeroTurno!);
     await page.getByTestId("disparar").click();
-    await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, turno, { timeout: 60000 });
+    // ultimoDisparo se fija al resolverse el tiro, antes de animarlo: no hace
+    // falta esperar al vuelo entero, que con render por software tarda.
+    await page.waitForFunction(() => window.__debug.ultimoDisparo != null, undefined, { timeout: 30000 });
     const disparo = await page.evaluate(() => window.__debug.ultimoDisparo!);
     expect(Math.abs(disparo.anguloGrados - 55)).toBeLessThanOrEqual(0.5);
     expect(Math.abs(disparo.potencia - 65)).toBeLessThanOrEqual(0.5);
@@ -151,7 +152,7 @@ test("dedo-2: la ayuda del gesto sale la primera vez, se va tras el primer arras
 
   await page.reload();
   await page.getByTestId("boton-jugar").click();
-  await page.waitForFunction(() => window.__debug.control?.puedeDisparar === true, undefined, { timeout: 60000 });
+  await page.waitForFunction(() => window.__debug?.control?.puedeDisparar === true, undefined, { timeout: 60000 });
   await expect(page.getByTestId("ayuda-apuntado")).toHaveCount(0);
 });
 
