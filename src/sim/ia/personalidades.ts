@@ -105,12 +105,15 @@ export const CHISPA: Personalidad = {
   // ±16° / ±16 mide 12/51/36/30/48 % (4 de 5 en 20-55 %).
   error: { anguloGrados: { minimo: -16, maximo: 16 }, potencia: { minimo: -16, maximo: 16 } },
   trayectoriaPreferida: "tenso",
-  // Las armas raras y las de terreno antes que nada fiable.
+  // Las armas raras y las de terreno antes que nada fiable. La Pelota de
+  // Chatarra abre la lista porque, retirado el Petardo de Feria, era la única
+  // rara con daño: con una de daño 0 de primera (ia-n8) Chispa pasaba de la
+  // mitad de sus turnos sin hacer daño.
   ordenPreferenciaArmas: [
+    "pelota-de-chatarra",
     "vertedero-portatil",
     "zanjadora-manolita",
     "graviton-segunda-mano",
-    "pelota-de-chatarra",
     "racimo-de-tuppers",
     "pepinazo-cortesia",
     "despedida",
