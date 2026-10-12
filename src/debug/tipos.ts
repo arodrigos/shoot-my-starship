@@ -181,6 +181,9 @@ export interface EscenarioPrueba {
   readonly anguloGrados: number;
   readonly potencia: number;
   readonly ronda?: number;
+  // ritmo-robot-propulsores: robots ya posados en la superficie (x,y es el
+  // punto de reposo), para ver sus saltos sin jugar la partida hasta ahí.
+  readonly robots?: readonly { readonly x: number; readonly y: number; readonly dueno: number }[];
 }
 
 export interface DebugGlobal {
@@ -214,6 +217,15 @@ export interface DebugGlobal {
   }[];
   // Recorrido simulado de cada empuje del último turno, con el motivo de parada.
   recorridoEmpuje?: readonly { readonly nave: number; readonly puntos: readonly { readonly x: number; readonly y: number }[]; readonly motivoParada: string }[];
+  // ritmo-robot-propulsores: posición PINTADA (no la del estado) de las naves
+  // en vuelo y de los robots en salto mientras dura la reproducción.
+  reproduccion?: {
+    activa: boolean;
+    naves: readonly { readonly nave: number; readonly x: number; readonly y: number }[];
+    robots: readonly { readonly dueno: number; readonly x: number; readonly y: number; readonly fase: string }[];
+  };
+  duracionPropulsoresMs?: number;
+  duracionSaltoRobotMs?: number;
   // minirobot (rob-2): robots posados en un planeta, con su posición y saltos.
   robots?: readonly { readonly dueno: number; readonly planetaId: number; readonly x: number; readonly y: number; readonly saltos: number }[];
   // eventos-universo: calendario y efectos vivos, y un gancho para fijar el
