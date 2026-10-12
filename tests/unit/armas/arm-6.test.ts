@@ -45,7 +45,9 @@ const TECHO_PROPORCION_PROYECTIL_PERDIDO = 0.2;
 // fuerza-maxima: con más fuerza y errores mayores en las IAs hay más tiros
 // fallidos por partida y la peor llega a 376 253 vuelos; 450 000 sigue
 // acotando el cómputo con la misma holgura de antes.
-const PRESUPUESTO_VUELOS_POR_PARTIDA = 450_000;
+// armas-recorte: con 12 armas y otras preferencias de las IAs la peor de las
+// 200 partidas simula 592 098 vuelos; 750 000 mantiene la misma holgura.
+const PRESUPUESTO_VUELOS_POR_PARTIDA = 750_000;
 
 const MUNDO_ESPACIAL: ParametrosMundo = {
   ancho: MUNDO_ANCHO,

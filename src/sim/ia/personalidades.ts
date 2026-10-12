@@ -23,7 +23,10 @@ export const LA_CONTABLE: Personalidad = {
   // angular sube a ±11,7° (x2,6) y el de potencia a ±10,8 (x1,2). Medido con
   // 100 partidas por semilla: 61/82/77/69/73 %. Con la fuerza máxima de 1050
   // el tiro es más difícil: ±18° / ±14 mide 39/79/67/62/75 % (4 de 5 en banda).
-  error: { anguloGrados: { minimo: -18, maximo: 18 }, potencia: { minimo: -14, maximo: 14 } },
+  // armas-recorte: sin el Mortero, ±18° / ±14 bajaba a 29/74/53/39/67 %. Medido
+  // con ia-3: ±13° / ±11 da 54/81/77/58/81 % (media 70 %, 1 de 5 semillas en
+  // 60-80 %: la dispersión entre semillas supera la anchura de la banda).
+  error: { anguloGrados: { minimo: -13, maximo: 13 }, potencia: { minimo: -11, maximo: 11 } },
   trayectoriaPreferida: "tenso",
   // El arma más eficiente por punto de daño entre las fiables, evitando la
   // única arma con fiabilidad < 1 (la Pelota de Chatarra no es "eficiente",
