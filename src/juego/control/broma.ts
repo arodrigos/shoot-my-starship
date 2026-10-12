@@ -18,7 +18,7 @@ export interface EntradaHistoricoBroma {
   readonly emisor: number;
   readonly disparo: string | null;
   readonly impacto: string;
-  readonly categoriaImpacto: "resumen";
+  readonly categoriaImpacto: "resumen" | "evento";
 }
 
 let estado: EstadoBromas = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0, historico: [] };
@@ -43,6 +43,13 @@ export function suscribirBromas(escucha: () => void): () => void {
 export function publicarResumen(numeroTurno: number, texto: string, emisor: number): void {
   const entrada: EntradaHistoricoBroma = { numeroTurno, emisor, disparo: null, impacto: texto, categoriaImpacto: "resumen" };
   fijar({ disparo: null, impacto: texto, categoriaImpacto: "resumen", historico: [...estado.historico, entrada] });
+}
+
+// anu-1: el anuncio de un evento queda en el histórico sin tocar el bocadillo
+// del resumen que pudiera estar a la vista.
+export function publicarAnuncioHistorico(numeroTurno: number, texto: string, emisor: number): void {
+  const entrada: EntradaHistoricoBroma = { numeroTurno, emisor, disparo: null, impacto: texto, categoriaImpacto: "evento" };
+  fijar({ historico: [...estado.historico, entrada] });
 }
 
 export function reiniciarBromas(): void {

@@ -131,7 +131,7 @@ function HistoricoBromasHUDSinMemo({ onCerrar }: Props) {
             </div>
           ) : (
             turnos.map(({ entrada, indice }) => (
-              <section key={entrada.numeroTurno} data-testid={`historico-bromas-entrada-${indice}`} style={{ marginBottom: 12 }}>
+              <section key={indice} data-testid={`historico-bromas-entrada-${indice}`} style={{ marginBottom: 12 }}>
                 <h3 style={{ margin: "0 0 4px", font: "600 13px/1.4 system-ui, sans-serif", color: "#b8c7da" }}>
                   Turno {entrada.numeroTurno + 1}
                 </h3>

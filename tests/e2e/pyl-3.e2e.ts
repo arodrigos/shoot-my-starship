@@ -27,7 +27,7 @@ const TESTIDS_HUD_OPACO = [
 // fallaría antes de que este e2e mintiera sobre qué familia dispara.
 const REPRESENTANTE_POR_FAMILIA: Record<string, string> = {
   bomba: "pepinazo-cortesia",
-  capsula: "mortero-lamentable",
+  capsula: "zanjadora-manolita",
   racimo: "racimo-de-tuppers",
   chatarra: "pelota-de-chatarra",
   orbe: "graviton-segunda-mano",
