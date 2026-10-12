@@ -70,6 +70,7 @@ import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from 
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
 import { vozDeNave } from "@/contenido/bancoBromas";
+import { anuncioDeEvento, anuncioMuerteSubitaAviso, anuncioMuerteSubitaDrenaje, textoLocutado, type AnuncioEvento } from "@/contenido/anunciosEventos";
 import {
   memoriaIAInicial,
   nombreDeNave,
@@ -83,7 +84,7 @@ import { publicarGanador, publicarParticipantes, reiniciarParticipantes } from "
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { MEMORIA_PLANTILLAS, resumenPartida, tocaResumen } from "@/sim/partida/resumenPartida";
 import { COLORES_NAVE, colorDeAsiento } from "@/juego/naves/paletaNaves";
-import { inyectarHistorico, publicarResumen, reiniciarBromas } from "@/juego/control/broma";
+import { inyectarHistorico, publicarAnuncioHistorico, publicarResumen, reiniciarBromas } from "@/juego/control/broma";
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
 import { FantasmaNave } from "@/juego/naves/FantasmaNave";
 import { publicarFantasmas } from "@/juego/control/fantasmasStore";
@@ -2841,7 +2842,8 @@ export class Partida extends Phaser.Scene {
             : null,
     );
     for (const evento of eventos) {
-      if (evento.tipo === "muerte-subita" && evento.fase === "drenaje") publicarCartel(`Muerte súbita: −${evento.danio} de vida a todas`);
+      if (evento.tipo !== "muerte-subita") continue;
+      this.anunciar(evento.fase === "drenaje" ? anuncioMuerteSubitaDrenaje(evento.danio) : anuncioMuerteSubitaAviso(), null, 0);
     }
     const universo = this.estado.universo;
     window.__debug!.proximoEvento = universo ? { ...universo.proximo } : null;
@@ -2857,10 +2859,23 @@ export class Partida extends Phaser.Scene {
     for (const evento of eventos) {
       if (evento.tipo !== "evento-universo" || evento.perdido === true) continue;
       const definicion = buscarEvento(evento.evento);
-      const quien = definicion.alcance === "nave" ? ` · ${nombreDeNave(this.controladores, evento.nave)}` : "";
-      publicarCartel(`${definicion.nombre}${quien}`);
+      this.anunciar(anuncioDeEvento(evento.evento as TipoEvento), definicion.alcance === "nave" ? evento.nave : null, evento.nave);
     }
     this.mostrarEfectosDeEventos(eventos);
+  }
+
+  // anu-1: cartel en cola, entrada en el histórico y, con la voz activa, lectura
+  // con prioridad sobre los resúmenes. `afectado` es null cuando cae sobre todos;
+  // `emisor` es el asiento que firma la entrada del histórico.
+  private anunciar(anuncio: AnuncioEvento, afectado: number | null, emisor: number): void {
+    const quien = afectado === null ? null : { nombre: nombreDeNave(this.controladores, afectado), color: colorDeAsiento(afectado) };
+    publicarCartel({ titulo: anuncio.titulo, quien, texto: anuncio.explicacion });
+    publicarAnuncioHistorico(this.turnosResueltos, `${anuncio.titulo}. ${anuncio.explicacion}`, emisor);
+    // Durante el relevo la pantalla tapa el juego y no debe hablar nadie.
+    if (this.relevoPendiente) return;
+    const personalidad = this.controladores[emisor]?.personalidad;
+    const voz = personalidad ? vozDeNave(1, personalidad.id) : vozDeNave(0, this.rival.id);
+    obtenerLocutor().hablar(voz, textoLocutado(anuncio, quien?.nombre ?? "Todos"), true);
   }
 
   // eventos-visibles: lo que ve el jugador de cada evento, además del cartel.
