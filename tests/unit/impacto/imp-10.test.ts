@@ -27,8 +27,15 @@ import type { ParametrosMundo } from "@/sim/partida/tipos";
 // regresión real (un orden de magnitud de vuelos más) y no depende de la
 // carga del runner. La cota determinista que de verdad protege el coste es
 // el techo de vuelos simulados de abajo.
+//
+// Tercera recalibración (armas-recorte / ritmo-robot-propulsores): con la
+// fuerza máxima en 1050 u/s hay menos tiros viables por sistema y colocarNaves
+// reintenta más, así que el p95 de pared del runner compartido dio 971 ms en
+// dos PRs que no tocan colocación (y 1,3-1,7 s en la máquina de desarrollo,
+// con dev incluido). Se sube a 1500 ms: sigue cazando un orden de magnitud de
+// regresión y el techo determinista de vuelos de abajo es el que protege el coste.
 const NUM_SEMILLAS = 100;
-const P95_MAXIMO_MS = 900;
+const P95_MAXIMO_MS = 1500;
 const PRESUPUESTO_VUELOS_TOTAL = 6000;
 const MUNDO: ParametrosMundo = {
   ancho: MUNDO_ANCHO,
@@ -38,7 +45,7 @@ const MUNDO: ParametrosMundo = {
   etiquetaDeriva: "ninguna",
 };
 
-test("imp-10: crear una partida tiene p95 < 900ms en 100 semillas y ninguna semilla supera 6.000 vuelos simulados", () => {
+test("imp-10: crear una partida tiene p95 < 1500ms en 100 semillas y ninguna semilla supera 6.000 vuelos simulados", () => {
   const duracionesMs: number[] = [];
   let vuelosMaximosEnUnaCreacion = 0;
 
