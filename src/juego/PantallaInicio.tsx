@@ -129,8 +129,9 @@ export function PantallaInicio({ onJugar }: Props) {
         }}
       >
       <p data-testid="descripcion-juego" style={{ maxWidth: 360, margin: 0 }}>
-        Naves varadas en el Cinturón de la Deriva que se tiran chatarra a cañonazos: arrastra en la mitad inferior de
-        la pantalla para fijar ángulo y potencia, y pulsa Disparar cuando apuntes bien.
+        Naves varadas en el Cinturón de la Deriva que se tiran chatarra a cañonazos: apoya el dedo en cualquier punto
+        y desliza: de lado giras la dirección, y acercándote o alejándote de tu nave bajas o subes la fuerza. Pulsa
+        Disparar cuando apuntes bien.
       </p>
 
       {sinAlmacenamiento && (
@@ -308,7 +309,7 @@ export function PantallaInicio({ onJugar }: Props) {
           <br />
           <span style={{ font: "12px system-ui, sans-serif" }}>
             Empiezas con {PRESUPUESTO_BASE} créditos y pagas cada arma al dispararla, según su daño y lo fácil
-            que es acertar. Las tres gratis siempre están, pero hacen mucho menos daño.
+            que es acertar. Las dos gratis siempre están, pero hacen mucho menos daño.
           </span>
         </button>
       </section>

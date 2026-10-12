@@ -1088,7 +1088,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             )}
             <p data-testid="explicacion-modo">
               {estado.modo === "presupuesto"
-                ? `Modo con presupuesto: empiezas con ${estado.saldo ?? 0} créditos, cada arma de pago se cobra al dispararla. Las tres gratis siempre están, con el daño reducido al 25 %.`
+                ? `Modo con presupuesto: empiezas con ${estado.saldo ?? 0} créditos, cada arma de pago se cobra al dispararla. Las dos gratis siempre están, con el daño reducido al 25 %.`
                 : "Modo barra libre: todas las armas están disponibles siempre, sin coste."}
             </p>
             <button type="button" data-testid="ayuda-cerrar" onClick={cerrarAyuda} style={botonEstilo}>
