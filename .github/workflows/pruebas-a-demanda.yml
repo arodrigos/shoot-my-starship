@@ -23,7 +23,9 @@ permissions:
 jobs:
   pruebas:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # arm-6 con la muestra completa simula cientos de miles de vuelos por partida
+    # y no cabe en 40 min; las pasadas «@larga» tienen más margen.
+    timeout-minutes: ${{ contains(inputs.specs, '@larga') && 150 || 40 }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
