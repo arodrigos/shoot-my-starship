@@ -104,7 +104,7 @@ cada uno) se reproducen con el delta de `update()` y no con tweens, así que
 no añaden trabajo por frame más allá de repintar un gráfico pequeño. Para
 comparar en un dispositivo: abre el juego con `?rendimiento=1`, anota `p95`
 en reposo, enciende los propulsores o espera un salto y anota `p95` mientras
-se mueve. En VPS2 y en CI el WebGL es por software (frames de 400-900 ms),
+se mueve. En CI y en máquinas sin GPU el WebGL es por software (frames de 400-900 ms),
 así que `tests/e2e/ritmo.e2e.ts` imprime esas cifras con la etiqueta
 `[rit-3]` pero no las afirma.
 

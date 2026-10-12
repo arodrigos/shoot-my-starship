@@ -142,7 +142,7 @@ for (const tamano of TAMANOS) {
       expect(paso).toBeLessThanOrEqual(2 * 300 * dt * 1.05 + 1);
     }
 
-    // rit-3: el p95 de frame se mide y se imprime, pero no se afirma. En CI y en VPS2
+    // rit-3: el p95 de frame se mide y se imprime, pero no se afirma. En CI y sin GPU
     // el WebGL es por software (frames de 400-900 ms) y un umbral de 1,15 × sobre esa
     // medida falla al azar; la comparación real va en docs/rendimiento.md, con
     // ?rendimiento=1 en un dispositivo.
