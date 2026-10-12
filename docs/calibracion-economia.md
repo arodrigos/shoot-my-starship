@@ -23,7 +23,7 @@ sana es [0.6; 1.6].
 | Racimo de Tuppers | 40 | 20 | 2.5 % | 40 | 0 % | 0.78 |
 | Despedida | 80 | 55 | 3.3 % | 80 | 0 % | 1.41 |
 | Barrena Planetaria | 65 | 44 | 2.5 % | 65 | 0 % | 1.05 |
-| Rayo Láser | 75 | 46 | 0.8 % | 55 | 36 % | 0.29 |
+| Rayo Láser | 75 | 46 | 0.8 % | 55 | 36 % | 0.30 |
 | Mosca Cojonera | 50 | 28 | 2.9 % | 50 | 0 % | 1.01 |
 | Gancho Pegajoso | 75 | 24 | 6.9 % | 75 | 0 % | 1.37 |
 | Minirobot Saltaplanetas | 60 | 40 | 2.4 % | 60 | 0 % | 0.99 |
