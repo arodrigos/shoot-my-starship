@@ -180,7 +180,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     // menos daño y menos facilidad quedaría dominada por Despedida (criterio
     // 3); 80 rompe esa comparación sin cambiar su papel de «la más cara tras
     // Despedida».
-    coste: 80,
+    coste: 75,
     inmuneAGravedad: true,
     // cat-2: el haz atraviesa hasta 40 u de roca antes de detonar.
     penetracionPx: 40,

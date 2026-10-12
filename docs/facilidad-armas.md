@@ -24,7 +24,7 @@ aparte que mantener sincronizada con el resolutor.
 | Gravitón de Segunda Mano | 0 | 0 | n/a | 0.0% | 45 |
 | Despedida | 55 | 115 | 0.99s | 3.3% | 80 |
 | Barrena Planetaria | 44 | 38 | 1.10s | 2.5% | 65 |
-| Rayo Láser | 46 | 80 | 0.57s | 0.8% | 80 |
+| Rayo Láser | 46 | 80 | 0.57s | 0.8% | 75 |
 | Mosca Cojonera | 28 | 50 | 1.06s | 2.9% | 50 |
 | Gancho Pegajoso | 24 | 38 | 0.93s | 6.9% | 75 |
 | Minirobot Saltaplanetas | 40 | 50 | 1.09s | 2.4% | 60 |

@@ -60,7 +60,7 @@ no gasta turnos en tiros que salen.
   entrada sin cambiar el estado. **No hay ingreso por daño**: el saldo depende
   solo del presupuesto y del gasto. Cada partida empieza con
   los 600 créditos fijos, sin importar lo que sobró en la anterior. Las
-  tres armas gratis siempre están y no cobran, pero hacen solo el 25 % del daño
+  dos armas gratis siempre están y no cobran, pero hacen solo el 25 % del daño
   del arma de pago más floja. Cada IA decide su compra en cada turno según su
   perfil de gasto (`decidirCompraTurno`). El saldo vive solo en memoria de la
   pestaña.
@@ -92,7 +92,7 @@ fondo de armario. Los motivos de las tres armas retiradas están en
 | Gravitón de Segunda Mano | 45 | utilitaria: reposiciona, precio por magnitud del desplazamiento, no por daño |
 | Despedida | 80 | la más cara y la más dañina: un solo uso, con autodaño real de por medio |
 | Barrena Planetaria | 65 | atraviesa terreno y pega fuerte: cara y de las de más daño |
-| Rayo Láser | 80 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
+| Rayo Láser | 75 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
 | Mosca Cojonera | 50 | trayectoria errática: difícil de planear, castiga bien si llega |
 | Gancho Pegajoso | 75 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
 | Minirobot Saltaplanetas | 60 | lento pero seguro: tarda unos turnos en llegar y te deja jugar mientras tanto |
@@ -162,7 +162,7 @@ En el modo «Con presupuesto» cada arma de pago, el escudo y los propulsores
 se cobran al usarlos, no al seleccionarlos. El precio de cada arma sale de su
 daño y de lo fácil que es acertar con ella (`src/sim/armas/precio.ts`); el
 saldo de partida (fijo, sin arrastre) está en `src/sim/economia/parametros.ts`. La
-lotería galáctica solo existe en este modo. Las tres armas gratis nunca se
+lotería galáctica solo existe en este modo. Las dos armas gratis nunca se
 agotan, pero hacen un 25 % del daño de la de pago más floja y cada disparo
 tiene un 25 % de provocar un evento al azar sobre cualquier nave viva.
 
