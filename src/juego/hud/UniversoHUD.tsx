@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { obtenerUniverso, suscribirUniverso } from "@/juego/control/universoStore";
+import { useEffect, useSyncExternalStore } from "react";
+import { obtenerUniverso, retirarCartel, suscribirUniverso } from "@/juego/control/universoStore";
 
 // Lo que dura el cartel en pantalla antes de irse solo.
-export const DURACION_CARTEL_MS = 2500;
+export const DURACION_CARTEL_MS = 4000;
 
 // evt-5: «Próximo evento en N turnos», y un turno antes cuál es y a quién cae.
 export function PronosticoHUD() {
@@ -66,46 +66,50 @@ export function MuerteSubitaHUD() {
   );
 }
 
-// evt-6: arriba, ≤ 56 px de alto, sin capturar toques, y se va solo.
+// anu-1: el cartel se queda 4 s, lleva título, a quién afecta y qué hace, y los
+// siguientes esperan en cola. Arriba, sin capturar toques.
 export function CartelEventoHUD() {
   const { cartel } = useSyncExternalStore(suscribirUniverso, obtenerUniverso, obtenerUniverso);
-  // Se guarda qué cartel ya se retiró, no cuál se ve: así el efecto solo
-  // actualiza estado desde el temporizador y un cartel nuevo se ve de inmediato.
-  const [retiradoClave, setRetiradoClave] = useState<number | null>(null);
   // La dependencia es la clave y no el objeto: el almacén emite un objeto
   // nuevo con cualquier cambio (p. ej. el pronóstico) y eso reiniciaba el reloj.
   const claveCartel = cartel?.clave ?? null;
   useEffect(() => {
     if (claveCartel === null) return;
-    const temporizador = window.setTimeout(() => setRetiradoClave(claveCartel), DURACION_CARTEL_MS);
+    const temporizador = window.setTimeout(() => retirarCartel(claveCartel), DURACION_CARTEL_MS);
     return () => window.clearTimeout(temporizador);
   }, [claveCartel]);
-  if (cartel === null || retiradoClave === cartel.clave) return null;
+  if (cartel === null) return null;
   return (
     <div
       data-testid="cartel-evento"
       role="status"
       style={{
         position: "fixed",
-        top: "calc(8px + env(safe-area-inset-top))",
+        // En el tercio superior pero por debajo de la fila de interruptores.
+        top: "calc(10vh + env(safe-area-inset-top))",
         left: "50%",
         transform: "translateX(-50%)",
         width: "min(92vw, 340px)",
-        maxHeight: 56,
         boxSizing: "border-box",
-        background: "rgba(20, 16, 48, 0.88)",
+        background: "rgba(20, 16, 48, 0.92)",
         border: "2px solid #ffd23f",
         borderRadius: 12,
-        padding: "6px 12px",
+        padding: "8px 12px",
         color: "#fff",
-        font: "600 14px system-ui, sans-serif",
+        font: "500 14px/1.3 system-ui, sans-serif",
         textAlign: "center",
-        overflow: "hidden",
+        overflowWrap: "anywhere",
         pointerEvents: "none",
         zIndex: 40,
       }}
     >
-      {cartel.texto}
+      <div data-testid="cartel-evento-titulo" style={{ font: "700 16px/1.3 system-ui, sans-serif", color: "#ffd23f" }}>
+        {cartel.titulo}
+      </div>
+      <div data-testid="cartel-evento-quien" style={{ font: "600 14px/1.3 system-ui, sans-serif", color: cartel.quien?.color ?? "#fff" }}>
+        {cartel.quien?.nombre ?? "Todos"}
+      </div>
+      <div data-testid="cartel-evento-texto">{cartel.texto}</div>
     </div>
   );
 }

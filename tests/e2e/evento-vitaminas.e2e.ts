@@ -37,7 +37,7 @@ test("vitaminas: llega en el turno programado, se anuncia y deja el efecto con 3
   test.setTimeout(180000);
   await empezar(page, "modo=barra-libre");
   await page.evaluate(() => window.__debug.fijarProximoEvento!({ enTurnos: 1, tipo: "vitaminas", afectado: 0 }));
-  // El cartel dura 2,5 s: se observa dentro de la página, con su propio reloj,
+  // El cartel dura 4 s: se observa dentro de la página, con su propio reloj,
   // para que la latencia de Playwright entre llamadas no falsee la medida.
   await page.evaluate(() => {
     const registro: { texto: string; alto: number; desde: number; hasta: number | null; sonda: number | null } = { texto: "", alto: 0, desde: 0, hasta: null, sonda: null };
@@ -48,10 +48,10 @@ test("vitaminas: llega en el turno programado, se anuncia y deja el efecto con 3
         registro.desde = performance.now();
         registro.texto = nodo.textContent ?? "";
         registro.alto = nodo.getBoundingClientRect().height;
-        // Sonda de 2,5 s armada a la vez que el cartel: en el CI el hilo
+        // Sonda de 4 s armada a la vez que el cartel: en el CI el hilo
         // principal va cargado y todo temporizador llega tarde, así que se
         // mide cuánto después de la sonda se va el cartel, no el reloj de pared.
-        window.setTimeout(() => { registro.sonda = performance.now(); }, 2500);
+        window.setTimeout(() => { registro.sonda = performance.now(); }, 4000);
       } else if (nodo === null && registro.desde !== 0 && registro.hasta === null) {
         registro.hasta = performance.now();
       }
@@ -61,10 +61,10 @@ test("vitaminas: llega en el turno programado, se anuncia y deja el efecto con 3
   await page.waitForFunction(() => (window as unknown as { __cartelRegistro: { hasta: number | null } }).__cartelRegistro.hasta !== null, undefined, { timeout: 90000 });
   const registro = await page.evaluate(() => (window as unknown as { __cartelRegistro: { texto: string; alto: number; desde: number; hasta: number; sonda: number | null } }).__cartelRegistro);
   expect(registro.texto).toContain("Vitaminas artificiales");
-  expect(registro.alto).toBeLessThanOrEqual(56);
-  expect(registro.hasta - registro.desde).toBeGreaterThanOrEqual(2200);
+  expect(registro.alto).toBeLessThanOrEqual(140);
+  expect(registro.hasta - registro.desde).toBeGreaterThanOrEqual(3800);
   // Un temporizador reiniciado por un cambio de identidad del cartel añadiría
-  // segundos enteros tras la sonda (2500 ms); el retraso de la carga no. Con
+  // segundos enteros tras la sonda (4000 ms); el retraso de la carga no. Con
   // el shard saturado el retraso medido llegó a 365 ms, así que el corte va
   // a la mitad del reinicio que se quiere detectar.
   expect(registro.sonda).not.toBeNull();
