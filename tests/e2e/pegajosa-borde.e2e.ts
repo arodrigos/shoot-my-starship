@@ -23,7 +23,7 @@ async function cargar(page: Page, borde: Borde, tamano: Tamano = MOVIL): Promise
       arriba: { x: mundo.ancho / 2, y: 60, angulo: 90 },
       izquierda: { x: 60, y: mundo.alto / 2, angulo: 180 },
       derecha: { x: mundo.ancho - 60, y: mundo.alto / 2, angulo: 0 },
-      abajo: { x: mundo.ancho / 2, y: mundo.alto - 60, angulo: -90 },
+      abajo: { x: mundo.ancho / 2, y: mundo.alto - 60, angulo: 270 },
     }[b];
     window.__debug.cargarEscenario!({
       naves: [

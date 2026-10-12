@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { crearEstadoAleatorio, siguienteAleatorio } from "@/sim/aleatorio";
+import { conMuerteSubita } from "@/sim/partida/muerteSubita";
 import { colocarNaves } from "@/sim/naves/colocacion";
 import { jugarTurno } from "@/sim/partida/motor";
 import { crearFuenteIA } from "@/sim/ia/fuente";
@@ -41,7 +42,10 @@ const TECHO_PROPORCION_PROYECTIL_PERDIDO = 0.2;
 // margen generoso para 40 turnos de ráfaga real (hasta 3 vuelos por disparo
 // de Andanada) -- si esto se dispara, "añadir armas" ha roto en silencio el
 // presupuesto de cómputo del solucionador.
-const PRESUPUESTO_VUELOS_POR_PARTIDA = 250_000;
+// fuerza-maxima: con más fuerza y errores mayores en las IAs hay más tiros
+// fallidos por partida y la peor llega a 376 253 vuelos; 450 000 sigue
+// acotando el cómputo con la misma holgura de antes.
+const PRESUPUESTO_VUELOS_POR_PARTIDA = 450_000;
 
 const MUNDO_ESPACIAL: ParametrosMundo = {
   ancho: MUNDO_ANCHO,
@@ -60,7 +64,9 @@ interface ResultadoPartidaEspacial {
 
 function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalidad], semillaSistema: number): ResultadoPartidaEspacial {
   const colocacion = colocarNaves(semillaSistema, MUNDO_ESPACIAL, crearEstadoAleatorio(semillaSistema));
-  let estado: EstadoPartida = {
+  // Como en el juego: sin la muerte súbita una pareja de IAs sin tiro útil (por
+  // el semicírculo que la IA no sale) repetiría el mismo disparo sin acabar nunca.
+  let estado: EstadoPartida = conMuerteSubita({
     version: 1,
     mundo: MUNDO_ESPACIAL,
     mascara: colocacion.sistema.mascara,
@@ -71,7 +77,7 @@ function jugarPartidaEspacial(personalidades: readonly [Personalidad, Personalid
     aleatorio: colocacion.aleatorio,
     resultado: { tipo: "en-curso" },
     planetas: colocacion.sistema.planetas,
-  };
+  });
 
   const ultimoIntento: [UltimoIntentoIA | null, UltimoIntentoIA | null] = [null, null];
   let disparos = 0;

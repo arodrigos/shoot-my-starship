@@ -21,8 +21,9 @@ export const LA_CONTABLE: Personalidad = {
   // vida-muerte-subita: con 150 de vida las partidas se alargan y La Contable
   // ganaba 85-96 %. Por decisión de Adrián su banda baja a 60-80 %: el error
   // angular sube a ±11,7° (x2,6) y el de potencia a ±10,8 (x1,2). Medido con
-  // 100 partidas por semilla: 61/82/77/69/73 %.
-  error: { anguloGrados: { minimo: -11.7, maximo: 11.7 }, potencia: { minimo: -10.8, maximo: 10.8 } },
+  // 100 partidas por semilla: 61/82/77/69/73 %. Con la fuerza máxima de 1050
+  // el tiro es más difícil: ±18° / ±14 mide 39/79/67/62/75 % (4 de 5 en banda).
+  error: { anguloGrados: { minimo: -18, maximo: 18 }, potencia: { minimo: -14, maximo: 14 } },
   trayectoriaPreferida: "tenso",
   // El arma más eficiente por punto de daño entre las fiables, evitando la
   // única arma con fiabilidad < 1 (el Petardo de Feria no es "eficiente",
@@ -60,7 +61,12 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
   // npm run medir:ia: 50.5% de victorias, dentro de la banda 45-65%.
   // salida-pantalla: recalibrada contra el jugador patrón con tiro trazado (ver
   // ia-3): con la puntería nueva del patrón sube a ~47 % de media.
-  error: { anguloGrados: { minimo: -20, maximo: 20 }, potencia: { minimo: 35, maximo: 65 } },
+  // fuerza-maxima: con 1050 de fuerza el tiro es más difícil para todos y
+  // Bisagra (73 % de media) pasaba por encima de La Contable. Con el Racimo de
+  // tres perdigones en fila (racimo-separado), su arma favorita ya no cubre
+  // área y ±40° la hundía a 23/34/21/40/75 %. ±21° mide 25/71/41/46/84 %:
+  // entre Chispa y La Contable en 4 de 5 semillas.
+  error: { anguloGrados: { minimo: -21, maximo: 21 }, potencia: { minimo: 35, maximo: 65 } },
   trayectoriaPreferida: "mortero",
   // Prefiere el mortero y las armas con retardo (el Racimo de Tuppers se
   // abre a media altura), que le dan tiempo a hablar antes del impacto.
@@ -98,7 +104,10 @@ export const CHISPA: Personalidad = {
   // npm run medir:ia: 25.0% de victorias, dentro de la banda 20-40%.
   // salida-pantalla: ±2° la dejaba en 50-80 % contra el patrón nuevo; con este
   // rango baja a ~31 % de media (17-54 % según el mapa).
-  error: { anguloGrados: { minimo: -10, maximo: 10 }, potencia: { minimo: -14, maximo: 14 } },
+  // fuerza-maxima: ±10° / ±14 subía a 25/58/59/35/62 %, fuera de su banda;
+  // ±14° / ±16 mide 15/50/42/22/50 % y empata con Bisagra en la semilla 3;
+  // ±16° / ±16 mide 12/51/36/30/48 % (4 de 5 en 20-55 %).
+  error: { anguloGrados: { minimo: -16, maximo: 16 }, potencia: { minimo: -16, maximo: 16 } },
   trayectoriaPreferida: "tenso",
   // Las armas raras, las de terreno y el Petardo de Feria antes que nada
   // fiable.

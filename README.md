@@ -83,8 +83,8 @@ de Chatarra**) son el fondo de armario.
 
 | Arma | Precio (cr) | Papel |
 | --- | --- | --- |
-| Pepinazo de Cortesía | 35 | equilibrada: ni la más floja ni la más fuerte |
-| Mortero Lamentable | 45 | área máxima permitida: perdona el error de ángulo, cuesta en consecuencia |
+| Pepinazo de Cortesía | 40 | equilibrada: ni la más floja ni la más fuerte |
+| Mortero Lamentable | 50 | área máxima permitida: perdona el error de ángulo, cuesta en consecuencia |
 | Zanjadora Manolita | 0 | gratis, de daño bajo y difícil de acertar -- fondo de armario |
 | Vertedero Portátil | 15 | utilitaria: rellena terreno, precio por volumen afectado, no por daño |
 | Racimo de Tuppers | 40 | tres perdigones en fila, bien separados: cubre ancho con tres cráteres pequeños y cada nave recibe solo el daño del más fuerte |
@@ -92,12 +92,12 @@ de Chatarra**) son el fondo de armario.
 | La Pelota de Chatarra | 0 | gratis, de daño bajo: rueda hasta un agujero, pero no garantiza cuál |
 | Gravitón de Segunda Mano | 45 | utilitaria: reposiciona, precio por magnitud del desplazamiento, no por daño |
 | Despedida | 85 | la más cara y la más dañina: un solo uso, con autodaño real de por medio |
-| Barrena Planetaria | 65 | atraviesa terreno y pega fuerte: cara y de las de más daño |
+| Barrena Planetaria | 70 | atraviesa terreno y pega fuerte: cara y de las de más daño |
 | Rayo Láser | 80 | recta e inmune a la gravedad, pero de las más difíciles de acertar: cara por eso |
-| Mosca Cojonera | 50 | trayectoria errática: difícil de planear, castiga bien si llega |
-| Granada de Espoleta | 55 | cuenta atrás desde el disparo: área grande, momento de detonar incierto |
-| Gancho Pegajoso | 90 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
-| Minirobot Saltaplanetas | 60 | lento pero seguro: tarda unos turnos en llegar y te deja jugar mientras tanto |
+| Mosca Cojonera | 55 | trayectoria errática: difícil de planear, castiga bien si llega |
+| Granada de Espoleta | 60 | cuenta atrás desde el disparo: área grande, momento de detonar incierto |
+| Gancho Pegajoso | 80 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
+| Minirobot Saltaplanetas | 65 | lento pero seguro: tarda unos turnos en llegar y te deja jugar mientras tanto |
 
 ### Qué le pasa a un planeta al que le arrancas un trozo
 

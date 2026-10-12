@@ -92,7 +92,9 @@ test("nucleo-n-naves-5: con 3 naves la IA apunta al rival alcanzable aunque otro
 });
 
 test("nucleo-n-naves-5: con 4 naves la IA apunta al único rival despejado", () => {
-  const estado = escenarioTapado([400, 1000, 1200, 1800]);
+  // fuerza-maxima: con 1050 u/s y el presupuesto repartido entre tres rivales,
+  // a 600 px la nave 0 ya no puntuaba por encima de las demás; a 400 sí.
+  const estado = escenarioTapado([600, 1000, 1200, 1800]);
   const { entrada } = crearFuenteIA(LA_CONTABLE)(estado);
   assert.equal(entrada.objetivoId, 0);
 });

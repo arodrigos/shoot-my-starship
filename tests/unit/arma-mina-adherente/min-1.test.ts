@@ -1,3 +1,4 @@
+import { POTENCIA_MAXIMA_PX_S, POTENCIA_MINIMA_PX_S } from "@/sim/balistica/potencia";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { crearEstadoAleatorio } from "@/sim/aleatorio";
@@ -107,7 +108,7 @@ test("min-1: una órbita multipozo estable que nunca toca nada pierde el gancho,
   const copia = new Uint8Array(mascara.datos);
   const planetas: RegistroPlanetas = [planeta];
   const origenX = planeta.cx + distanciaOrbita;
-  const potencia = ((velocidadOrbital - 300) / (1400 - 300)) * 100;
+  const potencia = ((velocidadOrbital - POTENCIA_MINIMA_PX_S) / (POTENCIA_MAXIMA_PX_S - POTENCIA_MINIMA_PX_S)) * 100;
 
   const resultado = resolverDisparo({
     mascara,

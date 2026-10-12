@@ -53,7 +53,10 @@ const NAVE_B_PLANA = { id: 1 as const, x: 1400, y: 900 };
 // Reelegida otra vez en vida-muerte-subita (La Contable pasa a ±11,7° / ±10,8
 // para bajar su tasa de victorias con 150 de vida): 53 sale del barrido de las
 // semillas 41 a 53 (razón con escalado 0,94, sin escalado 0,39).
-const SEMILLA_SISTEMA_SENSIBLE = 53;
+// Reelegida otra vez en fuerza-maxima (potencia máxima 1050 u/s cambia las
+// soluciones de la búsqueda): 58 sale del barrido de las semillas 54 a 60
+// (razón con escalado 1,21, sin escalado 3,15).
+const SEMILLA_SISTEMA_SENSIBLE = 58;
 
 interface Escenario {
   readonly mascara: Mascara;
