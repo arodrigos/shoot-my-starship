@@ -2618,7 +2618,10 @@ export class Partida extends Phaser.Scene {
       }
     }
     this.movimientos = vivos;
-    window.__debug!.reproduccion = { naves: [], robots: [], ...window.__debug!.reproduccion, activa: vivos.length > 0 };
+    // `ms` es el reloj de la escena (el del delta), no el de pared: con el WebGL
+    // por software un frame tarda mucho más que su delta y solo el reloj de la
+    // escena dice cuánto de la animación se ha reproducido.
+    window.__debug!.reproduccion = { naves: [], robots: [], ...window.__debug!.reproduccion, activa: vivos.length > 0, ms: Math.max(0, ...vivos.map((m) => m.transcurridoMs)) };
     if (vivos.length === 0 && this.alTerminarMovimientos) {
       const siguiente = this.alTerminarMovimientos;
       this.alTerminarMovimientos = null;

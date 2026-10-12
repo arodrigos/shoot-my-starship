@@ -221,6 +221,8 @@ export interface DebugGlobal {
   // en vuelo y de los robots en salto mientras dura la reproducción.
   reproduccion?: {
     activa: boolean;
+    // Milisegundos reproducidos según el reloj de la escena.
+    ms?: number;
     naves: readonly { readonly nave: number; readonly x: number; readonly y: number }[];
     robots: readonly { readonly dueno: number; readonly x: number; readonly y: number; readonly fase: string }[];
   };
