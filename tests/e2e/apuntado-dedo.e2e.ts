@@ -70,22 +70,22 @@ for (const tamano of [MOVIL, TABLETA, HORIZONTAL]) {
     await preparar(page, tamano);
     await cargarEscenario(page);
     await plegarConsola(page);
-    const { nave, dedo } = await apoyar(page, 100);
+    const { dedo } = await apoyar(page, 100);
 
     // El primer toque no cambia nada.
     expect(await ajuste(page)).toMatchObject({ anguloGrados: 45, potencia: 50 });
 
     // Perpendicular a la línea nave→dedo: 40 px hacia arriba → +10°.
-    await page.mouse.move(dedo.x, dedo.y - 40);
+    await page.mouse.move(dedo.x, dedo.y - 40, { steps: 8 });
     let a = await ajuste(page);
     expect(Math.abs(a.anguloGrados - 55)).toBeLessThanOrEqual(0.5);
     expect(Math.abs(a.potencia - 50)).toBeLessThanOrEqual(0.5);
 
-    // Radial: 50 px más lejos de la nave en la línea nave→dedo → +15 de fuerza.
-    const vx = dedo.x - nave.x;
-    const vy = dedo.y - 40 - nave.y;
-    const largo = Math.hypot(vx, vy);
-    await page.mouse.move(dedo.x + (50 * vx) / largo, dedo.y - 40 + (50 * vy) / largo);
+    // Radial: 50 px más lejos de la nave en la línea nave→dedo del apoyo
+    // (los ejes se fijan al apoyar el dedo) → +15 de fuerza. Troceado en
+    // pasos de 5 px, como un táctil real: el resultado no puede depender de
+    // cuántos eventos llegan.
+    await page.mouse.move(dedo.x + 50, dedo.y - 40, { steps: 10 });
     a = await ajuste(page);
     expect(Math.abs(a.anguloGrados - 55)).toBeLessThanOrEqual(0.5);
     expect(Math.abs(a.potencia - 65)).toBeLessThanOrEqual(0.5);

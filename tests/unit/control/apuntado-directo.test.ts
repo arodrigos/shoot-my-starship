@@ -138,3 +138,39 @@ test("apuntado-dedo: el temblor bajo el umbral se acumula y no se pierde al cruz
   const r = avanzarGesto(g, NAVE, { x: 300, y: 395 }, angulo, 50);
   assert.ok(Math.abs(r.anguloGrados - (45 + 5 * GRADOS_POR_PX_GIRO)) < 1e-9);
 });
+
+// Refutador: el resultado de un barrido no puede depender de cuántos eventos
+// lo trocean (un iPad manda más pointermove que un móvil).
+test("apuntado-dedo: el mismo barrido da el mismo ángulo y fuerza con 1 evento o con N", () => {
+  fc.assert(
+    fc.property(
+      fc.double({ min: 40, max: 400, noNaN: true }),
+      fc.double({ min: 0, max: 359, noNaN: true }),
+      fc.double({ min: -300, max: 300, noNaN: true }),
+      fc.double({ min: -300, max: 300, noNaN: true }),
+      fc.integer({ min: 2, max: 60 }),
+      fc.double({ min: 100, max: 260, noNaN: true }),
+      fc.double({ min: 20, max: 80, noNaN: true }),
+      (radio, rumboGrados, ddx, ddy, pasos, angulo, potencia) => {
+        const rad = (rumboGrados * Math.PI) / 180;
+        const inicio = { x: NAVE.x + Math.cos(rad) * radio, y: NAVE.y - Math.sin(rad) * radio };
+        const final = { x: inicio.x + ddx, y: inicio.y + ddy };
+        const unico = mover(inicio, final, angulo, potencia);
+        let g = iniciarGesto(inicio);
+        let a = angulo;
+        let p = potencia;
+        for (let i = 1; i <= pasos; i++) {
+          const r = avanzarGesto(g, NAVE, { x: inicio.x + (ddx * i) / pasos, y: inicio.y + (ddy * i) / pasos }, a, p);
+          g = r.gesto;
+          a = r.anguloGrados;
+          p = r.potencia;
+        }
+        // La saturación intermedia a 0/100/360 no es reversible solo si el recorrido sale del rango.
+        fc.pre(unico.potencia > 0 && unico.potencia < 100 && unico.anguloGrados > 0 && unico.anguloGrados < 360);
+        assert.ok(Math.abs(a - unico.anguloGrados) < 1e-6, `ángulo ${a} vs ${unico.anguloGrados}`);
+        assert.ok(Math.abs(p - unico.potencia) < 1e-6, `fuerza ${p} vs ${unico.potencia}`);
+      },
+    ),
+    { numRuns: 300 },
+  );
+});
