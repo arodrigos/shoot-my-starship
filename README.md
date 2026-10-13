@@ -2,7 +2,7 @@
 
 Artillería espacial por turnos: de dos a cuatro naves flotando entre los
 planetas de un sistema generado por semilla, con la gravedad de esos mismos
-planetas curvando el tiro. Terreno destructible, quince armas con precio
+planetas curvando el tiro. Terreno destructible, doce armas con precio
 y papel propios, dos modos de juego, partidas de 1 a 4 humanos en el mismo
 dispositivo y rivales de IA con mala idea. Next.js (App Router) + Phaser 4,
 100% cliente, sin cuenta y sin instalar nada.
@@ -10,12 +10,27 @@ dispositivo y rivales de IA con mala idea. Next.js (App Router) + Phaser 4,
 ## Cómo jugar
 
 Desde la pantalla de inicio se elige rival y modo, cuántos humanos y cuántos
-rivales de IA (de 2 a 4 naves en total), y se pulsa "Jugar". Para apuntar se
-arrastra por la consola inferior (arriba/abajo ajusta el ángulo, que cubre los
-360°; izquierda/derecha ajusta la potencia) y se dispara con "Disparar". El
-proyectil vuela de verdad, curvado por la gravedad de los planetas: al apuntar
-se dibujan los halos de cada pozo y la ruta corta que seguiría el disparo,
-junto con la banda de dispersión.
+rivales de IA (de 2 a 4 naves en total), y se pulsa "Jugar". El título y el
+interruptor «Música» van en una barra fija arriba y «Jugar» en otra fija
+abajo, así que en ningún tamaño hace falta desplazarse para encontrarlos.
+
+Para apuntar se apoya el dedo en cualquier punto del lienzo y se desliza. El
+primer toque no cambia nada, y lo que cuenta es cuánto se mueve el dedo:
+- **Dirección:** el movimiento perpendicular a la línea nave→dedo gira el tiro
+  0,25° por píxel, y cubre los 360°.
+- **Fuerza:** acercarse o alejarse de la nave cambia la fuerza 0,3 por píxel,
+  entre 0 y 100.
+- **Ejes fijos:** los ejes se fijan al apoyar el dedo. Un mismo gesto da el
+  mismo tiro en cualquier pantalla, llegue el táctil a 60 o a 120 eventos por
+  segundo.
+- **Cerca de la nave:** a menos de 30 px, el eje de la fuerza pasa a ser la
+  dirección de la flecha.
+- **Flecha:** sale de la nave y lleva en la punta la etiqueta «grados ·
+  fuerza». Se aparta si el dedo la taparía.
+
+Se dispara con "Disparar". El proyectil vuela de verdad, curvado por la
+gravedad de los planetas: al apuntar se dibujan los halos de cada pozo y la
+ruta corta que seguiría el disparo, junto con la banda de dispersión.
 
 La consola ocupa como mucho el 40 % del alto, anclada abajo (centro,
 izquierda o derecha) y respetando la zona segura de la pantalla. Tiene tres
@@ -49,7 +64,7 @@ no gasta turnos en tiros que salen.
 
 ### Los dos modos
 
-- **Barra libre**: las quince armas están disponibles desde el primer
+- **Barra libre**: las doce armas están disponibles desde el primer
   turno, sin coste.
 - **Con presupuesto** (economía por ronda): todos los asientos, también las
   IAs, parten del mismo presupuesto (`PRESUPUESTO_BASE` = 600 créditos,
@@ -72,6 +87,11 @@ humanos, entre turnos de jugadores distintos aparece una pantalla de relevo
 que tapa el campo, resume el turno anterior y exige un toque ("Soy ...") antes
 de enseñar nada; el ajuste "todos vemos todo" desactiva el relevo. Gana la última nave
 en pie.
+
+Las pestañas de jugador muestran el nombre entero siempre que cabe. Con 3 o 4
+naves se quitan primero los títulos de delante («Almirante Bisagra» pasa a
+«Bisagra») y solo si ni así cabe se corta con elipsis. «Jugador 2» conserva
+su número. El nombre completo sigue disponible para los lectores de pantalla.
 
 ### El catálogo: doce armas, cada una con su papel
 
@@ -326,3 +346,15 @@ la etapa de traspaso contra la URL real ya desplegada, con
 - **Partida completa en el CI** (#198): un test recorre una partida entera en
   tres tamaños de pantalla, con capturas y medida de respuesta, en el job
   `e2e-partida-completa`.
+- **Doce armas** (#217): se retiran Mortero, Petardo y Granada (los motivos
+  están en `docs/catalogo-armas.md`) y la economía se recalibra para el
+  catálogo final, con un saldo fijo de 600 créditos. Si había un arma guardada
+  que ya no existe, se sustituye por la de por defecto.
+- **Apuntado con el dedo** (#220, #226): se apoya el dedo en cualquier punto y
+  se desliza; el movimiento perpendicular gira el tiro y el radial cambia la
+  fuerza. Una flecha con «grados · fuerza» sale de la nave. Los ejes se fijan
+  al apoyar el dedo, y el resultado ya no depende de cuántos eventos táctiles
+  entregue el dispositivo.
+- **Inicio y pestañas** (#221, #223, #225): «Jugar» y «Música» están siempre a
+  la vista, sin desplazarse. Las pestañas de jugador quitan los títulos antes
+  de cortar el nombre. El inicio explica el gesto nuevo.
