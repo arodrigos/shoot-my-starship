@@ -851,7 +851,7 @@ export class Partida extends Phaser.Scene {
     // toggle-sacudida, toggle-silenciado viven en los 54px superiores) --
     // ver el comentario de IndicadorDeriva sobre por qué (90,40) en
     // unidades de juego dejó de servir al cambiar MUNDO_ANCHO.
-    this.indicadorDeriva = new IndicadorDeriva(this, 180, 70);
+    this.indicadorDeriva = new IndicadorDeriva(this, 140, 70);
     this.refrescarIndicadorDeriva();
 
     this.animador = new AnimadorProyectil(this);

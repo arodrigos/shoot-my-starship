@@ -17,14 +17,12 @@ export function AyudaApuntadoHUD() {
       data-testid="ayuda-apuntado"
       role="status"
       style={{
-        position: "absolute",
-        left: 8,
-        right: 8,
-        top: 108,
+        // Vive en CapaAvisosHUD (flujo en columna): con posición propia se
+        // pisaba con los demás avisos y con el rótulo de la deriva.
+        width: "100%",
         // Solo el botón de cerrar captura toques: el resto no debe impedir
         // apuntar a través de la ayuda.
         pointerEvents: "none",
-        zIndex: 3,
         display: "flex",
         alignItems: "center",
         gap: 8,

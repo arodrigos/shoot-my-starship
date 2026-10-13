@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
+import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { ReaccionHUD } from "@/juego/hud/ReaccionHUD";
 import { CartelEventoHUD } from "@/juego/hud/UniversoHUD";
@@ -63,6 +64,7 @@ export function CapaAvisosHUD() {
         zIndex: 40,
       }}
     >
+      <AyudaApuntadoHUD />
       <CartelEventoHUD />
       <BromaHUD />
       <AvisoVozHUD />

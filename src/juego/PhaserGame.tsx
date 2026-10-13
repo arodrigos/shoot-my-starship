@@ -9,7 +9,6 @@ import { CapaAvisosHUD } from "@/juego/hud/CapaAvisosHUD";
 import { ParteDeGuerraHUD } from "@/juego/hud/ParteDeGuerraHUD";
 import { CuentaAtrasHUD } from "@/juego/hud/CuentaAtrasHUD";
 import { PreparandoHUD } from "@/juego/hud/PreparandoHUD";
-import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
 import { publicarPreparando } from "@/juego/control/store";
 import { RelevoHUD } from "@/juego/hud/RelevoHUD";
 import { obtenerRelevo, suscribirRelevo } from "@/juego/control/relevoStore";
@@ -86,7 +85,6 @@ export function PhaserGame({ escena, datosEscena }: Props) {
         </>
       )}
       {esPartida && <CapaAvisosHUD />}
-      {esPartida && <AyudaApuntadoHUD />}
       {esPartida && <PreparandoHUD />}
       {esPartida && <ParteDeGuerraHUD />}
       {esPartida && <CuentaAtrasHUD />}
