@@ -136,10 +136,23 @@ export interface PuntoPantalla {
   readonly y: number;
 }
 
+// Los ejes y los valores de partida se fijan al apoyar el dedo y el movimiento
+// se mide siempre contra ese origen. Recalcular los ejes en cada evento hacía
+// que un barrido recto fuese «girando» la línea nave→dedo y se colase en la
+// fuerza, más cuanto más eventos llegaban (un iPad a 120 Hz más que un móvil
+// a 60 Hz): el resultado dependía de la frecuencia del táctil, no del gesto.
+interface AnclaGesto {
+  readonly ux: number;
+  readonly uy: number;
+  readonly anguloGrados: number;
+  readonly potencia: number;
+}
+
 export interface GestoApuntado {
-  // Último punto ya consumido: el movimiento se mide contra él, no contra el
-  // anterior evento, para que un temblor bajo el umbral no se pierda al cruzarlo.
-  readonly previo: PuntoPantalla;
+  readonly origen: PuntoPantalla;
+  // Se rellena en la primera llamada a avanzarGesto, que es cuando se conoce
+  // la nave y el apuntado vigente.
+  readonly ancla: AnclaGesto | null;
   readonly iniciado: boolean;
 }
 
@@ -150,7 +163,26 @@ export interface ResultadoGesto {
 }
 
 export function iniciarGesto(dedo: PuntoPantalla): GestoApuntado {
-  return { previo: dedo, iniciado: false };
+  return { origen: dedo, ancla: null, iniciado: false };
+}
+
+function anclarGesto(
+  origen: PuntoPantalla,
+  nave: PuntoPantalla,
+  anguloGrados: number,
+  potencia: number,
+): AnclaGesto {
+  const rx = origen.x - nave.x;
+  const ry = nave.y - origen.y;
+  const largo = Math.hypot(rx, ry);
+  const rad = (anguloGrados * Math.PI) / 180;
+  const lejos = largo >= RADIO_CERCA_NAVE_PX;
+  return {
+    ux: lejos ? rx / largo : Math.cos(rad),
+    uy: lejos ? ry / largo : Math.sin(rad),
+    anguloGrados,
+    potencia,
+  };
 }
 
 export function avanzarGesto(
@@ -160,29 +192,22 @@ export function avanzarGesto(
   anguloGrados: number,
   potencia: number,
 ): ResultadoGesto {
-  const dx = dedo.x - gesto.previo.x;
-  const dy = dedo.y - gesto.previo.y;
+  const ancla = gesto.ancla ?? anclarGesto(gesto.origen, nave, anguloGrados, potencia);
+  const dx = dedo.x - gesto.origen.x;
+  const dy = dedo.y - gesto.origen.y;
   if (!gesto.iniciado && Math.hypot(dx, dy) < UMBRAL_TOQUE_PX) {
-    return { gesto, anguloGrados, potencia };
+    return { gesto: { ...gesto, ancla }, anguloGrados, potencia };
   }
-  // Los ejes se calculan sobre la línea nave→dedo ANTERIOR: es la que el
-  // jugador veía cuando decidió mover el dedo.
-  const rx = gesto.previo.x - nave.x;
-  const ry = nave.y - gesto.previo.y;
-  const lejos = Math.hypot(rx, ry) >= RADIO_CERCA_NAVE_PX;
-  const rad = (anguloGrados * Math.PI) / 180;
-  const ux = lejos ? rx / Math.hypot(rx, ry) : Math.cos(rad);
-  const uy = lejos ? ry / Math.hypot(rx, ry) : Math.sin(rad);
   // Movimiento en ejes de juego (y hacia arriba) descompuesto en radial y en
   // tangencial antihorario (-uy, ux).
   const mx = dx;
   const my = -dy;
-  const radial = mx * ux + my * uy;
-  const tangencial = -mx * uy + my * ux;
+  const radial = mx * ancla.ux + my * ancla.uy;
+  const tangencial = -mx * ancla.uy + my * ancla.ux;
   return {
-    gesto: { previo: dedo, iniciado: true },
-    anguloGrados: clampAngulo(anguloGrados + tangencial * GRADOS_POR_PX_GIRO),
-    potencia: clampPotencia(potencia + radial * FUERZA_POR_PX_RADIAL),
+    gesto: { origen: gesto.origen, ancla, iniciado: true },
+    anguloGrados: clampAngulo(ancla.anguloGrados + tangencial * GRADOS_POR_PX_GIRO),
+    potencia: clampPotencia(ancla.potencia + radial * FUERZA_POR_PX_RADIAL),
   };
 }
 
