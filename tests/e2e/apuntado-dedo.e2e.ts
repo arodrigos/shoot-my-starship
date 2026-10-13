@@ -113,7 +113,7 @@ test("dedo-1 (límites): la fuerza satura, un toque no cambia nada y empezar sob
   await preparar(page, MOVIL);
   await cargarEscenario(page);
   await plegarConsola(page);
-  const { dedo } = await apoyar(page, 100);
+  const { nave, dedo } = await apoyar(page, 100);
 
   // Un temblor de 2 px no es un gesto.
   await page.mouse.move(dedo.x, dedo.y - 2);
@@ -162,7 +162,7 @@ test("dedo-3: la flecha responde en menos de 200 ms y el panel ?rendimiento=1 lo
   await preparar(page, MOVIL, "&rendimiento=1");
   await cargarEscenario(page);
   await plegarConsola(page);
-  const { nave, dedo } = await apoyar(page, 100);
+  const { dedo } = await apoyar(page, 100);
   for (let i = 1; i <= 30; i++) {
     await page.mouse.move(dedo.x + (i % 2 === 0 ? 3 : -3) * 2, dedo.y - i * 2);
     await page.waitForFunction((n) => window.__debug.latencias!().length >= n, Math.min(i, 5), { timeout: 10000 });
