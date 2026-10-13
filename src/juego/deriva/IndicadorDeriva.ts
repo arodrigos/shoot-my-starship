@@ -14,7 +14,10 @@ const TAMANO_FUENTE_CSS_PX = 16;
 // setOrigin(0.5,0) la centrara bien. 320px deja 20px de margen a cada lado
 // en 360px de ancho; con wordWrap, Phaser parte en la línea más que haga
 // falta en vez de desbordar.
-const ANCHURA_MAXIMA_ETIQUETA_CSS_PX = 320;
+// El rótulo se aparta a la izquierda y se estrecha a 260 px (de 10 a 270 con el
+// centro en 140): a 360 px, el interruptor de voz ocupa de 287 en adelante y la
+// etiqueta centrada en 180 lo cruzaba.
+const ANCHURA_MAXIMA_ETIQUETA_CSS_PX = 260;
 
 export interface EstadoDerivaDibujado {
   readonly valorMundo: number;

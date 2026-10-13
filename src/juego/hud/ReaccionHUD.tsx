@@ -29,21 +29,17 @@ export function ReaccionHUD() {
       data-tipo-evento={estado.tipoEvento ?? undefined}
       role="status"
       style={{
-        // layout-dos-zonas: vive dentro de la consola (no del viewport
-        // entero) para no poder solapar nunca el lienzo -- ver PhaserGame,
-        // que la monta como hija de #consola (position:relative).
-        position: "absolute",
-        top: 2,
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: 15,
-        background: "rgba(10,12,20,0.78)",
+        // Vive en CapaAvisosHUD, con sitio propio: dentro de la consola
+        // tapaba las pestañas de jugador a 360x640.
+        width: "100%",
+        boxSizing: "border-box",
+        justifyContent: "center",
+        background: "rgb(10,12,20)",
         color: "#ffe08a",
         borderRadius: 10,
         padding: "8px 14px",
         font: "13px system-ui, sans-serif",
         textAlign: "center",
-        maxWidth: 320,
         pointerEvents: "none",
         display: "flex",
         alignItems: "center",

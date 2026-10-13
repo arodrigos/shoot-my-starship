@@ -760,11 +760,6 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
         >
           Voz: {estado.vozActiva && estado.vozDisponible ? "On" : "Off"}
         </button>
-        {estado.avisoVoz !== null && (
-          <span data-testid="voz-aviso" role="status" style={{ textAlign: "right", font: "11px system-ui, sans-serif", color: "var(--color-cromado-texto)" }}>
-            {estado.avisoVoz}
-          </span>
-        )}
       </div>
 
       {/* fila-avisos (hud-canales-1, quinta corrección): roce, aviso y broma
