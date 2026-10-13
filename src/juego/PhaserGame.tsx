@@ -6,7 +6,6 @@ import { SinWebGL } from "@/juego/SinWebGL";
 import { hayWebGL } from "@/juego/soporteWebGL";
 import { ConsolaSuperpuesta } from "@/juego/hud/ConsolaSuperpuesta";
 import { CapaAvisosHUD } from "@/juego/hud/CapaAvisosHUD";
-import { ReaccionHUD } from "@/juego/hud/ReaccionHUD";
 import { ParteDeGuerraHUD } from "@/juego/hud/ParteDeGuerraHUD";
 import { CuentaAtrasHUD } from "@/juego/hud/CuentaAtrasHUD";
 import { PreparandoHUD } from "@/juego/hud/PreparandoHUD";
@@ -82,9 +81,7 @@ export function PhaserGame({ escena, datosEscena }: Props) {
               se tapa) para que su saldo y arma seleccionada del jugador
               anterior no estén en el DOM del siguiente. */}
           {!relevoActivo && (
-            <ConsolaSuperpuesta>
-              <ReaccionHUD />
-            </ConsolaSuperpuesta>
+            <ConsolaSuperpuesta />
           )}
         </>
       )}

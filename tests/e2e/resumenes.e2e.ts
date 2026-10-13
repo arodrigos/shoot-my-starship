@@ -226,3 +226,47 @@ test("voz-3: sin voz es local no habla, avisa una vez y deshabilita el interrupt
   expect(await habladas(page)).toEqual([]);
   await expect(page.getByTestId("voz-aviso")).toHaveCount(1);
 });
+
+// El aviso y la reacción tienen sitio propio: ni tapan el interruptor de voz
+// ni se solapan entre sí, y su fondo es opaco para que no se transparente el
+// rótulo del lienzo.
+for (const [ancho, alto] of [
+  [360, 640],
+  [820, 1180],
+  [1180, 820],
+] as const) {
+  test(`avisos: sitio propio y fondo opaco a ${ancho}x${alto}`, async ({ page }) => {
+    test.setTimeout(60000);
+    await page.setViewportSize({ width: ancho, height: alto });
+    await instalarDoble(page, [EN_US]);
+    await empezar(page);
+    await expect(page.getByTestId("voz-aviso")).toBeVisible();
+    // Una sola ida al navegador: la reacción dura 2,6 s y las medidas por
+    // separado podían llegar con ella ya retirada.
+    const medidas = await page.evaluate(() => {
+      window.__debug.dispararReaccionHumor!("autoimpacto");
+      return new Promise<{ aviso: DOMRect; reaccion: DOMRect; voz: DOMRect; fondos: string[] } | null>((resolver) => {
+        const intento = (n: number) => {
+          const aviso = document.querySelector('[data-testid="voz-aviso"]');
+          const reaccion = document.querySelector('[data-testid="reaccion-texto"]');
+          const voz = document.querySelector('[data-testid="toggle-voz"]');
+          if (aviso && reaccion && voz) {
+            resolver({
+              aviso: aviso.getBoundingClientRect(),
+              reaccion: reaccion.getBoundingClientRect(),
+              voz: voz.getBoundingClientRect(),
+              fondos: [getComputedStyle(aviso).backgroundColor, getComputedStyle(reaccion).backgroundColor],
+            });
+          } else if (n > 0) requestAnimationFrame(() => intento(n - 1));
+          else resolver(null);
+        };
+        intento(60);
+      });
+    });
+    expect(medidas).not.toBeNull();
+    const { aviso, reaccion, voz, fondos } = medidas!;
+    expect(aviso.top).toBeGreaterThanOrEqual(voz.bottom);
+    expect(reaccion.top).toBeGreaterThanOrEqual(aviso.bottom);
+    expect(fondos).toEqual(["rgb(10, 12, 20)", "rgb(10, 12, 20)"]);
+  });
+}

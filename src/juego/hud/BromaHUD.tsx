@@ -60,7 +60,7 @@ export function BromaHUD() {
         maxHeight: 78,
         overflowY: "auto",
         boxSizing: "border-box",
-        background: "rgba(10,12,20,0.78)",
+        background: "rgb(10,12,20)",
         borderRadius: 8,
         padding: "4px 10px",
         paddingRight: 40,
