@@ -64,7 +64,7 @@ no gasta turnos en tiros que salen.
 
 ### Los dos modos
 
-- **Barra libre**: las quince armas están disponibles desde el primer
+- **Barra libre**: las doce armas están disponibles desde el primer
   turno, sin coste.
 - **Con presupuesto** (economía por ronda): todos los asientos, también las
   IAs, parten del mismo presupuesto (`PRESUPUESTO_BASE` = 600 créditos,
