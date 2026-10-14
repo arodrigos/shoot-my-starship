@@ -81,6 +81,17 @@ export interface DebugUltimoDisparo {
 // control-apuntado: el ajuste vivo del HUD (fuera del lienzo) y lo que ya se
 // disparó de verdad, para que los tests puedan esperar a un estado concreto
 // (issue #151) en vez de a un tiempo fijo.
+export interface DebugRastro {
+  asiento: number;
+  puntos: readonly { readonly x: number; readonly y: number }[];
+  impacto: { readonly x: number; readonly y: number } | null;
+  // Mismos valores que __debug.naves[asiento]: colorAsiento y silueta.
+  color: string;
+  silueta: 0 | 1 | 2 | 3;
+  visible: boolean;
+  estilo: { discontinuo: boolean; alfa: number };
+}
+
 export interface DebugControl {
   ajuste: { anguloGrados: number; potencia: number; armaId: string };
   ultimoDisparo: { anguloGrados: number; potencia: number; armaId: string } | null;
@@ -90,6 +101,8 @@ export interface DebugControl {
   // realce-impacto (rlc-3): espejo de EstadoControl.sacudidaActiva, para que
   // el e2e lea el ajuste persistido sin depender de leer el DOM del botón.
   sacudidaActiva: boolean;
+  // rastro-ultimo-disparo: espejo de EstadoControl.rastroActivo.
+  rastroActivo: boolean;
   // sonido-procedimental (snd-1): espejo de EstadoControl.silenciado, mismo
   // motivo que sacudidaActiva -- leer el ajuste persistido sin depender del
   // DOM del botón de silenciar.
@@ -192,7 +205,7 @@ export interface DebugGlobal {
   // apuntado-dedo: últimas medidas del gesto de apuntado (pointermove → primer
   // frame con la flecha), la flecha tal como se pintó y un atajo para fijar
   // ángulo y fuerza sin gesto (lo usan los e2e que apuntan solo como medio).
-  latencias?: () => readonly { readonly nombre: "apuntado"; readonly ms: number }[];
+  latencias?: () => readonly { readonly nombre: "apuntado" | "rastro"; readonly ms: number }[];
   flechaApuntado?: {
     readonly anguloGrados: number;
     readonly potencia: number;
@@ -218,6 +231,9 @@ export interface DebugGlobal {
   // con un guion de eventos ('desplazado-por-bisagra'...). Solo cambia el
   // estado local de quien lo invoca.
   publicarResumenPrueba?: (id: string) => void;
+  // rastro-ultimo-disparo: el único rastro dibujado (null si no hay ninguno).
+  // visible es false con el interruptor «Rastro» apagado.
+  rastro?: DebugRastro | null;
   terreno?: DebugTerreno;
   ultimoDisparo?: DebugUltimoDisparo;
   // arma-mosca (mos-3): posición inicial y de cada paso animado del último
