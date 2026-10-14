@@ -78,8 +78,17 @@ for (const definicion of CATALOGO_EVENTOS) {
     if (definicion.tipo === "gravedad-x2" || definicion.tipo === "gravedad-mitad") {
       expect(await page.evaluate(() => JSON.stringify(window.__debug.halos))).not.toBe(halosAntes);
     }
-    const despues = await lienzo(page).screenshot({ path: `capturas/evento-${definicion.tipo}-1180x820.png` });
-    const { distintos, total } = await pixelesDistintos(page, antes, despues);
+    // En el CI el lienzo se pinta por software a pocos fotogramas por segundo:
+    // la primera captura puede salir antes de que el efecto llegue a pintarse.
+    // Se repite mientras el efecto siga registrado, sin depender de un tiempo fijo.
+    let despues = await lienzo(page).screenshot({ path: `capturas/evento-${definicion.tipo}-1180x820.png` });
+    let { distintos, total } = await pixelesDistintos(page, antes, despues);
+    for (let intento = 0; distintos < 150 && intento < 10; intento++) {
+      const sigue = await page.evaluate((tipo) => (window.__debug.efectosVisibles ?? []).some((e) => e.tipo === `evento-${tipo}`), definicion.tipo);
+      if (!sigue) break;
+      despues = await lienzo(page).screenshot({ path: `capturas/evento-${definicion.tipo}-1180x820.png` });
+      ({ distintos, total } = await pixelesDistintos(page, antes, despues));
+    }
     // El criterio pide ≥ 2 % de píxeles distintos; un efecto pequeño no llega
     // a eso sobre el lienzo entero, así que se exige un mínimo absoluto (150 px) y se
     // deja la proporción en la salida del test.
