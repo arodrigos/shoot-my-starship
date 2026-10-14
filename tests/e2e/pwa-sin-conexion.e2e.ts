@@ -116,6 +116,16 @@ test("pwa-3 / pwa-5: cabeceras del worker, alcance /, aviso de 4 s y pie de Ajus
   await context.setOffline(false);
 });
 
+test("pwa-5: tras recargar con el worker ya activo, el pie dice que está lista (no 'Preparando')", async ({ context }) => {
+  test.setTimeout(180_000);
+  const page = await abrirInstalado(context);
+  await page.reload();
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+  await jugar(page);
+  await abrirAjustes(page);
+  await expect(page.getByTestId("estado-sin-conexion")).toHaveText("Lista para jugar sin conexión", { timeout: 20_000 });
+});
+
 test("pwa-2: la versión nueva se avisa, no se aplica sola, y Recargar recarga una vez", async ({ context }) => {
   test.setTimeout(180_000);
   const page = await abrirInstalado(context);
