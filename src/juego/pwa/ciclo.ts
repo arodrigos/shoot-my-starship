@@ -17,6 +17,10 @@ export interface EntornoCiclo {
   readonly recargar: () => void;
 }
 
+// forzarVersionNueva (y cualquier segundo registro) deja más de una instancia
+// escuchando "controlling": sin este cerrojo cada una pediría su recarga.
+let recargando = false;
+
 // Conecta los eventos del service worker al estado PWA. skipWaiting está a
 // false en el worker: una versión nueva solo toma el mando cuando el usuario
 // pulsa Recargar, nunca a mitad de partida mezclando chunks de dos builds.
@@ -31,7 +35,10 @@ export function conectarCiclo(sw: SerwistVentana, entorno: EntornoCiclo): void {
   sw.addEventListener("waiting", () => despacharPwa({ tipo: "esperando" }));
   sw.addEventListener("controlling", () => {
     despacharPwa({ tipo: "controlando" });
-    if (obtenerDatosPwa().recargaPedida) entorno.recargar();
+    if (!recargando && obtenerDatosPwa().recargaPedida) {
+      recargando = true;
+      entorno.recargar();
+    }
   });
 }
 

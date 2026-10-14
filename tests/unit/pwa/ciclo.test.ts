@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { conectarCiclo, type EntornoCiclo, type SerwistVentana } from "@/juego/pwa/ciclo";
-import { obtenerDatosPwa } from "@/juego/pwa/estadoPwa";
+import { despacharPwa, obtenerDatosPwa } from "@/juego/pwa/estadoPwa";
 
 type Oyente = (evento: { isUpdate?: boolean }) => void;
 
@@ -40,4 +40,18 @@ test("pwa-2: controlling no recarga si el usuario no pulsó Recargar", () => {
   emitir("waiting");
   emitir("controlling");
   assert.equal(recargas, 0);
+});
+
+test("pwa-2: con dos instancias escuchando, Recargar recarga exactamente una vez", () => {
+  let recargas = 0;
+  const entorno: EntornoCiclo = { enLinea: () => true, almacenamiento: undefined, recargar: () => void recargas++ };
+  const a = crearSw();
+  const b = crearSw();
+  conectarCiclo(a.sw, entorno);
+  conectarCiclo(b.sw, entorno);
+  b.emitir("waiting");
+  despacharPwa({ tipo: "recargar" });
+  a.emitir("controlling");
+  b.emitir("controlling");
+  assert.equal(recargas, 1);
 });
