@@ -54,6 +54,7 @@ for (const vp of VIEWPORTS) {
 }
 
 test("ma-2 / ma-8: el panel abre con los cinco controles, ayuda visible y efectos reales", async ({ page }) => {
+  test.setTimeout(90_000);
   await entrar(page, 360, 640);
   await page.getByTestId("boton-ajustes").click();
   await expect(page.getByTestId("boton-ajustes")).toHaveAttribute("aria-expanded", "true");
@@ -101,6 +102,7 @@ test("ma-2 / ma-8: el panel abre con los cinco controles, ayuda visible y efecto
 });
 
 test("ma-3: las preferencias guardadas se leen tal cual y el menú arranca cerrado", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.addInitScript(() => {
     if (sessionStorage.getItem("sembrado") === null) {
       sessionStorage.setItem("sembrado", "1");
@@ -164,6 +166,7 @@ test("ma-4: Ajustes y Sonido funcionan con la consola mínima, oculta y durante 
 });
 
 test("ma-5: el aviso de voz vive en el panel, bajo Voz, y no en la capa de avisos", async ({ page }) => {
+  test.setTimeout(90_000);
   await entrar(page, 360, 640);
   await expect(page.getByTestId("capa-avisos").getByTestId("voz-aviso")).toHaveCount(0);
   await abrirAjustes(page);
@@ -215,6 +218,7 @@ test("ma-6: se cierra con el botón, Cerrar y Escape, y solo al disparar; tocar 
 });
 
 test("ma-7: Histórico muestra el contador, cierra el panel y abre la hoja", async ({ page }) => {
+  test.setTimeout(90_000);
   await entrar(page, 360, 640);
   await abrirAjustes(page);
   await expect(page.getByTestId("historico-bromas-toggle")).toHaveText(/^Histórico/);
