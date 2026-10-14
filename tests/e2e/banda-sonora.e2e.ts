@@ -36,8 +36,6 @@ const notas = (page: Page): Promise<number> => page.evaluate(() => window.__debu
 // sonar; su control la para sin tocar los efectos; la elección sobrevive a
 // recargar. Se sondea el estado real, nunca un sleep que cruce los dedos.
 test("mus-1: la música espera al gesto, suena con Jugar, se para con su control y se recuerda", async ({ page }) => {
-  // Recarga y dos entradas a partida con WebGL por software: el margen por defecto no basta bajo la carga de un shard.
-  test.setTimeout(90_000);
   await page.setViewportSize({ width: 360, height: 640 });
   await contarAudioContext(page);
   await page.goto("/");
