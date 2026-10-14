@@ -104,7 +104,7 @@ test("gravedad-visible-3: mover la potencia a 45° cambia de verdad lo que se ve
 // real, así que el impacto (y no solo el disparo) queda garantizado sin
 // depender de apuntar a ciegas en un campo con gravedad.
 test("gravedad-visible-4: el proyectil real pasa por los puntos previsualizados y el turno se resuelve y avanza", async ({ page }) => {
-  test.setTimeout(300000);
+  test.setTimeout(180000);
   await entrarAPartidaEspacial(page);
 
   const solucion = await page.evaluate(() => window.__debug.solucionMultipozoJugador!());
@@ -124,26 +124,9 @@ test("gravedad-visible-4: el proyectil real pasa por los puntos previsualizados 
   // Mismo motivo que en gravedad-visible-3: esperar al trazado real en vez
   // de leer el fotograma justo tras el ajuste, que puede caer sobre un
   // ciclo en el que grav-vis-5 ocultó la mira por presupuesto de cómputo.
-  // Bajo la carga de un shard del CI, una sola llamada de cómputo que supere
-  // los 8 ms oculta la mira y, como los ajustes no cambian, Partida.ts no
-  // vuelve a pedirla: esperar más no la trae de vuelta. Si en 20 s no hay
-  // trazado, se mueve la potencia y se devuelve a su valor para forzar un
-  // cálculo nuevo con los mismos ajustes finales.
-  for (let intento = 0; intento < 6; intento++) {
-    try {
-      await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 20000 });
-      break;
-    } catch (error) {
-      if (intento === 5) throw error;
-      const desplazada = fraccionDePotencia(solucion!.potencia) > 0.5 ? -0.1 : 0.1;
-      await arrastrarBarraHasta(page, "barra-potencia", fraccionDePotencia(solucion!.potencia) + desplazada);
-      await arrastrarBarraHasta(page, "barra-potencia", fraccionDePotencia(solucion!.potencia));
-      await page.waitForFunction(
-        (esperado) => Math.abs(window.__debug.control!.ajuste.potencia - esperado) <= 1,
-        solucion!.potencia,
-      );
-    }
-  }
+  // Si una llamada lenta oculta la mira, Partida.ts la vuelve a pedir sola
+  // tras su margen de reintento: basta esperar al trazado.
+  await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 75000 });
 
   const previsualizacion = await page.evaluate(() => window.__debug.previsualizacion);
   expect(previsualizacion?.puntos.length ?? 0).toBeGreaterThanOrEqual(2);

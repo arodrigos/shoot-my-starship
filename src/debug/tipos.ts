@@ -209,6 +209,11 @@ export interface DebugGlobal {
     readonly dedoY: number;
   };
   fijarApuntado?: (anguloGrados: number, potencia: number) => void;
+  // mira-oculta-timeouts (mir-1): cuántas veces se ha pedido la mira al
+  // trabajador, y un interruptor que la oculta por presupuesto por el mismo
+  // camino que el coste real (sin reintento automático mientras esté activo).
+  calculosPrevisualizacion?: number;
+  forzarMiraOculta?: (activa: boolean) => void;
   // Publica en el HUD y el histórico el resumen que el generador real produce
   // con un guion de eventos ('desplazado-por-bisagra'...). Solo cambia el
   // estado local de quien lo invoca.

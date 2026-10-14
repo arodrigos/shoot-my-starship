@@ -115,7 +115,8 @@ import { reproducirDetonaciones } from "@/juego/efectos/reproductorDetonaciones"
 import type { Detonacion } from "@/sim/partida/detonaciones";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
-import { superaPresupuestoComputo, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
+import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoComputo, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
+import { ocultarMira, tocaReintentarMira, type MiraOculta } from "@/juego/mira/miraOculta";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import { esHumanoLocalUnico, nombreEnResumen, textoDesplazamiento } from "@/juego/textos/nombresEnTexto";
 import { guionResumenPrueba } from "@/juego/textos/guionesResumen";
@@ -512,6 +513,13 @@ export class Partida extends Phaser.Scene {
   private previsEstadoPedido: EstadoPartida | null = null;
   private previsPendiente: { peticion: Parameters<ClienteSim["previsualizar"]>[0]; estado: EstadoPartida } | null = null;
   private previsVigente: { estado: EstadoPartida; banda: BandaPrevisualizacion; duracionMs: number } | null = null;
+  // mira-oculta-timeouts: mientras la mira está oculta por presupuesto no se
+  // recalcula con cada movimiento del apuntado; ver miraOculta.ts.
+  private miraOculta: (MiraOculta & { readonly estado: EstadoPartida }) | null = null;
+  // Coste que las pruebas suman al cómputo para ocultar la mira con el mismo
+  // camino de siempre, sin depender de que la CPU del CI vaya lenta.
+  private costeMiraForzadoMs = 0;
+  private calculosPrevisualizacion = 0;
   // proy-4: estela de pool ACOTADO -- maxParticles en la config del emisor
   // (no un contador propio) es lo que garantiza el tope, así que
   // getAliveParticleCount() nunca puede superarlo, también con varios vuelos
@@ -938,6 +946,11 @@ export class Partida extends Phaser.Scene {
     limpiarLatenciasApuntado();
     window.__debug.latencias = () => ultimasLatenciasApuntado();
     window.__debug.fijarApuntado = (anguloGrados: number, potencia: number) => fijarApuntadoDirecto(anguloGrados, potencia);
+    window.__debug.calculosPrevisualizacion = 0;
+    window.__debug.forzarMiraOculta = (activa: boolean) => {
+      this.costeMiraForzadoMs = activa ? PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS * 100 : 0;
+      if (!activa) this.liberarMiraOculta();
+    };
     // Publica un resumen hecho con el generador real a partir de un guion de
     // eventos, para ver sus textos sin jugar los turnos que lo provocan.
     window.__debug.publicarResumenPrueba = (id: string) => {
@@ -1215,6 +1228,17 @@ export class Partida extends Phaser.Scene {
           .filter(({ nave }) => nave.integridad > 0)
           .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
       : undefined;
+    // mira-oculta-timeouts: oculta por presupuesto, el apuntado no la
+    // recalcula; vuelve a pedirse una sola vez al reintentar o al cambiar el
+    // estado (otro turno).
+    if (this.miraOculta !== null) {
+      if (this.miraOculta.estado === estado && !tocaReintentarMira(this.miraOculta, this.time.now)) {
+        window.__debug!.previsualizacion = null;
+        window.__debug!.bandaDispersion = null;
+        return;
+      }
+      this.liberarMiraOculta();
+    }
     // respuesta-200ms: la mira se calcula en el trabajador, "la última gana".
     // Mientras llega la nueva se sigue dibujando la anterior del MISMO estado:
     // un parpadeo por frame sin mira sería peor que un cuadro de retraso.
@@ -1247,7 +1271,8 @@ export class Partida extends Phaser.Scene {
     // gravedad-visible (grav-vis-5): la promesa es que el preview no
     // miente -- si no cabe en su presupuesto de cómputo, se oculta antes
     // que dibujar un trazado que ya ha costado más de lo prometido.
-    if (puntos.length < 2 || superaPresupuestoComputo(duracionComputoMs)) {
+    if (puntos.length < 2 || superaPresupuestoComputo(duracionComputoMs + this.costeMiraForzadoMs)) {
+      if (puntos.length >= 2) this.miraOculta = { ...ocultarMira(this.time.now, this.costeMiraForzadoMs > 0), estado };
       window.__debug!.previsualizacion = null;
       window.__debug!.bandaDispersion = null;
       return;
@@ -1306,11 +1331,25 @@ export class Partida extends Phaser.Scene {
     this.enviarPrevisualizacion();
   }
 
+  // Vuelve a pedir la mira una vez con el ajuste vigente. La clave se borra
+  // porque, con el ajuste quieto, pedirPrevisualizacion no volvería a pedirla.
+  private liberarMiraOculta(): void {
+    this.miraOculta = null;
+    this.previsClave = "";
+    this.previsVigente = null;
+  }
+
   private enviarPrevisualizacion(): void {
     if (this.previsEnCurso || !this.previsPendiente) return;
+    if (this.miraOculta !== null) {
+      this.previsPendiente = null;
+      return;
+    }
     const { peticion, estado } = this.previsPendiente;
     this.previsPendiente = null;
     this.previsEnCurso = true;
+    this.calculosPrevisualizacion++;
+    window.__debug!.calculosPrevisualizacion = this.calculosPrevisualizacion;
     void this.motor.previsualizar(peticion).then((resultado) => {
       this.previsEnCurso = false;
       if (resultado) this.previsVigente = { estado, banda: resultado.banda, duracionMs: resultado.duracionMs };
