@@ -30,6 +30,9 @@ import { pulsarAjuste } from "./utilesControl";
 test("humor-4: el audio no arranca hasta el primer gesto real, y entonces arranca sin aviso de autoplay", async ({
   page,
 }) => {
+  // Bajo la carga de un shard del CI (lienzo por software) cargar la partida
+  // supera los 30 s por defecto.
+  test.setTimeout(120000);
   const avisosAutoplay: string[] = [];
   page.on("console", (mensaje) => {
     if (/autoplay|NotAllowedError/i.test(mensaje.text())) {
