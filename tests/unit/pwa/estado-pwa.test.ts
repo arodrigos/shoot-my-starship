@@ -61,3 +61,11 @@ test("pwa-5: la primera instalación deja el estado listo y activa el aviso de 4
   const actualizacion = aplicar([{ tipo: "registrando" }, { tipo: "instalado", esActualizacion: true }]);
   assert.equal(actualizacion.avisoListo, false);
 });
+
+test("pwa-5: con el worker ya controlando la página, 'preparando' pasa a listo y nada más cambia", () => {
+  assert.equal(aplicar([{ tipo: "registrando" }, { tipo: "ya-controlado" }]).estado, "listo-sin-conexion");
+  const enEspera = aplicar([{ tipo: "registrando" }, { tipo: "esperando" }, { tipo: "ya-controlado" }]);
+  assert.equal(enEspera.estado, "version-nueva");
+  const fallida = aplicar([{ tipo: "registrando" }, { tipo: "fallo-comprobacion", conRed: true }, { tipo: "ya-controlado" }]);
+  assert.equal(fallida.estado, "comprobacion-fallida");
+});

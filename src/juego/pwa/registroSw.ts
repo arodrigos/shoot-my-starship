@@ -1,3 +1,4 @@
+import { despacharPwa } from "@/juego/pwa/estadoPwa";
 import { conectarCiclo, pulsarRecargar, type SerwistVentana } from "@/juego/pwa/ciclo";
 
 const URL_SW = "/serwist/sw.js";
@@ -40,6 +41,7 @@ export async function registrarServiceWorker(url: string): Promise<SerwistVentan
   });
   actual = sw;
   await sw.register();
+  if (navigator.serviceWorker.controller !== null) despacharPwa({ tipo: "ya-controlado" });
   return sw;
 }
 

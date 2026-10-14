@@ -25,6 +25,7 @@ export type EventoPwa =
   | { readonly tipo: "instalado"; readonly esActualizacion: boolean }
   | { readonly tipo: "esperando" }
   | { readonly tipo: "controlando" }
+  | { readonly tipo: "ya-controlado" }
   | { readonly tipo: "fallo-comprobacion"; readonly conRed: boolean }
   | { readonly tipo: "comprobacion-ok" }
   | { readonly tipo: "luego" }
@@ -59,6 +60,11 @@ export function reducirEstadoPwa(datos: DatosPwa, evento: EventoPwa): DatosPwa {
       return { ...datos, estado: "version-nueva", esperando: true, recargaPedida: false };
     case "controlando":
       return { ...datos, estado: "listo-sin-conexion", esperando: false };
+    case "ya-controlado":
+      // @serwist/window no emite installed ni controlling si el worker ya
+      // controlaba la página al cargar: sin esto el pie se queda en
+      // "Preparando…" en cada apertura posterior a la primera instalación.
+      return datos.estado === "preparando" ? { ...datos, estado: "listo-sin-conexion" } : datos;
     case "fallo-comprobacion":
       return { ...datos, estado: evento.conRed ? "comprobacion-fallida" : "comprobacion-fallida-sin-red" };
     case "comprobacion-ok":
