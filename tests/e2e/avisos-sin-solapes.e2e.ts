@@ -1,5 +1,4 @@
 import { test, expect, type Page } from "@playwright/test";
-import { arrastrarDesdeNave } from "./utilesApuntado";
 import { abrirAjustes } from "./utilesControl";
 
 // avisos-sin-solapes (avi-1..avi-4): dos avisos nunca ocupan el mismo sitio.
@@ -29,7 +28,8 @@ async function dispararPorArriba(page: Page): Promise<void> {
   await page.evaluate(() => {
     delete window.__debug.avisoPerdido;
   });
-  await arrastrarDesdeNave(page, 0, 90, 220);
+  // Vertical y a potencia máxima: sale por arriba en cualquier tamaño de pantalla.
+  await page.evaluate(() => window.__debug.fijarApuntado!(90, 100));
   await page.getByTestId("disparar").click();
   await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
 }
