@@ -4,13 +4,16 @@ import { useEffect, useSyncExternalStore, type CSSProperties } from "react";
 import { avisoVersionVisible, despacharPwa, obtenerDatosPwa, suscribirPwa } from "@/juego/pwa/estadoPwa";
 import { recargarVersionNueva } from "@/juego/pwa/registroSw";
 
+import { VARIABLE_TOP_AVISOS_PWA } from "@/juego/pwa/franjaAvisos";
+
 const DURACION_AVISO_LISTO_MS = 4000;
 
 // A la izquierda del botón Ajustes (48 px + 8 de margen + hueco): estos avisos
 // no pueden pisarlo en ningún ancho.
 const ESTILO_AVISO: CSSProperties = {
   position: "fixed",
-  top: "calc(8px + env(safe-area-inset-top, 0px))",
+  // La portada reserva la franja de su cabecera pegada (Música) con esta variable.
+  top: `calc(var(${VARIABLE_TOP_AVISOS_PWA}, 8px) + env(safe-area-inset-top, 0px))`,
   left: "calc(8px + env(safe-area-inset-left, 0px))",
   right: "calc(64px + env(safe-area-inset-right, 0px))",
   zIndex: 60,

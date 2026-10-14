@@ -67,7 +67,7 @@ function HistoricoBromasHUDSinMemo({ onCerrar }: Props) {
       onClick={(evento) => {
         if (evento.target === evento.currentTarget) onCerrar();
       }}
-      style={{ position: "fixed", inset: 0, zIndex: 20, background: "rgba(5,6,10,0.6)" }}
+      style={{ position: "fixed", inset: 0, zIndex: ZINDEX_HISTORICO, background: "rgba(5,6,10,0.6)" }}
     >
       <div
         ref={panel}
@@ -158,4 +158,8 @@ function mensajesDe(entrada: EntradaHistoricoBroma): string[] {
 
 // respuesta-200ms: se suscribe por su cuenta a las bromas, así que no necesita
 // repintarse cada vez que el ángulo o la potencia hacen renderizar ControlHUD.
+// Por encima de la capa de avisos (40, donde vive la ayuda de apuntado) para que no
+// le tape la cabecera, y por debajo del botón de Ajustes (50).
+const ZINDEX_HISTORICO = 45;
+
 export const HistoricoBromasHUD = memo(HistoricoBromasHUDSinMemo);

@@ -421,7 +421,11 @@ export interface DebugGlobal {
   resultadoTurno?: string;
   // salida-pantalla: el aviso «¡Perdido!» del último tiro que salió del encuadre,
   // en coordenadas del mundo (el texto vive en el lienzo, no en el DOM).
-  avisoPerdido?: { borde: string; x: number; y: number; ancho: number; alto: number };
+  // `css` es el mismo rectángulo en px CSS de la página, para compararlo con
+  // elementos del DOM (avisos PWA) sin que cada e2e repita la conversión.
+  avisoPerdido?: { borde: string; x: number; y: number; ancho: number; alto: number; css: { x: number; y: number; ancho: number; alto: number } };
+  // avi-1: cuántos «¡Perdido!» hay vivos ahora mismo en el lienzo (como mucho 1).
+  avisosPerdidoVivos?: number;
   // esp-6: fuerza el cierre de turno con un evento "proyectil-perdido" real
   // (mismo aplicarResultadoTurno que usa un disparo de verdad), sin depender
   // de encontrar por gesto una órbita estable de un sistema planetario
@@ -556,6 +560,8 @@ export interface DebugGlobal {
     readonly controlado: boolean;
     forzarVersionNueva: () => Promise<void>;
   };
+  // avisos-sin-solapes (solo e2e): muestra el aviso PWA con el estado del ciclo real.
+  mostrarAvisoPwa?: (cual: "listo" | "version") => void;
   inyectarHistorico?: (entradas: readonly EntradaHistoricoBroma[]) => void;
   // proy-1 (requisito c de la sexta devolución): true en cuanto la escena
   // de pruebas Siluetas ha dibujado las 13 siluetas del catálogo, para que
