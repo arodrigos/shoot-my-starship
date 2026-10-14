@@ -1,5 +1,6 @@
 "use client";
 
+import { NOTA_DANIO_REDUCIDO, NOTA_EVENTO_GRATIS, etiquetaPrecio } from "@/juego/hud/fichaArma";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { IconoArmaGracioso, IconoEquipoGracioso } from "@/juego/hud/iconos/iconosArmas";
@@ -820,13 +821,13 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
                       </span>
                       <span style={{ fontSize: 11 }}>
                         {agotada ? "(agotada) Ya la usaste en esta partida" : ""}
-                        {enPresupuesto && <span data-testid={`precio-${arma.id}`}>{coste > 0 ? `${coste} cr` : "Gratis"}</span>}
+                        {enPresupuesto && <span data-testid={`precio-${arma.id}`}>{etiquetaPrecio(coste)}</span>}
                         {eje !== "" && <span data-testid={`eje-${arma.id}`}>{enPresupuesto ? " · " : ""}{eje}</span>}
                         {enPresupuesto && coste === 0 && arma.efecto.tipo === "danio" && (
-                          <span data-testid={`gratis-reducida-${arma.id}`}> · Gratis · daño reducido al 25 %</span>
+                          <span data-testid={`gratis-reducida-${arma.id}`}>{NOTA_DANIO_REDUCIDO}</span>
                         )}
                         {enPresupuesto && coste === 0 && (
-                          <span data-testid={`gratis-evento-${arma.id}`}> · 25 % de provocar un evento</span>
+                          <span data-testid={`gratis-evento-${arma.id}`}>{NOTA_EVENTO_GRATIS}</span>
                         )}
                         {enPresupuesto && faltan > 0 && !agotada && <span data-testid={`faltan-${arma.id}`}> · Te faltan {faltan} cr</span>}
                       </span>

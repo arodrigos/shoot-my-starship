@@ -143,7 +143,7 @@ test("dedo-2: la ayuda del gesto sale la primera vez, se va tras el primer arras
   test.setTimeout(180000);
   await preparar(page, MOVIL);
   await plegarConsola(page);
-  const texto = "Desliza a los lados para girar, y acércate o aléjate de la nave para la fuerza";
+  const texto = "Apoya el dedo y arrastra: de lado giras, y acercándolo o alejándolo de tu nave cambias la fuerza";
   await expect(page.getByTestId("ayuda-apuntado")).toContainText(texto);
   await captura(page, "ayuda", MOVIL);
   const { dedo } = await apoyar(page, 100);
