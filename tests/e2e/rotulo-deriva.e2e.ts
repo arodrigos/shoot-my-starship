@@ -52,6 +52,8 @@ for (const vp of VIEWPORTS) {
 }
 
 test("rd-1: el rótulo no reaparece tras un disparo que completa el turno", async ({ page }) => {
+  // Entrar, esperar los 4,6 s del rótulo y resolver un turno entero no cabe en los 30 s por defecto con WebGL por software.
+  test.setTimeout(120_000);
   await page.setViewportSize({ width: 360, height: 640 });
   await entrarYCerrarAyuda(page);
   await page.waitForFunction(() => window.__debug.indicadorDeriva!.msVisible >= 4600, undefined, { timeout: 30000, polling: 100 });
