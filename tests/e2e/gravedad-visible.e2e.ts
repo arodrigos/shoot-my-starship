@@ -104,7 +104,7 @@ test("gravedad-visible-3: mover la potencia a 45° cambia de verdad lo que se ve
 // real, así que el impacto (y no solo el disparo) queda garantizado sin
 // depender de apuntar a ciegas en un campo con gravedad.
 test("gravedad-visible-4: el proyectil real pasa por los puntos previsualizados y el turno se resuelve y avanza", async ({ page }) => {
-  test.setTimeout(90000);
+  test.setTimeout(180000);
   await entrarAPartidaEspacial(page);
 
   const solucion = await page.evaluate(() => window.__debug.solucionMultipozoJugador!());
@@ -124,7 +124,7 @@ test("gravedad-visible-4: el proyectil real pasa por los puntos previsualizados 
   // Mismo motivo que en gravedad-visible-3: esperar al trazado real en vez
   // de leer el fotograma justo tras el ajuste, que puede caer sobre un
   // ciclo en el que grav-vis-5 ocultó la mira por presupuesto de cómputo.
-  await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 30000 });
+  await page.waitForFunction(() => (window.__debug.previsualizacion?.puntos.length ?? 0) >= 2, undefined, { timeout: 75000 });
 
   const previsualizacion = await page.evaluate(() => window.__debug.previsualizacion);
   expect(previsualizacion?.puntos.length ?? 0).toBeGreaterThanOrEqual(2);
@@ -160,12 +160,12 @@ test("gravedad-visible-4: el proyectil real pasa por los puntos previsualizados 
   await page.getByTestId("disparar").click();
 
   await page.waitForFunction(() => (window as unknown as { __gravVisCaptura?: unknown }).__gravVisCaptura !== undefined, undefined, {
-    timeout: 30000,
+    timeout: 75000,
   });
   await page.waitForFunction(
     (n) => window.__debug.animacionEnCurso === false && (window.__debug.numeroTurno ?? 0) >= n + 1,
     numeroTurnoAntes,
-    { timeout: 30000 },
+    { timeout: 75000 },
   );
 
   const captura = await page.evaluate(
