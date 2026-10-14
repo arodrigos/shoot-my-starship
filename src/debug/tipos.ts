@@ -108,6 +108,7 @@ export interface DebugDeriva {
   // CSS px, para comprobar que cabe en el lienzo sin leer píxeles a ojo.
   etiquetaBordeIzquierdoCssPx: number;
   etiquetaBordeDerechoCssPx: number;
+  alfa: number;
 }
 
 export interface DebugNave {
@@ -216,6 +217,13 @@ export interface DebugGlobal {
   trayectoriaAnimadaUltimoVuelo?: readonly { readonly x: number; readonly y: number }[];
   control?: DebugControl;
   deriva?: DebugDeriva;
+  // Estado del rótulo «Vacío…» de las partidas espaciales (visibilidadDeriva).
+  indicadorDeriva?: {
+    readonly visible: boolean;
+    readonly alfa: number;
+    readonly etiqueta: string;
+    readonly msVisible: number;
+  };
   naves?: readonly DebugNave[];
   // escudo-y-propulsores (esc-2): radio del círculo de alcance de los
   // propulsores en unidades de mundo, y la ruta prevista cuando están elegidos.

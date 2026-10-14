@@ -29,6 +29,7 @@ export interface EstadoDerivaDibujado {
   // leer píxeles de una captura a ojo.
   readonly etiquetaBordeIzquierdoCssPx: number;
   readonly etiquetaBordeDerechoCssPx: number;
+  readonly alfa: number;
 }
 
 // Flecha + etiqueta en la esquina superior: el único sitio del HUD que
@@ -42,6 +43,9 @@ export class IndicadorDeriva {
   private readonly y: number;
   private readonly xCss: number;
   private readonly compensacionEscala: number;
+  // El rótulo se redibuja en cada actualizar(), así que el alfa se recuerda
+  // aquí para que un redibujado no lo devuelva a 1.
+  private alfa = 1;
 
   // hud-canales-1 (quinta corrección): x/y ya no son unidades de juego
   // fijas -- son el destino en CSS px DENTRO del lienzo (misma unidad que
@@ -83,6 +87,15 @@ export class IndicadorDeriva {
       .setDepth(100);
   }
 
+  fijarAlfa(alfa: number): void {
+    this.alfa = alfa;
+    this.grafico.setAlpha(alfa);
+    this.texto.setAlpha(alfa);
+    const visible = alfa > 0;
+    this.grafico.setVisible(visible);
+    this.texto.setVisible(visible);
+  }
+
   actualizar(valorMundo: number, etiqueta: string): EstadoDerivaDibujado {
     const sentido: -1 | 0 | 1 = valorMundo > 0 ? 1 : valorMundo < 0 ? -1 : 0;
     const magnitudNormalizada = Math.min(1, Math.abs(valorMundo) / DERIVA_REFERENCIA_PX_S2);
@@ -113,6 +126,6 @@ export class IndicadorDeriva {
     const etiquetaBordeIzquierdoCssPx = this.xCss - anchoEtiquetaCssPx / 2;
     const etiquetaBordeDerechoCssPx = this.xCss + anchoEtiquetaCssPx / 2;
 
-    return { valorMundo, etiqueta, sentido, longitudFlechaPx, etiquetaBordeIzquierdoCssPx, etiquetaBordeDerechoCssPx };
+    return { valorMundo, etiqueta, sentido, longitudFlechaPx, etiquetaBordeIzquierdoCssPx, etiquetaBordeDerechoCssPx, alfa: this.alfa };
   }
 }
