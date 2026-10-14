@@ -33,6 +33,7 @@ import { estadisticasIniciales, generarParteDeGuerra, type EstadisticasPartida }
 import { buscarMapa, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { Nave } from "@/juego/naves/Nave";
 import { IndicadorDeriva } from "@/juego/deriva/IndicadorDeriva";
+import { alfaRotuloDeriva } from "@/juego/deriva/visibilidadDeriva";
 import { AnimadorProyectil } from "@/juego/vuelo/AnimadorProyectil";
 import { VisualArmas } from "@/juego/armas/VisualArmas";
 import { aspectoDeId, aspectosDelCatalogo, trazadoDeArma } from "@/juego/armas/aspecto";
@@ -402,6 +403,15 @@ export class Partida extends Phaser.Scene {
   private marcasRobot: Phaser.GameObjects.GameObject[] = [];
   private marcasObjeto: Phaser.GameObjects.GameObject[] = [];
   private indicadorDeriva!: IndicadorDeriva;
+  // Reloj del rótulo de deriva. Phaser recorta el delta a 200 ms por fotograma,
+  // así que con WebGL por software (pocos fps) el delta de la escena corre
+  // mucho más despacio que el reloj real y los 4 s duraban medio minuto. Se
+  // mide el tiempo real entre fotogramas, con tope de 1 s para que una
+  // pestaña que estuvo en segundo plano no se coma el rótulo de golpe.
+  private msTableroVisible = 0;
+  private instanteAnteriorRotulo: number | null = null;
+  private ayudaInicialVista = false;
+  private alfaRotulo = 1;
   private animador!: AnimadorProyectil;
   // realce-impacto (rlc-1): avance de turno retrasado mientras dura la
   // sacudida de cámara, contado a mano con el mismo `delta` del bucle de
@@ -1107,6 +1117,7 @@ export class Partida extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.medidorFrames.registrarFrame(delta);
+    this.actualizarRotuloDeriva();
     this.animador.actualizar(delta);
     this.animadorRepeticion.actualizar(delta);
     window.__debug!.animacionEnCurso = this.animador.enVuelo();
@@ -3027,6 +3038,39 @@ export class Partida extends Phaser.Scene {
     if (window.__debug !== undefined) window.__debug.halos = halos;
     const depuracion = window.__debug?.fondoEspacial;
     if (depuracion !== undefined) depuracion.rehornoHalos = (depuracion.rehornoHalos ?? 0) + 1;
+  }
+
+  // El tablero queda a la vista al cerrar la ayuda inicial o, si no se
+  // muestra, en el primer turno del jugador: con la ayuda encima los 4 s
+  // pasarían sin que nadie viera el rótulo.
+  private actualizarRotuloDeriva(): void {
+    const ahora = performance.now();
+    const delta = this.instanteAnteriorRotulo === null ? 0 : Math.min(ahora - this.instanteAnteriorRotulo, 1000);
+    this.instanteAnteriorRotulo = ahora;
+    const control = obtenerEstadoControl();
+    if (control.ayudaVisible) this.ayudaInicialVista = true;
+    const tableroAlaVista = !control.ayudaVisible && (this.ayudaInicialVista || control.puedeDisparar);
+    if (tableroAlaVista) {
+      this.ayudaInicialVista = true;
+      this.msTableroVisible += delta;
+    }
+    const alfa = alfaRotuloDeriva({
+      modoEspacial: control.modoEspacial,
+      deriva: this.estado.mundo.deriva,
+      msVisible: this.msTableroVisible,
+      reducirMovimiento: prefiereMovimientoReducido(),
+    });
+    if (alfa !== this.alfaRotulo) {
+      this.alfaRotulo = alfa;
+      this.indicadorDeriva.fijarAlfa(alfa);
+      this.refrescarIndicadorDeriva();
+    }
+    window.__debug!.indicadorDeriva = {
+      visible: alfa > 0,
+      alfa,
+      etiqueta: this.estado.mundo.etiquetaDeriva,
+      msVisible: this.msTableroVisible,
+    };
   }
 
   private refrescarIndicadorDeriva(): void {
