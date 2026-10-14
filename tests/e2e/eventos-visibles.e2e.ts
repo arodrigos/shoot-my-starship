@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CATALOGO_EVENTOS } from "@/sim/universo/catalogoEventos";
+import { abrirAjustes } from "./utilesControl";
 
 async function empezar(page: Page, extra = ""): Promise<void> {
   await page.setViewportSize({ width: 1180, height: 820 });
@@ -105,6 +106,7 @@ test("evv-1: con movimiento reducido las 11 entradas existen y la cámara no se 
 test("evv-1: con Sacudida apagada el terremoto no mueve la cámara pero enseña el polvo", async ({ page }) => {
   test.setTimeout(150000);
   await empezar(page);
+  await abrirAjustes(page);
   const boton = page.getByTestId("toggle-sacudida");
   if ((await boton.getAttribute("aria-pressed")) === "true") await boton.click();
   await expect(boton).toHaveAttribute("aria-pressed", "false");

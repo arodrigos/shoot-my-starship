@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { pulsarAjuste } from "./utilesControl";
 
 // humor-4: desbloquearAudio() solo se llama desde un gesto real del usuario
 // -- nunca en un efecto de montaje -- así que antes de cualquier toque el
@@ -59,7 +60,7 @@ test("humor-4: el audio no arranca hasta el primer gesto real, y entonces arranc
   }
 
   // El gesto que de verdad activa el audio es el interruptor del HUD.
-  await page.getByTestId("toggle-silenciado").click();
+  await pulsarAjuste(page, "toggle-silenciado");
   await page.waitForFunction(() => window.__debug.estadoAudio!() === "en-marcha");
   expect(avisosAutoplay).toEqual([]);
 });

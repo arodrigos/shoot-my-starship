@@ -26,9 +26,9 @@ const MAXIMO_TURNOS_JUGADOS = 20;
 // Elementos de HUD opacos que pueden tapar el proyectil DENTRO del lienzo
 // (el único que importa aquí: la consola vive fuera de la zona de juego) --
 // mismo criterio que proy-5, reducido a los botones fixed que flotan sobre
-// el propio lienzo (historico-bromas-toggle, toggle-sacudida,
-// toggle-silenciado).
-const TESTIDS_HUD_SOBRE_LIENZO = ["historico-bromas-toggle", "toggle-sacudida", "toggle-silenciado"];
+// el propio lienzo (hoy solo boton-ajustes: los interruptores viven en su
+// panel, cerrado durante estas capturas).
+const TESTIDS_HUD_SOBRE_LIENZO = ["boton-ajustes"];
 const MARGEN_VISIBILIDAD_PX = 14;
 
 // arte-siluetas-5 (quinta corrección): la cuarta elegía el instante de la

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
-import { arrastrarBarraHasta } from "./utilesControl";
+import { arrastrarBarraHasta, abrirAjustes, pulsarAjuste } from "./utilesControl";
 
 async function entrarAPartida(page: import("@playwright/test").Page): Promise<void> {
   await page.setViewportSize({ width: 360, height: 640 });
@@ -34,6 +34,7 @@ test("snd-1: no existe AudioContext hasta el gesto explícito, y el interruptor 
 
   expect(await page.evaluate(() => window.__debug.estadoAudio!())).toBe("sin-inicializar");
 
+  await abrirAjustes(page);
   const boton = page.getByTestId("toggle-silenciado");
   await expect(boton).toBeVisible();
   await expect(boton).toHaveAttribute("aria-pressed", "false");
@@ -50,6 +51,7 @@ test("snd-1: no existe AudioContext hasta el gesto explícito, y el interruptor 
 test("snd-1: activar el sonido crea el AudioContext y persiste tras recargar", async ({ page }) => {
   await entrarAPartida(page);
 
+  await abrirAjustes(page);
   const boton = page.getByTestId("toggle-silenciado");
   await boton.click();
   await expect(boton).toHaveAttribute("aria-pressed", "true");
@@ -69,6 +71,7 @@ test("snd-1: activar el sonido crea el AudioContext y persiste tras recargar", a
     await page.getByTestId("ayuda-cerrar").click();
   }
 
+  await abrirAjustes(page);
   await expect(page.getByTestId("toggle-silenciado")).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -81,7 +84,7 @@ test("snd-1: activar el sonido crea el AudioContext y persiste tras recargar", a
 test("snd-2: la mina suena con su tic-tac", async ({ page }) => {
   test.setTimeout(120000);
   await entrarAPartida(page);
-  await page.getByTestId("toggle-silenciado").click();
+  await pulsarAjuste(page, "toggle-silenciado");
 
   await page.getByTestId("selector-arma-abrir").click();
   await page.getByTestId("arma-gancho-pegajoso").click();

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { abrirAjustes } from "./utilesControl";
 
 interface VozDoble {
   name: string;
@@ -194,6 +195,7 @@ test("voz-2: el interruptor silencia, se recuerda al recargar y no toca la músi
   await empezar(page);
   const musicaAntes = await page.evaluate(() => window.__debug.musica!().estado);
 
+  await abrirAjustes(page);
   const interruptor = page.getByTestId("toggle-voz");
   await expect(interruptor).toHaveAttribute("aria-pressed", "true");
   await interruptor.click();
@@ -209,6 +211,7 @@ test("voz-2: el interruptor silencia, se recuerda al recargar y no toca la músi
   await empezar(page);
   await jugarTurnos(page, 3);
   expect(await habladas(page)).toEqual([]);
+  await abrirAjustes(page);
   await expect(page.getByTestId("toggle-voz")).toHaveAttribute("aria-pressed", "false");
 });
 
@@ -218,55 +221,58 @@ test("voz-3: sin voz es local no habla, avisa una vez y deshabilita el interrupt
   await page.setViewportSize({ width: 360, height: 640 });
   await instalarDoble(page, [EN_US, { name: "Google español", lang: "es-ES", localService: false }]);
   await empezar(page);
+  await abrirAjustes(page);
   await expect(page.getByTestId("toggle-voz")).toBeDisabled();
   await expect(page.getByTestId("voz-aviso")).toHaveText(
     "Tu dispositivo no tiene voz en castellano: los resúmenes seguirán en texto",
   );
   await jugarTurnos(page, 3);
   expect(await habladas(page)).toEqual([]);
+  await abrirAjustes(page);
   await expect(page.getByTestId("voz-aviso")).toHaveCount(1);
 });
 
-// El aviso y la reacción tienen sitio propio: ni tapan el interruptor de voz
-// ni se solapan entre sí, y su fondo es opaco para que no se transparente el
-// rótulo del lienzo.
+// menu-ajustes (ma-5): el aviso de voz vive en el panel de Ajustes, justo bajo
+// Voz, y ya no en la capa de avisos del lienzo. La reacción conserva su sitio
+// propio en esa capa y su fondo opaco para que no se transparente el rótulo.
 for (const [ancho, alto] of [
   [360, 640],
   [820, 1180],
   [1180, 820],
 ] as const) {
-  test(`avisos: sitio propio y fondo opaco a ${ancho}x${alto}`, async ({ page }) => {
+  test(`avisos: el aviso de voz va en el panel bajo Voz y la reacción tiene fondo opaco a ${ancho}x${alto}`, async ({ page }) => {
     test.setTimeout(60000);
     await page.setViewportSize({ width: ancho, height: alto });
     await instalarDoble(page, [EN_US]);
     await empezar(page);
-    await expect(page.getByTestId("voz-aviso")).toBeVisible();
-    // Una sola ida al navegador: la reacción dura 2,6 s y las medidas por
-    // separado podían llegar con ella ya retirada.
-    const medidas = await page.evaluate(() => {
+    await expect(page.getByTestId("capa-avisos").getByTestId("voz-aviso")).toHaveCount(0);
+    await expect(page.getByTestId("voz-aviso")).toHaveCount(0);
+
+    // La reacción dura 2,6 s: el disparo y la medida van en una sola ida al navegador.
+    const fondoReaccion = await page.evaluate(() => {
       window.__debug.dispararReaccionHumor!("autoimpacto");
-      return new Promise<{ aviso: DOMRect; reaccion: DOMRect; voz: DOMRect; fondos: string[] } | null>((resolver) => {
+      return new Promise<string | null>((resolver) => {
         const intento = (n: number) => {
-          const aviso = document.querySelector('[data-testid="voz-aviso"]');
           const reaccion = document.querySelector('[data-testid="reaccion-texto"]');
-          const voz = document.querySelector('[data-testid="toggle-voz"]');
-          if (aviso && reaccion && voz) {
-            resolver({
-              aviso: aviso.getBoundingClientRect(),
-              reaccion: reaccion.getBoundingClientRect(),
-              voz: voz.getBoundingClientRect(),
-              fondos: [getComputedStyle(aviso).backgroundColor, getComputedStyle(reaccion).backgroundColor],
-            });
-          } else if (n > 0) requestAnimationFrame(() => intento(n - 1));
+          if (reaccion) resolver(getComputedStyle(reaccion).backgroundColor);
+          else if (n > 0) requestAnimationFrame(() => intento(n - 1));
           else resolver(null);
         };
         intento(60);
       });
     });
-    expect(medidas).not.toBeNull();
-    const { aviso, reaccion, voz, fondos } = medidas!;
-    expect(aviso.top).toBeGreaterThanOrEqual(voz.bottom);
-    expect(reaccion.top).toBeGreaterThanOrEqual(aviso.bottom);
-    expect(fondos).toEqual(["rgb(10, 12, 20)", "rgb(10, 12, 20)"]);
+    expect(fondoReaccion).toBe("rgb(10, 12, 20)");
+
+    await abrirAjustes(page);
+    const panel = page.getByTestId("panel-ajustes");
+    const aviso = page.getByTestId("voz-aviso");
+    await expect(aviso).toBeVisible();
+    await expect(panel.getByTestId("voz-aviso")).toHaveCount(1);
+    const cajaAviso = (await aviso.boundingBox())!;
+    const cajaVoz = (await page.getByTestId("toggle-voz").boundingBox())!;
+    expect(cajaAviso.y).toBeGreaterThanOrEqual(cajaVoz.y + cajaVoz.height);
+    expect(await aviso.evaluate((el) => getComputedStyle(el.closest('[data-testid="panel-ajustes"]')!).backgroundColor)).toBe(
+      "rgb(10, 12, 20)",
+    );
   });
 }

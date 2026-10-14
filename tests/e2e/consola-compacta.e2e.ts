@@ -85,7 +85,7 @@ test("con-2: a 360x640 con la consola desplegada la última fila y el resumen no
   await entrarAPartida(page, 360, 640);
   const resumen = await page.getByTestId("resultado-turno").evaluate((el) => el.scrollWidth <= el.clientWidth);
   expect(resumen).toBe(true);
-  for (const id of ["selector-arma-abrir", "repetir-disparo", "disparar", "historico-bromas-toggle"]) {
+  for (const id of ["selector-arma-abrir", "repetir-disparo", "disparar", "boton-ajustes"]) {
     const c = (await page.getByTestId(id).boundingBox())!;
     const tapadoPor = await page.evaluate(
       ({ x, y }) => {

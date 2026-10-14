@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { abrirAjustes } from "./utilesControl";
 
 // hud-canales: HUD partido en canal de estado (permanente) y canal pasivo
 // (la broma, efímera) -- ver diseño del bloque para el detalle de los 5
@@ -166,6 +167,7 @@ test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en ord
   // hud-canales-3: "accesible desde el canal de estado" -- un botón ahí
   // mismo, no una fila permanente (lay-5 no deja presupuesto de alto para
   // una fila más en 360x640).
+  await abrirAjustes(page);
   await page.getByTestId("historico-bromas-toggle").click();
   await expect(page.getByTestId("historico-bromas-vacio")).toHaveText("Aún no hay mensajes: aquí aparecerán las bromas y avisos de la partida.");
   await page.getByTestId("historico-bromas-cerrar").click();
@@ -175,6 +177,7 @@ test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en ord
   // tercero; el sexto es la respuesta de la máquina al quinto.
   await page.evaluate(() => window.__debug.jugarTurnosGuionizados!(2));
   await dispararTurnoReal(page);
+  await abrirAjustes(page);
   await page.getByTestId("historico-bromas-toggle").click();
   await expect(page.getByTestId("historico-bromas-entrada-0")).toBeVisible();
   await page.getByTestId("historico-bromas-cerrar").click();
@@ -182,6 +185,7 @@ test("hud-canales-3: histórico de bromas vacío al empezar, dos entradas en ord
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 90000 });
   await dispararTurnoReal(page);
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 90000 });
+  await abrirAjustes(page);
   await page.getByTestId("historico-bromas-toggle").click();
   await expect(page.getByTestId("historico-bromas-entrada-1")).toBeVisible();
 });
@@ -231,9 +235,7 @@ test("hud-canales-4: sin violaciones de target-size/color-contrast y ningún pan
     "selector-arma-abrir",
     "repetir-disparo",
     "disparar",
-    "toggle-sacudida",
-    "toggle-silenciado",
-    "historico-bromas-toggle",
+    "boton-ajustes",
   ];
 
   const cajas: Array<{ testId: string; caja: { x: number; y: number; width: number; height: number } }> = [];

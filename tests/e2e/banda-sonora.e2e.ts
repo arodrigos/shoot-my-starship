@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { abrirAjustes, pulsarAjuste } from "./utilesControl";
 
 declare global {
   interface Window {
@@ -49,6 +50,7 @@ test("mus-1: la música espera al gesto, suena con Jugar, se para con su control
   const base = await notas(page);
   await expect.poll(() => notas(page), { timeout: 10000, intervals: [50, 100] }).toBeGreaterThanOrEqual(base + 4);
 
+  await abrirAjustes(page);
   const boton = page.getByTestId("toggle-musica");
   await expect(boton).toHaveAttribute("aria-pressed", "true");
   const efectosAntes = await page.evaluate(() => window.__debug.audio!().silenciado);
@@ -66,6 +68,7 @@ test("mus-1: la música espera al gesto, suena con Jugar, se para con su control
   await page.reload();
   await jugar(page);
   expect(await page.evaluate(() => window.__debug.musica!().estado)).toBe("parada");
+  await abrirAjustes(page);
   await expect(page.getByTestId("toggle-musica")).toHaveAttribute("aria-pressed", "false");
 });
 
@@ -80,6 +83,7 @@ test("mus-1 límite: un valor corrupto cuenta como activada y no hay errores en 
   await expect
     .poll(() => page.evaluate(() => window.__debug.musica!().estado), { timeout: 10000, intervals: [50, 100] })
     .toBe("sonando");
+  await abrirAjustes(page);
   await expect(page.getByTestId("toggle-musica")).toHaveAttribute("aria-pressed", "true");
   expect(errores).toEqual([]);
 });
@@ -89,7 +93,7 @@ test("mus-1 límite: con la música desactivada los efectos se registran y la m�
   await page.addInitScript(() => localStorage.setItem("banda-sonora:activada", "0"));
   await page.goto("/?mapa=calma-de-los-restos");
   await jugar(page);
-  await page.getByTestId("toggle-silenciado").click();
+  await pulsarAjuste(page, "toggle-silenciado");
   await page.evaluate(() => window.__debug.dispararEventoImpactoReal!(1, 200, 300, 30));
   const historial = await page.evaluate(() => window.__debug.audio!().historial);
   expect(historial[historial.length - 1]?.id).toBe("impacto");

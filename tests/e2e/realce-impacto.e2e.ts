@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { abrirAjustes } from "./utilesControl";
 
 async function entrarAPartida(page: import("@playwright/test").Page): Promise<void> {
   await page.setViewportSize({ width: 360, height: 640 });
@@ -102,6 +103,7 @@ test("rlc-1: la amplitud crece con el daño real pero nunca supera el tope", asy
 test("rlc-3: el interruptor de sacudida desactiva el realce y persiste tras recargar", async ({ page }) => {
   await entrarAPartida(page);
 
+  await abrirAjustes(page);
   const boton = page.getByTestId("toggle-sacudida");
   await expect(boton).toHaveAttribute("aria-pressed", "true");
   await boton.click();
@@ -124,5 +126,6 @@ test("rlc-3: el interruptor de sacudida desactiva el realce y persiste tras reca
     await page.getByTestId("ayuda-cerrar").click();
   }
 
+  await abrirAjustes(page);
   await expect(page.getByTestId("toggle-sacudida")).toHaveAttribute("aria-pressed", "false");
 });
