@@ -165,6 +165,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
       ayudaVisible: estado.ayudaVisible,
       usosPorArma: estado.usosPorArma,
       sacudidaActiva: estado.sacudidaActiva,
+      rastroActivo: estado.rastroActivo,
       silenciado: estado.silenciado,
     };
     window.__debug.modoEspacial = estado.modoEspacial;

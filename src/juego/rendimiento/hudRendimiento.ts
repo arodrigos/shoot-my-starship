@@ -21,12 +21,15 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
     const maxRetraso = r.interacciones.reduce((m, x) => Math.max(m, x.retrasoEntrada), 0);
     const peor = Math.max(maxDuracion, maxRetraso, r.inp);
     const dentro = peor <= LIMITE_RESPUESTA_MS;
-    const ultima = latencias().at(-1);
+    const todas = latencias();
+    const ultima = todas.findLast((l) => l.nombre === "apuntado");
+    const ultimaRastro = todas.findLast((l) => l.nombre === "rastro");
     caja.style.color = dentro ? "#9f9" : "#f88";
     caja.textContent =
       `p95 ${i.p95.toFixed(1)} ms\nmax ${i.max.toFixed(1)} ms\nlargos ${i.framesLargos}\n` +
       `INP ${r.inp.toFixed(0)} ms\nmáx duración ${maxDuracion.toFixed(0)} ms\nmáx retraso ${maxRetraso.toFixed(0)} ms\n` +
       `apuntado: ${ultima === undefined ? "–" : `${ultima.ms.toFixed(0)} ms`}\n` +
+      `rastro: ${ultimaRastro === undefined ? "–" : `${ultimaRastro.ms.toFixed(0)} ms`}\n` +
       (dentro ? "Respuesta ≤ 200 ms" : `Supera 200 ms (${peor.toFixed(0)} ms)`);
     caja.dataset.veredicto = dentro ? "verde" : "rojo";
   };

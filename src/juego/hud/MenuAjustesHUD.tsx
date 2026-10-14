@@ -5,6 +5,7 @@ import {
   alternarMusicaActiva,
   alternarSilenciado,
   alternarVozActiva,
+  fijarRastroActivo,
   fijarSacudidaActiva,
   obtenerEstadoControl,
   suscribirControl,
@@ -101,6 +102,14 @@ export function MenuAjustesHUD() {
       pulsado: estado.sacudidaActiva,
       title: estado.sacudidaActiva ? "Desactivar sacudida de impacto" : "Activar sacudida de impacto",
       alPulsar: () => fijarSacudidaActiva(!estado.sacudidaActiva),
+    },
+    {
+      testId: "toggle-rastro",
+      etiqueta: `Rastro: ${estado.rastroActivo ? "On" : "Off"}`,
+      ayuda: "Dibuja la trayectoria del último tiro",
+      pulsado: estado.rastroActivo,
+      title: estado.rastroActivo ? "Ocultar el rastro del último tiro" : "Mostrar el rastro del último tiro",
+      alPulsar: () => fijarRastroActivo(!estado.rastroActivo),
     },
     {
       // El gesto de pulsar este botón para activar el sonido es, a la vez, el

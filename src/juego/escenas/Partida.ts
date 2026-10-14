@@ -50,7 +50,7 @@ import { ClienteSim } from "@/juego/motor/clienteSim";
 import { crearTrabajadorSim } from "@/juego/motor/crearTrabajador";
 import { mostrarApuntandoIA, ocultarApuntandoIA } from "@/juego/hud/indicadorApuntandoIA";
 import { montarHudRendimiento } from "@/juego/rendimiento/hudRendimiento";
-import { limpiarLatenciasApuntado, registrarLatenciaApuntado, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
+import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaRastro, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
 import {
   fijarModo,
   fijarModoEspacial,
@@ -119,6 +119,8 @@ import { superaPresupuestoComputo, type BandaPrevisualizacion } from "@/sim/arma
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import { esHumanoLocalUnico, nombreEnResumen, textoDesplazamiento } from "@/juego/textos/nombresEnTexto";
 import { guionResumenPrueba } from "@/juego/textos/guionesResumen";
+import { dibujarRastro } from "@/juego/rastro/DibujoRastro";
+import { ESTADO_RASTROS_VACIO, registrarRastro, rastroVisible, ALFA_RASTRO, type EstadoRastros } from "@/juego/rastro/rastros";
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
 import type { DebugEfectoVisible } from "@/debug/tipos";
 import "@/debug/tipos";
@@ -522,6 +524,11 @@ export class Partida extends Phaser.Scene {
   // como IndicadorDeriva, que es HUD de pantalla) -- misma convención que
   // "dibujados en el mundo y no en un recuadro" del diseño.
   private graficosPrevisualizacion!: Phaser.GameObjects.Graphics;
+  // rastro-ultimo-disparo: capa propia por debajo de la mira y el único rastro
+  // de la escena; rastroPintado evita redibujar cada frame.
+  private graficosRastro!: Phaser.GameObjects.Graphics;
+  private rastros: EstadoRastros = ESTADO_RASTROS_VACIO;
+  private rastroPintado: { rastro: EstadoRastros["ultimo"]; activo: boolean } | null = null;
   private cancelarManejadorDisparo: (() => void) | null = null;
   private cancelarManejadorRepeticion: (() => void) | null = null;
 
@@ -872,6 +879,7 @@ export class Partida extends Phaser.Scene {
     // Depth 30: por debajo de la estela del proyectil real (40, que solo
     // existe durante el vuelo, cuando la previsualización ya está oculta),
     // por encima del terreno y las naves.
+    this.graficosRastro = this.add.graphics().setDepth(29);
     this.graficosPrevisualizacion = this.add.graphics().setDepth(30);
     this.graficosFlecha = this.add.graphics().setDepth(31);
     this.etiquetaFlecha = this.add
@@ -1171,10 +1179,41 @@ export class Partida extends Phaser.Scene {
 
 
     this.actualizarPrevisualizacion(jugable);
+    this.actualizarRastro();
     this.actualizarFlechaApuntado();
     // paron-explosion: la subida del terreno a la GPU, una vez por frame y
     // después de lanzar las explosiones del frame (el destello va primero).
     this.terreno.vaciarCola();
+  }
+
+  // rastro-ultimo-disparo: redibuja solo cuando cambia el rastro o el
+  // interruptor, y cierra la medida 'rastro' del toque en «Rastro».
+  private actualizarRastro(): void {
+    const activo = obtenerEstadoControl().rastroActivo;
+    const rastro = rastroVisible(this.rastros, activo);
+    const previo = this.rastroPintado;
+    if (previo === null || previo.rastro !== this.rastros.ultimo || previo.activo !== activo) {
+      dibujarRastro(this.graficosRastro, rastro);
+      this.rastroPintado = { rastro: this.rastros.ultimo, activo };
+      if (previo !== null && previo.activo !== activo && performance.getEntriesByName("rastro-toque", "mark").length > 0) {
+        registrarLatenciaRastro(performance.measure("rastro-frame", "rastro-toque").duration);
+        performance.clearMarks("rastro-toque");
+        performance.clearMeasures("rastro-frame");
+      }
+    }
+    const ultimo = this.rastros.ultimo;
+    window.__debug!.rastro =
+      ultimo === null
+        ? null
+        : {
+            asiento: ultimo.asiento,
+            puntos: ultimo.puntos,
+            impacto: ultimo.impacto,
+            color: colorDeAsiento(ultimo.asiento),
+            silueta: (ultimo.asiento % 4) as 0 | 1 | 2 | 3,
+            visible: rastro !== null,
+            estilo: { discontinuo: true, alfa: ALFA_RASTRO },
+          };
   }
 
   // prevision-real (pvr-1, pvr-2, pvr-3): recalcula y redibuja la mira cada
@@ -1910,6 +1949,13 @@ export class Partida extends Phaser.Scene {
         // Node con el mismo aleatorio/magnitud (ver comentario de perturbacion
         // más arriba).
         window.__debug!.trayectoriaAnimadaUltimoVuelo = this.animador.obtenerTrayectoria();
+        // rastro-ultimo-disparo: sustituye al rastro anterior, sea de quien
+        // sea; un tiro perdido (sin evento de impacto) no lleva silueta.
+        this.rastros = registrarRastro(
+          tirador,
+          this.animador.obtenerTrayectoria().map((p) => ({ x: p.x, y: p.y })),
+          eventoImpacto ? { x: final.x, y: final.y } : null,
+        );
         // arma-granada-espoleta (gra-2, gra-3): la cuenta atrás termina junto
         // con el vuelo -- limpiarla aquí (y no solo esperar al siguiente
         // disparo) evita que el "0" se quede pegado en pantalla durante el

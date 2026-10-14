@@ -61,6 +61,9 @@ export interface EstadoControl {
   // resetea en reiniciarControl porque es preferencia del navegador, no de
   // la partida).
   readonly sacudidaActiva: boolean;
+  // rastro-ultimo-disparo: si se dibuja la trayectoria del último tiro; misma
+  // persistencia que sacudidaActiva (preferencia del navegador).
+  readonly rastroActivo: boolean;
   // sonido-procedimental (snd-1): espejo de motor.ts/sonidoSilenciado() para
   // que el HUD (React) se reactive al alternar -- motor.ts sigue siendo la
   // única fuente de verdad y la que persiste en localStorage; este campo solo
@@ -202,6 +205,25 @@ function guardarSacudidaActiva(valor: boolean): void {
   }
 }
 
+const CLAVE_RASTRO_ACTIVO = "rastro-ultimo-disparo:activo";
+
+// Solo "0" lo apaga: un valor corrupto o ausente deja el rastro encendido.
+function leerRastroActivoGuardado(): boolean {
+  try {
+    return window.localStorage.getItem(CLAVE_RASTRO_ACTIVO) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function guardarRastroActivo(valor: boolean): void {
+  try {
+    window.localStorage.setItem(CLAVE_RASTRO_ACTIVO, valor ? "1" : "0");
+  } catch {
+    // Sin almacenamiento el ajuste no persiste, pero el interruptor funciona.
+  }
+}
+
 let estado: EstadoControl = {
   ajuste: leerAjusteGuardado() ?? {
     anguloGrados: ANGULO_INICIAL_GRADOS,
@@ -217,6 +239,7 @@ let estado: EstadoControl = {
   modo: "barra-libre",
   saldo: null,
   sacudidaActiva: leerSacudidaActivaGuardada(),
+  rastroActivo: leerRastroActivoGuardado(),
   silenciado: sonidoSilenciado(),
   musicaActiva: musicaActivada(),
   vozActiva: true,
@@ -474,6 +497,14 @@ export function cerrarAyudaDispersion(): void {
 export function fijarSacudidaActiva(valor: boolean): void {
   fijar({ sacudidaActiva: valor });
   guardarSacudidaActiva(valor);
+}
+
+// rastro-ultimo-disparo (ras-4): la marca de performance se hace en el toque;
+// Partida.ts cierra la medida en el primer frame que redibuja la capa.
+export function fijarRastroActivo(valor: boolean): void {
+  if (typeof performance !== "undefined") performance.mark("rastro-toque");
+  fijar({ rastroActivo: valor });
+  guardarRastroActivo(valor);
 }
 
 // sonido-procedimental (snd-1): único punto de alternado del sonido -- delega
