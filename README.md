@@ -36,8 +36,13 @@ La consola ocupa como mucho el 40 % del alto, anclada abajo (centro,
 izquierda o derecha) y respetando la zona segura de la pantalla. Tiene tres
 estados: desplegada, mínima y oculta; oculta solo deja una pestaña de 48 × 48
 «Mostrar controles». El estado y el anclaje se recuerdan (`consola:estado` y
-`consola:anclaje`). Las bromas y avisos flotan sobre el borde superior de la
-consola.
+`consola:anclaje`).
+
+Los avisos van en una capa propia, aparte de la consola, así que se ven aunque
+esté oculta: la ayuda de apuntado, el cartel de evento, la broma, el aviso de
+«sin voz» y la reacción. Esa capa empieza a 130 px del borde superior, por
+debajo de las dos filas de interruptores y del rótulo de la deriva, y cada
+aviso lleva fondo opaco, así que ninguno se pisa con la franja de arriba.
 
 ### Física: gravedad y potencia
 
@@ -358,3 +363,7 @@ la etapa de traspaso contra la URL real ya desplegada, con
 - **Inicio y pestañas** (#221, #223, #225): «Jugar» y «Música» están siempre a
   la vista, sin desplazarse. Las pestañas de jugador quitan los títulos antes
   de cortar el nombre. El inicio explica el gesto nuevo.
+- **Avisos con sitio propio** (#227): la reacción, la ayuda de apuntado y el
+  aviso de «sin voz» pasan a la capa de avisos, bajo la franja de interruptores
+  y con fondo opaco. Antes el aviso de voz salía en 11 px y sin fondo, tapado por
+  otros textos, y el rótulo de la deriva cruzaba el interruptor «Voz».
