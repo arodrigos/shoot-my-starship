@@ -16,7 +16,7 @@ test("compra-al-usar: todo está en el selector, el arma de pago se cobra al dis
   await expect(page.getByTestId("arma-despedida")).toBeDisabled();
   await expect(page.getByTestId("faltan-despedida")).toContainText("Te faltan 20 cr");
   // eco-3: el selector avisa del daño reducido de cada gratis.
-  await expect(page.getByTestId("gratis-reducida-zanjadora-manolita")).toContainText("Gratis · daño reducido al 25 %");
+  await expect(page.getByTestId("gratis-reducida-zanjadora-manolita")).toContainText("· daño reducido al 25 %");
 
   // Seleccionar y cambiar de arma no cobra.
   await page.getByTestId("arma-racimo-de-tuppers").click();

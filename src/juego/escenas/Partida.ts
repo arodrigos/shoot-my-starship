@@ -117,6 +117,8 @@ import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { superaPresupuestoComputo, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
+import { esHumanoLocalUnico, nombreEnResumen, textoDesplazamiento } from "@/juego/textos/nombresEnTexto";
+import { guionResumenPrueba } from "@/juego/textos/guionesResumen";
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
 import type { DebugEfectoVisible } from "@/debug/tipos";
 import "@/debug/tipos";
@@ -934,6 +936,18 @@ export class Partida extends Phaser.Scene {
     limpiarLatenciasApuntado();
     window.__debug.latencias = () => ultimasLatenciasApuntado();
     window.__debug.fijarApuntado = (anguloGrados: number, potencia: number) => fijarApuntadoDirecto(anguloGrados, potencia);
+    // Publica un resumen hecho con el generador real a partir de un guion de
+    // eventos, para ver sus textos sin jugar los turnos que lo provocan.
+    window.__debug.publicarResumenPrueba = (id: string) => {
+      const publicacion = guionResumenPrueba(id);
+      const numeroTurno = (window.__debug!.historialBromas?.length ?? 0) + 1;
+      publicarFantasmas([{ nave: 0, texto: publicacion.rotulo }]);
+      publicarResumen(numeroTurno, publicacion.resumen, 1);
+      window.__debug!.historialBromas = [
+        ...(window.__debug!.historialBromas ?? []),
+        { numeroTurno, tirador: 1, voz: vozDeNave(1, publicacion.personalidadId), categoria: undefined, resumen: publicacion.resumen, eventos: [] },
+      ];
+    };
     // Lo que cuesta pintar el lienzo se mide aparte: en el CI lo hace la CPU.
     const alInicioRender = (): void => this.medidorRespuesta.marcarInicioRender();
     const alFinRender = (): void => this.medidorRespuesta.marcarFinRender();
@@ -2461,7 +2475,9 @@ export class Partida extends Phaser.Scene {
       const elegido = resumenPartida(
         {
           asientos: estadoDespues.naves.map((nave, id) => ({
-            nombre: nombreDeNave(this.controladores, id),
+            nombre: nombreEnResumen(this.controladores, id),
+            esYo: esHumanoLocalUnico(this.controladores, id),
+            desplazada: eventos.some((evento) => evento.tipo === "desplazamiento" && evento.nave === id),
             integridad: nave.integridad,
             viva: nave.integridad > 0,
             fallosSeguidos: this.fallosSeguidos[id] ?? 0,
@@ -2625,7 +2641,10 @@ export class Partida extends Phaser.Scene {
     window.__debug!.fantasmas = fantasmas;
     window.__debug!.recorridoEmpuje = recorridos;
     publicarFantasmas(
-      fantasmas.map(({ nave }) => ({ nave, texto: `Estaba aquí: ${nombreDeNave(this.controladores, nave)} fue desplazada de este punto.` })),
+      fantasmas.map(({ nave }) => ({
+        nave,
+        texto: textoDesplazamiento(nombreEnResumen(this.controladores, nave), esHumanoLocalUnico(this.controladores, nave)),
+      })),
     );
   }
 
