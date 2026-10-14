@@ -5,7 +5,12 @@
 // Huecos: {lider} nombre de quien más integridad tiene, {vida} su integridad,
 // {ventaja} puntos que saca al segundo, {otro} nombre de la nave que protagoniza
 // la situación (racha, crédito) y {n} el número asociado (fallos seguidos).
-export type SituacionResumen = "empate" | "lider-claro" | "reñido" | "racha-fallos" | "muerte-subita" | "sin-credito";
+// {desplazada} es la frase entera («Te desplazaron» / «Bisagra fue desplazada»):
+// el verbo cambia con la persona, así que no se compone con un hueco de nombre.
+export type SituacionResumen = "empate" | "lider-claro" | "reñido" | "racha-fallos" | "muerte-subita" | "sin-credito" | "desplazada";
+
+// Cómo se nombra al humano cuando es el único de la partida (#230).
+export const NOMBRE_TU_NAVE = "Tu nave";
 
 export const PLANTILLAS_RESUMEN: Readonly<Record<SituacionResumen, readonly string[]>> = {
   empate: [
@@ -47,6 +52,14 @@ export const PLANTILLAS_RESUMEN: Readonly<Record<SituacionResumen, readonly stri
     "Queda poco para la muerte súbita: {lider} lidera con {ventaja} de ventaja.",
     "La muerte súbita asoma y {lider} sigue arriba con {vida} de vida.",
     "Ojo, que la muerte súbita viene a cobrar. Gana {lider}, por ahora.",
+  ],
+  desplazada: [
+    "{desplazada} de un golpe. Va ganando {lider} con {vida} de vida.",
+    "{desplazada}: el sitio ya no es el que era. Lidera {lider}, con {vida}.",
+    "{desplazada} y a empezar de nuevo. {lider} manda con {vida} de vida.",
+    "{desplazada}. Mientras, {lider} va primero con {vida}.",
+    "Qué empujón: {desplazada}. {lider} sigue arriba, con {vida} de vida.",
+    "{desplazada} del sitio. {lider} lidera con {ventaja} de ventaja.",
   ],
   "sin-credito": [
     "{otro} se ha quedado sin crédito: a tirar con lo que tenga. Gana {lider}.",

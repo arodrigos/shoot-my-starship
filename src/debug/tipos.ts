@@ -214,6 +214,10 @@ export interface DebugGlobal {
   // camino que el coste real (sin reintento automático mientras esté activo).
   calculosPrevisualizacion?: number;
   forzarMiraOculta?: (activa: boolean) => void;
+  // Publica en el HUD y el histórico el resumen que el generador real produce
+  // con un guion de eventos ('desplazado-por-bisagra'...). Solo cambia el
+  // estado local de quien lo invoca.
+  publicarResumenPrueba?: (id: string) => void;
   terreno?: DebugTerreno;
   ultimoDisparo?: DebugUltimoDisparo;
   // arma-mosca (mos-3): posición inicial y de cada paso animado del último
