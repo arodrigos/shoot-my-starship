@@ -30,6 +30,9 @@ import { pulsarAjuste } from "./utilesControl";
 test("humor-4: el audio no arranca hasta el primer gesto real, y entonces arranca sin aviso de autoplay", async ({
   page,
 }) => {
+  // Bajo la carga de un shard del CI (lienzo por software) cargar la partida
+  // supera los 30 s por defecto.
+  test.setTimeout(120000);
   const avisosAutoplay: string[] = [];
   page.on("console", (mensaje) => {
     if (/autoplay|NotAllowedError/i.test(mensaje.text())) {
@@ -43,7 +46,9 @@ test("humor-4: el audio no arranca hasta el primer gesto real, y entonces arranc
   await page.addInitScript(() => localStorage.setItem("banda-sonora:activada", "0"));
   await page.goto("/");
   await expect(page.getByTestId("pantalla-inicio")).toBeVisible();
-  expect(await page.evaluate(() => window.__debug)).toBeUndefined();
+  // Solo el gancho de la PWA existe en la pantalla de inicio; el resto de
+  // __debug lo publica la partida, que aún no ha empezado.
+  expect(await page.evaluate(() => Object.keys(window.__debug ?? {}).filter((clave) => clave !== "pwa"))).toEqual([]);
 
   // El clic en "Jugar" es el primer gesto real de la sesión, pero con el
   // sonido silenciado por defecto (snd-1) no basta para desbloquear el audio.

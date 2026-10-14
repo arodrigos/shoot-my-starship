@@ -25,6 +25,9 @@ export default defineConfig({
   // intermitente de verdad no tumbe el pipeline por una sola muestra).
   retries: process.env.CI ? 1 : 0,
   use: {
+    // pwa-sin-conexion: ningún e2e juzga algo servido desde la caché de un
+    // service worker; solo pwa-sin-conexion.e2e.ts lo permite.
+    serviceWorkers: "block",
     baseURL: BASE_URL_EXTERNA ?? "http://127.0.0.1:3000",
     // cie-6, desviación diagnosticada en desarrollo-29: "retain-on-failure"
     // graba (y solo descarta al final) la traza de CADA intento, incluido

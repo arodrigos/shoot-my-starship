@@ -11,6 +11,7 @@ import {
 } from "@/juego/control/store";
 import { contarMensajes, obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
+import { obtenerDatosPwa, suscribirPwa, TEXTO_ESTADO_PWA, versionApp } from "@/juego/pwa/estadoPwa";
 import "@/debug/tipos";
 
 const LADO_BOTON_PX = 48;
@@ -42,6 +43,7 @@ const ESTILO_AYUDA: CSSProperties = {
 // el lienzo apunta y cerrar el menú no puede mover la mira.
 export function MenuAjustesHUD() {
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
+  const pwa = useSyncExternalStore(suscribirPwa, obtenerDatosPwa, obtenerDatosPwa);
   const bromas = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
   const [abierto, setAbierto] = useState(false);
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
@@ -246,6 +248,11 @@ export function MenuAjustesHUD() {
               )}
             </div>
           ))}
+
+          <div style={{ ...ESTILO_AYUDA, margin: "0 4px" }}>
+            <div data-testid="estado-sin-conexion">{TEXTO_ESTADO_PWA[pwa.estado]}</div>
+            <div data-testid="version-app">Versión {versionApp()}</div>
+          </div>
 
           <button
             type="button"
