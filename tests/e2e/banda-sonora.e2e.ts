@@ -36,6 +36,10 @@ const notas = (page: Page): Promise<number> => page.evaluate(() => window.__debu
 // sonar; su control la para sin tocar los efectos; la elección sobrevive a
 // recargar. Se sondea el estado real, nunca un sleep que cruce los dedos.
 test("mus-1: la música espera al gesto, suena con Jugar, se para con su control y se recuerda", async ({ page }) => {
+  // Recarga y dos entradas a partida con WebGL por software: en CI el lienzo pinta ~5 fotogramas por segundo
+  // (medido en Actions, con y sin mira) y cada acción de Playwright espera fotogramas, así que los 30 s por
+  // defecto no bastan (probado al restaurarlos: excede el tiempo).
+  test.setTimeout(90_000);
   await page.setViewportSize({ width: 360, height: 640 });
   await contarAudioContext(page);
   await page.goto("/");

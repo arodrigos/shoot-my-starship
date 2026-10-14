@@ -30,6 +30,10 @@ import { pulsarAjuste } from "./utilesControl";
 test("humor-4: el audio no arranca hasta el primer gesto real, y entonces arranca sin aviso de autoplay", async ({
   page,
 }) => {
+  // En CI el lienzo por software pinta ~5 fotogramas por segundo (medido en
+  // Actions, con y sin mira) y cada acción de Playwright espera fotogramas:
+  // los 30 s por defecto no bastan (probado al restaurarlos).
+  test.setTimeout(120000);
   const avisosAutoplay: string[] = [];
   page.on("console", (mensaje) => {
     if (/autoplay|NotAllowedError/i.test(mensaje.text())) {
