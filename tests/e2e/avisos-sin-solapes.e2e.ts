@@ -18,18 +18,29 @@ async function empezar(page: Page, ancho: number, alto: number, cerrarAyuda: boo
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(
-    () => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.naves !== undefined,
+    () => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.naves !== undefined && window.__debug.cargarEscenario !== undefined,
   );
   if (cerrarAyuda && (await page.getByTestId("ayuda-cerrar").isVisible())) await page.getByTestId("ayuda-cerrar").click();
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
 }
 
+// La nave se coloca pegada al borde superior y dispara en vertical: el tiro
+// sale del encuadre en cualquier mundo y tamaño, sin depender de dónde caigan
+// los pozos de gravedad de la partida.
 async function dispararPorArriba(page: Page): Promise<void> {
   await page.evaluate(() => {
     delete window.__debug.avisoPerdido;
+    const mundo = window.__debug.mundo!;
+    window.__debug.cargarEscenario!({
+      naves: [
+        { x: mundo.ancho / 2, y: 60, integridad: 150 },
+        { x: mundo.ancho / 2, y: mundo.alto - 60, integridad: 150 },
+      ],
+      arma: "pepinazo-cortesia",
+      anguloGrados: 90,
+      potencia: 100,
+    });
   });
-  // Vertical y a potencia máxima: sale por arriba en cualquier tamaño de pantalla.
-  await page.evaluate(() => window.__debug.fijarApuntado!(90, 100));
   await page.getByTestId("disparar").click();
   await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
 }
