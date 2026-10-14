@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { RegistroPwa } from "@/juego/pwa/RegistroPwa";
 
 export const metadata: Metadata = {
   title: "Shoot my starship",
@@ -19,7 +20,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es">
-      <body style={{ margin: 0 }}>{children}</body>
+      <body style={{ margin: 0 }}>
+        {children}
+        <RegistroPwa />
+      </body>
     </html>
   );
 }

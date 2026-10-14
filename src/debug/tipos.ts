@@ -548,6 +548,14 @@ export interface DebugGlobal {
   // historico-mensajes: estado de la hoja del histórico, y un inyector para
   // llenarlo sin jugar decenas de turnos (mismo papel que cargarEscenario).
   historico?: { abierto: boolean; mensajes: number };
+  // pwa-sin-conexion: estado del service worker y gancho de pruebas que
+  // instala una versión nueva de verdad (queda en espera, nunca recarga).
+  pwa?: {
+    readonly estado: string;
+    readonly version: string;
+    readonly controlado: boolean;
+    forzarVersionNueva: () => Promise<void>;
+  };
   inyectarHistorico?: (entradas: readonly EntradaHistoricoBroma[]) => void;
   // proy-1 (requisito c de la sexta devolución): true en cuanto la escena
   // de pruebas Siluetas ha dibujado las 13 siluetas del catálogo, para que
