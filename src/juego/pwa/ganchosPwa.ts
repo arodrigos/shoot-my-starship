@@ -1,5 +1,5 @@
 import "@/debug/tipos";
-import { obtenerDatosPwa, versionApp } from "@/juego/pwa/estadoPwa";
+import { despacharPwa, obtenerDatosPwa, versionApp } from "@/juego/pwa/estadoPwa";
 
 const TOPE_ESPERA_MS = 15_000;
 
@@ -25,6 +25,16 @@ async function forzarVersionNueva(): Promise<void> {
   throw new Error("El service worker nuevo no llegó a quedar en espera");
 }
 
+// Gancho de pruebas: pasa por el mismo despachador que el ciclo real, sin
+// necesitar un service worker (la portada se prueba con ellos bloqueados).
+function mostrarAvisoPwa(cual: "listo" | "version"): void {
+  if (cual === "listo") {
+    despacharPwa({ tipo: "instalado", esActualizacion: false });
+  } else {
+    despacharPwa({ tipo: "esperando" });
+  }
+}
+
 export function publicarGanchosPwa(): void {
   window.__debug = window.__debug ?? {};
   window.__debug.pwa = {
@@ -39,4 +49,5 @@ export function publicarGanchosPwa(): void {
     },
     forzarVersionNueva,
   };
+  window.__debug.mostrarAvisoPwa = mostrarAvisoPwa;
 }

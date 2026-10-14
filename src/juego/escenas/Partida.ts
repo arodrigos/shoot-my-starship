@@ -497,6 +497,8 @@ export class Partida extends Phaser.Scene {
   private efectosDelTurno: readonly DebugEfectoVisible[] = [];
   private efectosEventos!: EfectosEventos;
   private numerosDanioVivos: DebugEfectoVisible[] = [];
+  // avi-1: el único «¡Perdido!» vivo; el siguiente destruye este antes de pintarse.
+  private avisoPerdidoVivo: { texto: Phaser.GameObjects.Text; temporizador: Phaser.Time.TimerEvent } | null = null;
   // paron-explosion: medición permanente de frames, de solo lectura.
   private readonly medidorFrames = new MedidorFrames();
   private readonly medidorRespuesta = new MedidorRespuesta();
@@ -964,6 +966,7 @@ export class Partida extends Phaser.Scene {
       this.motor.terminar();
       ocultarApuntandoIA();
       quitarHud?.();
+      this.retirarAvisoPerdido();
     });
 
     // proy-4: partícula quieta que solo se desvanece (speed 0) -- es un
@@ -2149,6 +2152,7 @@ export class Partida extends Phaser.Scene {
     // displayScale.x son unidades de mundo por px CSS: se multiplica para
     // pasar de px CSS a mundo (dividir dejaba el texto 8 veces más pequeño).
     const escala = this.scale.displayScale.x;
+    this.retirarAvisoPerdido();
     const texto = this.add
       .text(0, 0, "¡Perdido!", { fontFamily: "sans-serif", fontSize: `${Math.round(22 * escala)}px`, fontStyle: "bold", color: "#ffd166", stroke: "#000000", strokeThickness: Math.round(4 * escala) })
       .setDepth(2000);
@@ -2160,17 +2164,45 @@ export class Partida extends Phaser.Scene {
     const margen = 12 * escala;
     // Franja de botones fijos de arriba (histórico, música, voz) y consola
     // de abajo: el aviso queda en el hueco entre ambas.
-    const minY = visibleArriba + 64 * escala;
+    // Si hay un aviso PWA arriba («Hay una versión nueva»), el «¡Perdido!» baja
+    // por debajo de él en vez de quedar tapado.
+    const bajoAvisoPwa = (this.finAvisoPwaPx() + 6 - rect.top) * escala;
+    const minY = Math.max(visibleArriba + 64 * escala, bajoAvisoPwa);
     const maxY = Math.min(visibleAbajo - texto.height - margen, 440 * escala - texto.height);
     const x = Math.min(ancho - texto.width - margen, Math.max(margen, salida.x - texto.width / 2));
     const yLibre = Math.min(maxY, Math.max(minY, salida.y - texto.height / 2));
     const yBorde = salida.borde === "arriba" ? minY : salida.borde === "abajo" ? Math.max(minY, maxY) : yLibre;
     texto.setPosition(salida.borde === "derecha" ? ancho - texto.width - margen : salida.borde === "izquierda" ? margen : x, yBorde);
-    window.__debug!.avisoPerdido = { borde: salida.borde, x: texto.x, y: texto.y, ancho: texto.width, alto: texto.height };
+    const aCss = 1 / escala;
+    window.__debug!.avisoPerdido = {
+      borde: salida.borde,
+      x: texto.x,
+      y: texto.y,
+      ancho: texto.width,
+      alto: texto.height,
+      css: { x: rect.left + texto.x * aCss, y: rect.top + texto.y * aCss, ancho: texto.width * aCss, alto: texto.height * aCss },
+    };
     if (!movimientoReducido) {
       this.cameras.main.flash(120, 255, 209, 102, false);
     }
-    this.time.delayedCall(DURACION_AVISO_PERDIDO_MS, () => texto.destroy());
+    const temporizador = this.time.delayedCall(DURACION_AVISO_PERDIDO_MS, () => this.retirarAvisoPerdido());
+    this.avisoPerdidoVivo = { texto, temporizador };
+    window.__debug!.avisosPerdidoVivos = 1;
+  }
+
+  private retirarAvisoPerdido(): void {
+    const vivo = this.avisoPerdidoVivo;
+    if (!vivo) return;
+    vivo.temporizador.remove(false);
+    vivo.texto.destroy();
+    this.avisoPerdidoVivo = null;
+    if (window.__debug) window.__debug.avisosPerdidoVivos = 0;
+  }
+
+  // Borde inferior (px CSS de la página) del aviso PWA visible, o 0 si no hay.
+  private finAvisoPwaPx(): number {
+    const aviso = document.querySelector("[data-testid='aviso-version-nueva'], [data-testid='aviso-listo-sin-conexion']");
+    return aviso ? aviso.getBoundingClientRect().bottom : 0;
   }
 
   // vida-color: daño recibido como número flotante en el color del atacante.

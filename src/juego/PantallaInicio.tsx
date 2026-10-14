@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { reservarFranjaAvisos } from "@/juego/pwa/franjaAvisos";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import { almacenamientoDisponible, guardarRivalElegido, leerProgreso } from "@/juego/control/progreso";
 import { desbloquearAudio } from "@/juego/audio/motor";
@@ -81,6 +82,9 @@ export function PantallaInicio({ onJugar }: Props) {
     ];
     onJugar(rivalId, modoEfectivo, jugadores, humanos > 1 && todosVemosTodo);
   }
+
+  // Los avisos PWA van bajo la cabecera pegada (8 + 44 + 8 px) para no tapar «Música».
+  useEffect(() => reservarFranjaAvisos(ALTO_CABECERA_PX), []);
 
   // La pantalla es más alta que un móvil de 640 px: el título con la música
   // arriba y «Jugar» abajo son barras pegadas (sticky) para que se vean sin
@@ -344,6 +348,8 @@ export function PantallaInicio({ onJugar }: Props) {
     </div>
   );
 }
+
+const ALTO_CABECERA_PX = 64;
 
 const barraPegadaEstilo: React.CSSProperties = {
   position: "sticky",
