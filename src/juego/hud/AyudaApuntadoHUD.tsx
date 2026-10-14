@@ -3,6 +3,10 @@
 import { useSyncExternalStore } from "react";
 import { cerrarAyudaApuntado, obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 
+// Mismo sentido que la descripción de la portada (#235): apoyar el dedo y
+// arrastrar; de lado se gira, y acercándolo o alejándolo de la nave, la fuerza.
+export const TEXTO_AYUDA_APUNTADO = "Apoya el dedo y arrastra: de lado giras, y acercándolo o alejándolo de tu nave cambias la fuerza";
+
 // apuntado-y-relevo (apu-6): una línea sobre el lienzo, no dentro de la
 // consola, porque a 360x640 la consola ya no tiene un píxel libre.
 export function AyudaApuntadoHUD() {
@@ -35,7 +39,7 @@ export function AyudaApuntadoHUD() {
         boxSizing: "border-box",
       }}
     >
-      <span style={{ flex: 1 }}>Desliza a los lados para girar, y acércate o aléjate de la nave para la fuerza</span>
+      <span style={{ flex: 1 }}>{TEXTO_AYUDA_APUNTADO}</span>
       <button
         type="button"
         data-testid="ayuda-apuntado-cerrar"
