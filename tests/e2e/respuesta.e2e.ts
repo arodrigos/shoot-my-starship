@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
+import { abrirAjustes } from "./utilesControl";
 
 const LIMITE_MS = 200;
 const VIEWPORTS = [
@@ -49,7 +50,8 @@ for (const vp of VIEWPORTS) {
 
     // Turno del humano: el ángulo y el histórico responden.
     await page.getByTestId("paso-angulo-mas").click();
-    await page.getByRole("button", { name: /Histórico/ }).click();
+    await abrirAjustes(page);
+    await page.getByTestId("historico-bromas-toggle").click();
     await page.getByTestId("historico-bromas-cerrar").click();
 
     const antes = await page.evaluate(() => window.__debug.resultadoTurno);

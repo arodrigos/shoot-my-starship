@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { IconoArmaGracioso, IconoEquipoGracioso } from "@/juego/hud/iconos/iconosArmas";
 import { buscarEquipo, CATALOGO_EQUIPO } from "@/sim/equipo/catalogo";
@@ -8,10 +8,7 @@ import {
   actualizarArrastre,
   ajustarAnguloFino,
   ajustarPotenciaFino,
-  alternarMusicaActiva,
-  alternarVozActiva,
   sincronizarVoz,
-  alternarSilenciado,
   armaEstaAgotada,
   cerrarAyuda,
   cerrarAyudaDispersion,
@@ -21,7 +18,6 @@ import {
   motivoEquipoNoDisponible,
   seleccionarEquipo,
   fijarPotenciaDesdeFraccion,
-  fijarSacudidaActiva,
   iniciarArrastre,
   obtenerEstadoControl,
   armaFaltaSaldo,
@@ -35,15 +31,12 @@ import { estadoMusica, obtenerHistorialEfectos, sonidoSilenciado } from "@/juego
 import { obtenerLocutor } from "@/juego/audio/voz";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/resultadoTurnoStore";
-import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 import { IntegridadHUD } from "@/juego/hud/IntegridadHUD";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { FantasmasHUD } from "@/juego/hud/FantasmasHUD";
 import { ObjetosHUD } from "@/juego/hud/ObjetosHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
 import { MuerteSubitaHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
-import { contarMensajes } from "@/juego/control/broma";
-import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import "@/debug/tipos";
 
 // La cáscara React del control (fuera del lienzo, ver arquitectura): todo lo
@@ -160,16 +153,8 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const resultadoTurno = useSyncExternalStore(suscribirResultadoTurno, obtenerResultadoTurno, obtenerResultadoTurno);
   const navesEnPartida = useSyncExternalStore(suscribirIntegridad, obtenerIntegridad, obtenerIntegridad).naves.length;
-  const bromas = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pestana, setPestana] = useState<"armas" | "equipo">("armas");
-  const [historicoAbierto, setHistoricoAbierto] = useState(false);
-  const cerrarHistorico = useCallback(() => setHistoricoAbierto(false), []);
-  useEffect(() => {
-    window.__debug = window.__debug ?? {};
-    window.__debug.historico = { abierto: historicoAbierto, mensajes: contarMensajes(obtenerBromas().historico) };
-  }, [historicoAbierto, bromas.historico]);
-
   useEffect(() => {
     window.__debug = window.__debug ?? {};
     window.__debug.control = {
@@ -459,34 +444,6 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
 
       </div>
 
-      {/* hud-canales-3: "accesible desde el canal de estado" -- fixed, igual
-          que CuentaAtrasHUD (gra-2), para que no compita por el presupuesto
-          de alto/ancho de la consola, que ya está al límite. */}
-      <button
-        type="button"
-        data-testid="historico-bromas-toggle"
-        aria-expanded={historicoAbierto}
-        onClick={() => setHistoricoAbierto((valor) => !valor)}
-        style={{
-          position: "fixed",
-          top: 10,
-          left: 10,
-          zIndex: 15,
-          minHeight: 24,
-          padding: "4px 10px",
-          borderRadius: 8,
-          border: "none",
-          background: "var(--color-cromado-fondo)",
-          color: "var(--color-cromado-texto)",
-          font: "12px system-ui, sans-serif",
-          cursor: "pointer",
-        }}
-      >
-        Histórico{bromas.historico.length > 0 ? ` (${contarMensajes(bromas.historico)})` : ""}
-      </button>
-
-      {historicoAbierto && <HistoricoBromasHUD onCerrar={cerrarHistorico} />}
-
       {/* control-angulo-potencia: dos controles independientes de verdad --
           cada uno en su propio elemento, con su propio gesto de arrastre
           absoluto (ctl-1/ctl-2), su paso fino de botón y su lectura de valor
@@ -627,140 +584,9 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
         </div>
       )}
 
-      {/* hud-canales (corrección): los dos interruptores vivían dentro de
-          fila-avisos, alineados a la derecha igual que panel-bromas (ver más
-          abajo) -- compartir ESE mismo borde derecho en una fila de apenas
-          78px es lo que hacía que panel-bromas, al crecer más allá de dos
-          líneas de texto, se dibujara encima de "Sacudida: On" (hallazgo del
-          gatekeeper sobre la validación del hito arte-siluetas). Mismo patrón
-          que historico-bromas-toggle: fixed, fuera del flujo de la consola,
-          así que ninguna fila compite por su alto ni por su ancho con ellos. */}
-      <div
-        style={{
-          position: "fixed",
-          top: 10,
-          right: 10,
-          zIndex: 15,
-          display: "flex",
-          flexDirection: "row",
-          gap: 6,
-        }}
-      >
-        {/* realce-impacto (rlc-3): "no marea ni estorba" -- interruptor propio
-            que persiste entre partidas (store). */}
-        <button
-          type="button"
-          data-testid="toggle-sacudida"
-          aria-pressed={estado.sacudidaActiva}
-          onClick={() => fijarSacudidaActiva(!estado.sacudidaActiva)}
-          title={estado.sacudidaActiva ? "Desactivar sacudida de impacto" : "Activar sacudida de impacto"}
-          style={{
-            minWidth: TAMANO_MINIMO_BOTON_PX,
-            minHeight: TAMANO_MINIMO_BOTON_PX,
-            padding: "0 8px",
-            borderRadius: 8,
-            border: "none",
-            background: "var(--color-cromado-fondo)",
-            color: "var(--color-cromado-texto)",
-            font: "12px system-ui, sans-serif",
-            cursor: "pointer",
-          }}
-        >
-          Sacudida: {estado.sacudidaActiva ? "On" : "Off"}
-        </button>
-        {/* sonido-procedimental (snd-1): "siempre accesible" -- nunca dentro
-            de un menú ni una pantalla aparte. El gesto de pulsar ESTE botón
-            para activar sonido es, a la vez, el gesto de usuario que exige la
-            política de autoplay (ver alternarSonido en motor.ts). */}
-        <button
-          type="button"
-          data-testid="toggle-silenciado"
-          aria-pressed={!estado.silenciado}
-          onClick={() => alternarSilenciado()}
-          title={estado.silenciado ? "Activar sonido" : "Silenciar"}
-          style={{
-            minWidth: TAMANO_MINIMO_BOTON_PX,
-            minHeight: TAMANO_MINIMO_BOTON_PX,
-            padding: "0 8px",
-            borderRadius: 8,
-            border: "none",
-            background: "var(--color-cromado-fondo)",
-            color: "var(--color-cromado-texto)",
-            font: "12px system-ui, sans-serif",
-            cursor: "pointer",
-          }}
-        >
-          Sonido: {estado.silenciado ? "Off" : "On"}
-        </button>
-        <button
-          type="button"
-          data-testid="toggle-musica"
-          aria-pressed={estado.musicaActiva}
-          onClick={() => alternarMusicaActiva()}
-          title={estado.musicaActiva ? "Quitar la música" : "Poner la música"}
-          style={{
-            minWidth: TAMANO_MINIMO_BOTON_PX,
-            minHeight: TAMANO_MINIMO_BOTON_PX,
-            padding: "0 8px",
-            borderRadius: 8,
-            border: "none",
-            background: "var(--color-cromado-fondo)",
-            color: "var(--color-cromado-texto)",
-            font: "12px system-ui, sans-serif",
-            cursor: "pointer",
-          }}
-        >
-          Música: {estado.musicaActiva ? "Sí" : "No"}
-        </button>
-      </div>
-
-      {/* voz-chistes: cuarto interruptor de la banda superior. En 360 px la
-          fila de cuatro llegaba hasta el botón Histórico y lo tapaba, así que
-          Voz va en su propia fila fija justo debajo (a 10 + 44 + 6 px). */}
-      <div
-        style={{
-          position: "fixed",
-          top: 60,
-          right: 10,
-          zIndex: 15,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-end",
-          gap: 4,
-          maxWidth: "min(260px, calc(100vw - 20px))",
-        }}
-      >
-        {/* voz-chistes: sin voz castellana local el interruptor se
-            deshabilita y el aviso explica por qué (voz-3). */}
-        <button
-          type="button"
-          data-testid="toggle-voz"
-          aria-pressed={estado.vozActiva && estado.vozDisponible}
-          disabled={!estado.vozDisponible}
-          onClick={() => alternarVozActiva()}
-          title={
-            !estado.vozDisponible
-              ? (estado.avisoVoz ?? "Sin voz en castellano")
-              : estado.vozActiva
-                ? "Callar la voz de los chistes"
-                : "Leer los chistes en voz alta"
-          }
-          style={{
-            minWidth: TAMANO_MINIMO_BOTON_PX,
-            minHeight: TAMANO_MINIMO_BOTON_PX,
-            padding: "0 8px",
-            borderRadius: 8,
-            border: "none",
-            background: "var(--color-cromado-fondo)",
-            color: "var(--color-cromado-texto)",
-            font: "12px system-ui, sans-serif",
-            cursor: estado.vozDisponible ? "pointer" : "not-allowed",
-            opacity: estado.vozDisponible ? 1 : 0.6,
-          }}
-        >
-          Voz: {estado.vozActiva && estado.vozDisponible ? "On" : "Off"}
-        </button>
-      </div>
+      {/* Los interruptores (Histórico, Sacudida, Sonido, Música, Voz) viven en
+          MenuAjustesHUD, fuera de esta consola: aquí desaparecían con la
+          consola mínima u oculta y durante el vuelo. */}
 
       {/* fila-avisos (hud-canales-1, quinta corrección): roce, aviso y broma
           ya no comparten el ANCHO de una fila -- compartirlo era lo que

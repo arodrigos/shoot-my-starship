@@ -6,6 +6,7 @@ import { SinWebGL } from "@/juego/SinWebGL";
 import { hayWebGL } from "@/juego/soporteWebGL";
 import { ConsolaSuperpuesta } from "@/juego/hud/ConsolaSuperpuesta";
 import { CapaAvisosHUD } from "@/juego/hud/CapaAvisosHUD";
+import { MenuAjustesHUD } from "@/juego/hud/MenuAjustesHUD";
 import { ParteDeGuerraHUD } from "@/juego/hud/ParteDeGuerraHUD";
 import { CuentaAtrasHUD } from "@/juego/hud/CuentaAtrasHUD";
 import { PreparandoHUD } from "@/juego/hud/PreparandoHUD";
@@ -85,6 +86,7 @@ export function PhaserGame({ escena, datosEscena }: Props) {
         </>
       )}
       {esPartida && <CapaAvisosHUD />}
+      {esPartida && <MenuAjustesHUD />}
       {esPartida && <PreparandoHUD />}
       {esPartida && <ParteDeGuerraHUD />}
       {esPartida && <CuentaAtrasHUD />}

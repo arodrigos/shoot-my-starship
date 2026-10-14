@@ -21,3 +21,23 @@ export async function arrastrarBarraHasta(page: Page, testId: string, fraccion: 
   await page.mouse.move(finX, clienteY, { steps: 4 });
   await page.mouse.up();
 }
+
+// menu-ajustes: Histórico, Sacudida, Sonido, Música y Voz viven en el panel
+// del botón ⚙. Idempotente: si ya está abierto no lo vuelve a pulsar (un
+// segundo clic lo cerraría).
+export async function abrirAjustes(page: Page): Promise<void> {
+  const boton = page.getByTestId("boton-ajustes");
+  if ((await boton.getAttribute("aria-expanded")) !== "true") {
+    await boton.click();
+  }
+  await page.getByTestId("panel-ajustes").waitFor({ state: "visible" });
+}
+
+// Pulsa un interruptor del panel y lo vuelve a cerrar, para los specs que solo
+// necesitan el efecto y no quieren dejar el panel tapando el resto del HUD.
+export async function pulsarAjuste(page: Page, testId: string): Promise<void> {
+  await abrirAjustes(page);
+  await page.getByTestId(testId).click();
+  await page.getByTestId("cerrar-ajustes").click();
+  await page.getByTestId("panel-ajustes").waitFor({ state: "hidden" });
+}

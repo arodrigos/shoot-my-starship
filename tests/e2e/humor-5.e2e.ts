@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { pulsarAjuste } from "./utilesControl";
 
 // Deben coincidir con src/juego/control/apuntado.ts (misma convención que
 // control-1: el e2e no importa del código fuente, así que estas constantes
@@ -55,7 +56,7 @@ async function dispararTiroLargo(
   // llega activada: el clic solo se da si todavía está silenciado, para no
   // volver a apagarlo.
   if (await page.evaluate(() => window.__debug.audio!().silenciado)) {
-    await page.getByTestId("toggle-silenciado").click();
+    await pulsarAjuste(page, "toggle-silenciado");
   }
 
   const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());

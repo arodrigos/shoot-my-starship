@@ -58,7 +58,7 @@ for (const { humanos, semilla } of CASOS) {
       expect(nave.y + radioPantalla, `nave ${nave.id} fuera por abajo: ${diagnostico}`).toBeLessThanOrEqual(lienzo!.y + lienzo!.height);
     }
 
-    for (const idBoton of ["historico-bromas-toggle", "toggle-sacudida", "toggle-silenciado"]) {
+    for (const idBoton of ["boton-ajustes"]) {
       const caja = await page.getByTestId(idBoton).boundingBox();
       expect(caja, `el botón ${idBoton} tiene que estar visible`).not.toBeNull();
       for (const nave of enPantalla) {

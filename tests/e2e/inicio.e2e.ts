@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { abrirAjustes } from "./utilesControl";
 
 // ini-1 / ini-2: pantalla de inicio sin scroll y pestañas de jugador enteras,
 // en el móvil y en el iPad (vertical y horizontal).
@@ -48,6 +49,7 @@ for (const { ancho, alto } of TAMANOS) {
 
     await page.getByTestId("boton-jugar").click();
     await esperarPartida(page);
+    await abrirAjustes(page);
     await expect(page.getByTestId("toggle-musica")).toHaveAttribute("aria-pressed", "false");
     expect((await page.evaluate(() => window.__debug.musica!())).estado).toBe("parada");
   });

@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
-import { arrastrarBarraHasta } from "./utilesControl";
+import { abrirAjustes, arrastrarBarraHasta } from "./utilesControl";
 
 // pc-1, pc-2, pc-3: una partida de la portada al final, como la jugaría una
 // persona en el móvil y en el iPad. El mapa de planetas de siempre: el oráculo
@@ -339,7 +339,8 @@ for (const vp of VIEWPORTS) {
     await capturar("consola-abajo-derecha", "Consola movida abajo a la derecha.");
 
     // 10. Histórico: se abre con mensajes, se lee y se cierra.
-    await page.getByRole("button", { name: /Histórico/ }).click();
+    await abrirAjustes(page);
+    await page.getByTestId("historico-bromas-toggle").click();
     await expect(page.getByTestId("historico-bromas-entrada-0")).toBeVisible();
     await capturar("historico", "Hoja del histórico con los mensajes agrupados por turno.");
     await page.getByTestId("historico-bromas-cerrar").click();

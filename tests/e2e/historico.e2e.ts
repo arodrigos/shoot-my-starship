@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { abrirAjustes } from "./utilesControl";
 
 // historico-mensajes (his-1..his-3): la hoja se mide con getBoundingClientRect
 // y getComputedStyle sobre una partida real; el histórico largo se inyecta
@@ -40,9 +41,11 @@ async function inyectar30(page: Page): Promise<void> {
 test("his-1: hoja grande y legible a 360x640", async ({ page }) => {
   await irAPartida(page, VIEWPORTS.movil);
   await inyectar30(page);
+  await abrirAjustes(page);
   const toggle = page.getByTestId("historico-bromas-toggle");
   await expect(toggle).toHaveText("Histórico (30)");
   await toggle.click();
+  await expect(page.getByTestId("panel-ajustes")).toBeHidden();
   const panel = page.getByTestId("historico-bromas");
   await expect(panel).toBeVisible();
 
@@ -84,12 +87,15 @@ test("his-1: hoja grande y legible a 360x640", async ({ page }) => {
 
   await page.getByTestId("historico-bromas-cerrar").click();
   await expect(panel).toHaveCount(0);
-  await expect(toggle).toBeFocused();
+  // El botón Histórico vive en el panel, que se cierra al abrir la hoja: el
+  // foco vuelve al botón de Ajustes.
+  await expect(page.getByTestId("boton-ajustes")).toBeFocused();
 });
 
 test("his-1: a 1180x820 mide como mucho 560 px y está centrada; Esc cierra; el emisor lleva el color de su asiento", async ({ page }) => {
   await irAPartida(page, VIEWPORTS.ipadHorizontal);
   await inyectar30(page);
+  await abrirAjustes(page);
   await page.getByTestId("historico-bromas-toggle").click();
   const panel = page.getByTestId("historico-bromas");
   const caja = await panel.boundingBox();
@@ -109,13 +115,13 @@ test("his-1: a 1180x820 mide como mucho 560 px y está centrada; Esc cierra; el 
   expect(pintados[0]).toBe(aRgb(colores[0]));
   expect(pintados[2]).toBe(aRgb(colores[1]));
 
-  await page.getByTestId("historico-bromas-toggle").focus();
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
 });
 
 test("his-2: sin mensajes explica qué aparecerá y ofrece Cerrar", async ({ page }) => {
   await irAPartida(page, VIEWPORTS.movil);
+  await abrirAjustes(page);
   await page.getByTestId("historico-bromas-toggle").click();
   await expect(page.getByTestId("historico-bromas-vacio")).toHaveText(
     "Aún no hay mensajes: aquí aparecerán las bromas y avisos de la partida.",
@@ -126,6 +132,7 @@ test("his-2: sin mensajes explica qué aparecerá y ofrece Cerrar", async ({ pag
 test("his-3: diálogo con nombre, foco atrapado y sin violaciones serias de axe", async ({ page }) => {
   await irAPartida(page, VIEWPORTS.movil);
   await inyectar30(page);
+  await abrirAjustes(page);
   await page.getByTestId("historico-bromas-toggle").click();
   const panel = page.getByTestId("historico-bromas");
   await expect(panel).toHaveAttribute("role", "dialog");
