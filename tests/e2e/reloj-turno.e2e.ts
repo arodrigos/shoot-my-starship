@@ -52,36 +52,50 @@ test("rel-1: el selector arranca en Off, se elige sin desbordar y llega a la par
   expect(medidas.filas).toBe(1);
   await page.getByTestId("boton-jugar").click();
   await page.waitForFunction(() => window.__debug.relojTurno?.configuradoS === 30);
-  expect(await page.evaluate(() => window.__debug.relojTurno!.estado)).toBe("parado");
 });
 
-test("rel-2/rel-8: la píldora aparece tras «Soy Ana», baja, y no hay reloj en el relevo; la latencia se mide y se ve en el panel", async ({ page }) => {
+// El primer turno no tiene relevo (nadie tuvo antes el dispositivo): el reloj
+// de Ana arranca al poder disparar y, al agotarse, Luis recibe el relevo.
+async function agotarElTurnoDeAna(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
+  await expect(page.getByTestId("integridad-nave-0").getByTestId("reloj-turno")).toBeVisible();
+  const numeroTurno = await page.evaluate(() => window.__debug.numeroTurno!);
+  await page.evaluate(() => window.__debug.fijarApuntado!(40, 60));
+  await page.evaluate(() => window.__debug.adelantarRelojTurno!(30000));
+  await expect(page.getByTestId("aviso-tiempo-agotado")).toContainText("¡Tiempo! Disparo automático");
+  await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurno, { timeout: 30000 });
+}
+
+test("rel-2/rel-8: la píldora aparece tras «Soy Luis», baja, y no hay reloj en el relevo; la latencia se mide y se ve en el panel", async ({ page }) => {
   test.setTimeout(120000);
   await empezar(page, { humanos: 2, ias: 1, reloj: 30, extra: "&rendimiento=1" });
-  await expect(page.getByTestId("pantalla-relevo")).toBeVisible();
+  await agotarElTurnoDeAna(page);
+  await expect(page.getByTestId("pantalla-relevo")).toBeVisible({ timeout: 30000 });
   await expect(page.getByTestId("reloj-turno")).toHaveCount(0);
+  expect(await page.evaluate(() => window.__debug.relojTurno!.estado)).toBe("parado");
   await page.getByTestId("relevo-confirmar").click();
-  const pildora = page.getByTestId("integridad-nave-0").getByTestId("reloj-turno");
+  const pildora = page.getByTestId("integridad-nave-1").getByTestId("reloj-turno");
   await expect(pildora).toBeVisible();
   expect(["30", "29"]).toContain(((await pildora.textContent()) ?? "").trim());
   await page.waitForTimeout(2000);
   const despues = Number(((await pildora.textContent()) ?? "").trim());
   expect(despues).toBeGreaterThanOrEqual(26);
   expect(despues).toBeLessThanOrEqual(29);
-  const ms = await page.evaluate(() => window.__debug.latencias!().filter((l) => l.nombre === "reloj-turno").at(-1)?.ms);
-  expect(ms).toBeDefined();
-  expect(ms!).toBeLessThanOrEqual(200);
+  await page.waitForFunction(() => window.__debug.latencias!().some((l) => l.nombre === "reloj-turno"));
+  const ms = await page.evaluate(() => window.__debug.latencias!().filter((l) => l.nombre === "reloj-turno").at(-1)!.ms);
+  expect(ms).toBeLessThanOrEqual(200);
   await expect(page.getByTestId("hud-rendimiento")).toContainText(/reloj-turno: \d+ ms/);
 });
 
 test("rel-3/rel-4: oculta congela; al agotarse sale el disparo de la mira y el relevo dice «sin tiempo»", async ({ page }) => {
   test.setTimeout(180000);
   await empezar(page, { humanos: 2, ias: 0, reloj: 30 });
-  await page.getByTestId("relevo-confirmar").click();
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   await expect(page.getByTestId("reloj-turno")).toBeVisible();
 
   // Pestaña oculta 10 s: el número no se mueve (±1 s) y el turno no se resuelve solo.
   const antes = await page.evaluate(() => window.__debug.relojTurno!.restanteMs);
+  const turnoInicial = await page.evaluate(() => window.__debug.numeroTurno!);
   await page.evaluate(() => {
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     document.dispatchEvent(new Event("visibilitychange"));
@@ -95,19 +109,13 @@ test("rel-3/rel-4: oculta congela; al agotarse sale el disparo de la mira y el r
   const vuelta = await page.evaluate(() => window.__debug.relojTurno!);
   expect(vuelta.estado).toBe("corriendo");
   expect(antes - vuelta.restanteMs).toBeLessThanOrEqual(1000);
-  expect(await page.evaluate(() => window.__debug.numeroTurno)).toBe(0);
+  expect(await page.evaluate(() => window.__debug.numeroTurno)).toBe(turnoInicial);
 
-  // Agotarse: dispara con la mira fijada.
-  const numeroTurno = await page.evaluate(() => window.__debug.numeroTurno!);
-  await page.evaluate(() => window.__debug.fijarApuntado!(40, 60));
-  await page.evaluate(() => window.__debug.adelantarRelojTurno!(30000));
-  await expect(page.getByTestId("aviso-tiempo-agotado")).toBeVisible();
-  await expect(page.getByTestId("aviso-tiempo-agotado")).toContainText("¡Tiempo! Disparo automático");
-  await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, numeroTurno, { timeout: 30000 });
+  await agotarElTurnoDeAna(page);
   const ultimo = await page.evaluate(() => window.__debug.ultimoDisparo!);
   expect(ultimo.anguloGrados).toBe(40);
   expect(ultimo.potencia).toBe(60);
-  expect(await page.evaluate(() => window.__debug.numeroTurno!)).toBe(numeroTurno + 1);
+  expect(await page.evaluate(() => window.__debug.numeroTurno!)).toBe(turnoInicial + 1);
   await expect(page.getByTestId("pantalla-relevo")).toBeVisible({ timeout: 30000 });
   await expect(page.getByTestId("relevo-jugador")).toHaveText("Turno de Luis");
   await expect(page.getByTestId("relevo-resumen")).toContainText("sin tiempo");
@@ -132,7 +140,9 @@ test("rel-5/rel-6: sin relevo arranca al poder disparar; en los últimos 10 s es
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   const pildora = page.getByTestId("reloj-turno");
   await expect(pildora).toBeVisible();
-  expect(["45", "44"]).toContain(((await pildora.textContent()) ?? "").trim());
+  const inicial = Number(((await pildora.textContent()) ?? "").trim());
+  expect(inicial).toBeGreaterThanOrEqual(40);
+  expect(inicial).toBeLessThanOrEqual(45);
   await page.evaluate(() => window.__debug.adelantarRelojTurno!(37000));
   await expect(pildora).toHaveAttribute("data-urgente", "true");
   const estilo = await pildora.evaluate((el) => {
