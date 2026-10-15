@@ -93,7 +93,8 @@ for (const definicion of CATALOGO_EVENTOS) {
     // a eso sobre el lienzo entero, así que se exige un mínimo absoluto (150 px) y se
     // deja la proporción en la salida del test.
     console.log(`evv-1 ${definicion.tipo}: ${distintos} px distintos de ${total} (${((distintos / total) * 100).toFixed(3)} %)`);
-    expect(distintos).toBeGreaterThanOrEqual(150);
+    const diagnostico = await page.evaluate((tipo) => JSON.stringify({ efecto: (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === `evento-${tipo}`), halos: (window.__debug.halos ?? []).length, camara: window.__debug.camara }), definicion.tipo);
+    expect(distintos, diagnostico).toBeGreaterThanOrEqual(150);
   });
 }
 
