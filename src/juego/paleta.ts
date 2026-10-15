@@ -13,6 +13,10 @@ export interface PaletaTerreno {
 // defecto si algún consumidor no declara paleta explícita.
 export const PALETA_PROVISIONAL: PaletaTerreno = { r: 0x8a, g: 0x7f, b: 0x6b };
 
+// Fondo espacial: lo usan Phaser (main.ts, SinWebGL) y el test de contraste
+// de los colores de asiento, que así mide contra el valor real.
+export const COLOR_FONDO_ESPACIO = 0x12141a;
+
 export const CHATARRA_OXIDADA: PaletaTerreno = { r: 0x9c, g: 0x5a, b: 0x3a };
 export const REGOLITO_CENIZA: PaletaTerreno = { r: 0x6e, g: 0x70, b: 0x78 };
 export const ESCORIA_VERDOSA: PaletaTerreno = { r: 0x5c, g: 0x6b, b: 0x4a };
