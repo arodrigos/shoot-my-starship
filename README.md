@@ -39,10 +39,34 @@ estados: desplegada, mínima y oculta; oculta solo deja una pestaña de 48 × 48
 `consola:anclaje`).
 
 Los avisos van en una capa propia, aparte de la consola, así que se ven aunque
-esté oculta: la ayuda de apuntado, el cartel de evento, la broma, el aviso de
-«sin voz» y la reacción. Esa capa empieza a 130 px del borde superior, por
-debajo de las dos filas de interruptores y del rótulo de la deriva, y cada
-aviso lleva fondo opaco, así que ninguno se pisa con la franja de arriba.
+esté oculta: la ayuda de apuntado, el cartel de evento, la broma y la
+reacción. Esa capa empieza a 130 px del borde superior, por debajo del rótulo
+de la deriva, y cada aviso lleva fondo opaco. En las partidas espaciales el
+rótulo «Vacío: aquí no empuja nada…» se ve 4 s y se desvanece para no tapar
+ningún planeta (con movimiento reducido desaparece sin transición). Solo hay
+un «¡Perdido!» a la vez: el siguiente retira el anterior, y si arriba está el
+aviso de versión nueva, el «¡Perdido!» baja para quedar debajo de él.
+
+### Ajustes
+
+Arriba a la derecha hay un único botón ⚙, fuera de la consola, así que está
+al alcance aunque la consola esté mínima, oculta o apartada durante el vuelo.
+Abre un panel con:
+- **Histórico**: los mensajes de la partida.
+- **Sacudida**, **Rastro**, **Sonido**, **Música** y **Voz**, cada uno con
+  una línea que explica qué hace. Si el dispositivo no tiene voz local en
+  castellano, el aviso sale debajo de «Voz».
+- El estado del juego sin conexión y la versión instalada.
+
+Tocar el lienzo no cierra el panel, porque ese toque apunta; se cierra con
+«Cerrar», con Escape o volviendo a pulsar ⚙, y se cierra solo al disparar
+para no tapar la trayectoria.
+
+**Rastro** (activado por defecto, se recuerda en
+`rastro-ultimo-disparo:activo`) dibuja a guiones y tenue la trayectoria del
+último disparo, sea de quien sea, en el color de quien disparó y con el
+contorno de su silueta en el punto de impacto. Cada disparo sustituye al
+anterior, y un tiro perdido no lleva silueta.
 
 ### Física: gravedad y potencia
 
@@ -232,7 +256,7 @@ ronda 22 (`src/sim/partida/muerteSubita.ts`). Se apaga con `?muerte=0`.
 ## Música y sonido
 
 Todo el audio se genera con Web Audio, sin ficheros. Hay dos controles
-independientes en la consola: «Sonido» (efectos, silenciado por defecto) y
+independientes en Ajustes (⚙): «Sonido» (efectos, silenciado por defecto) y
 «Música» (activada por defecto, se recuerda entre sesiones). Ninguno de los
 dos crea el audio hasta un gesto tuyo: pulsar «Jugar» o el propio control.
 La música es un bucle sobre una escala pentatónica que tarda más de 60 s en
@@ -241,8 +265,11 @@ repetirse y suena por debajo de los efectos.
 ## Voz y resúmenes
 
 Cada tres turnos resueltos, un resumen gracioso de cómo va la partida (quién gana,
-rachas, muerte súbita cercana) aparece en el bocadillo y se lee en voz alta.
-Ya no hay chiste por disparo. Los resúmenes se leen en voz alta con la Web Speech API del navegador, a través
+rachas, desplazamientos, muerte súbita cercana) aparece en el bocadillo y se
+lee en voz alta. Ya no hay chiste por disparo. Si solo juega un humano, los
+textos le hablan a él («Tu nave», «Te desplazaron: estabas aquí.»), y los
+rivales de IA aparecen con su nombre corto («Bisagra», «La Contable»,
+«Chispa»), el mismo de las pestañas. Los resúmenes se leen en voz alta con la Web Speech API del navegador, a través
 de `easy-speech` (fijada en 2.4.0). No hay ficheros de audio ni servicios de
 terceros: solo se usan voces **locales** en castellano (`es-*` con
 `localService`), porque las voces remotas (las «Google español» de Chrome de
@@ -250,7 +277,7 @@ escritorio) mandarían el texto, con los nombres de los jugadores, a un
 servidor ajeno. Si el dispositivo no tiene una voz así, el juego sigue en
 texto, lo avisa una vez y deshabilita el interruptor.
 
-- El interruptor «Voz» está en la consola, activado por defecto, y se recuerda
+- El interruptor «Voz» está en Ajustes (⚙), activado por defecto, y se recuerda
   en `voz:activada`. No afecta a la música ni a los efectos.
 - La síntesis se desbloquea en el gesto de «Jugar» (o al pulsar el
   interruptor), igual que la música.
@@ -271,8 +298,34 @@ Tras un impacto, el terreno solo repinta el rectángulo afectado, con una única
 subida a la GPU por frame.
 
 Para medirlo en tu propio dispositivo, abre el juego con `?rendimiento=1`:
-aparece un recuadro con p95, max, frames largos, INP y un veredicto («Respuesta
-≤ 200 ms» o «Supera 200 ms»). Detalle en `docs/rendimiento.md`.
+aparece un recuadro con p95, max, frames largos, INP, la latencia del último
+toque en «Rastro» y un veredicto («Respuesta ≤ 200 ms» o «Supera 200 ms»).
+Detalle en `docs/rendimiento.md`.
+
+La mira (la previsualización de la trayectoria) tiene un presupuesto de
+cómputo de 8 ms: si un cálculo lo supera, se oculta antes que dibujar algo
+que ya ha costado más de lo prometido. Mientras está oculta no se recalcula
+con cada movimiento del dedo; se vuelve a pedir una sola vez pasados 1,5 s
+(`REINTENTO_MIRA_OCULTA_MS`, `src/juego/mira/miraOculta.ts`) o al cambiar de
+turno.
+
+## Jugar sin conexión
+
+En el build de producción, un service worker de
+[Serwist](https://serwist.pages.dev/) (`src/app/sw.ts`, servido en
+`/serwist/sw.js`) guarda el juego entero la primera vez que se abre con
+conexión; desde entonces se juega sin red. Al terminar la primera instalación
+sale unos segundos «Listo para jugar sin conexión», y el pie del panel de
+Ajustes enseña el estado y la versión. Con `npm run dev` no se registra.
+
+Cuando hay una versión nueva, se descarga en segundo plano (también se
+comprueba cada 30 minutos y al volver a la pestaña) y aparece «Hay una versión
+nueva» con «Recargar» y «Luego». La versión nueva solo se activa al pulsar
+«Recargar», nunca a mitad de partida; «Luego» oculta el aviso hasta la
+siguiente carga.
+
+Si la caché sirviera una versión que no toca, abrir el juego con `?sw=0`
+desinstala el service worker, borra sus cachés y recarga sin él.
 
 ## Desarrollo
 
@@ -297,6 +350,16 @@ npm run test:e2e                      # Playwright, contra un build local
 npm run calibrar:economia             # recalibra precios y saldo, regenera docs/calibracion-economia.md
 npm run medir:eventos                 # calendario de eventos sobre muchas semillas
 ```
+
+Los e2e bloquean los service workers, salvo `tests/e2e/pwa-sin-conexion.e2e.ts`,
+para que ninguna prueba juzgue algo servido desde la caché.
+
+Para depurar, `window.__debug` expone ganchos de la partida. Entre ellos,
+`__debug.calculosPrevisualizacion` cuenta cuántas veces se ha pedido la mira
+al Worker, y `__debug.forzarMiraOculta(true)` la oculta por el mismo camino
+que un cálculo demasiado caro, sin reintento automático, hasta llamar a
+`__debug.forzarMiraOculta(false)`. `__debug.pwa` da el estado del service
+worker y la versión.
 
 El CI (`.github/workflows/ci.yml`) ejecuta todas estas comprobaciones en
 cada push y cada pull request. Los tests estadísticos largos (ia-n*, arm-6,
@@ -367,3 +430,23 @@ la etapa de traspaso contra la URL real ya desplegada, con
   aviso de «sin voz» pasan a la capa de avisos, bajo la franja de interruptores
   y con fondo opaco. Antes el aviso de voz salía en 11 px y sin fondo, tapado por
   otros textos, y el rótulo de la deriva cruzaba el interruptor «Voz».
+- **Rótulo de la deriva** (#245): en las partidas espaciales, «Vacío…» se
+  desvanece a los 4 s y deja de tapar planetas.
+- **Menú de ajustes** (#246): un único botón ⚙ arriba a la derecha reúne
+  Histórico, Sacudida, Sonido, Música y Voz, que salen de la consola.
+- **Jugar sin conexión** (#247, #248): service worker de Serwist, aviso de
+  versión nueva con «Recargar» y «Luego», estado y versión en Ajustes, y
+  `?sw=0` para desinstalarlo. El estado pasa a «Lista para jugar sin
+  conexión» también al recargar con el worker ya activo.
+- **Textos** (#249): segunda persona cuando solo juega un humano, nombre corto
+  de los rivales en los resúmenes, «Gratis» una sola vez en la ficha del arma
+  y ayuda del gesto con el mismo sentido que la portada.
+- **Avisos sin solapes** (#252): un solo «¡Perdido!» a la vez, que baja si el
+  aviso de versión nueva ocupa arriba; en la portada ese aviso no tapa
+  «Música», y el histórico queda por encima de la ayuda de apuntado.
+- **Mira oculta** (#258): la mira oculta por presupuesto de cómputo ya no se
+  recalcula con cada movimiento; se reintenta una vez a los 1,5 s. Ganchos
+  `__debug.calculosPrevisualizacion` y `__debug.forzarMiraOculta`.
+- **Rastro del último disparo** (#259): trayectoria a guiones del último tiro
+  con la silueta en el impacto, interruptor «Rastro» en Ajustes y su latencia
+  en `?rendimiento=1`.
