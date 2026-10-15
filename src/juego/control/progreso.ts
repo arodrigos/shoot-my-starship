@@ -1,3 +1,4 @@
+import { esNivelIA, type NivelIA } from "@/sim/ia/nivel";
 import type { EstadisticasPartida, ParteDeGuerra } from "@/sim/partida/parteDeGuerra";
 
 // partida-5: degradación con gracia sin almacenamiento -- mismo patrón
@@ -17,11 +18,13 @@ export interface UltimaPartida {
 export interface Progreso {
   readonly version: 1;
   readonly rivalId: string | null;
+  // null = nunca elegido (o valor inválido): la portada arranca en «normal».
+  readonly nivelIA: NivelIA | null;
   readonly ultimaPartida: UltimaPartida | null;
 }
 
 function progresoVacio(): Progreso {
-  return { version: VERSION_PROGRESO, rivalId: null, ultimaPartida: null };
+  return { version: VERSION_PROGRESO, rivalId: null, nivelIA: null, ultimaPartida: null };
 }
 
 function esEstadisticasValidas(valor: unknown): valor is EstadisticasPartida {
@@ -67,7 +70,10 @@ export function leerProgreso(): Progreso {
     const bruto = window.localStorage.getItem(CLAVE_PROGRESO);
     if (!bruto) return progresoVacio();
     const datos: unknown = JSON.parse(bruto);
-    return esProgresoValido(datos) ? datos : progresoVacio();
+    if (!esProgresoValido(datos)) return progresoVacio();
+    // Un progreso guardado antes de existir el nivel no lo trae; uno
+    // manipulado puede traer cualquier cosa: ambos caen a «sin elegir».
+    return { ...datos, nivelIA: esNivelIA((datos as { nivelIA?: unknown }).nivelIA) ? (datos as { nivelIA: NivelIA }).nivelIA : null };
   } catch {
     return progresoVacio();
   }
@@ -84,6 +90,10 @@ function guardar(progreso: Progreso): void {
 
 export function guardarRivalElegido(rivalId: string): void {
   guardar({ ...leerProgreso(), rivalId });
+}
+
+export function guardarNivelElegido(nivelIA: NivelIA): void {
+  guardar({ ...leerProgreso(), nivelIA });
 }
 
 export function guardarUltimaPartida(parte: ParteDeGuerra, estadisticas: EstadisticasPartida): void {

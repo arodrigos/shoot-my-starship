@@ -3,6 +3,7 @@
 // (docs/jugador-patron.md) y publica tasa de victoria, error medio de
 // impacto y tasa de autoimpacto, junto a la cifra de autoimpacto previa al
 // bloque para que el cambio sea comparable.
+import { aplicarNivel, esNivelIA, type NivelIA } from "@/sim/ia/nivel";
 import { ALMIRANTE_BISAGRA, CHISPA, LA_CONTABLE } from "@/sim/ia/personalidades";
 import { medirCompraIA } from "../tests/utils/medirCompraIA";
 import { medirTerminacion } from "../tests/utils/medirTerminacion";
@@ -55,7 +56,14 @@ if (argumento("naves") !== undefined && argumento("modo") === undefined) {
   process.exit(dentroDeCota ? 0 : 1);
 }
 
-for (const semillaMaestra of SEMILLAS_MAESTRAS_MEDICION_IA) for (const personalidad of [LA_CONTABLE, ALMIRANTE_BISAGRA, CHISPA]) {
+// niv-3: `--nivel facil|normal|dificil` mide las mismas personalidades con el
+// nivel aplicado; sin el parámetro (o con «normal») el informe es el de siempre.
+const nivelPedido = argumento("nivel");
+if (nivelPedido !== undefined && !esNivelIA(nivelPedido)) throw new Error("medir:ia --nivel admite facil, normal o dificil");
+const nivel: NivelIA = nivelPedido ?? "normal";
+
+for (const semillaMaestra of SEMILLAS_MAESTRAS_MEDICION_IA) for (const base of [LA_CONTABLE, ALMIRANTE_BISAGRA, CHISPA]) {
+  const personalidad = aplicarNivel(base, nivel);
   const informe = medirPersonalidad(personalidad, semillaMaestra, NUM_PARTIDAS_MEDICION_IA);
   const previo = AUTOIMPACTO_PREVIO_AL_BLOQUE[informe.personalidad];
   const marca = (informe.tasaAutoimpacto ?? 0) <= UMBRAL_AUTOIMPACTO ? "OK" : "SUPERA EL UMBRAL";

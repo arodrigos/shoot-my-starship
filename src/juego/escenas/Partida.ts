@@ -41,6 +41,8 @@ import { crearFuenteIA } from "@/sim/ia/fuente";
 import { buscarEquipo, esIdEquipo } from "@/sim/equipo/catalogo";
 import { alcancePropulsores, volarConPropulsores } from "@/sim/equipo/propulsores";
 import { LA_CONTABLE, ALMIRANTE_BISAGRA, buscarPersonalidad } from "@/sim/ia/personalidades";
+import { aplicarNivel, etiquetaNivel, NIVEL_IA_POR_DEFECTO } from "@/sim/ia/nivel";
+import { NOMBRES_CORTOS_RIVAL } from "@/juego/textos/nombresEnTexto";
 import type { Personalidad } from "@/sim/ia/tipos";
 import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
@@ -82,7 +84,7 @@ import {
   type MemoriaIA,
 } from "@/juego/jugadores";
 import { contarHumanos, etiquetaMinirobot } from "@/juego/textosPartida";
-import { publicarGanador, publicarParticipantes, reiniciarParticipantes } from "@/juego/control/participantesStore";
+import { publicarGanador, publicarParticipantes, publicarRivalesIA, reiniciarParticipantes } from "@/juego/control/participantesStore";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { MEMORIA_PLANTILLAS, resumenPartida, tocaResumen } from "@/sim/partida/resumenPartida";
 import { COLORES_NAVE, colorDeAsiento } from "@/juego/naves/paletaNaves";
@@ -627,16 +629,23 @@ export class Partida extends Phaser.Scene {
     // anteriores) la partida es la de siempre: un humano contra la IA elegida.
     const jugadores: readonly JugadorConfig[] = this.datosEscena.jugadores ?? [
       { nombre: "Tú", tipo: "humano" },
-      { nombre: personalidadBase.nombre, tipo: "ia", personalidadId: personalidadBase.id },
+      { nombre: personalidadBase.nombre, tipo: "ia", personalidadId: personalidadBase.id, nivel: this.datosEscena.nivelIA },
     ];
-    this.controladores = jugadores.map((jugador, indice) => ({
+    this.controladores = jugadores.map((jugador, indice) => {
+      const nivel = jugador.tipo === "ia" ? (jugador.nivel ?? NIVEL_IA_POR_DEFECTO) : null;
+      const personalidad =
+        jugador.tipo === "ia" ? (jugador.personalidadId ? buscarPersonalidad(jugador.personalidadId) : personalidadBase) : null;
+      return {
       tipo: jugador.tipo,
       // Los nombres de las IA son fijos y salen de la personalidad: acotarlos
       // a 16 letras los convertía en «Almirante Bisagr» antes de llegar al HUD.
       nombre: jugador.tipo === "ia" ? jugador.nombre : sanearNombre(jugador.nombre, `Nave ${indice + 1}`),
-      personalidad:
-        jugador.tipo === "ia" ? (jugador.personalidadId ? buscarPersonalidad(jugador.personalidadId) : personalidadBase) : null,
-    }));
+      // El nivel se aplica aquí, una sola vez: de aquí en adelante la IA (en
+      // el Worker o en línea) solo ve la personalidad ya transformada.
+      personalidad: personalidad !== null && nivel !== null ? aplicarNivel(personalidad, nivel) : null,
+      nivel,
+      };
+    });
     this.rival = this.controladores.find((controlador) => controlador.personalidad !== null)?.personalidad ?? personalidadBase;
     // hud-canales-1: una sola vez por partida, para el canal de estado.
     publicarNombreRival(this.rival.nombre);
@@ -646,7 +655,18 @@ export class Partida extends Phaser.Scene {
         : null,
     );
     const cantidadNaves = this.controladores.length;
-    window.__debug.controladores = this.controladores.map((controlador) => ({ tipo: controlador.tipo, nombre: controlador.nombre }));
+    window.__debug.controladores = this.controladores.map((controlador) => ({
+      tipo: controlador.tipo,
+      nombre: controlador.nombre,
+      ...(controlador.personalidad && controlador.nivel ? { nivel: controlador.nivel, error: controlador.personalidad.error } : {}),
+    }));
+    publicarRivalesIA(
+      this.controladores.map((controlador) =>
+        controlador.personalidad && controlador.nivel
+          ? { nombreCorto: NOMBRES_CORTOS_RIVAL[controlador.personalidad.id] ?? controlador.personalidad.nombre, nivel: controlador.nivel, etiquetaNivel: etiquetaNivel(controlador.nivel) }
+          : null,
+      ),
+    );
 
     // modos-y-presupuesto: ?modo= sigue la misma convención que ?mapa=/
     // ?semilla= -- atajo determinista para los tests e2e, con la última

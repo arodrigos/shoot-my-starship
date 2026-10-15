@@ -9,7 +9,7 @@ import type { Personalidad } from "@/sim/ia/tipos";
 export const LA_CONTABLE: Personalidad = {
   id: "la-contable",
   nombre: "La Contable",
-  descripcion: "Apenas falla: desviación mínima en ángulo y potencia. La más difícil de las tres.",
+  descripcion: "Apenas falla: calcula cada tiro.",
   // Banda alta (ia-punteria-3, recalibrado otra vez en armas-reprecio-roles):
   // el reprecio subió el daño medio del catálogo (varias armas pasan de
   // 20-30 a 30-45 de daño máximo), lo que por sí solo disparó la victoria a
@@ -56,7 +56,7 @@ export const LA_CONTABLE: Personalidad = {
 export const ALMIRANTE_BISAGRA: Personalidad = {
   id: "almirante-bisagra",
   nombre: "Almirante Bisagra",
-  descripcion: "Se pasa de fuerza casi siempre. Dificultad media: castiga menos que La Contable, pero no regala nada.",
+  descripcion: "Se pasa de fuerza casi siempre y lo dice con solemnidad.",
   // Banda media (ia-punteria-3, recalibrado otra vez en armas-reprecio-roles):
   // con el daño medio del catálogo subido por el reprecio, el rango que
   // calibró ia-punteria se disparaba a 93.0% de victorias, muy por encima
@@ -96,7 +96,7 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
 export const CHISPA: Personalidad = {
   id: "chispa",
   nombre: "Chispa",
-  descripcion: "A veces se entierra a sí misma. La más floja de las tres: ideal para la primera partida.",
+  descripcion: "Improvisa y a veces se entierra a sí misma.",
   // Banda baja (ia-punteria-3, recalibrado otra vez en armas-reprecio-roles):
   // el reprecio le subió el daño a varias de sus armas preferidas (p.ej.
   // zanjadora-manolita pasa de utilitaria pura a algo de alcance real,

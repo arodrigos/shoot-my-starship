@@ -7,6 +7,7 @@ import { elegirMapaDistinto, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/
 import { suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import type { JugadorConfig } from "@/juego/jugadores";
+import type { NivelIA } from "@/sim/ia/nivel";
 
 type Fase = "inicio" | "jugando";
 
@@ -18,6 +19,8 @@ interface Partida {
   readonly mapaId?: string;
   readonly semillaSistema?: number;
   readonly personalidadId: string;
+  // Un único nivel para todos los rivales de IA de la sesión.
+  readonly nivelIA?: NivelIA;
   // modos-y-presupuesto: elegido en PantallaInicio, se mantiene entre
   // partidas sucesivas de la misma sesión ("otra partida" no cambia de modo
   // a mitad de sesión, igual que ya hace con mapaId/semillaSistema).
@@ -95,6 +98,7 @@ export function Aplicacion() {
           ? { mapaId: elegirMapaDistinto(actual.mapaId).id }
           : { semillaSistema: Math.floor(Math.random() * TECHO_SEMILLA_SISTEMA) }),
         personalidadId: actual.personalidadId,
+        nivelIA: actual.nivelIA,
         modo: actual.modo,
         jugadores: actual.jugadores,
         todosVemosTodo: actual.todosVemosTodo,
@@ -105,8 +109,8 @@ export function Aplicacion() {
   if (fase === "inicio") {
     return (
       <PantallaInicio
-        onJugar={(rivalId, modo, jugadores, todosVemosTodo) => {
-          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo }));
+        onJugar={(rivalId, modo, jugadores, todosVemosTodo, nivelIA) => {
+          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo, nivelIA }));
           setFase("jugando");
         }}
       />
@@ -120,6 +124,7 @@ export function Aplicacion() {
         mapaId: partida.mapaId,
         semillaSistema: partida.semillaSistema,
         personalidadId: partida.personalidadId,
+        nivelIA: partida.nivelIA,
         modo: partida.modo,
         jugadores: partida.jugadores,
         todosVemosTodo: partida.todosVemosTodo,

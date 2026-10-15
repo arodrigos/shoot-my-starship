@@ -1,4 +1,5 @@
 import type { Personalidad } from "@/sim/ia/tipos";
+import type { NivelIA } from "@/sim/ia/nivel";
 import type { IdNave } from "@/sim/partida/tipos";
 import type { UltimoIntentoIA } from "@/sim/ia/decidir";
 
@@ -14,6 +15,9 @@ export interface JugadorConfig {
   readonly tipo: "humano" | "ia";
   // Solo para tipo "ia".
   readonly personalidadId?: string;
+  // Solo para tipo "ia"; ausente es «normal». La partida usa un único nivel
+  // para todos sus rivales (PantallaInicio lo copia a cada uno).
+  readonly nivel?: NivelIA;
 }
 
 // Lo que la escena sabe de cada asiento una vez resuelto: la personalidad ya
@@ -21,7 +25,9 @@ export interface JugadorConfig {
 export interface Controlador {
   readonly tipo: "humano" | "ia";
   readonly nombre: string;
+  // Ya con el nivel aplicado (aplicarNivel): es lo que consume crearFuenteIA.
   readonly personalidad: Personalidad | null;
+  readonly nivel?: NivelIA | null;
 }
 
 // Contadores por nave de IA que antes eran campos sueltos de la escena (ver
