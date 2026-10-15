@@ -42,7 +42,7 @@ async function dispararPorArriba(page: Page): Promise<void> {
     });
   });
   await page.getByTestId("disparar").click();
-  await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
+  await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 150000 });
 }
 
 for (const t of TAMANOS) {
@@ -63,14 +63,15 @@ for (const t of TAMANOS) {
 }
 
 test("avi-1: dos tiros perdidos seguidos dejan un único «¡Perdido!» vivo a 360x640", async ({ page }) => {
-  test.setTimeout(240000);
+  test.setTimeout(420000);
   await empezar(page, 360, 640, true);
   for (let tiro = 0; tiro < 2; tiro++) {
     await dispararPorArriba(page);
     expect(await page.evaluate(() => window.__debug.avisosPerdidoVivos), `vivos tras el tiro ${tiro + 1}`).toBe(1);
     if (tiro === 1) await capturar(page, "avisos-sin-solapes-avi-1-doble-360x640");
-    // Turno propio otra vez (el rival dispara entre medias).
-    await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
+    // Turno propio otra vez (el rival dispara entre medias). Con el lienzo por
+    // software de Actions el vuelo de la IA tarda más de un minuto.
+    await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 150000 });
   }
 });
 
@@ -95,7 +96,7 @@ test("avi-2: «Listo para jugar sin conexión» no tapa «Música» en la portad
 
 test("avi-4: con la ayuda de apuntado visible, la cabecera del histórico queda por encima y responde", async ({ page }) => {
   test.setTimeout(120000);
-  await empezar(page, 360, 640, false);
+  await empezar(page, 360, 640, true);
   await expect(page.getByTestId("ayuda-apuntado")).toBeVisible();
   await abrirAjustes(page);
   await page.getByTestId("historico-bromas-toggle").click();

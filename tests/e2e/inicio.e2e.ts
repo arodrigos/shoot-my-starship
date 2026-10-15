@@ -58,9 +58,9 @@ for (const { ancho, alto } of TAMANOS) {
   // de asientos, porque el recorte salía del JS (nombre ya acortado) y un
   // scrollWidth <= clientWidth no lo detecta: se comprueba el texto visible.
   const CASOS = [
-    { id: "1v1", humanos: 1, ias: 1, visibles: ["Tu nave", "Contable"], completos: ["Tu nave", "La Contable"] },
-    { id: "1h2ia", humanos: 1, ias: 2, visibles: ["Jugador 1", "Contable", "Bisagra"], completos: ["Jugador 1", "La Contable", "Almirante Bisagra"] },
-    { id: "1h3ia", humanos: 1, ias: 3, visibles: ["J1", "Contable", "Bisagra", "Chispa"], completos: ["Jugador 1", "La Contable", "Almirante Bisagra", "Chispa"] },
+    { id: "1v1", humanos: 1, ias: 1, visibles: ["Tu nave", "Contable"], completos: ["Tu nave", "La Contable · Normal"] },
+    { id: "1h2ia", humanos: 1, ias: 2, visibles: ["Jugador 1", "Contable", "Bisagra"], completos: ["Jugador 1", "La Contable · Normal", "Bisagra · Normal"] },
+    { id: "1h3ia", humanos: 1, ias: 3, visibles: ["J1", "Contable", "Bisagra", "Chispa"], completos: ["Jugador 1", "La Contable · Normal", "Bisagra · Normal", "Chispa · Normal"] },
     { id: "4h", humanos: 4, ias: 0, visibles: ["J1", "J2", "J3", "J4"], completos: ["Jugador 1", "Jugador 2", "Jugador 3", "Jugador 4"] },
   ] as const;
 

@@ -4,7 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { colorDeAsiento } from "@/juego/naves/paletaNaves";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
-import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
+import { obtenerParticipantes, suscribirParticipantes, type RivalIA } from "@/juego/control/participantesStore";
 import { acotarIntegridad, INTEGRIDAD_MAXIMA, porcentajeIntegridad } from "@/sim/naves/vida";
 
 // imp-11: hasta este bloque no existía NINGÚN indicador de integridad en el
@@ -37,6 +37,13 @@ function maximoLetras(naves: number): number {
 function cortar(texto: string, maximo: number): string {
   const letras = Array.from(texto);
   return letras.length <= maximo ? texto : `${letras.slice(0, maximo - 1).join("")}…`;
+}
+
+// El nivel de la IA va junto al nombre: «Bisagra · Fácil». El texto completo
+// es el que leen los lectores de pantalla y el gancho de depuración; la barra
+// pinta el nombre abreviado y, en una segunda línea, el nivel completo.
+export function etiquetaConNivel(nombre: string, rival: RivalIA | null | undefined): string {
+  return rival ? `${rival.nombreCorto} · ${rival.etiquetaNivel}` : nombre;
 }
 
 export function abreviarNombre(nombre: string, naves: number): string {
@@ -110,7 +117,7 @@ export function IntegridadHUD() {
   const control = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   // multi-setup-partida: con jugadores configurados, el nombre de cada
   // asiento sustituye a las etiquetas de la partida de siempre.
-  const { participantes } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
+  const { participantes, rivalesIA } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
 
   // Gancho de depuración (como __debug.naves): lo que la barra pinta de
   // verdad, para que el e2e compare relleno y etiqueta sin leer píxeles.
@@ -123,14 +130,14 @@ export function IntegridadHUD() {
           {
             id: nave.id,
             colorRelleno: colorDeAsiento(nave.id),
-            etiqueta: participantes?.[nave.id]?.nombre ?? etiquetaDeNave(nave.id, control.nombreRival),
+            etiqueta: etiquetaConNivel(participantes?.[nave.id]?.nombre ?? etiquetaDeNave(nave.id, control.nombreRival), rivalesIA[nave.id]),
             valor: Math.round(acotarIntegridad(nave.integridad)),
             porcentaje: Math.round(porcentajeIntegridad(nave.integridad)),
           },
         ];
       }),
     };
-  }, [estado, participantes, control.nombreRival]);
+  }, [estado, participantes, rivalesIA, control.nombreRival]);
   const transicion = movimientoReducido() ? "none" : `width ${DURACION_BAJADA_MS}ms ease-out`;
 
   return (
@@ -147,7 +154,9 @@ export function IntegridadHUD() {
         const valor = Math.round(acotarIntegridad(nave.integridad));
         const porcentaje = Math.round(porcentajeIntegridad(nave.integridad));
         const esTurno = control.turno === nave.id;
-        const etiqueta = participantes?.[nave.id]?.nombre ?? etiquetaDeNave(nave.id, control.nombreRival);
+        const nombreBarra = participantes?.[nave.id]?.nombre ?? etiquetaDeNave(nave.id, control.nombreRival);
+        const rival = rivalesIA[nave.id];
+        const etiqueta = etiquetaConNivel(nombreBarra, rival);
         const eliminada = participantes !== null && nave.integridad <= 0;
         return (
           <div
@@ -173,12 +182,23 @@ export function IntegridadHUD() {
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
               {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
-              <span aria-hidden="true">{abreviarNombre(etiqueta, estado.naves.length)}</span>
+              <span aria-hidden="true">{abreviarNombre(rival ? rival.nombreCorto : nombreBarra, estado.naves.length)}</span>
               <span style={SOLO_LECTORES}>{etiqueta}</span>
               {/* En el 1 contra 1 el turno ya se ve por el resaltado y aria-current:
                   el sufijo visible cortaba «Tu nave · t…» en 105 px. */}
               {participantes || !esTurno ? null : <span style={SOLO_LECTORES}> · turno</span>}
             </div>
+            {/* El nivel completo en su propia línea: junto al nombre no cabe en 3 y 4
+                barras a 360 px, y una inicial («·D») no dice «Difícil». */}
+            {rival ? (
+              <div
+                aria-hidden="true"
+                data-testid={`integridad-nivel-${nave.id}`}
+                style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10, lineHeight: "12px", opacity: 0.85 }}
+              >
+                {rival.etiquetaNivel}
+              </div>
+            ) : null}
             {nave.integridad > 0 ? (
               <div
                 role="progressbar"

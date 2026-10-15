@@ -7,7 +7,16 @@ export interface Participante {
   readonly esHumano: boolean;
 }
 
+// Cada asiento de IA con el nombre corto de su rival y su nivel (null en los
+// humanos): la etiqueta de la barra de vida es «<nombre corto> · <Nivel>».
+export interface RivalIA {
+  readonly nombreCorto: string;
+  readonly nivel: "facil" | "normal" | "dificil";
+  readonly etiquetaNivel: string;
+}
+
 export interface EstadoParticipantes {
+  readonly rivalesIA: readonly (RivalIA | null)[];
   // null = partida de siempre (1 humano contra la IA elegida), cuyas
   // etiquetas "Tu nave" / nombre del rival conserva el HUD.
   readonly participantes: readonly Participante[] | null;
@@ -18,7 +27,7 @@ export interface EstadoParticipantes {
   readonly humanos: number;
 }
 
-const ESTADO_INICIAL: EstadoParticipantes = { participantes: null, ganador: null, ganadorEsHumano: false, humanos: 1 };
+const ESTADO_INICIAL: EstadoParticipantes = { rivalesIA: [], participantes: null, ganador: null, ganadorEsHumano: false, humanos: 1 };
 
 let estado: EstadoParticipantes = ESTADO_INICIAL;
 const escuchas = new Set<() => void>();
@@ -39,6 +48,10 @@ export function suscribirParticipantes(escucha: () => void): () => void {
 
 export function publicarParticipantes(participantes: readonly Participante[] | null): void {
   fijar({ participantes, ganador: null, ganadorEsHumano: false, humanos: participantes?.filter((p) => p.esHumano).length ?? 1 });
+}
+
+export function publicarRivalesIA(rivalesIA: readonly (RivalIA | null)[]): void {
+  fijar({ rivalesIA });
 }
 
 export function publicarGanador(nombre: string | null, esHumano = false): void {
