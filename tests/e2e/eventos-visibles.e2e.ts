@@ -57,7 +57,13 @@ for (const definicion of CATALOGO_EVENTOS) {
     mkdirSync("capturas", { recursive: true });
     const halosAntes = await page.evaluate(() => JSON.stringify(window.__debug.halos));
     const antes = await lienzo(page).screenshot();
+    const framesAntes = await page.evaluate(() => window.__debug.rendimiento?.frames ?? 0);
     await page.evaluate((tipo) => window.__debug.forzarEvento!(tipo, 1), definicion.tipo);
+    // Con la mira oculta por presupuesto el lienzo ya no cambia solo entre
+    // capturas, así que el único cambio medible es el del efecto: se espera a
+    // que la escena haya pintado fotogramas con él antes de capturar, en vez
+    // de fiar de cuánto tarde cada captura.
+    await page.waitForFunction((n) => (window.__debug.rendimiento?.frames ?? 0) >= n, framesAntes + 4, { timeout: 60000 });
     // En el CI el lienzo pinta a pocos fotogramas por segundo y una captura
     // suelta puede caer antes del primer fotograma del efecto o después de su
     // fundido. Se toman varias seguidas, mientras el efecto sigue registrado, y
@@ -138,7 +144,7 @@ for (const definicion of CATALOGO_EVENTOS) {
     // a eso sobre el lienzo entero, así que se exige un mínimo absoluto (150 px) y se
     // deja la proporción en la salida del test.
     console.log(`evv-1 ${definicion.tipo}: ${distintos} px distintos de ${total} (${((distintos / total) * 100).toFixed(3)} %)`);
-    const diagnostico = await page.evaluate((tipo) => JSON.stringify({ efecto: (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === `evento-${tipo}`), halos: (window.__debug.halos ?? []).length, camara: window.__debug.camara }), definicion.tipo);
+    const diagnostico = await page.evaluate((tipo) => JSON.stringify({ frames: (window.__debug.rendimiento?.frames ?? 0), maxDeltaMs: window.__debug.rendimiento?.max, efecto: (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === `evento-${tipo}`), halos: (window.__debug.halos ?? []).length, camara: window.__debug.camara }), definicion.tipo);
     expect(distintos, diagnostico).toBeGreaterThanOrEqual(150);
   });
 }
