@@ -23,7 +23,11 @@ for (const { ancho, alto } of TAMANOS) {
     await page.getByTestId("boton-jugar").click();
     await page.waitForSelector("#game-container canvas");
     await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.publicarResumenPrueba !== undefined);
-    if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
+    // La ayuda del gesto espera a que se cierre la inicial: no se pisan.
+    await expect(page.getByTestId("ayuda-inicial")).toBeVisible();
+    await expect(page.getByTestId("ayuda-apuntado")).toHaveCount(0);
+    await captura(page, "ayuda-inicial-sola", ancho, alto);
+    await page.getByTestId("ayuda-cerrar").click();
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
 
     // txt-4: primera partida con almacenamiento limpio.
