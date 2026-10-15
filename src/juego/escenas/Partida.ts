@@ -113,6 +113,8 @@ import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/
 import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorCapas";
 import { reproducirDetonaciones } from "@/juego/efectos/reproductorDetonaciones";
 import type { Detonacion } from "@/sim/partida/detonaciones";
+import { permiteMovimientoCamara } from "@/juego/efectos/movimientoCamara";
+import { ControladorRemate, decidirRemate, type FotogramaRemate, type ModoRemate } from "@/juego/efectos/remate";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoComputo, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
@@ -431,6 +433,11 @@ export class Partida extends Phaser.Scene {
   private movimientos: { transcurridoMs: number; readonly duracionMs: number; readonly aplicar: (ms: number) => void; readonly terminar: () => void }[] = [];
   private alTerminarMovimientos: (() => void) | null = null;
   private avanceTurnoPendiente: { restanteMs: number; avanzar: () => void } | null = null;
+  // remate-impacto: `bloquea` es true en el remate completo (el turno espera a
+  // su fin) y false en el de solo destello, que no retrasa nada.
+  private remate: { readonly ctl: ControladorRemate; readonly bloquea: boolean; readonly alTerminar: () => void; congelado: boolean } | null = null;
+  private veloRemate: Phaser.GameObjects.Rectangle | null = null;
+  private encuadreGuardadoRemate: { zoom: number; scrollX: number; scrollY: number } | null = null;
   // arma-mina-adherente (min-2): cuenta atrás anclada al mundo del vuelo
   // REAL en curso -- nunca el de repetición, mismo criterio que la estela y
   // que actualizarCuentaAtrasMecha.
@@ -1143,6 +1150,7 @@ export class Partida extends Phaser.Scene {
     // gesto a coordenada de mundo), sin necesidad de esperar a ese primer
     // preRender.
     window.__debug.camara = { x: 0, y: 0, ancho: this.scale.width, alto: this.scale.height };
+    window.__debug.remate = { activo: false, completados: 0, destellosCamara: [], ultimo: null };
     window.__debug.turno = this.estado.turno;
     publicarTurno(this.estado.turno);
     window.__debug.numeroTurno = this.estado.numeroTurno;
@@ -1188,6 +1196,7 @@ export class Partida extends Phaser.Scene {
       }
     }
 
+    this.actualizarRemate(delta);
     this.avanzarMovimientos(delta);
 
     const jugable = this.puedeJugarAhora();
@@ -1610,7 +1619,7 @@ export class Partida extends Phaser.Scene {
           true,
           true,
         );
-      } else if (this.animador.enVuelo() || this.animadorRepeticion.enVuelo() || this.avanceTurnoPendiente || this.movimientos.length > 0) {
+      } else if (this.animador.enVuelo() || this.animadorRepeticion.enVuelo() || this.avanceTurnoPendiente || this.remate?.bloquea || this.movimientos.length > 0) {
         // realce-impacto (rlc-1): avanceTurnoPendiente también cuenta como
         // "sigue resolviéndose" -- sin este caso, un impacto directo dentro
         // de la ráfaga caería en la guardia defensiva de abajo y la ráfaga
@@ -1637,6 +1646,7 @@ export class Partida extends Phaser.Scene {
       // "sigue siendo tu turno, sin animación", y el botón de disparar se
       // reactivaría antes de que el turno real haya pasado.
       !this.avanceTurnoPendiente &&
+      !this.remate?.bloquea &&
       this.movimientos.length === 0 &&
       !this.relevoPendiente &&
       !this.solicitudEnCurso
@@ -2320,7 +2330,13 @@ export class Partida extends Phaser.Scene {
     window.__debug!.efectosVisibles = [...this.efectosDelTurno, ...this.numerosDanioVivos, ...(this.efectosEventos?.entradasDebug() ?? [])];
   }
 
-  private manejarEventosVisuales(eventos: readonly EventoSimulacion[], detonaciones: readonly Detonacion[], tirador: number = this.estado.turno): number {
+  private manejarEventosVisuales(
+    eventos: readonly EventoSimulacion[],
+    detonaciones: readonly Detonacion[],
+    tirador: number = this.estado.turno,
+    // remate-impacto: en el golpe decisivo el remate sustituye a la sacudida.
+    sinSacudida = false,
+  ): number {
     let esperaSacudidaMs = 0;
     const movimientoReducido = prefiereMovimientoReducido();
     window.__debug!.detonaciones = detonaciones;
@@ -2387,12 +2403,14 @@ export class Partida extends Phaser.Scene {
           // contacto honesto de arriba, sin sacudida ni destello rojo, igual
           // que un roce (que ni siquiera entra en esta rama). Con el ajuste
           // desactivado (rlc-3), ningún desplazamiento de cámara.
-          if (evento.danio > 0 && obtenerEstadoControl().sacudidaActiva && !movimientoReducido) {
+          if (evento.danio > 0 && permiteMovimientoCamara(obtenerEstadoControl().sacudidaActiva, movimientoReducido)) {
             const amplitud = amplitudSacudida(evento.danio);
-            this.sacudirCamara(DURACION_SACUDIDA_IMPACTO_MS, amplitud);
             this.naves[evento.impactoNave].destellarDanio(intensidadDestelloDanio(evento.danio));
             window.__debug!.ultimoRealceImpacto = { danio: evento.danio, amplitud };
-            esperaSacudidaMs = Math.max(esperaSacudidaMs, DURACION_SACUDIDA_IMPACTO_MS);
+            if (!sinSacudida) {
+              this.sacudirCamara(DURACION_SACUDIDA_IMPACTO_MS, amplitud);
+              esperaSacudidaMs = Math.max(esperaSacudidaMs, DURACION_SACUDIDA_IMPACTO_MS);
+            }
           }
         }
       }
@@ -2437,7 +2455,17 @@ export class Partida extends Phaser.Scene {
 
     this.terreno.sincronizarDesde(estadoDespues.mascara);
 
-    const esperaSacudidaMs = this.manejarEventosVisuales(eventos, opciones?.detonaciones ?? [], tirador);
+    // remate-impacto: solo el turno animado real (el mismo que retrasa por
+    // la sacudida) hace remate; los guiones de prueba avanzan síncronos.
+    const destruidas = estadoDespues.naves.flatMap((nave, id) => (nave.integridad <= 0 && estadoAntes.naves[id].integridad > 0 ? [id] : []));
+    const modoRemate: ModoRemate = opciones?.retrasarSiHaySacudida
+      ? decidirRemate({
+          navesDestruidas: destruidas.length,
+          finDePartida: estadoDespues.resultado.tipo === "terminada",
+          permiteMovimiento: permiteMovimientoCamara(obtenerEstadoControl().sacudidaActiva, prefiereMovimientoReducido()),
+        })
+      : "ninguno";
+    const esperaSacudidaMs = this.manejarEventosVisuales(eventos, opciones?.detonaciones ?? [], tirador, modoRemate === "completo");
     // mrb-1: el robot que detona se retira en el mismo instante que su
     // explosión; si esperara a avanzarTurno (retrasado por la sacudida), se
     // vería el robot vivo junto a su propia explosión.
@@ -2510,7 +2538,13 @@ export class Partida extends Phaser.Scene {
       opciones?.alAvanzarTurno?.();
     };
 
-    if (opciones?.retrasarSiHaySacudida && esperaSacudidaMs > 0) {
+    if (modoRemate !== "ninguno") {
+      const primera = destruidas[0];
+      const golpe = eventos.find((e) => e.tipo === "impacto" && e.objetivo === primera);
+      const nave = estadoAntes.naves[primera];
+      const punto = golpe && golpe.tipo === "impacto" ? { x: golpe.x, y: golpe.y } : { x: nave.x, y: nave.y ?? this.scale.height / 2 };
+      this.iniciarRemate(modoRemate, punto, avanzarTurno);
+    } else if (opciones?.retrasarSiHaySacudida && esperaSacudidaMs > 0) {
       this.avanceTurnoPendiente = { restanteMs: esperaSacudidaMs, avanzar: avanzarTurno };
     } else {
       avanzarTurno();
@@ -2553,6 +2587,93 @@ export class Partida extends Phaser.Scene {
     };
   }
 
+  // remate-impacto: reloj propio movido por el delta de la escena (el mismo
+  // que adelanta avanzarHastaTurnoHumano). El simulador ya resolvió el turno,
+  // así que la pausa es solo de presentación.
+  private iniciarRemate(modo: Exclude<ModoRemate, "ninguno">, impacto: { x: number; y: number }, alTerminar: () => void): void {
+    this.finalizarRemate();
+    const ancho = this.scale.width;
+    const alto = this.scale.height;
+    const camara = this.cameras.main;
+    this.encuadreGuardadoRemate = { zoom: camara.zoom, scrollX: camara.scrollX, scrollY: camara.scrollY };
+    const ctl = new ControladorRemate(modo, { x: camara.scrollX + ancho / 2, y: camara.scrollY + alto / 2 }, impacto, ancho, alto);
+    const bloquea = modo === "completo";
+    this.remate = { ctl, bloquea, alTerminar, congelado: false };
+    const previo = window.__debug!.remate;
+    window.__debug!.remate = {
+      activo: true,
+      completados: previo?.completados ?? 0,
+      destellosCamara: [...(previo?.destellosCamara ?? []), Math.round(performance.now())],
+      ultimo: {
+        modo,
+        x: impacto.x,
+        y: impacto.y,
+        duracionMs: Math.max(...ctl.plan.map((f) => f.finMs)),
+        fases: ctl.plan.map((f) => ({ nombre: f.nombre, inicioMs: f.inicioMs, finMs: f.finMs })),
+      },
+    };
+    if (!bloquea) alTerminar();
+    this.aplicarFotogramaRemate(ctl.avanzar(0));
+  }
+
+  private actualizarRemate(deltaMs: number): void {
+    if (!this.remate) return;
+    this.aplicarFotogramaRemate(this.remate.ctl.avanzar(deltaMs));
+  }
+
+  private aplicarFotogramaRemate(f: FotogramaRemate): void {
+    const remate = this.remate;
+    if (!remate) return;
+    if (f.terminado) {
+      const { alTerminar, bloquea } = remate;
+      this.finalizarRemate();
+      const previo = window.__debug!.remate;
+      if (previo) window.__debug!.remate = { ...previo, activo: false, completados: previo.completados + 1 };
+      if (bloquea) alTerminar();
+      return;
+    }
+    const camara = this.cameras.main;
+    if (remate.bloquea) {
+      camara.setZoom(f.zoom);
+      camara.centerOn(f.centro.x, f.centro.y);
+      // Durante la pausa se retiene en su primer fotograma lo que ya estalló.
+      if (f.congelado !== remate.congelado) {
+        remate.congelado = f.congelado;
+        if (f.congelado) {
+          this.tweens.pauseAll();
+          this.emisorExplosion.pause();
+          this.emisorExplosionSinDanio.pause();
+        } else this.reanudarTrasPausaRemate();
+      }
+    }
+    if (!this.veloRemate) {
+      this.veloRemate = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0xffffff).setScrollFactor(0).setDepth(5000);
+    }
+    this.veloRemate.setAlpha(f.alfaDestello).setVisible(f.alfaDestello > 0);
+  }
+
+  private reanudarTrasPausaRemate(): void {
+    this.tweens.resumeAll();
+    this.emisorExplosion.resume();
+    this.emisorExplosionSinDanio.resume();
+  }
+
+  // Siempre devuelve la cámara al encuadre guardado y reanuda lo congelado,
+  // también si el remate se corta: la partida nunca queda a medias.
+  private finalizarRemate(): void {
+    const remate = this.remate;
+    this.remate = null;
+    if (!remate) return;
+    if (remate.congelado) this.reanudarTrasPausaRemate();
+    const guardado = this.encuadreGuardadoRemate;
+    this.encuadreGuardadoRemate = null;
+    if (guardado) {
+      this.cameras.main.setZoom(guardado.zoom);
+      this.cameras.main.setScroll(guardado.scrollX, guardado.scrollY);
+    }
+    this.veloRemate?.setVisible(false);
+  }
+
   // Único punto por el que se sacude la cámara: el contador es lo que el e2e
   // de movimiento reducido lee para comprobar que no hubo ninguna.
   private sacudirCamara(duracionMs: number, intensidad: number): void {
@@ -2567,7 +2688,7 @@ export class Partida extends Phaser.Scene {
   private reaccionarAHumor(eventos: readonly EventoSimulacion[]): void {
     for (const evento of eventos) {
       if (!esEventoHumor(evento)) continue;
-      if (!prefiereMovimientoReducido()) this.sacudirCamara(DURACION_SACUDIDA_MS, INTENSIDAD_SACUDIDA);
+      if (permiteMovimientoCamara(obtenerEstadoControl().sacudidaActiva, prefiereMovimientoReducido())) this.sacudirCamara(DURACION_SACUDIDA_MS, INTENSIDAD_SACUDIDA);
       const frase = this.selectorFrases.elegir(this.rival.id, evento.tipo);
       publicarReaccion(frase, evento.tipo);
       reproducirTono(evento.tipo);
