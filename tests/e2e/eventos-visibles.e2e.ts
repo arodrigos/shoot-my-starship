@@ -42,7 +42,18 @@ async function pixelesDistintos(page: Page, a: Buffer, b: Buffer): Promise<{ dis
   );
 }
 
-const lienzo = (page: Page) => page.locator("#game-container canvas");
+// En el CI, con el lienzo pintado por software, la captura del elemento canvas
+// puede devolver el último fotograma que el compositor presentó aunque la
+// escena ya haya pintado el efecto (0 px distintos en reparación con cientos
+// de fotogramas). Se captura la página recortada al lienzo, que fuerza un
+// fotograma nuevo del compositor.
+const lienzo = (page: Page) => ({
+  screenshot: async (): Promise<Buffer> => {
+    const caja = await page.locator("#game-container canvas").boundingBox();
+    if (!caja) throw new Error("el lienzo no tiene caja");
+    return page.screenshot({ clip: caja });
+  },
+});
 
 // evv-1: un caso por tipo del catálogo, forzado con __debug.forzarEvento. Cada
 // uno enseña su efecto en el sitio donde actúa durante al menos un segundo y
