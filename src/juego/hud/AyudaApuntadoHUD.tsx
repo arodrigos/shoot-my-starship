@@ -12,7 +12,9 @@ export const TEXTO_AYUDA_APUNTADO = "Apoya el dedo y arrastra: de lado giras, y 
 export function AyudaApuntadoHUD() {
   const visible = useSyncExternalStore(
     suscribirControl,
-    () => obtenerEstadoControl().ayudaApuntadoVisible && obtenerEstadoControl().puedeDisparar,
+    // Con el panel de ayuda inicial abierto se espera: ambas capas ocupaban
+    // la misma zona y la del gesto tapaba líneas del primer párrafo.
+    () => obtenerEstadoControl().ayudaApuntadoVisible && obtenerEstadoControl().puedeDisparar && !obtenerEstadoControl().ayudaVisible,
     () => false,
   );
   if (!visible) return null;

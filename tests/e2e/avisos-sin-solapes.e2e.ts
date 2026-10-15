@@ -95,7 +95,7 @@ test("avi-2: «Listo para jugar sin conexión» no tapa «Música» en la portad
 
 test("avi-4: con la ayuda de apuntado visible, la cabecera del histórico queda por encima y responde", async ({ page }) => {
   test.setTimeout(120000);
-  await empezar(page, 360, 640, false);
+  await empezar(page, 360, 640, true);
   await expect(page.getByTestId("ayuda-apuntado")).toBeVisible();
   await abrirAjustes(page);
   await page.getByTestId("historico-bromas-toggle").click();
