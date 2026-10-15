@@ -502,6 +502,21 @@ export interface DebugGlobal {
   // Cuántas veces se ha sacudido la cámara en la partida: con movimiento
   // reducido tiene que quedarse como estaba.
   sacudidasCamara?: number;
+  // remate-impacto (rem-1..rem-7): estado del remate del golpe decisivo. Los
+  // tiempos de las fases son ms de escena (el reloj que mueve el remate), no
+  // de pared; `destellosCamara` son marcas de pared para el tope por segundo.
+  remate?: {
+    readonly activo: boolean;
+    readonly completados: number;
+    readonly destellosCamara: readonly number[];
+    readonly ultimo: {
+      readonly modo: "destello" | "completo";
+      readonly x: number;
+      readonly y: number;
+      readonly duracionMs: number;
+      readonly fases: readonly { readonly nombre: string; readonly inicioMs: number; readonly finMs: number }[];
+    } | null;
+  };
   // realce-impacto (rlc-1, rlc-2): datos del último realce de impacto (solo
   // en un impacto con daño real y con la sacudida activada) -- amplitud ya
   // calculada por la misma función pura que el unitario ejerce, para que el
