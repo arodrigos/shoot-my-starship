@@ -62,9 +62,13 @@ for (const definicion of CATALOGO_EVENTOS) {
     // suelta puede caer antes del primer fotograma del efecto o después de su
     // fundido. Se toman varias seguidas, mientras el efecto sigue registrado, y
     // se queda la que más píxeles cambia.
+    // El efecto transitorio dura 2 s: cada captura cuesta cientos de ms con el
+    // lienzo por software, así que el bucle se acota en tiempo (700 ms) para
+    // que el efecto siga registrado cuando se comprueba al cumplirse 1 s.
+    const inicio = Date.now();
     let mejor = await lienzo(page).screenshot();
     let mejorMedida = await pixelesDistintos(page, antes, mejor);
-    for (let i = 0; i < 8 && mejorMedida.distintos < 150; i++) {
+    for (let i = 0; i < 8 && mejorMedida.distintos < 150 && Date.now() - inicio < 700; i++) {
       const sigue = await page.evaluate((tipo) => (window.__debug.efectosVisibles ?? []).some((e) => e.tipo === `evento-${tipo}`), definicion.tipo);
       if (!sigue) break;
       const captura = await lienzo(page).screenshot();
@@ -76,7 +80,7 @@ for (const definicion of CATALOGO_EVENTOS) {
     }
     // Un segundo de reloj de la página: lo que pide el criterio es que siga
     // visible pasado ese tiempo, no que aparezca.
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(Math.max(0, 1000 - (Date.now() - inicio)));
     const entrada = await page.evaluate((tipo) => (window.__debug.efectosVisibles ?? []).find((e) => e.tipo === `evento-${tipo}`) ?? null, definicion.tipo);
     expect(entrada, `falta la entrada evento-${definicion.tipo}`).not.toBeNull();
     const nave = (await page.evaluate(() => window.__debug.naves))!.find((n) => n.id === 1)!;
