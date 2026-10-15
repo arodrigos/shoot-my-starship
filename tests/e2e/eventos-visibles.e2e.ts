@@ -100,8 +100,20 @@ for (const definicion of CATALOGO_EVENTOS) {
     if (definicion.tipo === "gravedad-x2" || definicion.tipo === "gravedad-mitad") {
       expect(await page.evaluate(() => JSON.stringify(window.__debug.halos))).not.toBe(halosAntes);
     }
-    const despues = await lienzo(page).screenshot();
-    const medidaFinal = await pixelesDistintos(page, antes, despues);
+    let despues = await lienzo(page).screenshot();
+    let medidaFinal = await pixelesDistintos(page, antes, despues);
+    // Si el lienzo aún no había pintado el efecto en las capturas de antes de
+    // 1 s, se sigue intentando mientras el efecto continúe registrado.
+    for (let i = 0; i < 6 && Math.max(medidaFinal.distintos, mejorMedida.distintos) < 150; i++) {
+      const sigue = await page.evaluate((tipo) => (window.__debug.efectosVisibles ?? []).some((e) => e.tipo === `evento-${tipo}`), definicion.tipo);
+      if (!sigue) break;
+      const captura = await lienzo(page).screenshot();
+      const medida = await pixelesDistintos(page, antes, captura);
+      if (medida.distintos > medidaFinal.distintos) {
+        despues = captura;
+        medidaFinal = medida;
+      }
+    }
     const total = medidaFinal.total;
     const distintos = Math.max(medidaFinal.distintos, mejorMedida.distintos);
     writeFileSync(`capturas/evento-${definicion.tipo}-1180x820.png`, mejorMedida.distintos > medidaFinal.distintos ? mejor : despues);
