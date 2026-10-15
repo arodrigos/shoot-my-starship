@@ -42,7 +42,7 @@ function cortar(texto: string, maximo: number): string {
 // El nivel de la IA va junto al nombre: «Bisagra · Fácil». El texto completo
 // es el que leen los lectores de pantalla y el gancho de depuración; la barra
 // pinta el nombre abreviado y, aparte, el nivel (solo la inicial con 3 naves
-// y nada con 4: no caben; el title y el lector de pantalla lo llevan siempre).
+// y nada con 2 ni con 4: no caben; el title y el lector de pantalla lo llevan siempre).
 export function etiquetaConNivel(nombre: string, rival: RivalIA | null | undefined): string {
   return rival ? `${rival.nombreCorto} · ${rival.etiquetaNivel}` : nombre;
 }
