@@ -1,4 +1,5 @@
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
+import { elegirEntradaDisparoAutomatico } from "@/juego/control/disparoAutomatico";
 import { costeArma } from "@/sim/partida/economia";
 import { buscarEquipo, type IdEquipo } from "@/sim/equipo/catalogo";
 import type { EntradaDeTurno, IdNave, ModoJuego } from "@/sim/partida/tipos";
@@ -561,6 +562,26 @@ export function solicitarDisparo(): void {
     potencia: estado.ajuste.potencia,
     objetivoId: 1,
   });
+}
+
+// reloj-turno: al agotarse el tiempo, sale lo que haya en la mira por el mismo
+// manejador que «Disparar»; si el botón no podría disparar lo elegido (arma de
+// pago sin saldo, agotada, escudo o propulsores) sale el arma gratuita.
+export function solicitarDisparoAutomatico(): void {
+  if (!estado.puedeDisparar || !manejadorDisparo) return;
+  const armaGratuita = CATALOGO_ARMAS.find((arma) => costeArma(arma) === 0 && !armaEstaAgotada(arma.id)) ?? CATALOGO_ARMAS[0];
+  const elegida = elegirEntradaDisparoAutomatico(
+    {
+      armaId: estado.ajuste.armaId,
+      equipoId: estado.equipoId,
+      anguloGrados: estado.ajuste.anguloGrados,
+      potencia: estado.ajuste.potencia,
+      armaGratuitaId: armaGratuita.id,
+    },
+    (armaId) => !armaEstaAgotada(armaId) && armaFaltaSaldo(armaId) === 0,
+  );
+  if (estado.ayudaDispersionVisible) fijar({ ayudaDispersionVisible: false });
+  manejadorDisparo({ ...elegida, objetivoId: 1 });
 }
 
 // partida-completa: "otra partida" reutiliza el mismo store (es un

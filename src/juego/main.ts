@@ -32,6 +32,8 @@ export interface DatosEscenaPartida {
   // relevo-turno: desactiva de forma explícita la pantalla de relevo entre
   // humanos (partidas rápidas donde la información es pública).
   readonly todosVemosTodo?: boolean;
+  // reloj-turno: segundos por turno humano; ausente es Off.
+  readonly relojTurnoS?: 30 | 45 | 60;
 }
 
 // FIT + CENTER_BOTH (render-4, sustituye el RESIZE de andamiaje-1): el

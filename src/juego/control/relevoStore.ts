@@ -10,6 +10,8 @@ export interface ResumenRelevo {
   readonly fallo: boolean;
   // Quién cayó en este turno: el resumen normal queda oculto tras el relevo.
   readonly eliminadas: readonly string[];
+  // reloj-turno: el turno lo resolvió el reloj, no el jugador.
+  readonly sinTiempo?: boolean;
 }
 
 export interface EstadoRelevo {

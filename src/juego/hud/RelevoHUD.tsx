@@ -40,6 +40,7 @@ export function RelevoHUD() {
       </h2>
       {resumen && (
         <p data-testid="relevo-resumen" style={{ margin: 0, maxWidth: 320, font: "15px system-ui, sans-serif" }}>
+          {resumen.sinTiempo ? `${resumen.tirador} se quedó sin tiempo: disparo automático. ` : ""}
           {resumen.fallo
             ? `${resumen.tirador} ha fallado${resumen.arma ? ` con ${resumen.arma}` : ""}.`
             : `${resumen.tirador} ha disparado ${resumen.arma ?? "su arma"} y ha hecho ${resumen.danio} de daño.`}

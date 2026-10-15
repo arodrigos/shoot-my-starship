@@ -5,6 +5,7 @@ import { colorDeAsiento } from "@/juego/naves/paletaNaves";
 import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integridadStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import { obtenerParticipantes, suscribirParticipantes, type RivalIA } from "@/juego/control/participantesStore";
+import { PildoraRelojTurno } from "@/juego/hud/RelojTurnoHUD";
 import { acotarIntegridad, INTEGRIDAD_MAXIMA, porcentajeIntegridad } from "@/sim/naves/vida";
 
 // imp-11: hasta este bloque no existía NINGÚN indicador de integridad en el
@@ -174,6 +175,7 @@ export function IntegridadHUD() {
             title={eliminada ? `${etiqueta}: eliminada` : esTurno ? `${etiqueta}: turno` : etiqueta}
             aria-current={esTurno ? "true" : undefined}
           >
+            {esTurno ? <PildoraRelojTurno /> : null}
             <div
               data-testid={`integridad-etiqueta-${nave.id}`}
               style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}

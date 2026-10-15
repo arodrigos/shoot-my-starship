@@ -7,6 +7,7 @@ import { elegirMapaDistinto, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/
 import { suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import type { JugadorConfig } from "@/juego/jugadores";
+import type { SegundosReloj } from "@/juego/control/relojTurnoStore";
 import type { NivelIA } from "@/sim/ia/nivel";
 
 type Fase = "inicio" | "jugando";
@@ -29,6 +30,8 @@ interface Partida {
   readonly jugadores?: readonly JugadorConfig[];
   // relevo-turno: sin relevo entre humanos, para partidas rápidas.
   readonly todosVemosTodo?: boolean;
+  // reloj-turno: se conserva en «Otra partida», no entre sesiones.
+  readonly relojTurnoS?: SegundosReloj;
 }
 
 // Rango del generador con semilla del propio juego (crearGeneradorAleatorio
@@ -102,6 +105,7 @@ export function Aplicacion() {
         modo: actual.modo,
         jugadores: actual.jugadores,
         todosVemosTodo: actual.todosVemosTodo,
+        relojTurnoS: actual.relojTurnoS,
       }));
     });
   }, []);
@@ -109,8 +113,8 @@ export function Aplicacion() {
   if (fase === "inicio") {
     return (
       <PantallaInicio
-        onJugar={(rivalId, modo, jugadores, todosVemosTodo, nivelIA) => {
-          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo, nivelIA }));
+        onJugar={(rivalId, modo, jugadores, todosVemosTodo, nivelIA, relojTurnoS) => {
+          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo, nivelIA, relojTurnoS }));
           setFase("jugando");
         }}
       />
@@ -128,6 +132,7 @@ export function Aplicacion() {
         modo: partida.modo,
         jugadores: partida.jugadores,
         todosVemosTodo: partida.todosVemosTodo,
+        relojTurnoS: partida.relojTurnoS,
       }}
     />
   );
