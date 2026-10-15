@@ -3,6 +3,8 @@ import { configurarMundoParaViewport, MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/co
 import { Sandbox } from "@/juego/scenes/Sandbox";
 import { Siluetas } from "@/juego/scenes/Siluetas";
 import { Partida } from "@/juego/escenas/Partida";
+import { COLOR_FONDO_ESPACIO } from "@/juego/paleta";
+import { colorCss } from "@/juego/naves/paletaNaves";
 import type { JugadorConfig } from "@/juego/jugadores";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import type { NivelIA } from "@/sim/ia/nivel";
@@ -44,7 +46,7 @@ function crearConfiguracion(contenedor: string): Phaser.Types.Core.GameConfig {
   return {
     type: Phaser.WEBGL,
     parent: contenedor,
-    backgroundColor: "#12141a",
+    backgroundColor: colorCss(COLOR_FONDO_ESPACIO),
     // arte-siluetas-5 (novena corrección): sin esto, canvas.toDataURL() lee
     // el buffer de dibujo de WebGL ya borrado tras presentarse -- medido con
     // el simulador real (diag arte-siluetas-5 contra "calma-de-los-restos"):

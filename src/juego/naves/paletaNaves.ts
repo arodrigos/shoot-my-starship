@@ -1,13 +1,16 @@
-// arte-siluetas-3/4: paleta compartida entre Nave.ts (lo que se ve en
-// partida, hoy solo índices 0 y 1) y verificar-siluetas.ts (que renderiza
-// las cuatro variantes sin que exista aún el modo de 4 jugadores). Vivir en
-// un sitio único evita que el arnés de verificación compare contra colores
-// inventados que no son los que de verdad se pintan.
+// Paleta compartida entre Nave.ts (lo que se ve en partida), la cáscara React
+// y verificar-siluetas.ts. Vivir en un sitio único evita que el arnés de
+// verificación compare contra colores que no son los que de verdad se pintan.
+// Los cuatro asientos están en uso. Los valores se miden en
+// tests/unit/naves/paleta-daltonismo.test.ts (ΔE2000 ≥ 12 entre asientos con
+// protanopía, deuteranopía y tritanopía): el azul y el lila originales eran
+// casi idénticos para un tritanope (ΔE 1,4), así que el azul se hizo más
+// saturado y el lila más oscuro, sin perder su tono.
 export const COLORES_NAVE: readonly [number, number, number, number] = [
-  0x5ac8fa, // nave 0 (hoy: jugador humano)
-  0xff6b4a, // nave 1 (hoy: rival)
-  0x7ee081, // nave 2 (reservada para nucleo-n-naves)
-  0xd98cff, // nave 3 (reservada para nucleo-n-naves)
+  0x3bafdf, // asiento 0 (azul)
+  0xff6b4a, // asiento 1 (rojo)
+  0x8aec8c, // asiento 2 (verde)
+  0x9749b6, // asiento 3 (lila)
 ];
 
 // Color de asiento en CSS: la cáscara React lo usa para pintar nombres y el
