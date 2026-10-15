@@ -59,6 +59,24 @@ for (const { ancho, alto } of TAMANOS) {
     expect(ias).toHaveLength(2);
     for (const ia of ias) expect(ia.nivel).toBe("dificil");
     await expect(page.getByTestId("integridad-nave-1").getByRole("progressbar", { name: /· Difícil$/ })).toBeVisible();
+    for (const id of [1, 2]) await expect(page.getByTestId(`integridad-nivel-${id}`)).toHaveText("Difícil");
     await capturar(page, "niv-5-partida-dificil", ancho, alto);
+  });
+}
+
+// niv-2: en el 1 contra 1 el nivel se lee junto a la barra del rival.
+for (const { ancho, alto } of TAMANOS) {
+  test(`niv-2: el 1 contra 1 muestra «Fácil» junto a la barra de Bisagra (${ancho}x${alto})`, async ({ page }) => {
+    test.setTimeout(180000);
+    await page.setViewportSize({ width: ancho, height: alto });
+    await page.goto("/");
+    await page.getByTestId("rival-almirante-bisagra").click();
+    await page.getByTestId("nivel-facil").click();
+    await page.getByTestId("boton-jugar").click();
+    await esperarPartida(page);
+    await expect(page.getByTestId("integridad-nivel-1")).toBeVisible();
+    await expect(page.getByTestId("integridad-nivel-1")).toHaveText("Fácil");
+    await expect(page.getByTestId("integridad-etiqueta-1")).toContainText("Bisagra");
+    await capturar(page, "niv-2-partida-facil", ancho, alto);
   });
 }

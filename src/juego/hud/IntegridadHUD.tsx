@@ -41,8 +41,7 @@ function cortar(texto: string, maximo: number): string {
 
 // El nivel de la IA va junto al nombre: «Bisagra · Fácil». El texto completo
 // es el que leen los lectores de pantalla y el gancho de depuración; la barra
-// pinta el nombre abreviado y, aparte, el nivel (solo la inicial con 3 naves
-// y nada con 2 ni con 4: no caben; el title y el lector de pantalla lo llevan siempre).
+// pinta el nombre abreviado y, en una segunda línea, el nivel completo.
 export function etiquetaConNivel(nombre: string, rival: RivalIA | null | undefined): string {
   return rival ? `${rival.nombreCorto} · ${rival.etiquetaNivel}` : nombre;
 }
@@ -184,16 +183,22 @@ export function IntegridadHUD() {
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
               {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
               <span aria-hidden="true">{abreviarNombre(rival ? rival.nombreCorto : nombreBarra, estado.naves.length)}</span>
-              {rival && estado.naves.length === 3 ? (
-                <span aria-hidden="true" data-testid={`integridad-nivel-${nave.id}`} style={{ fontWeight: 400, opacity: 0.85 }}>
-                  {` ·${rival.etiquetaNivel.charAt(0)}`}
-                </span>
-              ) : null}
               <span style={SOLO_LECTORES}>{etiqueta}</span>
               {/* En el 1 contra 1 el turno ya se ve por el resaltado y aria-current:
                   el sufijo visible cortaba «Tu nave · t…» en 105 px. */}
               {participantes || !esTurno ? null : <span style={SOLO_LECTORES}> · turno</span>}
             </div>
+            {/* El nivel completo en su propia línea: junto al nombre no cabe en 3 y 4
+                barras a 360 px, y una inicial («·D») no dice «Difícil». */}
+            {rival ? (
+              <div
+                aria-hidden="true"
+                data-testid={`integridad-nivel-${nave.id}`}
+                style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10, lineHeight: "12px", opacity: 0.85 }}
+              >
+                {rival.etiquetaNivel}
+              </div>
+            ) : null}
             {nave.integridad > 0 ? (
               <div
                 role="progressbar"
