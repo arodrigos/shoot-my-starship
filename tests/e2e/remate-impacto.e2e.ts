@@ -19,22 +19,35 @@ async function empezar(page: Page, ancho = 360, alto = 640): Promise<void> {
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
 }
 
-// Deja a los dos rivales con integridad 5 y aplica un tiro que hace daño.
+// Deja a un rival con integridad 5 y aplica un tiro que hace daño. Los planetas
+// del mundo cambian de una partida a otra: si desde una colocación el oráculo no
+// ve ningún tiro, se prueba la siguiente en vez de fallar por la geometría.
 async function prepararGolpe(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const mundo = window.__debug.mundo!;
-    window.__debug.cargarEscenario!({
-      naves: [
-        { x: mundo.ancho * 0.2, y: mundo.alto * 0.5, integridad: 150 },
-        { x: mundo.ancho * 0.8, y: mundo.alto * 0.3, integridad: 5 },
-        { x: mundo.ancho * 0.8, y: mundo.alto * 0.7, integridad: 150 },
-      ],
-      arma: "pepinazo-cortesia",
-      anguloGrados: 45,
-      potencia: 60,
-    });
-  });
-  const solucion = await page.evaluate(() => window.__debug.solucionMultipozoJugador!());
+  const colocaciones = [
+    { xj: 0.2, yj: 0.5, xd: 0.8, yd: 0.3, xo: 0.8, yo: 0.7 },
+    { xj: 0.15, yj: 0.7, xd: 0.7, yd: 0.2, xo: 0.85, yo: 0.8 },
+    { xj: 0.25, yj: 0.3, xd: 0.75, yd: 0.6, xo: 0.9, yo: 0.2 },
+    { xj: 0.1, yj: 0.5, xd: 0.5, yd: 0.15, xo: 0.9, yo: 0.85 },
+    { xj: 0.3, yj: 0.8, xd: 0.6, yd: 0.5, xo: 0.9, yo: 0.5 },
+  ];
+  let solucion: { anguloGrados: number; potencia: number } | null = null;
+  for (const c of colocaciones) {
+    await page.evaluate((c) => {
+      const mundo = window.__debug.mundo!;
+      window.__debug.cargarEscenario!({
+        naves: [
+          { x: mundo.ancho * c.xj, y: mundo.alto * c.yj, integridad: 150 },
+          { x: mundo.ancho * c.xd, y: mundo.alto * c.yd, integridad: 5 },
+          { x: mundo.ancho * c.xo, y: mundo.alto * c.yo, integridad: 150 },
+        ],
+        arma: "pepinazo-cortesia",
+        anguloGrados: 45,
+        potencia: 60,
+      });
+    }, c);
+    solucion = await page.evaluate(() => window.__debug.solucionMultipozoJugador!());
+    if (solucion) break;
+  }
   expect(solucion, "hay un tiro con daño para el golpe decisivo").not.toBeNull();
   await page.evaluate((s) => window.__debug.fijarApuntado!(s!.anguloGrados, s!.potencia), solucion);
 }
