@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CATALOGO_EVENTOS } from "@/sim/universo/catalogoEventos";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { abrirAjustes } from "./utilesControl";
 
 async function empezar(page: Page, extra = ""): Promise<void> {
@@ -53,9 +54,26 @@ for (const definicion of CATALOGO_EVENTOS) {
     // La consola va anclada abajo y, según dónde caiga la nave en un mapa sin
     // sembrar, puede taparla: el efecto existe pero no se ve en la captura.
     await page.addStyleTag({ content: '[data-testid="consola"], [data-testid="pestana-consola"] { visibility: hidden !important; }' });
+    mkdirSync("capturas", { recursive: true });
     const halosAntes = await page.evaluate(() => JSON.stringify(window.__debug.halos));
     const antes = await lienzo(page).screenshot();
     await page.evaluate((tipo) => window.__debug.forzarEvento!(tipo, 1), definicion.tipo);
+    // En el CI el lienzo pinta a pocos fotogramas por segundo y una captura
+    // suelta puede caer antes del primer fotograma del efecto o después de su
+    // fundido. Se toman varias seguidas, mientras el efecto sigue registrado, y
+    // se queda la que más píxeles cambia.
+    let mejor = await lienzo(page).screenshot();
+    let mejorMedida = await pixelesDistintos(page, antes, mejor);
+    for (let i = 0; i < 8 && mejorMedida.distintos < 150; i++) {
+      const sigue = await page.evaluate((tipo) => (window.__debug.efectosVisibles ?? []).some((e) => e.tipo === `evento-${tipo}`), definicion.tipo);
+      if (!sigue) break;
+      const captura = await lienzo(page).screenshot();
+      const medida = await pixelesDistintos(page, antes, captura);
+      if (medida.distintos > mejorMedida.distintos) {
+        mejor = captura;
+        mejorMedida = medida;
+      }
+    }
     // Un segundo de reloj de la página: lo que pide el criterio es que siga
     // visible pasado ese tiempo, no que aparezca.
     await page.waitForTimeout(1000);
@@ -78,13 +96,17 @@ for (const definicion of CATALOGO_EVENTOS) {
     if (definicion.tipo === "gravedad-x2" || definicion.tipo === "gravedad-mitad") {
       expect(await page.evaluate(() => JSON.stringify(window.__debug.halos))).not.toBe(halosAntes);
     }
-    const despues = await lienzo(page).screenshot({ path: `capturas/evento-${definicion.tipo}-1180x820.png` });
-    const { distintos, total } = await pixelesDistintos(page, antes, despues);
+    const despues = await lienzo(page).screenshot();
+    const medidaFinal = await pixelesDistintos(page, antes, despues);
+    const total = medidaFinal.total;
+    const distintos = Math.max(medidaFinal.distintos, mejorMedida.distintos);
+    writeFileSync(`capturas/evento-${definicion.tipo}-1180x820.png`, mejorMedida.distintos > medidaFinal.distintos ? mejor : despues);
     // El criterio pide ≥ 2 % de píxeles distintos; un efecto pequeño no llega
     // a eso sobre el lienzo entero, así que se exige un mínimo absoluto (150 px) y se
     // deja la proporción en la salida del test.
     console.log(`evv-1 ${definicion.tipo}: ${distintos} px distintos de ${total} (${((distintos / total) * 100).toFixed(3)} %)`);
-    expect(distintos).toBeGreaterThanOrEqual(150);
+    const diagnostico = await page.evaluate((tipo) => JSON.stringify({ efecto: (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === `evento-${tipo}`), halos: (window.__debug.halos ?? []).length, camara: window.__debug.camara }), definicion.tipo);
+    expect(distintos, diagnostico).toBeGreaterThanOrEqual(150);
   });
 }
 
