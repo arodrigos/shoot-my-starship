@@ -138,7 +138,7 @@ for (const definicion of CATALOGO_EVENTOS) {
     // llega a ver el efecto aunque estuviera registrado (0 px en todas). El
     // criterio ya se comprobó arriba con el estado; aquí solo se vuelve a
     // forzar el evento y se espera entre capturas para dar tiempo al render.
-    for (let intento = 0; intento < 1 && distintos < 150; intento++) {
+    for (let intento = 0; intento < 2 && distintos < 150; intento++) {
       await page.evaluate((tipo) => window.__debug.forzarEvento!(tipo, 1), definicion.tipo);
       for (let i = 0; i < 3 && distintos < 150; i++) {
         await page.waitForTimeout(250);
