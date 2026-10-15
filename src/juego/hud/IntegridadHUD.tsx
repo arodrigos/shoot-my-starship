@@ -41,8 +41,8 @@ function cortar(texto: string, maximo: number): string {
 
 // El nivel de la IA va junto al nombre: «Bisagra · Fácil». El texto completo
 // es el que leen los lectores de pantalla y el gancho de depuración; la barra
-// pinta el nombre abreviado y, aparte, el nivel (solo la inicial con 3 naves y
-// nada con 4: no caben; el title y el lector de pantalla lo llevan siempre).
+// pinta el nombre abreviado y, aparte, el nivel (solo la inicial con 2 o 3 naves
+// y nada con 4: no caben; el title y el lector de pantalla lo llevan siempre).
 export function etiquetaConNivel(nombre: string, rival: RivalIA | null | undefined): string {
   return rival ? `${rival.nombreCorto} · ${rival.etiquetaNivel}` : nombre;
 }
@@ -186,7 +186,7 @@ export function IntegridadHUD() {
               <span aria-hidden="true">{abreviarNombre(rival ? rival.nombreCorto : nombreBarra, estado.naves.length)}</span>
               {rival && estado.naves.length <= 3 ? (
                 <span aria-hidden="true" data-testid={`integridad-nivel-${nave.id}`} style={{ fontWeight: 400, opacity: 0.85 }}>
-                  {estado.naves.length === 3 ? ` ·${rival.etiquetaNivel.charAt(0)}` : ` · ${rival.etiquetaNivel}`}
+                  {` ·${rival.etiquetaNivel.charAt(0)}`}
                 </span>
               ) : null}
               <span style={SOLO_LECTORES}>{etiqueta}</span>
