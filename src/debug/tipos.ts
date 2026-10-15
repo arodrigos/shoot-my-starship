@@ -329,7 +329,13 @@ export interface DebugGlobal {
   eliminadas?: readonly number[];
   // Ganador de la partida (null = empate); ausente mientras sigue en curso.
   ganador?: number | null;
-  controladores?: readonly { readonly tipo: "humano" | "ia"; readonly nombre: string }[];
+  // Las IA llevan su nivel y el perfil de error con el nivel ya aplicado.
+  controladores?: readonly {
+    readonly tipo: "humano" | "ia";
+    readonly nombre: string;
+    readonly nivel?: "facil" | "normal" | "dificil";
+    readonly error?: { readonly anguloGrados: { readonly minimo: number; readonly maximo: number }; readonly potencia: { readonly minimo: number; readonly maximo: number } };
+  }[];
   numeroTurno?: number;
   // control-1, control-5: la solución balística exacta (deriva 0) para que
   // el disparo de quien tiene el turno ahora acierte al rival -- deja que

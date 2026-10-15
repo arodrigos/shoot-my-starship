@@ -3,7 +3,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { reservarFranjaAvisos } from "@/juego/pwa/franjaAvisos";
 import { PERSONALIDADES } from "@/sim/ia/personalidades";
-import { almacenamientoDisponible, guardarRivalElegido, leerProgreso } from "@/juego/control/progreso";
+import { etiquetaNivel, NIVEL_IA_POR_DEFECTO, NIVELES_IA, type NivelIA } from "@/sim/ia/nivel";
+import { almacenamientoDisponible, guardarNivelElegido, guardarRivalElegido, leerProgreso } from "@/juego/control/progreso";
 import { desbloquearAudio } from "@/juego/audio/motor";
 import { obtenerLocutor } from "@/juego/audio/voz";
 import { alternarMusicaActiva, obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
@@ -16,7 +17,7 @@ const RIVAL_POR_DEFECTO_ID = "la-contable";
 const MODO_POR_DEFECTO: ModoJuego = "barra-libre";
 
 interface Props {
-  readonly onJugar: (rivalId: string, modo: ModoJuego, jugadores?: readonly JugadorConfig[], todosVemosTodo?: boolean) => void;
+  readonly onJugar: (rivalId: string, modo: ModoJuego, jugadores?: readonly JugadorConfig[], todosVemosTodo?: boolean, nivelIA?: NivelIA) => void;
 }
 
 // partida-4: primera visita y estados vacíos. Vive fuera del lienzo (no
@@ -32,6 +33,7 @@ export function PantallaInicio({ onJugar }: Props) {
   // en cada intento de guardado.
   const [sinAlmacenamiento] = useState(() => !almacenamientoDisponible());
   const [rivalId, setRivalId] = useState(progreso.rivalId ?? RIVAL_POR_DEFECTO_ID);
+  const [nivelIA, setNivelIA] = useState<NivelIA>(progreso.nivelIA ?? NIVEL_IA_POR_DEFECTO);
   const [modo, setModo] = useState<ModoJuego>(MODO_POR_DEFECTO);
   // multi-setup-partida: de 1 a 4 humanos en el mismo dispositivo y el resto
   // de asientos (hasta 4 naves en total, mínimo 2) rellenado con rivales de IA.
@@ -63,10 +65,11 @@ export function PantallaInicio({ onJugar }: Props) {
     desbloquearAudio();
     obtenerLocutor().iniciar();
     guardarRivalElegido(rivalId);
+    guardarNivelElegido(nivelIA);
     // La partida de siempre (un humano sin nombre contra el rival elegido)
     // no pasa jugadores: conserva sus etiquetas "Tu nave" / nombre del rival.
     if (!esMultijugador && nombres[0].trim() === "") {
-      onJugar(rivalId, modoEfectivo);
+      onJugar(rivalId, modoEfectivo, undefined, undefined, nivelIA);
       return;
     }
     const indiceRival = Math.max(0, PERSONALIDADES.findIndex((personalidad) => personalidad.id === rivalId));
@@ -77,10 +80,10 @@ export function PantallaInicio({ onJugar }: Props) {
       })),
       ...Array.from({ length: rivalesIA }, (_vacio, i) => {
         const personalidad = PERSONALIDADES[(indiceRival + i) % PERSONALIDADES.length];
-        return { nombre: personalidad.nombre, tipo: "ia" as const, personalidadId: personalidad.id };
+        return { nombre: personalidad.nombre, tipo: "ia" as const, personalidadId: personalidad.id, nivel: nivelIA };
       }),
     ];
-    onJugar(rivalId, modoEfectivo, jugadores, humanos > 1 && todosVemosTodo);
+    onJugar(rivalId, modoEfectivo, jugadores, humanos > 1 && todosVemosTodo, nivelIA);
   }
 
   // Los avisos PWA van bajo la cabecera pegada (8 + 44 + 8 px) para no tapar «Música».
@@ -278,6 +281,28 @@ export function PantallaInicio({ onJugar }: Props) {
             <span style={{ font: "12px system-ui, sans-serif" }}>{personalidad.descripcion}</span>
           </button>
         ))}
+        <h2 style={{ margin: "8px 0 0", fontSize: 15 }}>Nivel</h2>
+        <div role="group" aria-label="Nivel de los rivales" style={{ display: "flex", gap: 8 }}>
+          {NIVELES_IA.map((nivel) => (
+            <button
+              key={nivel}
+              type="button"
+              data-testid={`nivel-${nivel}`}
+              aria-pressed={nivel === nivelIA}
+              onClick={() => setNivelIA(nivel)}
+              style={{
+                ...botonEstilo,
+                flex: 1,
+                border: nivel === nivelIA ? "2px solid #ffcc66" : "1px solid rgba(255,255,255,0.25)",
+              }}
+            >
+              {etiquetaNivel(nivel)}
+            </button>
+          ))}
+        </div>
+        <p data-testid="nivel-ayuda" style={{ margin: 0, font: "12px system-ui, sans-serif", opacity: 0.85 }}>
+          Fácil falla más, para jugar con peques o empezar. Normal es el juego de siempre. Difícil afina más. Vale para todos los rivales.
+        </p>
       </section>
       )}
 

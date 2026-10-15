@@ -5,6 +5,7 @@ import { Siluetas } from "@/juego/scenes/Siluetas";
 import { Partida } from "@/juego/escenas/Partida";
 import type { JugadorConfig } from "@/juego/jugadores";
 import type { ModoJuego } from "@/sim/partida/tipos";
+import type { NivelIA } from "@/sim/ia/nivel";
 
 export type IdEscena = "partida" | "sandbox" | "siluetas";
 
@@ -24,6 +25,8 @@ export interface DatosEscenaPartida {
   // multi-setup-partida: quién juega (de 2 a 4 asientos, humanos primero).
   // Ausente es la partida de siempre: un humano contra `personalidadId`.
   readonly jugadores?: readonly JugadorConfig[];
+  // Nivel de los rivales de la partida de siempre (sin `jugadores`); ausente es «normal».
+  readonly nivelIA?: NivelIA;
   // relevo-turno: desactiva de forma explícita la pantalla de relevo entre
   // humanos (partidas rápidas donde la información es pública).
   readonly todosVemosTodo?: boolean;
