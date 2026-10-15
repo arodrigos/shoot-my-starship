@@ -47,7 +47,7 @@ interface Muestra {
   camara: { x: number; y: number; ancho: number; alto: number };
 }
 
-async function dispararYMuestrear(page: Page, capturaEnZoom?: string): Promise<Muestra[]> {
+async function dispararYMuestrear(page: Page, capturaEnZoom?: string, capturaDestello?: string): Promise<Muestra[]> {
   await page.evaluate(() => {
     const w = window as unknown as { __muestras: unknown[]; __parar: boolean };
     w.__muestras = [];
@@ -67,6 +67,11 @@ async function dispararYMuestrear(page: Page, capturaEnZoom?: string): Promise<M
   });
   const antes = await page.evaluate(() => window.__debug.remate!.completados);
   await page.getByTestId("disparar").click();
+  if (capturaDestello) {
+    // Mejor esfuerzo, como la del zoom: el destello dura 150 ms y con el lienzo por software puede no verse.
+    const hayDestello = await page.waitForFunction(() => window.__debug.remate!.activo, undefined, { timeout: 90000, polling: "raf" }).then(() => true, () => false);
+    if (hayDestello) await capturar(page, capturaDestello);
+  }
   if (capturaEnZoom) {
     // Mejor esfuerzo: la captura sirve de evidencia visual, no de aserción.
     const ancho0 = (await page.evaluate(() => window.__debug.camara!.ancho)) - 1;
@@ -82,14 +87,15 @@ async function dispararYMuestrear(page: Page, capturaEnZoom?: string): Promise<M
   });
 }
 
-test("rem-1, rem-2, rem-4: remate completo con fases en orden, entradas bloqueadas y encuadre restaurado", async ({ page }) => {
+for (const { ancho, alto } of [{ ancho: 360, alto: 640 }, { ancho: 820, alto: 1180 }, { ancho: 1180, alto: 820 }]) {
+test(`rem-1, rem-2, rem-4: remate completo con fases en orden, entradas bloqueadas y encuadre restaurado (${ancho}x${alto})`, async ({ page }) => {
   test.setTimeout(240000);
-  await empezar(page);
+  await empezar(page, ancho, alto);
   await prepararGolpe(page);
   const camaraAntes = await page.evaluate(() => ({ ...window.__debug.camara! }));
-  await capturar(page, "remate-impacto-rem-2-antes-360x640");
+  await capturar(page, `remate-impacto-rem-2-antes-${ancho}x${alto}`);
   const turno0 = await page.evaluate(() => window.__debug.turno);
-  const muestras = await dispararYMuestrear(page, "remate-impacto-rem-1-acercamiento-360x640");
+  const muestras = await dispararYMuestrear(page, `remate-impacto-rem-1-acercamiento-${ancho}x${alto}`, `remate-impacto-rem-1-destello-${ancho}x${alto}`);
   const remate = await page.evaluate(() => window.__debug.remate!);
   expect(remate.ultimo!.modo).toBe("completo");
   expect(remate.ultimo!.fases.map((f) => f.nombre)).toEqual(["destello", "pausa", "acercamiento", "sosten", "vuelta"]);
@@ -106,8 +112,9 @@ test("rem-1, rem-2, rem-4: remate completo con fases en orden, entradas bloquead
   expect(remate.destellosCamara.length).toBe(1);
   const camaraDespues = await page.evaluate(() => ({ ...window.__debug.camara! }));
   for (const k of ["x", "y", "ancho", "alto"] as const) expect(Math.abs(camaraDespues[k] - camaraAntes[k])).toBeLessThanOrEqual(0.5);
-  await capturar(page, "remate-impacto-rem-2-despues-360x640");
+  await capturar(page, `remate-impacto-rem-2-despues-${ancho}x${alto}`);
 });
+}
 
 test("rem-3: con movimiento reducido el remate es solo un destello", async ({ page }) => {
   test.setTimeout(240000);
