@@ -205,7 +205,10 @@ export interface DebugGlobal {
   // apuntado-dedo: últimas medidas del gesto de apuntado (pointermove → primer
   // frame con la flecha), la flecha tal como se pintó y un atajo para fijar
   // ángulo y fuerza sin gesto (lo usan los e2e que apuntan solo como medio).
-  latencias?: () => readonly { readonly nombre: "apuntado" | "rastro"; readonly ms: number }[];
+  latencias?: () => readonly { readonly nombre: "apuntado" | "rastro" | "reloj-turno"; readonly ms: number }[];
+  // reloj-turno: espejo de relojTurnoStore y atajo de e2e para gastar tiempo.
+  relojTurno?: { configuradoS: 30 | 45 | 60 | null; estado: "parado" | "corriendo" | "pausado" | "agotado"; restanteMs: number };
+  adelantarRelojTurno?: (ms: number) => void;
   flechaApuntado?: {
     readonly anguloGrados: number;
     readonly potencia: number;

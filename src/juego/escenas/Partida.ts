@@ -52,13 +52,14 @@ import { ClienteSim } from "@/juego/motor/clienteSim";
 import { crearTrabajadorSim } from "@/juego/motor/crearTrabajador";
 import { mostrarApuntandoIA, ocultarApuntandoIA } from "@/juego/hud/indicadorApuntandoIA";
 import { montarHudRendimiento } from "@/juego/rendimiento/hudRendimiento";
-import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaRastro, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
+import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaRastro, registrarLatenciaRelojTurno, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
 import {
   fijarModo,
   fijarModoEspacial,
   obtenerEstadoControl,
   publicarDisparoJugadorResuelto,
   publicarJugable,
+  solicitarDisparoAutomatico,
   publicarNombreRival,
   publicarEconomia,
   publicarTurno,
@@ -122,6 +123,19 @@ import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } f
 import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoComputo, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { ocultarMira, tocaReintentarMira, type MiraOculta } from "@/juego/mira/miraOculta";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
+import {
+  adelantarRelojTurno,
+  arrancarRelojTurno,
+  configurarRelojTurno,
+  mostrarAvisoTiempo,
+  obtenerRelojTurno,
+  pararRelojTurno,
+  pausarRelojTurno,
+  reanudarRelojTurno,
+  registrarAlAgotarseReloj,
+  reiniciarRelojTurno,
+  tickRelojTurno,
+} from "@/juego/control/relojTurnoStore";
 import { esHumanoLocalUnico, nombreEnResumen, textoDesplazamiento } from "@/juego/textos/nombresEnTexto";
 import { guionResumenPrueba } from "@/juego/textos/guionesResumen";
 import { dibujarRastro } from "@/juego/rastro/DibujoRastro";
@@ -378,6 +392,14 @@ export class Partida extends Phaser.Scene {
   // pasar la información de un humano al siguiente sin relevo.
   private ultimoHumano: IdNave | null = null;
   private cancelarManejadorRelevo: (() => void) | null = null;
+  // reloj-turno: turno en el que ya arrancó (o se agotó) el reloj, para que
+  // volver de pestaña oculta o un frame más no lo rearranque ni dispare dos
+  // veces; el tirador al que se le acabó el tiempo, para el resumen del relevo.
+  private claveTurnoReloj: string | null = null;
+  private turnoSinTiempo: IdNave | null = null;
+  private temporizadorReloj: number | null = null;
+  private cancelarAlAgotarseReloj: (() => void) | null = null;
+  private pausadaPorOculta = false;
   // sonido-procedimental (snd-2): último índice de indiceTic() publicado por
   // cada cuenta atrás -- null mientras no hay ninguna activa. Comparar el
   // índice nuevo contra este valor (en vez de disparar el tic cada fotograma)
@@ -616,6 +638,11 @@ export class Partida extends Phaser.Scene {
     reiniciarIntegridad();
     reiniciarParticipantes();
     reiniciarRelevo();
+    reiniciarRelojTurno();
+    configurarRelojTurno(this.datosEscena.relojTurnoS ?? null);
+    this.claveTurnoReloj = null;
+    this.turnoSinTiempo = null;
+    this.pausadaPorOculta = false;
     this.relevoPendiente = false;
     this.ultimoHumano = null;
     window.__debug.eliminadas = [];
@@ -981,6 +1008,15 @@ export class Partida extends Phaser.Scene {
     limpiarLatenciasApuntado();
     window.__debug.latencias = () => ultimasLatenciasApuntado();
     window.__debug.fijarApuntado = (anguloGrados: number, potencia: number) => fijarApuntadoDirecto(anguloGrados, potencia);
+    Object.defineProperty(window.__debug, "relojTurno", {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        const { configuradoS, estado, restanteMs } = obtenerRelojTurno();
+        return { configuradoS, estado, restanteMs };
+      },
+    });
+    window.__debug.adelantarRelojTurno = (ms: number) => adelantarRelojTurno(ms);
     window.__debug.calculosPrevisualizacion = 0;
     window.__debug.forzarMiraOculta = (activa: boolean) => {
       this.costeMiraForzadoMs = activa ? PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS * 100 : 0;
@@ -1063,6 +1099,10 @@ export class Partida extends Phaser.Scene {
     });
     this.cancelarManejadorRepeticion = registrarManejadorRepeticion(() => this.reproducirRepeticion());
     this.cancelarManejadorRelevo = registrarManejadorRelevo(() => this.confirmarRelevoActual());
+    this.cancelarAlAgotarseReloj = registrarAlAgotarseReloj(() => this.agotarRelojTurno());
+    document.addEventListener("visibilitychange", this.alCambiarVisibilidad);
+    // El tick solo repinta: el plazo es absoluto y no depende de él.
+    this.temporizadorReloj = window.setInterval(() => tickRelojTurno(), 250);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.limpiarEntrada());
 
     // humor-5: Phaser ya pausa/reanuda su bucle solo al cambiar de pestaña
@@ -1221,6 +1261,7 @@ export class Partida extends Phaser.Scene {
 
     const jugable = this.puedeJugarAhora();
     publicarJugable(jugable);
+    this.sincronizarRelojTurno(jugable);
 
 
     this.actualizarPrevisualizacion(jugable);
@@ -1684,6 +1725,12 @@ export class Partida extends Phaser.Scene {
     this.cancelarManejadorRepeticion = null;
     this.cancelarManejadorRelevo?.();
     this.cancelarManejadorRelevo = null;
+    this.cancelarAlAgotarseReloj?.();
+    this.cancelarAlAgotarseReloj = null;
+    document.removeEventListener("visibilitychange", this.alCambiarVisibilidad);
+    if (this.temporizadorReloj !== null) window.clearInterval(this.temporizadorReloj);
+    this.temporizadorReloj = null;
+    pararRelojTurno();
     this.game.events.off(Phaser.Core.Events.PAUSE, pausarAudio);
     this.game.events.off(Phaser.Core.Events.PAUSE, callarVoz);
     callarVoz();
@@ -2191,6 +2238,7 @@ export class Partida extends Phaser.Scene {
         arma: esIdEquipo(armaId) ? buscarEquipo(armaId).nombre : buscarArma(armaId).nombre,
         danio,
         fallo: danio === 0,
+        sinTiempo: this.turnoSinTiempo === tirador,
         eliminadas: estadoAntes.naves.flatMap((nave, id) =>
           nave.integridad > 0 && estadoDespues.naves[id].integridad <= 0 ? [nombreDeNave(this.controladores, id)] : [],
         ),
@@ -2199,8 +2247,55 @@ export class Partida extends Phaser.Scene {
     );
   }
 
+  // reloj-turno: el reloj corre solo mientras el turno humano es controlable:
+  // arranca tras «Soy …» (o al habilitarse «Disparar» sin relevo) y se para en
+  // cuanto deja de serlo (vuelo, relevo, turno de la IA).
+  private sincronizarRelojTurno(jugable: boolean): void {
+    const reloj = obtenerRelojTurno();
+    if (reloj.configuradoS === null) return;
+    if (!jugable) {
+      if (reloj.estado !== "parado") pararRelojTurno();
+      return;
+    }
+    const clave = `${this.estado.numeroTurno}:${this.estado.turno}`;
+    if (reloj.estado !== "parado" || this.claveTurnoReloj === clave || document.visibilityState === "hidden") return;
+    this.claveTurnoReloj = clave;
+    this.turnoSinTiempo = null;
+    arrancarRelojTurno();
+    if (performance.getEntriesByName("reloj-toque", "mark").length > 0) {
+      // Después del commit de React que pinta la píldora y antes del frame.
+      requestAnimationFrame(() => {
+        registrarLatenciaRelojTurno(performance.measure("reloj-frame", "reloj-toque").duration);
+        performance.clearMarks("reloj-toque");
+        performance.clearMeasures("reloj-frame");
+      });
+    }
+  }
+
+  private readonly alCambiarVisibilidad = (): void => {
+    if (document.visibilityState === "hidden") {
+      if (obtenerRelojTurno().estado === "corriendo") {
+        pausarRelojTurno();
+        this.pausadaPorOculta = obtenerRelojTurno().estado === "pausado";
+      }
+    } else if (this.pausadaPorOculta) {
+      this.pausadaPorOculta = false;
+      reanudarRelojTurno();
+    }
+  };
+
+  // Una sola vez por turno (el store solo pasa a 'agotado' desde 'corriendo',
+  // y la clave lo cierra también si el toque del jugador coincide).
+  private agotarRelojTurno(): void {
+    if (!this.puedeJugarAhora()) return;
+    this.turnoSinTiempo = this.estado.turno;
+    mostrarAvisoTiempo();
+    solicitarDisparoAutomatico();
+  }
+
   private confirmarRelevoActual(): void {
     if (!this.relevoPendiente) return;
+    if (obtenerRelojTurno().configuradoS !== null) performance.mark("reloj-toque");
     this.relevoPendiente = false;
     cerrarRelevo();
     // El arma que dejó elegida el jugador anterior no debe llegar

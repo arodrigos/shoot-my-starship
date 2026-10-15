@@ -11,13 +11,14 @@ import { alternarMusicaActiva, obtenerEstadoControl, suscribirControl } from "@/
 import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
+import { OPCIONES_RELOJ, type SegundosReloj } from "@/juego/control/relojTurnoStore";
 import { MAX_NAVES, MAX_NOMBRE_JUGADOR, MIN_NAVES, sanearNombre, type JugadorConfig } from "@/juego/jugadores";
 
 const RIVAL_POR_DEFECTO_ID = "la-contable";
 const MODO_POR_DEFECTO: ModoJuego = "barra-libre";
 
 interface Props {
-  readonly onJugar: (rivalId: string, modo: ModoJuego, jugadores?: readonly JugadorConfig[], todosVemosTodo?: boolean, nivelIA?: NivelIA) => void;
+  readonly onJugar: (rivalId: string, modo: ModoJuego, jugadores?: readonly JugadorConfig[], todosVemosTodo?: boolean, nivelIA?: NivelIA, relojTurnoS?: SegundosReloj) => void;
 }
 
 // partida-4: primera visita y estados vacíos. Vive fuera del lienzo (no
@@ -35,6 +36,8 @@ export function PantallaInicio({ onJugar }: Props) {
   const [rivalId, setRivalId] = useState(progreso.rivalId ?? RIVAL_POR_DEFECTO_ID);
   const [nivelIA, setNivelIA] = useState<NivelIA>(progreso.nivelIA ?? NIVEL_IA_POR_DEFECTO);
   const [modo, setModo] = useState<ModoJuego>(MODO_POR_DEFECTO);
+  // reloj-turno: apagado por defecto y sin recordarse entre sesiones.
+  const [relojTurnoS, setRelojTurnoS] = useState<SegundosReloj | null>(null);
   // multi-setup-partida: de 1 a 4 humanos en el mismo dispositivo y el resto
   // de asientos (hasta 4 naves en total, mínimo 2) rellenado con rivales de IA.
   const [humanos, setHumanos] = useState(1);
@@ -69,7 +72,7 @@ export function PantallaInicio({ onJugar }: Props) {
     // La partida de siempre (un humano sin nombre contra el rival elegido)
     // no pasa jugadores: conserva sus etiquetas "Tu nave" / nombre del rival.
     if (!esMultijugador && nombres[0].trim() === "") {
-      onJugar(rivalId, modoEfectivo, undefined, undefined, nivelIA);
+      onJugar(rivalId, modoEfectivo, undefined, undefined, nivelIA, relojTurnoS ?? undefined);
       return;
     }
     const indiceRival = Math.max(0, PERSONALIDADES.findIndex((personalidad) => personalidad.id === rivalId));
@@ -83,7 +86,7 @@ export function PantallaInicio({ onJugar }: Props) {
         return { nombre: personalidad.nombre, tipo: "ia" as const, personalidadId: personalidad.id, nivel: nivelIA };
       }),
     ];
-    onJugar(rivalId, modoEfectivo, jugadores, humanos > 1 && todosVemosTodo, nivelIA);
+    onJugar(rivalId, modoEfectivo, jugadores, humanos > 1 && todosVemosTodo, nivelIA, relojTurnoS ?? undefined);
   }
 
   // Los avisos PWA van bajo la cabecera pegada (8 + 44 + 8 px) para no tapar «Música».
@@ -341,6 +344,28 @@ export function PantallaInicio({ onJugar }: Props) {
             que es acertar. Las dos gratis siempre están, pero hacen mucho menos daño.
           </span>
         </button>
+      </section>
+
+      <section data-testid="seccion-reloj" style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", maxWidth: 360 }}>
+        <h2 style={{ margin: 0, fontSize: 15 }}>Reloj de turno</h2>
+        <div role="group" aria-label="Reloj de turno" style={{ display: "flex", gap: 6 }}>
+          {[null, ...OPCIONES_RELOJ].map((segundos) => (
+            <button
+              key={segundos ?? "off"}
+              type="button"
+              data-testid={segundos === null ? "reloj-off" : `reloj-${segundos}`}
+              aria-pressed={relojTurnoS === segundos}
+              onClick={() => setRelojTurnoS(segundos)}
+              style={{ ...botonCantidadEstilo, border: relojTurnoS === segundos ? "2px solid #ffcc66" : botonEstilo.border }}
+            >
+              {segundos === null ? "Off" : `${segundos} s`}
+            </button>
+          ))}
+        </div>
+        <p data-testid="reloj-ayuda" style={{ margin: 0, font: "12px system-ui, sans-serif", opacity: 0.85 }}>
+          Si se acaba el tiempo, se dispara solo lo que haya en la mira (con el arma gratis si la elegida no se puede
+          usar). El reloj se para en el relevo, durante el disparo y si sales de la app.
+        </p>
       </section>
 
       <section data-testid="ultima-partida" style={{ maxWidth: 360 }}>
