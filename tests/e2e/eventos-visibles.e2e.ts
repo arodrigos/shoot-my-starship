@@ -42,14 +42,25 @@ async function pixelesDistintos(page: Page, a: Buffer, b: Buffer): Promise<{ dis
   );
 }
 
-const lienzo = (page: Page) => page.locator("#game-container canvas");
+// En el CI, con el lienzo pintado por software, la captura del elemento canvas
+// puede devolver el último fotograma que el compositor presentó aunque la
+// escena ya haya pintado el efecto (0 px distintos en reparación con cientos
+// de fotogramas). Se captura la página recortada al lienzo, que fuerza un
+// fotograma nuevo del compositor.
+const lienzo = (page: Page) => ({
+  screenshot: async (): Promise<Buffer> => {
+    const caja = await page.locator("#game-container canvas").boundingBox();
+    if (!caja) throw new Error("el lienzo no tiene caja");
+    return page.screenshot({ clip: caja });
+  },
+});
 
 // evv-1: un caso por tipo del catálogo, forzado con __debug.forzarEvento. Cada
 // uno enseña su efecto en el sitio donde actúa durante al menos un segundo y
 // deja una captura para el juicio visual.
 for (const definicion of CATALOGO_EVENTOS) {
   test(`evv-1: ${definicion.tipo} enseña su efecto gráfico propio`, async ({ page }) => {
-    test.setTimeout(150000);
+    test.setTimeout(240000);
     await empezar(page, "");
     // La consola va anclada abajo y, según dónde caiga la nave en un mapa sin
     // sembrar, puede taparla: el efecto existe pero no se ve en la captura.
@@ -57,7 +68,13 @@ for (const definicion of CATALOGO_EVENTOS) {
     mkdirSync("capturas", { recursive: true });
     const halosAntes = await page.evaluate(() => JSON.stringify(window.__debug.halos));
     const antes = await lienzo(page).screenshot();
+    const framesAntes = await page.evaluate(() => window.__debug.rendimiento?.frames ?? 0);
     await page.evaluate((tipo) => window.__debug.forzarEvento!(tipo, 1), definicion.tipo);
+    // Con la mira oculta por presupuesto el lienzo ya no cambia solo entre
+    // capturas, así que el único cambio medible es el del efecto: se espera a
+    // que la escena haya pintado fotogramas con él antes de capturar, en vez
+    // de fiar de cuánto tarde cada captura.
+    await page.waitForFunction((n) => (window.__debug.rendimiento?.frames ?? 0) >= n, framesAntes + 4, { timeout: 60000 });
     // En el CI el lienzo pinta a pocos fotogramas por segundo y una captura
     // suelta puede caer antes del primer fotograma del efecto o después de su
     // fundido. Se toman varias seguidas, mientras el efecto sigue registrado, y
@@ -115,13 +132,30 @@ for (const definicion of CATALOGO_EVENTOS) {
       }
     }
     const total = medidaFinal.total;
-    const distintos = Math.max(medidaFinal.distintos, mejorMedida.distintos);
-    writeFileSync(`capturas/evento-${definicion.tipo}-1180x820.png`, mejorMedida.distintos > medidaFinal.distintos ? mejor : despues);
+    let distintos = Math.max(medidaFinal.distintos, mejorMedida.distintos);
+    let imagen = mejorMedida.distintos > medidaFinal.distintos ? mejor : despues;
+    // Con el lienzo por software a pocos fotogramas, a veces ninguna captura
+    // llega a ver el efecto aunque estuviera registrado (0 px en todas). El
+    // criterio ya se comprobó arriba con el estado; aquí solo se vuelve a
+    // forzar el evento y se espera entre capturas para dar tiempo al render.
+    for (let intento = 0; intento < 1 && distintos < 150; intento++) {
+      await page.evaluate((tipo) => window.__debug.forzarEvento!(tipo, 1), definicion.tipo);
+      for (let i = 0; i < 3 && distintos < 150; i++) {
+        await page.waitForTimeout(250);
+        const captura = await lienzo(page).screenshot();
+        const medida = await pixelesDistintos(page, antes, captura);
+        if (medida.distintos > distintos) {
+          distintos = medida.distintos;
+          imagen = captura;
+        }
+      }
+    }
+    writeFileSync(`capturas/evento-${definicion.tipo}-1180x820.png`, imagen);
     // El criterio pide ≥ 2 % de píxeles distintos; un efecto pequeño no llega
     // a eso sobre el lienzo entero, así que se exige un mínimo absoluto (150 px) y se
     // deja la proporción en la salida del test.
     console.log(`evv-1 ${definicion.tipo}: ${distintos} px distintos de ${total} (${((distintos / total) * 100).toFixed(3)} %)`);
-    const diagnostico = await page.evaluate((tipo) => JSON.stringify({ efecto: (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === `evento-${tipo}`), halos: (window.__debug.halos ?? []).length, camara: window.__debug.camara }), definicion.tipo);
+    const diagnostico = await page.evaluate((tipo) => JSON.stringify({ frames: (window.__debug.rendimiento?.frames ?? 0), maxDeltaMs: window.__debug.rendimiento?.max, efecto: (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === `evento-${tipo}`), halos: (window.__debug.halos ?? []).length, camara: window.__debug.camara }), definicion.tipo);
     expect(distintos, diagnostico).toBeGreaterThanOrEqual(150);
   });
 }
