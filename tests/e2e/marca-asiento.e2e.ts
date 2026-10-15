@@ -74,10 +74,10 @@ test("ma-2: el número de daño lleva la silueta del tirador", async ({ page }) 
   const numero = await page
     .waitForFunction(() => window.__debug.efectosVisibles?.find((efecto) => efecto.tipo === "numero-danio") ?? null, undefined, { timeout: 5000, polling: 25 })
     .then((handle) => handle.jsonValue());
-  expect(numero.valor).toBeGreaterThan(0);
+  expect(numero!.valor).toBeGreaterThan(0);
   const tirador = (await page.evaluate(() => window.__debug.naves!))[0];
-  expect(numero.silueta).toBe(tirador.silueta);
-  expect(numero.color).toBe(tirador.colorAsiento);
+  expect(numero!.silueta).toBe(tirador.silueta);
+  expect(numero!.color).toBe(tirador.colorAsiento);
 });
 
 for (const condicion of ["achromatopsia", "deuteranopia", "protanopia", "tritanopia"] as const) {
