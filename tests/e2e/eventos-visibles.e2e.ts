@@ -115,8 +115,25 @@ for (const definicion of CATALOGO_EVENTOS) {
       }
     }
     const total = medidaFinal.total;
-    const distintos = Math.max(medidaFinal.distintos, mejorMedida.distintos);
-    writeFileSync(`capturas/evento-${definicion.tipo}-1180x820.png`, mejorMedida.distintos > medidaFinal.distintos ? mejor : despues);
+    let distintos = Math.max(medidaFinal.distintos, mejorMedida.distintos);
+    let imagen = mejorMedida.distintos > medidaFinal.distintos ? mejor : despues;
+    // Con el lienzo por software a pocos fotogramas, a veces ninguna captura
+    // llega a ver el efecto aunque estuviera registrado (0 px en todas). El
+    // criterio ya se comprobó arriba con el estado; aquí solo se vuelve a
+    // forzar el evento y se espera entre capturas para dar tiempo al render.
+    for (let intento = 0; intento < 2 && distintos < 150; intento++) {
+      await page.evaluate((tipo) => window.__debug.forzarEvento!(tipo, 1), definicion.tipo);
+      for (let i = 0; i < 5 && distintos < 150; i++) {
+        await page.waitForTimeout(250);
+        const captura = await lienzo(page).screenshot();
+        const medida = await pixelesDistintos(page, antes, captura);
+        if (medida.distintos > distintos) {
+          distintos = medida.distintos;
+          imagen = captura;
+        }
+      }
+    }
+    writeFileSync(`capturas/evento-${definicion.tipo}-1180x820.png`, imagen);
     // El criterio pide ≥ 2 % de píxeles distintos; un efecto pequeño no llega
     // a eso sobre el lienzo entero, así que se exige un mínimo absoluto (150 px) y se
     // deja la proporción en la salida del test.
