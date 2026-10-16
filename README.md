@@ -413,10 +413,7 @@ noche en `.github/workflows/pruebas-largas.yml`. La partida completa
 820x1180 y 1180x820 con CPU ×4, comprobando que cada toque responde en 200 ms
 o menos) va en su propio job, `e2e-partida-completa`, uno por tamaño de
 pantalla; sus capturas y su tabla de respuesta se suben como artefacto del
-CI. El smoke test de traspaso
-(`tests/smoke/traspaso.spec.ts`) es independiente de esta lista: lo ejecuta
-la etapa de traspaso contra la URL real ya desplegada, con
-`BASE_URL="$DEPLOY_URL" npx playwright test tests/smoke/traspaso.spec.ts`.
+CI.
 
 ## Changelog
 
