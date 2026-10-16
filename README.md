@@ -10,7 +10,8 @@ dispositivo y rivales de IA con mala idea. Next.js (App Router) + Phaser 4,
 ## Cómo jugar
 
 Desde la pantalla de inicio se elige rival y modo, cuántos humanos y cuántos
-rivales de IA (de 2 a 4 naves en total), y se pulsa "Jugar". El título y el
+rivales de IA (de 2 a 4 naves en total), el nivel de los rivales y el reloj de
+turno, y se pulsa "Jugar". El título y el
 interruptor «Música» van en una barra fija arriba y «Jugar» en otra fija
 abajo, así que en ningún tamaño hace falta desplazarse para encontrarlos.
 
@@ -122,6 +123,30 @@ naves se quitan primero los títulos de delante («Almirante Bisagra» pasa a
 «Bisagra») y solo si ni así cabe se corta con elipsis. «Jugador 2» conserva
 su número. El nombre completo sigue disponible para los lectores de pantalla.
 
+### Nivel de la IA
+
+Con algún rival de IA en la partida, bajo «Elige rival» aparece «Nivel» con
+tres opciones: **Fácil** (falla más, para jugar con peques o empezar),
+**Normal** (el juego de siempre, por defecto) y **Difícil** (afina más). Vale
+para todos los rivales de la partida y no cambia su personalidad ni cómo
+hablan: solo ensancha o estrecha su margen de error al apuntar
+(`src/sim/ia/nivel.ts`). El nivel elegido se recuerda junto con el rival, en
+`partida-completa:progreso`. En la partida, la barra de cada rival de IA
+enseña su nivel en una segunda línea.
+
+### Reloj de turno
+
+«Reloj de turno» ofrece **Off**, **30 s**, **45 s** y **60 s**. Viene en Off
+y no se recuerda entre sesiones. Con reloj, cada turno humano tiene una cuenta
+atrás en una píldora sobre la pestaña del jugador activo, que se pone ámbar
+y late en los últimos 10 s (sin latido con movimiento reducido). Si se acaba
+el tiempo, sale «¡Tiempo! Disparo automático» y se dispara solo lo que haya
+en la mira, con el arma gratis si la elegida no se puede usar; el escudo y
+los propulsores nunca se activan solos. El reloj solo corre mientras el
+turno se puede jugar: arranca tras «Soy ...» (o al habilitarse «Disparar» si
+no hay relevo), se para durante el disparo, el relevo y los turnos de la IA,
+y se pausa si sales de la app.
+
 ### El catálogo: doce armas, cada una con su papel
 
 El precio sale de la combinación de daño y facilidad de acierto medida con el
@@ -187,6 +212,19 @@ eventos radiales empujan con su propia velocidad. Cada arma tiene forma y
 colores propios (`src/juego/armas/aspecto.ts`), iguales en el selector, en
 reposo y en vuelo, donde apunta a su rumbo y deja estela. Con movimiento
 reducido no hay números flotantes, estelas, giros ni vaivén del fantasma.
+
+Los cuatro colores de asiento (azul, rojo, verde y lila,
+`src/juego/naves/paletaNaves.ts`) están medidos para distinguirse también con
+protanopía, deuteranopía y tritanopía, y para contrastar con el fondo
+(`tests/unit/naves/paleta-daltonismo.test.ts`: ΔE2000 ≥ 12 entre asientos y
+contraste WCAG ≥ 3). El azul y el lila se retocaron porque para un tritanope
+eran casi iguales.
+
+El golpe que destruye una nave lleva remate: un destello blanco breve, una
+pausa corta con la explosión congelada y un acercamiento de cámara ×1,5 al
+punto del impacto antes de volver al encuadre, en menos de un segundo, sin
+tocar la simulación. Ese golpe no sacude la cámara. Con movimiento reducido
+o con «Sacudida» apagada queda solo el destello, que no retrasa el turno.
 
 ### Qué juzgar al jugar
 
@@ -299,7 +337,8 @@ subida a la GPU por frame.
 
 Para medirlo en tu propio dispositivo, abre el juego con `?rendimiento=1`:
 aparece un recuadro con p95, max, frames largos, INP, la latencia del último
-toque en «Rastro» y un veredicto («Respuesta ≤ 200 ms» o «Supera 200 ms»).
+toque en «Rastro», la del reloj de turno (`reloj-turno`, del toque en
+«Soy ...» a la píldora pintada) y un veredicto («Respuesta ≤ 200 ms» o «Supera 200 ms»).
 Detalle en `docs/rendimiento.md`.
 
 La mira (la previsualización de la trayectoria) tiene un presupuesto de
@@ -350,6 +389,10 @@ npm run test:e2e                      # Playwright, contra un build local
 npm run calibrar:economia             # recalibra precios y saldo, regenera docs/calibracion-economia.md
 npm run medir:eventos                 # calendario de eventos sobre muchas semillas
 ```
+
+`culori` es solo una dependencia de desarrollo: la usa el test de la paleta
+de asientos para simular el daltonismo y medir el contraste, y no llega al
+juego.
 
 Los e2e bloquean los service workers, salvo `tests/e2e/pwa-sin-conexion.e2e.ts`,
 para que ninguna prueba juzgue algo servido desde la caché.
@@ -450,3 +493,13 @@ la etapa de traspaso contra la URL real ya desplegada, con
 - **Rastro del último disparo** (#259): trayectoria a guiones del último tiro
   con la silueta en el impacto, interruptor «Rastro» en Ajustes y su latencia
   en `?rendimiento=1`.
+- **Remate del golpe decisivo** (#260): destello, pausa y acercamiento de
+  cámara al destruir una nave; con movimiento reducido o «Sacudida» apagada,
+  solo el destello.
+- **Nivel de la IA** (#262): Fácil, Normal o Difícil en la portada, para todos
+  los rivales; se recuerda entre sesiones y se ve en la barra de cada rival.
+- **Paleta para daltonismo** (#269): colores de asiento medidos con
+  protanopía, deuteranopía y tritanopía; el azul y el lila se retocan. `culori`
+  entra solo como dependencia de desarrollo.
+- **Reloj de turno** (#270): Off, 30, 45 o 60 s por turno humano, elegido en
+  la portada; al agotarse dispara solo lo que haya en la mira.
