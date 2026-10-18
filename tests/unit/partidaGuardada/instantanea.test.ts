@@ -4,6 +4,7 @@ import fc from "fast-check";
 import { crearInstantanea, leerInstantanea } from "@/juego/partidaGuardada/instantanea";
 import { validarInstantanea } from "@/juego/partidaGuardada/validar";
 import { MAX_CARACTERES_INSTANTANEA, type DatosPartida } from "@/juego/partidaGuardada/tipos";
+import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import { datosDe, jugar, partidaInicial, sinClavesUndefined } from "./ayudas";
 
 // JSON de la instantánea sin tipar: los tests lo rompen campo a campo.
@@ -183,5 +184,37 @@ describe("pgn-4: política de versión del juego", () => {
       }),
       { numRuns: 100 },
     );
+  });
+});
+
+describe("pgf-1: reanudar con cada personalidad de IA como rival", () => {
+  for (const personalidad of PERSONALIDADES) {
+    it(`${personalidad.nombre}: la instantánea vuelve válida con su nombre completo`, () => {
+      const jugada = jugar(partidaInicial(1180, 820), 2);
+      const datos = datosDe(jugada.estado, jugada.memorias);
+      const jugadores = datos.config.jugadores.map((j, i) =>
+        i === 3 ? { ...j, nombre: personalidad.nombre, personalidadId: personalidad.id } : j,
+      );
+      const lectura = leerInstantanea(crearInstantanea({ ...datos, config: { ...datos.config, jugadores } }));
+      assert.equal(lectura.tipo, "valida");
+      if (lectura.tipo === "valida") {
+        assert.equal(lectura.datos.config.jugadores[3].nombre, personalidad.nombre);
+        assert.equal(lectura.rotulo.nombres[3], personalidad.nombre);
+      }
+    });
+  }
+
+  it("un nombre largo con otra personalidad o en un humano sigue descartándose", () => {
+    const jugada = jugar(partidaInicial(1180, 820), 2);
+    const datos = datosDe(jugada.estado, jugada.memorias);
+    const bisagra = PERSONALIDADES[1];
+    for (const [i, alteracion] of [
+      [0, { nombre: bisagra.nombre }],
+      [3, { nombre: bisagra.nombre, personalidadId: PERSONALIDADES[0].id }],
+    ] as const) {
+      const jugadores = datos.config.jugadores.map((j, k) => (k === i ? { ...j, ...alteracion } : j));
+      const lectura = leerInstantanea(crearInstantanea({ ...datos, config: { ...datos.config, jugadores } }));
+      assert.equal(lectura.tipo, "descartada");
+    }
   });
 });
