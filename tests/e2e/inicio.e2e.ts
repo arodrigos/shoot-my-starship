@@ -82,7 +82,13 @@ for (const { ancho, alto } of TAMANOS) {
           const caja = el.getBoundingClientRect();
           const etiqueta = el.firstElementChild!;
           const visible = etiqueta.querySelector('span[aria-hidden="true"]')!.textContent ?? "";
+          // El desborde de una fracción de píxel no lo ve scrollWidth (redondea):
+          // se mide el contenido real con decimales (regresión r9, 0,3 px).
+          const rango = document.createRange();
+          rango.selectNodeContents(etiqueta);
+          const holgura = etiqueta.getBoundingClientRect().right - rango.getBoundingClientRect().right;
           return {
+            holgura,
             izq: caja.left,
             der: caja.right,
             cortada: el.scrollWidth > el.clientWidth || etiqueta.scrollWidth > etiqueta.clientWidth,
@@ -94,6 +100,7 @@ for (const { ancho, alto } of TAMANOS) {
         expect(m.izq, `pestaña ${id} fuera por la izquierda`).toBeGreaterThanOrEqual(0);
         expect(m.der, `pestaña ${id} fuera por la derecha`).toBeLessThanOrEqual(m.ancho);
         expect(m.cortada, `pestaña ${id} cortada (${m.detalle})`).toBe(false);
+        expect(m.holgura, `pestaña ${id}: holgura del nombre en px`).toBeGreaterThanOrEqual(0.5);
         expect(m.visible, `texto visible de la pestaña ${id}`).toBe(caso.visibles[id]);
         // Vida visible y nombre completo (sin recortar) accesible aunque se abrevie.
         await expect(pestana.getByRole("progressbar", { name: `Integridad de ${caso.completos[id]}` })).toHaveAttribute("aria-valuenow", "150");
