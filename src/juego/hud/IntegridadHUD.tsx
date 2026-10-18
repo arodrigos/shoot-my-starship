@@ -72,7 +72,7 @@ export function abreviarNombre(nombre: string, naves: number): string {
 // Con cuatro naves el marcador va pegado al nombre: cada letra cuenta.
 function marcadorDeEstado(eliminada: boolean, esTurno: boolean, naves: number): string {
   const marca = eliminada ? "✖" : esTurno ? "▶" : "";
-  return marca === "" || naves >= 4 ? marca : `${marca} `;
+  return marca === "" || naves >= 3 ? marca : `${marca} `;
 }
 
 const SOLO_LECTORES: React.CSSProperties = {
@@ -187,7 +187,7 @@ export function IntegridadHUD() {
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
               {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
-              <MarcaAsiento asiento={nave.id} />
+              <MarcaAsiento asiento={nave.id} alto={estado.naves.length >= 3 ? 11 : 13} />
               <span aria-hidden="true">{abreviarNombre(rival ? rival.nombreCorto : nombreBarra, estado.naves.length)}</span>
               <span style={SOLO_LECTORES}>{etiqueta}</span>
               {/* En el 1 contra 1 el turno ya se ve por el resaltado y aria-current:

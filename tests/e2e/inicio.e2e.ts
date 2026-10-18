@@ -81,7 +81,7 @@ for (const { ancho, alto } of TAMANOS) {
         const m = await pestana.evaluate((el) => {
           const caja = el.getBoundingClientRect();
           const etiqueta = el.firstElementChild!;
-          const visible = etiqueta.querySelector('[aria-hidden="true"]')!.textContent ?? "";
+          const visible = etiqueta.querySelector('span[aria-hidden="true"]')!.textContent ?? "";
           return {
             izq: caja.left,
             der: caja.right,
