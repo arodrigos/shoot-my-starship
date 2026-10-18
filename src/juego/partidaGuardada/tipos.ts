@@ -19,6 +19,9 @@ export interface ConfigGuardada {
   readonly semillaSistema: number | null;
   readonly mapaId: string | null;
   readonly relojTurnoS: SegundosRelojGuardado | null;
+  // Partida de siempre (atajo ?mapa= o un humano sin nombre): sin `jugadores`
+  // explícitos en la escena, para que al reanudar conserve sus etiquetas.
+  readonly clasica?: true;
 }
 
 // Estado de la cáscara que el núcleo no conoce: lo que una IA recuerda de sus
@@ -26,6 +29,9 @@ export interface ConfigGuardada {
 export interface CascaraGuardada {
   readonly memoriasIA: readonly (MemoriaIA | null)[];
   readonly estadisticas: EstadisticasPartida;
+  // El parte de guerra se lleva por asiento; `estadisticas` conserva la del
+  // primero para lo ya guardado sin este campo. Ausente en instantáneas viejas.
+  readonly estadisticasPorNave?: readonly EstadisticasPartida[];
 }
 
 // Los datos de una partida en memoria, sin codificar: es la entrada de
