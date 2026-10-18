@@ -168,7 +168,7 @@ export function IntegridadHUD() {
             style={{
               ...BARRA_ESTILO,
               position: "relative",
-              padding: estado.naves.length >= 4 ? "4px 2px" : BARRA_ESTILO.padding,
+              padding: estado.naves.length >= 4 ? "4px 2px" : "4px 3px",
               ...(estado.naves.length >= 4 ? { fontSize: 11 } : {}),
               background: esTurno ? "var(--color-roce-fondo)" : "var(--color-cromado-fondo)",
               color: esTurno ? "var(--color-roce-texto)" : "var(--color-cromado-texto)",
@@ -187,7 +187,7 @@ export function IntegridadHUD() {
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
               {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
-              <MarcaAsiento asiento={nave.id} alto={estado.naves.length >= 3 ? 11 : 13} />
+              <MarcaAsiento asiento={nave.id} alto={12} />
               <span aria-hidden="true">{abreviarNombre(rival ? rival.nombreCorto : nombreBarra, estado.naves.length)}</span>
               <span style={SOLO_LECTORES}>{etiqueta}</span>
               {/* En el 1 contra 1 el turno ya se ve por el resaltado y aria-current:
