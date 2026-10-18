@@ -168,7 +168,7 @@ export function IntegridadHUD() {
             style={{
               ...BARRA_ESTILO,
               position: "relative",
-              padding: estado.naves.length >= 4 ? "4px 2px" : "4px 3px",
+              padding: "4px 2px",
               ...(estado.naves.length >= 4 ? { fontSize: 11 } : {}),
               background: esTurno ? "var(--color-roce-fondo)" : "var(--color-cromado-fondo)",
               color: esTurno ? "var(--color-roce-texto)" : "var(--color-cromado-texto)",

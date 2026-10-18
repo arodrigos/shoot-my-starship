@@ -17,7 +17,7 @@ export function MarcaAsiento({ asiento, alto = 12 }: { readonly asiento: number;
       viewBox="-6 -6 112 112"
       data-testid={`integridad-marca-${asiento}`}
       data-silueta={varianteSiluetaAsiento(asiento)}
-      style={{ flex: "0 0 auto", marginRight: 1, verticalAlign: "-2px", display: "inline-block" }}
+      style={{ flex: "0 0 auto", verticalAlign: "-2px", display: "inline-block" }}
     >
       <polygon points={puntos} fill={colorDeAsiento(asiento)} stroke="#0b0f1a" strokeWidth={9} strokeLinejoin="round" />
     </svg>
