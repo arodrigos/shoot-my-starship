@@ -12,6 +12,9 @@ import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import { COLORES_NAVE } from "@/juego/naves/paletaNaves";
 import { OPCIONES_RELOJ, type SegundosReloj } from "@/juego/control/relojTurnoStore";
+import { AvisoPartidaNoRecuperable, BloqueContinuarPartida, ConfirmarNuevaPartida, usePartidaGuardada } from "@/juego/PartidaGuardadaPortada";
+import { borrarPartidaGuardada } from "@/juego/partidaGuardada/almacen";
+import type { DatosPartida } from "@/juego/partidaGuardada/tipos";
 import { MAX_NAVES, MAX_NOMBRE_JUGADOR, MIN_NAVES, sanearNombre, type JugadorConfig } from "@/juego/jugadores";
 
 const RIVAL_POR_DEFECTO_ID = "la-contable";
@@ -19,6 +22,7 @@ const MODO_POR_DEFECTO: ModoJuego = "barra-libre";
 
 interface Props {
   readonly onJugar: (rivalId: string, modo: ModoJuego, jugadores?: readonly JugadorConfig[], todosVemosTodo?: boolean, nivelIA?: NivelIA, relojTurnoS?: SegundosReloj) => void;
+  readonly onContinuar: (datos: DatosPartida) => void;
 }
 
 // partida-4: primera visita y estados vacíos. Vive fuera del lienzo (no
@@ -26,8 +30,11 @@ interface Props {
 // del recorrido que Adrián hace con el dedo (partida-1): sin esto no había
 // dónde elegir rival ni un gesto real desde el que desbloquear el audio
 // (ver la desviación ya retirada de humor-4/Partida.ts).
-export function PantallaInicio({ onJugar }: Props) {
+export function PantallaInicio({ onJugar, onContinuar }: Props) {
   const [progreso] = useState(() => leerProgreso());
+  const guardada = usePartidaGuardada();
+  const [avisoEntendido, setAvisoEntendido] = useState(false);
+  const [confirmandoNueva, setConfirmandoNueva] = useState(false);
   // Sondeo de escritura real, no una suposición sobre el navegador
   // (partida-5): se hace una sola vez, al montar, y el aviso -- si aparece
   // -- se queda visible el resto de la sesión en esta pantalla, no se repite
@@ -59,6 +66,12 @@ export function PantallaInicio({ onJugar }: Props) {
 
   function cambiarNombre(indice: number, texto: string): void {
     setNombres((actuales) => actuales.map((nombre, i) => (i === indice ? texto : nombre)));
+  }
+
+  // Con una partida a medias, «Jugar» pide confirmar antes de borrarla.
+  function alPulsarJugar(): void {
+    if (guardada.pendiente) setConfirmandoNueva(true);
+    else alJugar();
   }
 
   function alJugar(): void {
@@ -138,6 +151,12 @@ export function PantallaInicio({ onJugar }: Props) {
           boxSizing: "border-box",
         }}
       >
+      {guardada.pendiente && (
+        <BloqueContinuarPartida pendiente={guardada.pendiente} alContinuar={onContinuar} alDescartar={guardada.olvidar} />
+      )}
+      {guardada.motivoNoRecuperable !== null && !avisoEntendido && (
+        <AvisoPartidaNoRecuperable motivo={guardada.motivoNoRecuperable} alEntender={() => setAvisoEntendido(true)} />
+      )}
       <p data-testid="descripcion-juego" style={{ maxWidth: 360, margin: 0 }}>
         Naves varadas en el Cinturón de la Deriva que se tiran chatarra a cañonazos: apoya el dedo en cualquier punto
         y arrastra: de lado giras la dirección, y acercándote o alejándote de tu nave bajas o subes la fuerza. Pulsa
@@ -389,12 +408,22 @@ export function PantallaInicio({ onJugar }: Props) {
         <button
           type="button"
           data-testid="boton-jugar"
-          onClick={alJugar}
+          onClick={alPulsarJugar}
           style={{ ...botonEstilo, background: "#ff6b4a", minWidth: 140, minHeight: 44, font: "16px system-ui, sans-serif" }}
         >
           Jugar
         </button>
       </footer>
+      {confirmandoNueva && guardada.pendiente && (
+        <ConfirmarNuevaPartida
+          ronda={guardada.pendiente.ronda}
+          alVolver={() => setConfirmandoNueva(false)}
+          alEmpezar={() => {
+            borrarPartidaGuardada();
+            alJugar();
+          }}
+        />
+      )}
     </div>
   );
 }

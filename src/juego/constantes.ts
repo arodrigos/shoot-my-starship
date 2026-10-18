@@ -48,6 +48,16 @@ export function configurarMundoParaViewport(anchoViewport: number, altoViewport:
   MUNDO_ALTO = Math.round(Math.sqrt(area / aspecto));
 }
 
+// partida-guardada: reanudar no recalcula el mundo por viewport; el campo es
+// el de la instantánea y Scale.FIT lo encuadra entero en la ventana nueva.
+export function fijarMundo(ancho: number, alto: number): void {
+  if (!(ancho > 0) || !(alto > 0)) {
+    return;
+  }
+  MUNDO_ANCHO = ancho;
+  MUNDO_ALTO = alto;
+}
+
 // encuadre-movil-1: ajusta el mundo lógico al aspecto real del contenedor
 // (no al del viewport completo -- layout-dos-zonas solo le da el 58% del
 // alto) para eliminar el letterbox. Mantiene el área aproximadamente

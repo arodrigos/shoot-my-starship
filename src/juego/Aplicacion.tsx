@@ -9,6 +9,7 @@ import type { ModoJuego } from "@/sim/partida/tipos";
 import type { JugadorConfig } from "@/juego/jugadores";
 import type { SegundosReloj } from "@/juego/control/relojTurnoStore";
 import type { NivelIA } from "@/sim/ia/nivel";
+import type { DatosPartida } from "@/juego/partidaGuardada/tipos";
 
 type Fase = "inicio" | "jugando";
 
@@ -32,6 +33,8 @@ interface Partida {
   readonly todosVemosTodo?: boolean;
   // reloj-turno: se conserva en «Otra partida», no entre sesiones.
   readonly relojTurnoS?: SegundosReloj;
+  // partida-guardada: instantánea desde la que se reanuda; solo vale para esta partida.
+  readonly reanudar?: DatosPartida;
 }
 
 // Rango del generador con semilla del propio juego (crearGeneradorAleatorio
@@ -114,7 +117,11 @@ export function Aplicacion() {
     return (
       <PantallaInicio
         onJugar={(rivalId, modo, jugadores, todosVemosTodo, nivelIA, relojTurnoS) => {
-          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo, nivelIA, relojTurnoS }));
+          setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo, nivelIA, relojTurnoS, reanudar: undefined }));
+          setFase("jugando");
+        }}
+        onContinuar={(datos) => {
+          setPartida((actual) => ({ ...actual, reanudar: datos }));
           setFase("jugando");
         }}
       />
@@ -133,6 +140,7 @@ export function Aplicacion() {
         jugadores: partida.jugadores,
         todosVemosTodo: partida.todosVemosTodo,
         relojTurnoS: partida.relojTurnoS,
+        reanudar: partida.reanudar,
       }}
     />
   );

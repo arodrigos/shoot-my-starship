@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { configurarMundoParaViewport, MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
+import { configurarMundoParaViewport, fijarMundo, MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { Sandbox } from "@/juego/scenes/Sandbox";
 import { Siluetas } from "@/juego/scenes/Siluetas";
 import { Partida } from "@/juego/escenas/Partida";
@@ -8,6 +8,7 @@ import { colorCss } from "@/juego/naves/paletaNaves";
 import type { JugadorConfig } from "@/juego/jugadores";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import type { NivelIA } from "@/sim/ia/nivel";
+import type { DatosPartida } from "@/juego/partidaGuardada/tipos";
 
 export type IdEscena = "partida" | "sandbox" | "siluetas";
 
@@ -34,6 +35,9 @@ export interface DatosEscenaPartida {
   readonly todosVemosTodo?: boolean;
   // reloj-turno: segundos por turno humano; ausente es Off.
   readonly relojTurnoS?: 30 | 45 | 60;
+  // partida-guardada: instantánea ya validada desde la que se reanuda; manda
+  // sobre el resto de campos (que la portada deja vacíos en ese caso).
+  readonly reanudar?: DatosPartida;
 }
 
 // FIT + CENTER_BOTH (render-4, sustituye el RESIZE de andamiaje-1): el
@@ -90,7 +94,9 @@ export function iniciarJuego(
   datosEscena?: DatosEscenaPartida,
 ): Phaser.Game {
   if (idEscena === "partida") {
-    ajustarMundoAlContenedor(contenedor);
+    const guardado = datosEscena?.reanudar;
+    if (guardado) fijarMundo(guardado.estado.mundo.ancho, guardado.estado.mundo.alto);
+    else ajustarMundoAlContenedor(contenedor);
   }
   const juego = new Phaser.Game(crearConfiguracion(contenedor));
   // pan-1: prueba observable de que plegar la consola no redimensiona el

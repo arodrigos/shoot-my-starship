@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { borrarPartidaGuardada, CLAVE_PARTIDA_GUARDADA, escribirPartidaGuardada, leerPartidaGuardada } from "@/juego/partidaGuardada/almacen";
+import { borrarPartidaGuardada, CLAVE_GUARDADO_ACTIVADO, CLAVE_PARTIDA_GUARDADA, guardadoActivado, escribirPartidaGuardada, leerPartidaGuardada } from "@/juego/partidaGuardada/almacen";
 import { MAX_CARACTERES_INSTANTANEA } from "@/juego/partidaGuardada/tipos";
 
 function almacenFalso(alEscribir?: () => never): Storage & { datos: Map<string, string> } {
@@ -73,5 +73,22 @@ describe("pgn-5: el almacén informa de sus fallos y no toca otras claves", () =
     assert.equal(borrarPartidaGuardada(), true);
     assert.deepEqual(Array.from(almacen.datos.keys()), ["partida-completa:progreso"]);
     assert.equal(CLAVE_PARTIDA_GUARDADA, "partida-completa:partida-guardada");
+  });
+});
+
+describe("interruptor de pruebas del guardado", () => {
+  afterEach(() => {
+    delete global.window;
+  });
+
+  it("solo el valor «0» lo apaga; sin almacenamiento sigue activo", () => {
+    assert.equal(guardadoActivado(), true);
+    const almacen = almacenFalso();
+    global.window = { localStorage: almacen };
+    assert.equal(guardadoActivado(), true);
+    almacen.datos.set(CLAVE_GUARDADO_ACTIVADO, "0");
+    assert.equal(guardadoActivado(), false);
+    almacen.datos.set(CLAVE_GUARDADO_ACTIVADO, "1");
+    assert.equal(guardadoActivado(), true);
   });
 });

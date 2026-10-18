@@ -168,6 +168,7 @@ function configValida(valor: unknown): ConfigGuardada {
     semillaSistema: c.semillaSistema as number | null,
     mapaId: c.mapaId as string | null,
     relojTurnoS: c.relojTurnoS as SegundosRelojGuardado | null,
+    ...(c.clasica === true ? { clasica: true as const } : {}),
   };
 }
 
@@ -196,19 +197,26 @@ function memoriaValida(valor: unknown): MemoriaIA | null {
   return { ...(m as unknown as MemoriaIA), ultimoIntento: ultimoIntentoValido(m.ultimoIntento) };
 }
 
-function cascaraValida(valor: unknown, naves: number): CascaraGuardada {
-  const c = objeto(valor);
-  const memoriasIA = lista(c.memoriasIA).map(memoriaValida);
-  if (memoriasIA.length !== naves) fallar("datos");
-  const e = objeto(c.estadisticas);
-  const estadisticas: EstadisticasPartida = {
+function estadisticasValidas(valor: unknown): EstadisticasPartida {
+  const e = objeto(valor);
+  return {
     disparos: numero(e.disparos),
     fallos: numero(e.fallos),
     autoimpactos: numero(e.autoimpactos),
     danioHechoAlEnemigo: numero(e.danioHechoAlEnemigo),
     pixelesDestruidos: numero(e.pixelesDestruidos),
   };
-  return { memoriasIA, estadisticas };
+}
+
+function cascaraValida(valor: unknown, naves: number): CascaraGuardada {
+  const c = objeto(valor);
+  const memoriasIA = lista(c.memoriasIA).map(memoriaValida);
+  if (memoriasIA.length !== naves) fallar("datos");
+  const estadisticas = estadisticasValidas(c.estadisticas);
+  if (c.estadisticasPorNave === undefined) return { memoriasIA, estadisticas };
+  const estadisticasPorNave = lista(c.estadisticasPorNave).map(estadisticasValidas);
+  if (estadisticasPorNave.length !== naves) fallar("datos");
+  return { memoriasIA, estadisticas, estadisticasPorNave };
 }
 
 // Nunca lanza, con cualquier cadena. La aceptación depende solo de que los

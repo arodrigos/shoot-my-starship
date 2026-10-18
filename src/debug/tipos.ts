@@ -209,6 +209,13 @@ export interface DebugGlobal {
   // ángulo y fuerza sin gesto (lo usan los e2e que apuntan solo como medio).
   latencias?: () => readonly { readonly nombre: "apuntado" | "rastro" | "reloj-turno"; readonly ms: number }[];
   // reloj-turno: espejo de relojTurnoStore y atajo de e2e para gastar tiempo.
+  // partida-guardada: espejo del guardador de la escena.
+  partidaGuardada?: {
+    readonly existe: boolean;
+    readonly numeroTurno: number | null;
+    readonly error: "sin-almacenamiento" | "sin-espacio" | "demasiado-grande" | null;
+    readonly ultimoGuardadoMs: number | null;
+  };
   relojTurno?: { configuradoS: 30 | 45 | 60 | null; estado: "parado" | "corriendo" | "pausado" | "agotado"; restanteMs: number };
   adelantarRelojTurno?: (ms: number) => void;
   flechaApuntado?: {

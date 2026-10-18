@@ -4,6 +4,11 @@ import { MAX_CARACTERES_INSTANTANEA } from "@/juego/partidaGuardada/tipos";
 // almacén no toca nunca ninguna otra.
 export const CLAVE_PARTIDA_GUARDADA = "partida-completa:partida-guardada";
 
+// Interruptor de pruebas, como «muerte-subita:activada»: la configuración
+// común de los e2e lo pone a «0» para que ninguna partida deje una
+// instantánea que haga aparecer la confirmación de «Jugar» en otro test.
+export const CLAVE_GUARDADO_ACTIVADO = "partida-guardada:activada";
+
 export type MotivoFalloAlmacen = "sin-almacenamiento" | "sin-espacio" | "demasiado-grande";
 
 export type ResultadoEscritura = { readonly ok: true } | { readonly ok: false; readonly motivo: MotivoFalloAlmacen };
@@ -47,5 +52,13 @@ export function borrarPartidaGuardada(): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+export function guardadoActivado(): boolean {
+  try {
+    return almacenamiento()?.getItem(CLAVE_GUARDADO_ACTIVADO) !== "0";
+  } catch {
+    return true;
   }
 }

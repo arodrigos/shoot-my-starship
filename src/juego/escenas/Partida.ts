@@ -113,6 +113,10 @@ import { obtenerLocutor } from "@/juego/audio/voz";
 import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirEfecto, reproducirTono } from "@/juego/audio/motor";
 import { indiceTic } from "@/juego/audio/cadenciaTicTac";
 import type { DatosEscenaPartida } from "@/juego/main";
+import { GuardadorPartida } from "@/juego/partidaGuardada/guardador";
+import { guardadoActivado } from "@/juego/partidaGuardada/almacen";
+import { mostrarAvisoSinGuardado, reiniciarAvisoSinGuardado } from "@/juego/control/avisoSinGuardadoStore";
+import type { DatosPartida } from "@/juego/partidaGuardada/tipos";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
 import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorCapas";
 import { reproducirDetonaciones } from "@/juego/efectos/reproductorDetonaciones";
@@ -392,6 +396,11 @@ export class Partida extends Phaser.Scene {
   // no contra el tirador inmediato, para que una IA entre medias no deje
   // pasar la información de un humano al siguiente sin relevo.
   private ultimoHumano: IdNave | null = null;
+  // partida-guardada: una instantánea por partida, escrita al cerrar cada turno.
+  private guardador = new GuardadorPartida(() => mostrarAvisoSinGuardado());
+  private jugadoresPartida: readonly JugadorConfig[] = [];
+  private mapaIdPartida: string | null = null;
+  private semillaSistemaPartida: number | null = null;
   private cancelarManejadorRelevo: (() => void) | null = null;
   // reloj-turno: turno en el que ya arrancó (o se agotó) el reloj, para que
   // volver de pestaña oculta o un frame más no lo rearranque ni dispare dos
@@ -601,7 +610,25 @@ export class Partida extends Phaser.Scene {
   // partida-completa (render-6, control-1...) que navegan directo con un
   // mapa concreto sin pasar por la pantalla de inicio.
   init(data: DatosEscenaPartida = {}): void {
-    this.datosEscena = data;
+    const guardado = data.reanudar;
+    if (!guardado) {
+      this.datosEscena = data;
+      return;
+    }
+    // Reanudar: la instantánea manda sobre cualquier otro dato de arranque.
+    const { config } = guardado;
+    const primeraIA = config.jugadores.find((jugador) => jugador.tipo === "ia");
+    this.datosEscena = {
+      reanudar: guardado,
+      mapaId: config.mapaId ?? undefined,
+      semillaSistema: config.semillaSistema ?? undefined,
+      modo: config.modo,
+      todosVemosTodo: config.todosVemosTodo,
+      relojTurnoS: config.relojTurnoS ?? undefined,
+      personalidadId: primeraIA?.personalidadId,
+      nivelIA: primeraIA?.nivel,
+      ...(config.clasica ? {} : { jugadores: config.jugadores }),
+    };
   }
 
   create(): void {
@@ -640,6 +667,7 @@ export class Partida extends Phaser.Scene {
     reiniciarParticipantes();
     reiniciarRelevo();
     reiniciarRelojTurno();
+    reiniciarAvisoSinGuardado();
     configurarRelojTurno(this.datosEscena.relojTurnoS ?? null);
     this.claveTurnoReloj = null;
     this.turnoSinTiempo = null;
@@ -649,9 +677,12 @@ export class Partida extends Phaser.Scene {
     window.__debug.eliminadas = [];
     window.__debug.ganador = undefined;
     this.memoriaIA = new Map();
+    this.guardador = new GuardadorPartida(() => mostrarAvisoSinGuardado());
 
+    const reanudar = this.datosEscena.reanudar ?? null;
     const parametrosUrl = new URLSearchParams(window.location.search);
-    const idMapa = parametrosUrl.get("mapa") ?? this.datosEscena.mapaId;
+    // Al reanudar, la URL (?mapa=) no puede cambiar el mundo guardado.
+    const idMapa = reanudar ? this.datosEscena.mapaId : (parametrosUrl.get("mapa") ?? this.datosEscena.mapaId);
     const personalidadBase = this.datosEscena.personalidadId ? buscarPersonalidad(this.datosEscena.personalidadId) : RIVAL_POR_DEFECTO;
     // multi-setup-partida: sin `jugadores` (atajo ?mapa=, tests de bloques
     // anteriores) la partida es la de siempre: un humano contra la IA elegida.
@@ -659,6 +690,7 @@ export class Partida extends Phaser.Scene {
       { nombre: "Tú", tipo: "humano" },
       { nombre: personalidadBase.nombre, tipo: "ia", personalidadId: personalidadBase.id, nivel: this.datosEscena.nivelIA },
     ];
+    this.jugadoresPartida = jugadores;
     this.controladores = jugadores.map((jugador, indice) => {
       const nivel = jugador.tipo === "ia" ? (jugador.nivel ?? NIVEL_IA_POR_DEFECTO) : null;
       const personalidad =
@@ -700,9 +732,9 @@ export class Partida extends Phaser.Scene {
     // ?semilla= -- atajo determinista para los tests e2e, con la última
     // palabra sobre datosEscena.modo. ?saldo= fija el presupuesto de la ronda
     // para que un e2e pueda probar el saldo 0 sin gastarlo eligiendo armas.
-    const modoParam = parametrosUrl.get("modo");
+    const modoParam = reanudar ? null : parametrosUrl.get("modo");
     const modo: ModoJuego = modoParam === "presupuesto" ? "presupuesto" : modoParam === "barra-libre" ? "barra-libre" : (this.datosEscena.modo ?? "barra-libre");
-    const saldoParam = parametrosUrl.get("saldo");
+    const saldoParam = reanudar ? null : parametrosUrl.get("saldo");
     const saldoInicial = modo === "presupuesto" ? (saldoParam !== null ? Number(saldoParam) : PRESUPUESTO_BASE) : undefined;
     fijarModo(modo, saldoInicial ?? null);
     window.__debug.modo = modo;
@@ -722,7 +754,7 @@ export class Partida extends Phaser.Scene {
         etiquetaDeriva: mapa.mundo.etiquetaDeriva,
       };
 
-      const mascara = generarMascara(mapa.semillaTerreno, MUNDO_ANCHO, MUNDO_ALTO);
+      const mascara = reanudar ? reanudar.estado.mascara : generarMascara(mapa.semillaTerreno, MUNDO_ANCHO, MUNDO_ALTO);
       const xNaves = this.controladores.map((_controlador, indice) =>
         Math.round(
           MUNDO_ANCHO *
@@ -736,11 +768,15 @@ export class Partida extends Phaser.Scene {
       // para que la física no use un mundo distinto del que de verdad se
       // renderiza.
       const mundoAjustado = { ...mapa.mundo, ancho: MUNDO_ANCHO, alto: MUNDO_ALTO };
-      this.estado = {
-        ...crearPartidaInicial(mundoAjustado, mascara, xNaves, mapa.semillaPartida),
-        modo,
-        ...(saldoInicial !== undefined ? this.economiaInicial(saldoInicial) : {}),
-      };
+      this.estado = reanudar
+        ? reanudar.estado
+        : {
+            ...crearPartidaInicial(mundoAjustado, mascara, xNaves, mapa.semillaPartida),
+            modo,
+            ...(saldoInicial !== undefined ? this.economiaInicial(saldoInicial) : {}),
+          };
+      this.mapaIdPartida = idMapa;
+      this.semillaSistemaPartida = null;
 
       const { terreno } = crearTerrenoPhaser(this, mascara, "terreno-partida", mapa.paleta);
       this.terreno = terreno;
@@ -759,7 +795,9 @@ export class Partida extends Phaser.Scene {
       // un proyectil es la gravedad de los planetas (simularVuelo, grav-*)
       // -- una deriva uniforme aquí no representa nada físico, a diferencia
       // del "viento" narrativo de los mapas de suelo plano.
-      const mundoEspacial: ParametrosMundo = {
+      this.mapaIdPartida = null;
+      this.semillaSistemaPartida = semillaSistema;
+      const mundoEspacial: ParametrosMundo = reanudar ? reanudar.estado.mundo : {
         ancho: MUNDO_ANCHO,
         alto: MUNDO_ALTO,
         gravedad: 0,
@@ -778,17 +816,17 @@ export class Partida extends Phaser.Scene {
       // ninguna disposición sobre el original resulta viable con casco real
       // -- el `sistema` que se renderiza tiene que ser el mismo que el que
       // colocarNaves acabó usando de verdad, nunca uno generado aparte.
-      const colocacion = colocarNaves(semillaSistema, mundoEspacial, crearEstadoAleatorio(semillaSistema), cantidadNaves, this.controladores.map((controlador) => controlador.tipo === "ia"));
-      const sistema = colocacion.sistema;
-      this.estado = {
+      const colocacion = reanudar ? null : colocarNaves(semillaSistema, mundoEspacial, crearEstadoAleatorio(semillaSistema), cantidadNaves, this.controladores.map((controlador) => controlador.tipo === "ia"));
+      const sistema = colocacion ? colocacion.sistema : { mascara: reanudar!.estado.mascara, planetas: reanudar!.estado.planetas ?? [] };
+      this.estado = reanudar ? reanudar.estado : {
         version: 1,
         mundo: mundoEspacial,
         mascara: sistema.mascara,
-        naves: colocacion.naves,
-        ordenTurno: colocacion.naves.map((_nave, id) => id),
+        naves: colocacion!.naves,
+        ordenTurno: colocacion!.naves.map((_nave, id) => id),
         turno: 0,
         numeroTurno: 0,
-        aleatorio: colocacion.aleatorio,
+        aleatorio: colocacion!.aleatorio,
         resultado: { tipo: "en-curso" },
         planetas: sistema.planetas,
         modo,
@@ -842,11 +880,11 @@ export class Partida extends Phaser.Scene {
       sacudir: (duracionMs, intensidad) => this.sacudirCamara(duracionMs, intensidad),
       alCambiar: () => this.publicarEfectosVisibles(),
     });
-    if (this.eventosActivados(parametrosUrl)) this.estado = conUniverso(this.estado);
+    if (!reanudar && this.eventosActivados(parametrosUrl)) this.estado = conUniverso(this.estado);
     // muerte-subita: activa por defecto; `muerte=0` en la URL o la clave
     // guardada «muerte-subita:activada» a «0» (como el e2e la apaga en bloque)
     // la desactiva, y `muerte=1` fuerza encenderla.
-    if (this.muerteSubitaActivada(parametrosUrl)) this.estado = conMuerteSubita(this.estado);
+    if (!reanudar && this.muerteSubitaActivada(parametrosUrl)) this.estado = conMuerteSubita(this.estado);
     window.__debug.fijarMuerteSubita = ({ ronda, integridades }) => {
       this.estado = {
         ...conMuerteSubita(this.estado, ronda),
@@ -954,7 +992,12 @@ export class Partida extends Phaser.Scene {
       .setVisible(false);
     this.gestoApuntado = null;
     this.punteroApuntando = null;
-    this.estadisticas = this.estado.naves.map(() => estadisticasIniciales());
+    this.estadisticas = reanudar
+      ? this.estado.naves.map((_nave, id) => reanudar.cascara.estadisticasPorNave?.[id] ?? reanudar.cascara.estadisticas)
+      : this.estado.naves.map(() => estadisticasIniciales());
+    reanudar?.cascara.memoriasIA.forEach((memoria, id) => {
+      if (memoria) this.memoriaIA.set(id, { ...memoria, usosPorArma: { ...memoria.usosPorArma } });
+    });
     this.fallosSeguidos = this.estado.naves.map(() => 0);
     this.turnosResueltos = 0;
     this.plantillasRecientes = [];
@@ -1102,6 +1145,7 @@ export class Partida extends Phaser.Scene {
     this.cancelarManejadorRelevo = registrarManejadorRelevo(() => this.confirmarRelevoActual());
     this.cancelarAlAgotarseReloj = registrarAlAgotarseReloj(() => this.agotarRelojTurno());
     document.addEventListener("visibilitychange", this.alCambiarVisibilidad);
+    window.addEventListener("pagehide", this.alOcultarPagina);
     // El tick solo repinta: el plazo es absoluto y no depende de él.
     this.temporizadorReloj = window.setInterval(() => tickRelojTurno(), 250);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.limpiarEntrada());
@@ -1220,6 +1264,22 @@ export class Partida extends Phaser.Scene {
     this.refrescarObjetos();
     publicarJugable(this.puedeJugarAhora());
     publicarPreparando(false);
+
+    Object.defineProperty(window.__debug, "partidaGuardada", {
+      configurable: true,
+      enumerable: true,
+      get: () => this.guardador.estado(),
+    });
+    // Una partida nueva sustituye a cualquier instantánea anterior; reanudar
+    // reescribe la misma con la versión actual del juego.
+    // Una partida nueva no guarda nada hasta cerrar su primer turno: así el
+    // aviso de «sin guardado» (una vez por partida) sale cuando se juega, no
+    // durante la carga.
+    if (!reanudar) this.guardador.borrar();
+    else {
+      this.guardarTurnoCerrado();
+      this.reanudarTurnoGuardado();
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -1729,6 +1789,7 @@ export class Partida extends Phaser.Scene {
     this.cancelarAlAgotarseReloj?.();
     this.cancelarAlAgotarseReloj = null;
     document.removeEventListener("visibilitychange", this.alCambiarVisibilidad);
+    window.removeEventListener("pagehide", this.alOcultarPagina);
     if (this.temporizadorReloj !== null) window.clearInterval(this.temporizadorReloj);
     this.temporizadorReloj = null;
     pararRelojTurno();
@@ -2275,6 +2336,7 @@ export class Partida extends Phaser.Scene {
 
   private readonly alCambiarVisibilidad = (): void => {
     if (document.visibilityState === "hidden") {
+      this.guardador.reescribirSiPendiente();
       if (obtenerRelojTurno().estado === "corriendo") {
         pausarRelojTurno();
         this.pausadaPorOculta = obtenerRelojTurno().estado === "pausado";
@@ -2293,6 +2355,67 @@ export class Partida extends Phaser.Scene {
     mostrarAvisoTiempo();
     solicitarDisparoAutomatico();
   }
+
+  // partida-guardada: una partida terminada no se puede continuar, así que su
+  // instantánea se borra; el resto se reescribe en cada turno cerrado.
+  private guardarTurnoCerrado(): void {
+    if (!guardadoActivado()) return;
+    if (this.estado.resultado.tipo === "terminada") {
+      this.guardador.borrar();
+      return;
+    }
+    this.guardador.guardar(this.datosParaGuardar());
+  }
+
+  private datosParaGuardar(): DatosPartida {
+    const relojTurnoS = obtenerRelojTurno().configuradoS;
+    return {
+      estado: this.estado,
+      config: {
+        jugadores: this.jugadoresPartida,
+        modo: this.estado.modo ?? "barra-libre",
+        todosVemosTodo: Boolean(this.datosEscena.todosVemosTodo),
+        semillaSistema: this.semillaSistemaPartida,
+        mapaId: this.mapaIdPartida,
+        relojTurnoS,
+        ...(this.datosEscena.jugadores ? {} : { clasica: true as const }),
+      },
+      cascara: {
+        memoriasIA: this.controladores.map((controlador, id) => (controlador.tipo === "ia" ? this.memoriaDe(id) : null)),
+        estadisticas: this.estadisticas[0],
+        estadisticasPorNave: this.estadisticas,
+      },
+    };
+  }
+
+  // Tras «Continuar»: el turno guardado vuelve a quien le tocaba. Con relevo
+  // activo aparece primero su pantalla (el dispositivo puede estar en otras
+  // manos); su reloj arranca entero tras «Soy …» como en cualquier turno.
+  private reanudarTurnoGuardado(): void {
+    const turno = this.estado.turno;
+    const orden = this.estado.ordenTurno;
+    const posicion = orden.indexOf(turno);
+    for (let paso = 1; paso <= orden.length; paso += 1) {
+      const anterior = orden[(posicion - paso + orden.length * paso) % orden.length];
+      if (this.esHumano(anterior)) {
+        this.ultimoHumano = anterior;
+        break;
+      }
+    }
+    if (!this.esHumano(turno)) {
+      this.dispararTurnoIA();
+      return;
+    }
+    this.ultimoHumano = turno;
+    const humanos = this.controladores.filter((controlador) => controlador.tipo === "humano").length;
+    if (this.datosEscena.todosVemosTodo || !this.datosEscena.jugadores || humanos < 2) return;
+    this.relevoPendiente = true;
+    obtenerLocutor().callar();
+    publicarJugable(false);
+    publicarRelevo(nombreDeNave(this.controladores, turno), null, null);
+  }
+
+  private readonly alOcultarPagina = (): void => this.guardador.reescribirSiPendiente();
 
   private confirmarRelevoActual(): void {
     if (!this.relevoPendiente) return;
@@ -2634,6 +2757,9 @@ export class Partida extends Phaser.Scene {
       window.__debug!.numeroTurno = this.estado.numeroTurno;
       publicarTurno(this.estado.turno);
       publicarJugable(this.puedeJugarAhora());
+      // Turno cerrado y aún sin vuelo ni relevo: el único momento en que el
+      // estado es una foto limpia (nunca un proyectil a medias).
+      this.guardarTurnoCerrado();
 
       if (estadoDespues.resultado.tipo === "terminada") {
         // nucleo-n-naves: el empate (ganador null) solo es posible con 3+
