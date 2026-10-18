@@ -187,7 +187,9 @@ export function IntegridadHUD() {
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
               {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
-              <MarcaAsiento asiento={nave.id} alto={12} />
+              {/* Con cuatro naves a 360 px la silueta de 12 px dejaba el nombre 0,3 px más
+                  ancho que su pestaña; 10 px devuelve ~1,7 px de margen. */}
+              <MarcaAsiento asiento={nave.id} alto={estado.naves.length >= 4 ? 10 : 12} />
               <span aria-hidden="true">{abreviarNombre(rival ? rival.nombreCorto : nombreBarra, estado.naves.length)}</span>
               <span style={SOLO_LECTORES}>{etiqueta}</span>
               {/* En el 1 contra 1 el turno ya se ve por el resaltado y aria-current:
