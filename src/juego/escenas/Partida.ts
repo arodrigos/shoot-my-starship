@@ -89,6 +89,7 @@ import { publicarGanador, publicarParticipantes, publicarRivalesIA, reiniciarPar
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import { MEMORIA_PLANTILLAS, resumenPartida, tocaResumen } from "@/sim/partida/resumenPartida";
 import { COLORES_NAVE, colorDeAsiento } from "@/juego/naves/paletaNaves";
+import { contornoSiluetaAsiento, varianteSiluetaAsiento } from "@/juego/naves/siluetaAsiento";
 import { inyectarHistorico, publicarAnuncioHistorico, publicarResumen, reiniciarBromas } from "@/juego/control/broma";
 import { cerrarRelevo, publicarRelevo, registrarManejadorRelevo, reiniciarRelevo } from "@/juego/control/relevoStore";
 import { FantasmaNave } from "@/juego/naves/FantasmaNave";
@@ -2541,16 +2542,29 @@ export class Partida extends Phaser.Scene {
       .text(x, y, `-${danio}`, { fontFamily: "sans-serif", fontSize: `${Math.round(18 * escala)}px`, fontStyle: "bold", color, stroke: "#000000", strokeThickness: Math.round(3 * escala) })
       .setOrigin(0.5, 1)
       .setDepth(2000);
-    const efecto: DebugEfectoVisible = { tipo: "numero-danio", valor: danio, color, duracionMs: DURACION_NUMERO_DANIO_MS, x, y, radioOnda: 0, particulas: 0, escala: 0, sobre: "nave" };
+    // marca-asiento: la silueta del tirador delante del número, para que quién
+    // ha disparado no dependa solo del color. Se centra el conjunto en x.
+    const lado = Math.round(16 * escala);
+    const hueco = Math.round(3 * escala);
+    texto.setX(x + (lado + hueco) / 2);
+    const silueta = this.add.graphics().setDepth(2000);
+    silueta.lineStyle(Math.max(1, Math.round(2 * escala)), 0x0b0f1a, 1);
+    silueta.fillStyle(Phaser.Display.Color.HexStringToColor(color).color, 1);
+    const contorno = contornoSiluetaAsiento(atacante).map((p) => new Phaser.Math.Vector2((p.x - 0.5) * lado, (p.y - 0.5) * lado));
+    silueta.fillPoints(contorno, true);
+    silueta.strokePoints(contorno, true);
+    silueta.setPosition(texto.x - texto.width / 2 - hueco - lado / 2, y - texto.height / 2);
+    const efecto: DebugEfectoVisible = { tipo: "numero-danio", valor: danio, color, silueta: varianteSiluetaAsiento(atacante), duracionMs: DURACION_NUMERO_DANIO_MS, x, y, radioOnda: 0, particulas: 0, escala: 0, sobre: "nave" };
     this.numerosDanioVivos.push(efecto);
     this.tweens.add({
-      targets: texto,
-      y: y - 36 * escala,
+      targets: [texto, silueta],
+      y: `-=${36 * escala}`,
       alpha: 0,
       duration: DURACION_NUMERO_DANIO_MS,
       ease: "Quad.easeOut",
       onComplete: () => {
         texto.destroy();
+        silueta.destroy();
         this.numerosDanioVivos = this.numerosDanioVivos.filter((e) => e !== efecto);
         this.publicarEfectosVisibles();
       },

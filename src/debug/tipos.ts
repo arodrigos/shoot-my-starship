@@ -176,6 +176,8 @@ export interface DebugEfectoVisible {
   // asiento de quien disparó.
   readonly valor?: number;
   readonly color?: string;
+  // marca-asiento: solo "numero-danio" -- familia de casco del tirador.
+  readonly silueta?: 0 | 1 | 2 | 3;
   readonly duracionMs?: number;
   readonly desde?: { readonly x: number; readonly y: number };
   readonly x: number;
@@ -508,7 +510,7 @@ export interface DebugGlobal {
   efectosVisibles?: readonly DebugEfectoVisible[];
   // vida-color: lo que pinta la barra de vida de cada nave viva (una nave a
   // 0 no tiene barra y no aparece).
-  hud?: { vidas: readonly { id: number; colorRelleno: string; etiqueta: string; valor: number; porcentaje: number }[] };
+  hud?: { vidas: readonly { id: number; colorRelleno: string; silueta: 0 | 1 | 2 | 3; etiqueta: string; valor: number; porcentaje: number }[] };
   // Cuántas veces se ha sacudido la cámara en la partida: con movimiento
   // reducido tiene que quedarse como estaba.
   sacudidasCamara?: number;

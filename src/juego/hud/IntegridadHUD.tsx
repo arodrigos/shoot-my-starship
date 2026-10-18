@@ -6,6 +6,8 @@ import { obtenerIntegridad, suscribirIntegridad } from "@/juego/control/integrid
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import { obtenerParticipantes, suscribirParticipantes, type RivalIA } from "@/juego/control/participantesStore";
 import { PildoraRelojTurno } from "@/juego/hud/RelojTurnoHUD";
+import { MarcaAsiento } from "@/juego/hud/MarcaAsiento";
+import { varianteSiluetaAsiento } from "@/juego/naves/siluetaAsiento";
 import { acotarIntegridad, INTEGRIDAD_MAXIMA, porcentajeIntegridad } from "@/sim/naves/vida";
 
 // imp-11: hasta este bloque no existía NINGÚN indicador de integridad en el
@@ -70,7 +72,7 @@ export function abreviarNombre(nombre: string, naves: number): string {
 // Con cuatro naves el marcador va pegado al nombre: cada letra cuenta.
 function marcadorDeEstado(eliminada: boolean, esTurno: boolean, naves: number): string {
   const marca = eliminada ? "✖" : esTurno ? "▶" : "";
-  return marca === "" || naves >= 4 ? marca : `${marca} `;
+  return marca === "" || naves >= 3 ? marca : `${marca} `;
 }
 
 const SOLO_LECTORES: React.CSSProperties = {
@@ -131,6 +133,7 @@ export function IntegridadHUD() {
           {
             id: nave.id,
             colorRelleno: colorDeAsiento(nave.id),
+            silueta: varianteSiluetaAsiento(nave.id),
             etiqueta: etiquetaConNivel(participantes?.[nave.id]?.nombre ?? etiquetaDeNave(nave.id, control.nombreRival), rivalesIA[nave.id]),
             valor: Math.round(acotarIntegridad(nave.integridad)),
             porcentaje: Math.round(porcentajeIntegridad(nave.integridad)),
@@ -165,7 +168,7 @@ export function IntegridadHUD() {
             style={{
               ...BARRA_ESTILO,
               position: "relative",
-              padding: estado.naves.length >= 4 ? "4px 2px" : BARRA_ESTILO.padding,
+              padding: "4px 2px",
               ...(estado.naves.length >= 4 ? { fontSize: 11 } : {}),
               background: esTurno ? "var(--color-roce-fondo)" : "var(--color-cromado-fondo)",
               color: esTurno ? "var(--color-roce-texto)" : "var(--color-cromado-texto)",
@@ -184,6 +187,7 @@ export function IntegridadHUD() {
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
               {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
+              <MarcaAsiento asiento={nave.id} alto={12} />
               <span aria-hidden="true">{abreviarNombre(rival ? rival.nombreCorto : nombreBarra, estado.naves.length)}</span>
               <span style={SOLO_LECTORES}>{etiqueta}</span>
               {/* En el 1 contra 1 el turno ya se ve por el resaltado y aria-current:
