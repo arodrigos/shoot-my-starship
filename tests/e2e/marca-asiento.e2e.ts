@@ -27,6 +27,10 @@ async function comprobarMarcas(page: Page, total: number): Promise<void> {
     await expect(marca).toHaveAttribute("data-silueta", String(nave.silueta));
     await expect(marca.locator("polygon")).toHaveAttribute("fill", nave.colorAsiento);
     siluetas.add(String(nave.silueta));
+    // ma-1: la caja de la silueta mide 12-14 px; encogerla para ganar sitio rompe el criterio.
+    const altoMarca = await marca.evaluate((el) => el.getBoundingClientRect().height);
+    expect(altoMarca, `alto de la marca ${nave.id}`).toBeGreaterThanOrEqual(12);
+    expect(altoMarca, `alto de la marca ${nave.id}`).toBeLessThanOrEqual(14);
     const caja = await page.getByTestId(`integridad-nave-${nave.id}`).evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }));
     expect(caja.sw).toBeLessThanOrEqual(caja.cw);
   }

@@ -91,6 +91,7 @@ for (const { ancho, alto } of TAMANOS) {
           const holgura = etiqueta.getBoundingClientRect().right - rango.getBoundingClientRect().right;
           return {
             holgura,
+            altoMarca: el.querySelector<SVGElement>('[data-testid^="integridad-marca-"]')!.getBoundingClientRect().height,
             izq: caja.left,
             der: caja.right,
             cortada: el.scrollWidth > el.clientWidth || etiqueta.scrollWidth > etiqueta.clientWidth,
@@ -103,6 +104,9 @@ for (const { ancho, alto } of TAMANOS) {
         expect(m.der, `pestaña ${id} fuera por la derecha`).toBeLessThanOrEqual(m.ancho);
         expect(m.cortada, `pestaña ${id} cortada (${m.detalle})`).toBe(false);
         expect(m.holgura, `pestaña ${id}: holgura del nombre en px`).toBeGreaterThanOrEqual(0.5);
+        // Las dos restricciones juntas: la holgura no se gana encogiendo la marca (ma-1: 12-14 px).
+        expect(m.altoMarca, `pestaña ${id}: alto de la marca`).toBeGreaterThanOrEqual(12);
+        expect(m.altoMarca, `pestaña ${id}: alto de la marca`).toBeLessThanOrEqual(14);
         expect(m.visible, `texto visible de la pestaña ${id}`).toBe(caso.visibles[id]);
         // Vida visible y nombre completo (sin recortar) accesible aunque se abrevie.
         await expect(pestana.getByRole("progressbar", { name: `Integridad de ${caso.completos[id]}` })).toHaveAttribute("aria-valuenow", "150");

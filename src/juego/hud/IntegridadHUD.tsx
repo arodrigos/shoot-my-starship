@@ -172,7 +172,10 @@ export function IntegridadHUD() {
               ...(estado.naves.length >= 4 ? { fontSize: 11 } : {}),
               background: esTurno ? "var(--color-roce-fondo)" : "var(--color-cromado-fondo)",
               color: esTurno ? "var(--color-roce-texto)" : "var(--color-cromado-texto)",
-              border: esTurno ? "1px solid var(--color-roce-borde)" : "1px solid transparent",
+              // El borde del turno va como sombra interior: un borde real quita 2 px de
+              // contenido y con cuatro naves a 360 px «Contable» ya no cabe con la marca de 12 px.
+              border: 0,
+              boxShadow: esTurno ? "inset 0 0 0 1px var(--color-roce-borde)" : "none",
             }}
             data-testid={`integridad-nave-${nave.id}`}
             title={eliminada ? `${etiqueta}: eliminada` : esTurno ? `${etiqueta}: turno` : etiqueta}
@@ -187,9 +190,7 @@ export function IntegridadHUD() {
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
               {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
-              {/* Con cuatro naves a 360 px la silueta de 12 px dejaba el nombre 0,3 px más
-                  ancho que su pestaña; 10 px devuelve ~1,7 px de margen. */}
-              <MarcaAsiento asiento={nave.id} alto={estado.naves.length >= 4 ? 10 : 12} />
+              <MarcaAsiento asiento={nave.id} alto={12} />
               <span aria-hidden="true">{abreviarNombre(rival ? rival.nombreCorto : nombreBarra, estado.naves.length)}</span>
               <span style={SOLO_LECTORES}>{etiqueta}</span>
               {/* En el 1 contra 1 el turno ya se ve por el resaltado y aria-current:
