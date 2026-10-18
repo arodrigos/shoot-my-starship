@@ -129,7 +129,8 @@ test("pgf-12/13: sin almacenamiento la partida sigue y avisa una vez", async ({ 
   await page.getByTestId("pestana-equipo").click();
   await page.getByTestId("equipo-escudo").click();
   await page.getByTestId("disparar").click();
-  await expect(page.getByTestId("aviso-sin-guardado")).toContainText("guardar");
+  // El aviso dura 4 s y el turno tarda en cerrarse: se espera con margen.
+  await expect(page.getByTestId("aviso-sin-guardado")).toContainText("guardar", { timeout: 60000 });
   await capturas(page, "aviso-sin-guardado");
   expect(await page.evaluate(() => window.__debug.partidaGuardada!.error)).not.toBeNull();
 });
