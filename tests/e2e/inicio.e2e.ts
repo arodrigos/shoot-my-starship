@@ -85,7 +85,9 @@ for (const { ancho, alto } of TAMANOS) {
           // El desborde de una fracción de píxel no lo ve scrollWidth (redondea):
           // se mide el contenido real con decimales (regresión r9, 0,3 px).
           const rango = document.createRange();
-          rango.selectNodeContents(etiqueta);
+          // Solo lo visible: el span de lectores de pantalla desborda a propósito.
+          rango.setStartBefore(etiqueta.firstChild!);
+          rango.setEndAfter(etiqueta.querySelector('span[aria-hidden="true"]')!);
           const holgura = etiqueta.getBoundingClientRect().right - rango.getBoundingClientRect().right;
           return {
             holgura,
