@@ -12,6 +12,7 @@ import {
 } from "@/juego/partidaGuardada/tipos";
 import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 import { esNivelIA } from "@/sim/ia/nivel";
+import { PERSONALIDADES } from "@/sim/ia/personalidades";
 import type { UltimoIntentoIA } from "@/sim/ia/decidir";
 import type { EstadisticasPartida } from "@/sim/partida/parteDeGuerra";
 import type { EstadoNave, EstadoPartida, ModoJuego } from "@/sim/partida/tipos";
@@ -55,10 +56,16 @@ function lista(valor: unknown, motivo: MotivoDescarte = "datos"): readonly unkno
   return Array.isArray(valor) ? valor : fallar(motivo);
 }
 
-function nombreValido(valor: unknown): string {
+// Los nombres de IA salen completos de su personalidad y pueden pasar del tope
+// de 16 letras de sanearNombre («Almirante Bisagra» tiene 17).
+const NOMBRES_DE_IA: ReadonlySet<string> = new Set(PERSONALIDADES.map((p) => p.nombre));
+
+function nombreValido(valor: unknown, esIA = false): string {
   // sanearNombre es idempotente sobre un nombre ya saneado: si cambia algo, el
   // texto no salió de la portada.
-  return typeof valor === "string" && valor.length > 0 && sanearNombre(valor, "") === valor ? valor : fallar("nombre");
+  if (typeof valor !== "string" || valor.length === 0) return fallar("nombre");
+  if (sanearNombre(valor, "") === valor) return valor;
+  return esIA && NOMBRES_DE_IA.has(valor) ? valor : fallar("nombre");
 }
 
 function armaValida(id: string): void {
@@ -145,8 +152,13 @@ function estadoValido(valor: unknown, jugadores: number): EstadoPartida {
 
 function jugadorValido(valor: unknown): JugadorConfig {
   const j = objeto(valor);
-  nombreValido(j.nombre);
   if (j.tipo !== "humano" && j.tipo !== "ia") fallar("datos");
+  const nombre = nombreValido(j.nombre, j.tipo === "ia");
+  // Un nombre largo solo es legítimo si es el de la personalidad que dice llevar.
+  if (nombre !== sanearNombre(nombre, "")) {
+    const personalidad = PERSONALIDADES.find((p) => p.id === j.personalidadId);
+    if (personalidad?.nombre !== nombre) fallar("nombre");
+  }
   if (j.personalidadId !== undefined && typeof j.personalidadId !== "string") fallar("datos");
   if (j.nivel !== undefined && !esNivelIA(j.nivel)) fallar("datos");
   return j as unknown as JugadorConfig;
@@ -241,7 +253,7 @@ export function validarInstantanea(cadena: string, versionActual: string): Resul
       const cascara = cascaraValida(i.cascara, estado.naves.length);
       const guardadaEn = numero(i.guardadaEn);
       const r = objeto(i.rotulo);
-      const rotulo = { ronda: entero(r.ronda, 1, 10_000), nombres: lista(r.nombres, "nombre").map(nombreValido) };
+      const rotulo = { ronda: entero(r.ronda, 1, 10_000), nombres: lista(r.nombres, "nombre").map((n) => nombreValido(n, true)) };
       return { tipo: "valida", datos: { estado, config, cascara }, deOtraVersion, guardadaEn, rotulo };
     } catch (error) {
       // Una partida de otra versión que ya no encaja (un arma retirada...) se
