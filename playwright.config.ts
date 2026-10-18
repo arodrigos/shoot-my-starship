@@ -48,7 +48,7 @@ export default defineConfig({
     // drenaje de la muerte súbita (`?muerte=1`): recortaría partidas largas.
     storageState: {
       cookies: [],
-      origins: [{ origin: "http://127.0.0.1:3000", localStorage: [{ name: "universo:eventos", value: "0" }, { name: "muerte-subita:activada", value: "0" }] }],
+      origins: [{ origin: "http://127.0.0.1:3000", localStorage: [{ name: "universo:eventos", value: "0" }, { name: "muerte-subita:activada", value: "0" }, { name: "partida-guardada:activada", value: "0" }] }],
     },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],

@@ -114,6 +114,7 @@ import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reprod
 import { indiceTic } from "@/juego/audio/cadenciaTicTac";
 import type { DatosEscenaPartida } from "@/juego/main";
 import { GuardadorPartida } from "@/juego/partidaGuardada/guardador";
+import { guardadoActivado } from "@/juego/partidaGuardada/almacen";
 import { mostrarAvisoSinGuardado, reiniciarAvisoSinGuardado } from "@/juego/control/avisoSinGuardadoStore";
 import type { DatosPartida } from "@/juego/partidaGuardada/tipos";
 import { comprobarCantidadDentroDelTecho, crearEmisorRegistrado } from "@/juego/efectos/crearEmisorRegistrado";
@@ -1271,9 +1272,14 @@ export class Partida extends Phaser.Scene {
     });
     // Una partida nueva sustituye a cualquier instantánea anterior; reanudar
     // reescribe la misma con la versión actual del juego.
+    // Una partida nueva no guarda nada hasta cerrar su primer turno: así el
+    // aviso de «sin guardado» (una vez por partida) sale cuando se juega, no
+    // durante la carga.
     if (!reanudar) this.guardador.borrar();
-    this.guardarTurnoCerrado();
-    if (reanudar) this.reanudarTurnoGuardado();
+    else {
+      this.guardarTurnoCerrado();
+      this.reanudarTurnoGuardado();
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -2353,6 +2359,7 @@ export class Partida extends Phaser.Scene {
   // partida-guardada: una partida terminada no se puede continuar, así que su
   // instantánea se borra; el resto se reescribe en cada turno cerrado.
   private guardarTurnoCerrado(): void {
+    if (!guardadoActivado()) return;
     if (this.estado.resultado.tipo === "terminada") {
       this.guardador.borrar();
       return;

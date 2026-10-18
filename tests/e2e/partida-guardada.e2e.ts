@@ -10,6 +10,14 @@ const TAMANOS = [
   { ancho: 1180, alto: 820 },
 ];
 
+// Aquí sí se guarda: la configuración común lo apaga para el resto de los e2e.
+test.use({
+  storageState: {
+    cookies: [],
+    origins: [{ origin: "http://127.0.0.1:3000", localStorage: [{ name: "universo:eventos", value: "0" }, { name: "muerte-subita:activada", value: "0" }] }],
+  },
+});
+
 async function esperarPartida(page: Page): Promise<void> {
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.mundo !== undefined);
