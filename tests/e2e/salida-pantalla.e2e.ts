@@ -78,6 +78,9 @@ async function dispararHaciaArriba(page: Page, reducido: boolean): Promise<numbe
   await arrastrarDesdeNave(page, 0, 90, 220);
   await page.getByTestId("disparar").click();
   await page.waitForFunction(() => window.__debug.avisoPerdido !== undefined, undefined, { timeout: 60000 });
+  // El aviso nace al llegar la respuesta del trabajador, entre dos frames: hasta
+  // que Phaser pinta uno más el lienzo aún no lo tiene y su lectura sale vacía.
+  await page.evaluate(() => new Promise<void>((listo) => requestAnimationFrame(() => requestAnimationFrame(() => listo()))));
   await comprobarAvisoVisible(page, reducido);
   await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) > n, turnoAntes, { timeout: 30000 });
   return turnoAntes;

@@ -1723,9 +1723,9 @@ export class Partida extends Phaser.Scene {
     const PASO_TURBO_MS = 32;
     const TANDA = 200;
     for (let guardia = 0; guardia < 400 && this.estado.resultado.tipo !== "terminada" && !this.puedeJugarAhora(); guardia++) {
-      if (!this.solicitudEnCurso) {
-        for (let i = 0; i < TANDA && !this.puedeJugarAhora(); i++) this.update(0, PASO_TURBO_MS);
-      }
+      // solicitudEnCurso ya no acaba al llegar el impacto, sino al aplicar el cierre
+      // tras la animación: hay que seguir empujando el reloj mientras tanto.
+      for (let i = 0; i < TANDA && !this.puedeJugarAhora(); i++) this.update(0, PASO_TURBO_MS);
       await new Promise<void>((resolver) => setTimeout(resolver, 0));
     }
   }
@@ -1752,7 +1752,10 @@ export class Partida extends Phaser.Scene {
         // respuesta-200ms: la decisión de la IA y la resolución del disparo
         // viven en el trabajador; se cede el hilo para que su respuesta
         // llegue en vez de salir de la ráfaga con un solo turno jugado.
-        await new Promise<void>((resolver) => setTimeout(resolver, 0));
+        // El cierre del turno se aplica al acabar la animación del impacto, que
+        // aquí avanza con update(): si hay algo en vuelo se empuja el reloj.
+        if (this.animador.enVuelo() || this.avanceTurnoPendiente || this.remate?.bloquea || this.movimientos.length > 0) this.update(0, PASO_TURBO_MS);
+        else await new Promise<void>((resolver) => setTimeout(resolver, 0));
       } else if (this.puedeJugarAhora()) {
         const solucion = this.calcularSolucionBalistica(this.estado);
         const ajuste = solucion ?? { anguloGrados: 45, potencia: 55 };
