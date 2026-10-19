@@ -59,6 +59,7 @@ import {
   obtenerEstadoControl,
   publicarDisparoJugadorResuelto,
   publicarJugable,
+  publicarPropulsoresBloqueados,
   solicitarDisparoAutomatico,
   publicarNombreRival,
   publicarEconomia,
@@ -153,6 +154,9 @@ import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 // cat-2: el haz del Rayo Láser se ve al menos esto antes de apagarse.
 // Holgura entre el vértice de la solución de depuración y el borde superior.
 const MARGEN_VERTICE_SOLUCION_PX = 40;
+// Por debajo de esta distancia al origen, la ruta de propulsores no es un
+// movimiento: la nave apunta contra la superficie y no llegaría a salir.
+const DISTANCIA_MINIMA_PROPULSORES_PX = 12;
 
 const DURACION_HAZ_MS = 450;
 
@@ -1388,6 +1392,7 @@ export class Partida extends Phaser.Scene {
       return;
     }
     window.__debug!.previsualizacionPropulsores = null;
+    publicarPropulsoresBloqueados(false);
 
     // impacto-naves: mismo criterio que dispararEntrada -- el casco solo
     // existe como cuerpo de colisión en modo espacial, con naves vivas.
@@ -1541,7 +1546,11 @@ export class Partida extends Phaser.Scene {
     const grafico = this.graficosPrevisualizacion;
     grafico.lineStyle(grosor, 0x7fd7ff, 0.8).strokeCircle(nave.x, nave.y, alcance);
     grafico.fillStyle(0x7fd7ff, 0.07).fillCircle(nave.x, nave.y, alcance);
-    grafico.lineStyle(grosor, 0xffd23f, 0.95);
+    // Bloqueado: la nave no llegaría a salir (apunta hacia dentro del planeta).
+    // Se pinta en rojo y el HUD no deja gastar el turno.
+    const bloqueado = vuelo.motivo === "obstaculo" && Math.hypot(vuelo.destino.x - nave.x, vuelo.destino.y - nave.y) < DISTANCIA_MINIMA_PROPULSORES_PX;
+    publicarPropulsoresBloqueados(bloqueado);
+    grafico.lineStyle(grosor, bloqueado ? 0xff4d4d : 0xffd23f, 0.95);
     for (let i = 1; i < vuelo.ruta.length; i++) {
       if (i % 2 === 0) continue;
       grafico.lineBetween(vuelo.ruta[i - 1].x, vuelo.ruta[i - 1].y, vuelo.ruta[i].x, vuelo.ruta[i].y);

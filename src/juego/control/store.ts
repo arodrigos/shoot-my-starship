@@ -40,6 +40,10 @@ export interface EstadoControl {
   // Publicado por la escena: turno del jugador, partida en curso y sin
   // animación de vuelo -- el HUD no reimplementa esa condición por su cuenta.
   readonly puedeDisparar: boolean;
+  // Publicado por la escena: con los propulsores elegidos, la ruta prevista no
+  // sale de la nave (apunta hacia dentro del planeta) y gastar el turno sería
+  // un turno perdido.
+  readonly propulsoresBloqueados: boolean;
   readonly ayudaVisible: boolean;
   // potencia-dispersion (pot-6): texto de ayuda aparte de la ayuda inicial
   // -- avisa la PRIMERA vez que la potencia cruza el umbral donde la
@@ -234,6 +238,7 @@ let estado: EstadoControl = {
   usosPorArma: {},
   ultimoDisparo: null,
   puedeDisparar: false,
+  propulsoresBloqueados: false,
   ayudaVisible: !ayudaYaVista(),
   ayudaDispersionVisible: false,
   modoEspacial: false,
@@ -424,6 +429,10 @@ export function repetirUltimoDisparo(): void {
   fijarAjuste({ ...estado.ultimoDisparo });
 }
 
+export function publicarPropulsoresBloqueados(valor: boolean): void {
+  if (estado.propulsoresBloqueados !== valor) fijar({ propulsoresBloqueados: valor });
+}
+
 export function publicarJugable(valor: boolean): void {
   if (estado.puedeDisparar !== valor) fijar({ puedeDisparar: valor });
 }
@@ -546,6 +555,7 @@ export function registrarManejadorDisparo(manejador: ManejadorDisparo): () => vo
 export function solicitarDisparo(): void {
   if (!estado.puedeDisparar || !manejadorDisparo) return;
   if (equipoYaActivo(estado.equipoId)) return;
+  if (estado.equipoId === "propulsores" && estado.propulsoresBloqueados) return;
   if (estado.ayudaDispersionVisible) fijar({ ayudaDispersionVisible: false });
   // nucleo-n-naves: el jugador humano (id 0) sigue siendo solo-contra-la-IA
   // (id 1) hasta multi-setup-partida, que es quien construye la selección
@@ -600,6 +610,7 @@ export function reiniciarControl(): void {
     usosPorArma: {},
     ultimoDisparo: null,
     puedeDisparar: false,
+    propulsoresBloqueados: false,
     ayudaDispersionVisible: false,
     modoEspacial: false,
     modo: "barra-libre",
