@@ -12,6 +12,7 @@
     "test": "npm run test:unit",
     "test:unit": "node --import tsx --test --test-concurrency=1 tests/unit/*.test.ts tests/unit/**/*.test.ts",
     "medir:ia": "tsx scripts/medir-ia.ts",
+    "medir:premios": "tsx scripts/medir-premios.ts",
     "medir:armas": "tsx scripts/medir-armas.ts",
     "calibrar:economia": "tsx scripts/calibrar-economia.ts",
     "medir:eventos": "tsx scripts/medir-eventos.ts",
