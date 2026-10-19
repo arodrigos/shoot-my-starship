@@ -87,7 +87,7 @@ const existeTiroViable: typeof existeTiroViableReal = (params) => {
 // disparo único de nucleo-turnos por el catálogo real y la colisión contra
 // la máscara: avanzar() ya no conoce ninguna física ni ningún id de arma
 // propios, solo llama a resolverDisparo con lo que declara el catálogo.
-type ResultadoAvanzar = { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma | undefined; detonaciones: Detonacion[] };
+export type ResultadoAvanzar = { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma | undefined; detonaciones: Detonacion[] };
 
 // respuesta-disparo: el turno se parte en dos para que la pantalla anime el
 // impacto en cuanto se sabe dónde cae, sin esperar a lo caro (desplazamiento
