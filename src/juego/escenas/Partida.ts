@@ -29,6 +29,7 @@ import { barridoRejilla, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
 import type { NavePosicion } from "@/sim/naves/impacto";
 import { crearProyectil, GRAVEDAD_REFERENCIA_PX_S2, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { contarPixelesDestruidos } from "@/sim/terreno/estadisticas";
+import { acumularTurno, estadisticasIniciales as estadisticasAsientosIniciales, type EstadisticasAsiento } from "@/juego/premios/estadisticas";
 import { estadisticasIniciales, generarParteDeGuerra, type EstadisticasPartida } from "@/sim/partida/parteDeGuerra";
 import { buscarMapa, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { Nave } from "@/juego/naves/Nave";
@@ -531,6 +532,13 @@ export class Partida extends Phaser.Scene {
   // multi-setup-partida: misma generalización que this.naves -- paralela a
   // this.estado.naves, de 2 a 4 posiciones.
   private estadisticas!: EstadisticasPartida[];
+  // premios-calculo: estadísticas por asiento para los premios del parte. No
+  // se persisten (los premios no se guardan entre partidas), así que al
+  // reanudar una partida guardada empiezan a cero.
+  private estadisticasAsientos!: EstadisticasAsiento[];
+  // Trayectoria animada del vuelo del turno en curso; solo la fija el turno
+  // animado real, para que los guiones sin vuelo no reutilicen una vieja.
+  private trayectoriaDelTurno: readonly { x: number; y: number }[] | null = null;
   private emisorExplosion!: Phaser.GameObjects.Particles.ParticleEmitter;
   // imp-12: un impacto sin daño necesita distinguirse a simple vista de uno
   // que sí daña -- mismo evento "impacto", pero un fogonazo aparte (menos
@@ -1005,6 +1013,8 @@ export class Partida extends Phaser.Scene {
     this.estadisticas = reanudar
       ? this.estado.naves.map((_nave, id) => reanudar.cascara.estadisticasPorNave?.[id] ?? reanudar.cascara.estadisticas)
       : this.estado.naves.map(() => estadisticasIniciales());
+    this.estadisticasAsientos = estadisticasAsientosIniciales(this.estado.naves.length);
+    this.trayectoriaDelTurno = null;
     reanudar?.cascara.memoriasIA.forEach((memoria, id) => {
       if (memoria) this.memoriaIA.set(id, { ...memoria, usosPorArma: { ...memoria.usosPorArma } });
     });
@@ -2169,6 +2179,7 @@ export class Partida extends Phaser.Scene {
         // Node con el mismo aleatorio/magnitud (ver comentario de perturbacion
         // más arriba).
         window.__debug!.trayectoriaAnimadaUltimoVuelo = this.animador.obtenerTrayectoria();
+        this.trayectoriaDelTurno = this.animador.obtenerTrayectoria().map((p) => ({ x: p.x, y: p.y }));
         // rastro-ultimo-disparo: sustituye al rastro anterior, sea de quien
         // sea; un tiro perdido (sin evento de impacto) no lleva silueta.
         this.rastros = registrarRastro(
@@ -2902,6 +2913,11 @@ export class Partida extends Phaser.Scene {
     estadoDespues: EstadoPartida,
     eventos: readonly EventoSimulacion[],
   ): void {
+    this.estadisticasAsientos = acumularTurno(this.estadisticasAsientos, eventos, this.trayectoriaDelTurno, {
+      integridades: estadoDespues.naves.map((nave) => nave.integridad),
+      pixelesDestruidos: contarPixelesDestruidos(estadoAntes.mascara, estadoDespues.mascara),
+    });
+    this.trayectoriaDelTurno = null;
     // Un turno de equipo no es un disparo: no cuenta para el parte de guerra.
     if (!eventos.some((evento) => evento.tipo === "disparo")) return;
     const previas = this.estadisticas[tirador];
