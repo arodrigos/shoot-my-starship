@@ -3,7 +3,7 @@
 // (y no un campo de la escena) para que el panel ?rendimiento=1 las lea sin
 // conocer la escena.
 export interface LatenciaInteraccion {
-  readonly nombre: "apuntado" | "rastro" | "reloj-turno";
+  readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo";
   readonly ms: number;
 }
 
@@ -25,6 +25,13 @@ export function registrarLatenciaRastro(ms: number): void {
 // reloj-turno: del toque en «Soy …» al primer frame con la píldora pintada.
 export function registrarLatenciaRelojTurno(ms: number): void {
   medidas.push({ nombre: "reloj-turno", ms });
+  if (medidas.length > CAPACIDAD) medidas.shift();
+}
+
+// respuesta-disparo: del toque en «Disparar» al primer frame con el proyectil o
+// el fogonazo del cañón.
+export function registrarLatenciaDisparo(ms: number): void {
+  medidas.push({ nombre: "disparo", ms });
   if (medidas.length > CAPACIDAD) medidas.shift();
 }
 

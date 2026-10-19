@@ -202,12 +202,24 @@ export interface EscenarioPrueba {
   readonly robots?: readonly { readonly x: number; readonly y: number; readonly dueno: number }[];
 }
 
+export interface UltimoTurnoMedido {
+  readonly msImpacto: number;
+  readonly msCierre: number;
+  readonly esperaColaMs: number;
+  readonly vuelosSimulados: number;
+  readonly modo: import("@/juego/motor/clienteSim").ModoMotor;
+}
+
 export interface DebugGlobal {
   ultimoPunto?: { x: number; y: number };
   // apuntado-dedo: últimas medidas del gesto de apuntado (pointermove → primer
   // frame con la flecha), la flecha tal como se pintó y un atajo para fijar
   // ángulo y fuerza sin gesto (lo usan los e2e que apuntan solo como medio).
-  latencias?: () => readonly { readonly nombre: "apuntado" | "rastro" | "reloj-turno"; readonly ms: number }[];
+  latencias?: () => readonly { readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo"; readonly ms: number }[];
+  // respuesta-disparo: tareas largas del hilo principal desde el inicio del turno.
+  tareasLargas?: { readonly maxMs: number; readonly cuenta: number };
+  // respuesta-disparo: retrasa la llegada del cierre del turno (solo pruebas) para ver la píldora «Calculando el turno…».
+  retenerCierreTurno?: (retener: boolean) => void;
   // reloj-turno: espejo de relojTurnoStore y atajo de e2e para gastar tiempo.
   // partida-guardada: espejo del guardador de la escena.
   partidaGuardada?: {
@@ -566,7 +578,12 @@ export interface DebugGlobal {
   // `ms` (tope 1000) dentro de su manejador.
   bloquearHilo?: (ms: number) => void;
   // respuesta-200ms: cómo se resuelve la simulación ("trabajador" o "en-linea").
-  motor?: { modo: import("@/juego/motor/clienteSim").ModoMotor; motivo: string | null };
+  motor?: {
+    modo: import("@/juego/motor/clienteSim").ModoMotor;
+    motivo: string | null;
+    // respuesta-disparo: cuánto costó el último turno por fases (ms dentro del trabajador y espera en cola).
+    ultimoTurno: UltimoTurnoMedido | null;
+  };
   // proy-4: el máximo de partículas vivas observado en cualquier fotograma
   // desde que arrancó la escena -- una ráfaga de disparos sucede en un único
   // page.evaluate síncrono (ver dispararRafagaTurbo), así que el test no

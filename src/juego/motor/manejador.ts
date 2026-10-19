@@ -5,8 +5,12 @@ import { buscarArma } from "@/sim/armas/catalogo";
 import { calcularBandaPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
-import { avanzar } from "@/sim/partida/avanzar";
+import { avanzar, cerrarTurnoTrasImpacto, contadoresDeCalculo, reiniciarContadoresDeCalculo, resolverImpacto } from "@/sim/partida/avanzar";
 import type { Peticion, Respuesta } from "@/juego/motor/protocolo";
+
+function vuelosContados(): number {
+  return contadoresDeCalculo.resolverDisparo + contadoresDeCalculo.existeTiroViable;
+}
 
 export function manejarPeticion(peticion: Peticion, ahora: () => number = () => performance.now()): Respuesta {
   const { idPeticion, idPartida } = peticion;
@@ -34,6 +38,18 @@ export function manejarPeticion(peticion: Peticion, ahora: () => number = () => 
       }
       case "resolverDisparo":
         return { tipo: "resolverDisparo", idPeticion, idPartida, resultado: avanzar(peticion.estado, peticion.entrada) };
+      case "resolverImpacto": {
+        reiniciarContadoresDeCalculo();
+        const inicio = ahora();
+        const fase = resolverImpacto(peticion.estado, peticion.entrada);
+        return { tipo: "resolverImpacto", idPeticion, idPartida, resultado: fase, metricas: { duracionMs: ahora() - inicio, vuelos: vuelosContados() } };
+      }
+      case "cerrarTurno": {
+        reiniciarContadoresDeCalculo();
+        const inicio = ahora();
+        const resultado = cerrarTurnoTrasImpacto(peticion.fase);
+        return { tipo: "cerrarTurno", idPeticion, idPartida, resultado, metricas: { duracionMs: ahora() - inicio, vuelos: vuelosContados() } };
+      }
       case "decidirIA": {
         const fuente = crearFuenteIA(peticion.personalidad, peticion.ultimoIntento, peticion.usosPorArma, peticion.danioRecibidoDesdeSuTurno);
         return { tipo: "decidirIA", idPeticion, idPartida, resultado: fuente(peticion.estado) };

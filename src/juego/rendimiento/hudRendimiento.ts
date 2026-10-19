@@ -25,6 +25,7 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
     const ultima = todas.findLast((l) => l.nombre === "apuntado");
     const ultimaRastro = todas.findLast((l) => l.nombre === "rastro");
     const ultimaReloj = todas.findLast((l) => l.nombre === "reloj-turno");
+    const ultimoDisparo = todas.findLast((l) => l.nombre === "disparo");
     caja.style.color = dentro ? "#9f9" : "#f88";
     caja.textContent =
       `p95 ${i.p95.toFixed(1)} ms\nmax ${i.max.toFixed(1)} ms\nlargos ${i.framesLargos}\n` +
@@ -32,6 +33,7 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
       `apuntado: ${ultima === undefined ? "–" : `${ultima.ms.toFixed(0)} ms`}\n` +
       `rastro: ${ultimaRastro === undefined ? "–" : `${ultimaRastro.ms.toFixed(0)} ms`}\n` +
       `reloj-turno: ${ultimaReloj === undefined ? "–" : `${ultimaReloj.ms.toFixed(0)} ms`}\n` +
+      `disparo: ${ultimoDisparo === undefined ? "–" : `${ultimoDisparo.ms.toFixed(0)} ms`}\n` +
       (dentro ? "Respuesta ≤ 200 ms" : `Supera 200 ms (${peor.toFixed(0)} ms)`);
     caja.dataset.veredicto = dentro ? "verde" : "rojo";
   };

@@ -2,8 +2,10 @@
 // desfasadas y, sin Worker (o si falla), resuelve en línea con el MISMO
 // manejador, así que la partida sigue igual aunque más lenta.
 import { manejarPeticion } from "@/juego/motor/manejador";
+import type { FaseImpacto } from "@/sim/partida/avanzar";
 import {
   TIEMPO_LIMITE_PETICION_MS,
+  type MetricasDeCalculo,
   type Peticion,
   type Respuesta,
   type ResultadoDecidirIA,
@@ -35,6 +37,14 @@ export function respuestaVigente(
   return ultimoPorTipo[respuesta.tipo] === respuesta.idPeticion;
 }
 
+// Una fase del turno resuelta, con lo que costó: calculoMs es el tiempo dentro
+// del trabajador y esperaColaMs lo que la petición estuvo esperando delante de
+// otras (previsualizaciones, sobre todo).
+export interface FaseResuelta<T> {
+  readonly resultado: T;
+  readonly metricas: MetricasDeCalculo & { readonly esperaColaMs: number };
+}
+
 interface Pendiente {
   readonly tipo: TipoPeticion;
   readonly peticion: Peticion;
@@ -45,6 +55,11 @@ interface Pendiente {
 export class ClienteSim {
   modo: ModoMotor;
   motivoEnLinea: string | null = null;
+  // Gancho de prueba: mientras sea true, el cierre no se entrega hasta soltarlo.
+  private cierreRetenido = false;
+  private liberarCierre: (() => void) | null = null;
+  private previsEnVuelo = false;
+  private previsPendiente: { readonly peticion: SinCabecera<Extract<Peticion, { tipo: "previsualizar" }>>; readonly resolver: (r: ResultadoPrevisualizar | null) => void } | null = null;
   private trabajador: TrabajadorLike | null = null;
   private siguienteId = 1;
   private idPartida = 1;
@@ -77,14 +92,65 @@ export class ClienteSim {
   // Una escena nueva o un escenario cargado invalida todo lo que viaja.
   nuevaPartida(): void {
     this.idPartida++;
+    this.previsPendiente?.resolver(null);
+    this.previsPendiente = null;
   }
 
+  // Como mucho una previsualización en el trabajador y una esperando detrás: si
+  // el dedo pide más deprisa de lo que se calcula, las intermedias se resuelven
+  // con null sin enviarse y la última es la que se calcula. Así un resolverImpacto
+  // solo espera, como mucho, a una previsualización.
   previsualizar(peticion: SinCabecera<Extract<Peticion, { tipo: "previsualizar" }>>): Promise<ResultadoPrevisualizar | null> {
-    return this.pedir(peticion).then((r) => (r?.tipo === "previsualizar" ? r.resultado : null));
+    return new Promise((resolver) => {
+      this.previsPendiente?.resolver(null);
+      this.previsPendiente = { peticion, resolver };
+      this.enviarPrevisSiLibre();
+    });
+  }
+
+  private enviarPrevisSiLibre(): void {
+    if (this.previsEnVuelo || this.previsPendiente === null) return;
+    const { peticion, resolver } = this.previsPendiente;
+    this.previsPendiente = null;
+    this.previsEnVuelo = true;
+    void this.pedir(peticion).then((r) => {
+      this.previsEnVuelo = false;
+      // Si mientras tanto se pidió otra, esta ya no es la que interesa.
+      resolver(this.previsPendiente === null && r?.tipo === "previsualizar" ? r.resultado : null);
+      this.enviarPrevisSiLibre();
+    });
   }
 
   resolverDisparo(peticion: SinCabecera<Extract<Peticion, { tipo: "resolverDisparo" }>>): Promise<ResultadoResolver | null> {
     return this.pedir(peticion).then((r) => (r?.tipo === "resolverDisparo" ? r.resultado : null));
+  }
+
+  retenerCierre(retener: boolean): void {
+    this.cierreRetenido = retener;
+    if (!retener) {
+      this.liberarCierre?.();
+      this.liberarCierre = null;
+    }
+  }
+
+  async resolverImpacto(peticion: SinCabecera<Extract<Peticion, { tipo: "resolverImpacto" }>>): Promise<FaseResuelta<FaseImpacto> | null> {
+    const enviada = this.reloj();
+    const r = await this.pedir(peticion);
+    return r?.tipo === "resolverImpacto" ? { resultado: r.resultado, metricas: { ...r.metricas, esperaColaMs: Math.max(0, this.reloj() - enviada - r.metricas.duracionMs) } } : null;
+  }
+
+  async cerrarTurno(peticion: SinCabecera<Extract<Peticion, { tipo: "cerrarTurno" }>>): Promise<FaseResuelta<ResultadoResolver> | null> {
+    const enviada = this.reloj();
+    const r = await this.pedir(peticion);
+    if (r?.tipo !== "cerrarTurno") return null;
+    // Se retiene hasta que la prueba lo suelta, no un tiempo fijo: con el render
+    // por software la animación del impacto dura lo que dure, y un retardo fijo
+    // podía vencer antes de que la píldora tuviera ocasión de mostrarse.
+    const retenido = this.cierreRetenido;
+    const inicioRetencion = this.reloj();
+    if (retenido) await new Promise<void>((seguir) => { this.liberarCierre = seguir; });
+    const esperaRetencion = retenido ? this.reloj() - inicioRetencion : 0;
+    return { resultado: r.resultado, metricas: { ...r.metricas, esperaColaMs: Math.max(0, this.reloj() - enviada - r.metricas.duracionMs - esperaRetencion) } };
   }
 
   decidirIA(peticion: SinCabecera<Extract<Peticion, { tipo: "decidirIA" }>>): Promise<ResultadoDecidirIA | null> {
@@ -165,6 +231,8 @@ export class ClienteSim {
   }
 
   terminar(): void {
+    this.previsPendiente?.resolver(null);
+    this.previsPendiente = null;
     this.trabajador?.terminate();
     this.trabajador = null;
     for (const p of this.pendientes.values()) clearTimeout(p.temporizador);

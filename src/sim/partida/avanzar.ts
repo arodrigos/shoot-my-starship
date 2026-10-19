@@ -1,5 +1,5 @@
 import { buscarArma } from "@/sim/armas/catalogo";
-import { alturaSuperficie, danioPorDistancia, limitarDanioCombinado, resolverDisparo } from "@/sim/armas/resolver";
+import { alturaSuperficie, danioPorDistancia, limitarDanioCombinado, resolverDisparo as resolverDisparoReal, type ResultadoDisparo } from "@/sim/armas/resolver";
 import { distanciaACasco } from "@/sim/naves/contacto";
 import { crearRobot, faseDeRobots, type EstadoRobot } from "@/sim/armas/minirobot";
 import { avanzarObjetos } from "@/sim/universo/objetos";
@@ -17,7 +17,7 @@ import {
   huboDerivaTraiciona,
   idLiderDerrumbado,
 } from "@/sim/partida/eventosHumor";
-import { existeTiroViable, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
+import { existeTiroViable as existeTiroViableReal, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
 import { asentarNaves } from "@/sim/naves/asentamiento";
 import { longitudDeEmpuje, recolocarTrasImpacto } from "@/sim/naves/desplazamiento";
 import { avanzarRonda, drenajeDeRonda, empiezaRonda } from "@/sim/partida/muerteSubita";
@@ -57,6 +57,27 @@ function conDesplazamiento(nave: EstadoNave, desplazamientoPx: number, anchoMund
   return { ...nave, x: Math.min(anchoMundo, Math.max(0, nave.x + desplazamientoPx)) };
 }
 
+// Cuántos vuelos completos ha simulado el núcleo desde la última puesta a cero.
+// No forma parte del estado ni influye en ningún resultado: lo leen el trabajador
+// (para medir lo que cuesta cada fase del turno) y los tests que fijan cuánto
+// calcula la fase de impacto.
+export const contadoresDeCalculo = { resolverDisparo: 0, existeTiroViable: 0 };
+
+export function reiniciarContadoresDeCalculo(): void {
+  contadoresDeCalculo.resolverDisparo = 0;
+  contadoresDeCalculo.existeTiroViable = 0;
+}
+
+const resolverDisparo: typeof resolverDisparoReal = (params) => {
+  contadoresDeCalculo.resolverDisparo++;
+  return resolverDisparoReal(params);
+};
+
+const existeTiroViable: typeof existeTiroViableReal = (params) => {
+  contadoresDeCalculo.existeTiroViable++;
+  return existeTiroViableReal(params);
+};
+
 // El núcleo de este bloque, con la firma que describe la arquitectura del
 // diseño: avanzar(estado, entradaDeTurno) -> (estadoNuevo, eventos[]). Pura
 // y determinista -- nada de azar fuera del generador con semilla, nada de
@@ -66,14 +87,48 @@ function conDesplazamiento(nave: EstadoNave, desplazamientoPx: number, anchoMund
 // disparo único de nucleo-turnos por el catálogo real y la colisión contra
 // la máscara: avanzar() ya no conoce ninguna física ni ningún id de arma
 // propios, solo llama a resolverDisparo con lo que declara el catálogo.
-type ResultadoAvanzar = { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma | undefined; detonaciones: Detonacion[] };
+export type ResultadoAvanzar = { estado: EstadoPartida; eventos: EventoSimulacion[]; categoriaBroma: CategoriaBroma | undefined; detonaciones: Detonacion[] };
+
+// respuesta-disparo: el turno se parte en dos para que la pantalla anime el
+// impacto en cuanto se sabe dónde cae, sin esperar a lo caro (desplazamiento
+// de naves con su oráculo de tiro viable, robots, universo, asentamiento).
+// Es dato plano (structuredClone) porque viaja entre el trabajador y el hilo
+// principal; ninguna de las dos fases muta lo que recibe.
+export interface FaseImpacto {
+  readonly estadoInicial: EstadoPartida;
+  readonly entrada: EntradaDeTurno;
+  readonly tirador: IdNave;
+  // null en los turnos de equipo (escudo, propulsores): no hay objetivo.
+  readonly objetivoId: IdNave | null;
+  readonly resultadoDisparo: ResultadoDisparo | null;
+  readonly navesTrasDanio: EstadoNave[];
+  readonly mascara: EstadoPartida["mascara"];
+  readonly planetas: EstadoPartida["planetas"];
+  readonly aleatorio: EstadoPartida["aleatorio"];
+  readonly robots: readonly EstadoRobot[];
+  readonly saldos: EstadoPartida["saldos"];
+  readonly eventos: EventoSimulacion[];
+  readonly detonaciones: Detonacion[];
+  readonly categoriaBroma: CategoriaBroma | undefined;
+  readonly armaGratis: boolean;
+  readonly accion: AccionDeTurno;
+}
+
+export interface OpcionesCierre {
+  // Solo para comprobar que la caché de viabilidad no cambia ningún resultado.
+  readonly sinCacheDeViabilidad?: boolean;
+}
+
+export function avanzar(estado: EstadoPartida, entrada: EntradaDeTurno): ResultadoAvanzar {
+  return cerrarTurnoTrasImpacto(resolverImpacto(estado, entrada));
+}
 
 // naves-nunca-dentro: el asentamiento envuelve a TODO el turno (disparo, escudo,
 // propulsores, robots, eventos, muerte súbita) y no cada operación que mueve
-// naves o cambia el terreno, porque son varias y una nueva volvería a abrir
+// naves o cambia el terreno, porque son varias y una nave nueva volvería a abrir
 // el agujero. Una nave destruida por no hallar sitio cuenta como baja.
-export function avanzar(estado: EstadoPartida, entrada: EntradaDeTurno): ResultadoAvanzar {
-  const turno = avanzarSinAsentar(estado, entrada);
+export function cerrarTurnoTrasImpacto(fase: FaseImpacto, opciones: OpcionesCierre = {}): ResultadoAvanzar {
+  const turno = fase.accion === "disparo" ? cerrarDisparo(fase, opciones) : cerrarEquipo(fase);
   const asentamiento = asentarNaves(turno.estado.naves, turno.estado.mundo, turno.estado.mascara);
   if (asentamiento.naves === turno.estado.naves) return turno;
   const eventos = [
@@ -87,29 +142,21 @@ export function avanzar(estado: EstadoPartida, entrada: EntradaDeTurno): Resulta
   return { ...turno, estado: { ...turno.estado, naves: asentamiento.naves, resultado }, eventos };
 }
 
-function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): ResultadoAvanzar {
+export function resolverImpacto(estado: EstadoPartida, entrada: EntradaDeTurno): FaseImpacto {
   if (estado.resultado.tipo === "terminada") {
     throw new Error("avanzar: la partida ya ha terminado, no admite más turnos");
   }
 
   const tirador: IdNave = estado.turno;
   if (entrada.accion !== undefined && entrada.accion !== "disparo") {
-    return avanzarConEquipo(estado, entrada.accion, entrada);
+    return impactoDeEquipo(estado, entrada.accion, entrada);
   }
   const objetivoId: IdNave = entrada.objetivoId;
   if (objetivoId === tirador || estado.naves[objetivoId] === undefined || estado.naves[objetivoId].integridad <= 0) {
     throw new Error(`avanzar: objetivoId inválido (${objetivoId}) para el tirador ${tirador}`);
   }
   const presupuesto = estado.modo === "presupuesto";
-  const armaBase = armaEfectiva(buscarArma(entrada.arma), presupuesto);
-  // eventos-universo: vitaminas y virus escalan el daño del arma, no su
-  // alcance ni su precio; la previsualización no muestra daño, así que no hay
-  // nada que desincronizar.
-  const factor = factorDanio(estado, tirador);
-  const arma =
-    factor !== 1 && (armaBase.efecto.tipo === "danio" || armaBase.efecto.tipo === "danio-y-autodanio")
-      ? { ...armaBase, efecto: { ...armaBase.efecto, danioMaximo: armaBase.efecto.danioMaximo * factor } }
-      : armaBase;
+  const arma = armaDelTurno(estado, entrada);
 
   // economia-rectificada: el arma de pago se cobra al usarla, no al elegirla.
   // El guardián vive aquí (y no solo en el HUD) porque avanzar() es la fuente
@@ -149,12 +196,7 @@ function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): Resu
   // impacto-naves (imp-1): solo las naves VIVAS son cuerpo de colisión --
   // una nave ya a 0 de integridad (posible en un "danio-y-autodanio" del
   // turno anterior que aún no cerró partida) no detiene ningún vuelo.
-  const navesVivas = modoEspacial
-    ? estado.naves
-        .map((nave, id) => ({ id: id as IdNave, nave }))
-        .filter(({ nave }) => nave.integridad > 0)
-        .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
-    : undefined;
+  const navesVivas = modoEspacial ? navesVivasDe(estado) : undefined;
 
   const resultado = resolverDisparo({
     mascara: estado.mascara,
@@ -376,6 +418,142 @@ function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): Resu
     }
   });
 
+  return {
+    estadoInicial: estado,
+    entrada,
+    tirador,
+    objetivoId,
+    resultadoDisparo: resultado,
+    navesTrasDanio,
+    mascara: resultado.mascara,
+    planetas: planetasTrasDisparo,
+    aleatorio: resultado.aleatorio,
+    robots: [...(estado.robots ?? []), ...(robotNuevo ? [robotNuevo] : [])],
+    saldos: saldosTrasDisparo,
+    eventos,
+    detonaciones,
+    categoriaBroma,
+    armaGratis: presupuesto && costeArma(arma) === 0,
+    accion: "disparo",
+  };
+}
+
+// El arma que de verdad se dispara este turno: la del catálogo, con el precio
+// del modo presupuesto y el factor de daño del universo. Las dos fases la
+// necesitan y recalcularla es más barato que viajar con ella.
+function armaDelTurno(estado: EstadoPartida, entrada: EntradaDeTurno) {
+  const presupuesto = estado.modo === "presupuesto";
+  const armaBase = armaEfectiva(buscarArma(entrada.arma), presupuesto);
+  // eventos-universo: vitaminas y virus escalan el daño del arma, no su
+  // alcance ni su precio; la previsualización no muestra daño, así que no hay
+  // nada que desincronizar.
+  const factor = factorDanio(estado, estado.turno);
+  const arma =
+    factor !== 1 && (armaBase.efecto.tipo === "danio" || armaBase.efecto.tipo === "danio-y-autodanio")
+      ? { ...armaBase, efecto: { ...armaBase.efecto, danioMaximo: armaBase.efecto.danioMaximo * factor } }
+      : armaBase;
+  return arma;
+}
+
+// impacto-naves (imp-1): solo las naves VIVAS son cuerpo de colisión.
+function navesVivasDe(estado: EstadoPartida) {
+  return estado.naves
+    .map((nave, id) => ({ id: id as IdNave, nave }))
+    .filter(({ nave }) => nave.integridad > 0)
+    .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }));
+}
+
+// escudo-y-propulsores: usar equipo ocupa el turno entero (nada de disparar).
+// En presupuesto se cobra aquí, como las armas de pago, y si no llega el saldo
+// se rechaza sin tocar el estado.
+function impactoDeEquipo(estado: EstadoPartida, accion: Exclude<AccionDeTurno, "disparo">, entrada: EntradaDeTurno): FaseImpacto {
+  const tirador = estado.turno;
+  const equipo = buscarEquipo(accion);
+  const nave = estado.naves[tirador];
+  const presupuesto = estado.modo === "presupuesto";
+  const saldo = presupuesto ? estado.saldos?.[tirador] : undefined;
+  if (saldo !== undefined && equipo.coste > saldo) {
+    throw new Error(`avanzar: "${equipo.nombre}" cuesta ${equipo.coste} cr y la nave ${tirador} solo tiene ${saldo}`);
+  }
+  if (accion === "escudo" && estaProtegida(nave)) {
+    throw new Error(`avanzar: la nave ${tirador} ya tiene el escudo activo`);
+  }
+  const saldos = saldo !== undefined ? estado.saldos?.map((valor, id) => (id === tirador && valor !== undefined ? valor - equipo.coste : valor)) : estado.saldos;
+
+  const eventos: EventoSimulacion[] = [];
+  const naves: EstadoNave[] = [...estado.naves];
+  if (accion === "escudo") {
+    naves[tirador] = { ...nave, escudoTurnosRestantes: TURNOS_ESCUDO };
+    eventos.push({ tipo: "escudo-activado", nave: tirador, turnos: TURNOS_ESCUDO });
+  } else {
+    if (nave.y === undefined) throw new Error("avanzar: los propulsores solo existen en el modo espacial");
+    const otras = estado.naves.flatMap((otra, id) => (id !== tirador && otra.integridad > 0 && otra.y !== undefined ? [{ x: otra.x, y: otra.y }] : []));
+    const vuelo = volarConPropulsores({
+      desde: { x: nave.x, y: nave.y },
+      anguloGrados: entrada.anguloGrados,
+      potencia: entrada.potencia,
+      mundo: estado.mundo,
+      mascara: estado.mascara,
+      planetas: estado.planetas,
+      otras,
+    });
+    naves[tirador] = { ...nave, x: vuelo.destino.x, y: vuelo.destino.y };
+    eventos.push({ tipo: "propulsores", nave: tirador, desdeX: nave.x, desdeY: nave.y, x: vuelo.destino.x, y: vuelo.destino.y, motivo: vuelo.motivo, puntos: vuelo.ruta.map((punto) => ({ x: punto.x, y: punto.y })) });
+  }
+  // Un turno de equipo no dispara: sin categoría de broma, la cáscara no comenta.
+  return {
+    estadoInicial: { ...estado, saldos },
+    entrada,
+    tirador,
+    objetivoId: null,
+    resultadoDisparo: null,
+    navesTrasDanio: naves,
+    mascara: estado.mascara,
+    planetas: estado.planetas,
+    aleatorio: estado.aleatorio,
+    robots: estado.robots ?? [],
+    saldos,
+    eventos,
+    detonaciones: [],
+    categoriaBroma: undefined,
+    armaGratis: false,
+    accion,
+  };
+}
+
+function cerrarEquipo(fase: FaseImpacto): ResultadoAvanzar {
+  return cerrarTurno({
+    estado: fase.estadoInicial,
+    tirador: fase.tirador,
+    naves: fase.navesTrasDanio,
+    mascara: fase.mascara,
+    planetas: fase.planetas,
+    aleatorio: fase.aleatorio,
+    robots: fase.robots,
+    saldos: fase.saldos,
+    eventos: [...fase.eventos],
+    detonaciones: fase.detonaciones,
+    categoriaBroma: fase.categoriaBroma,
+    armaGratis: fase.armaGratis,
+  });
+}
+
+// Cierre de un turno de disparo: lo que sigue al impacto y no hace falta para
+// animarlo. El oráculo de tiro viable es lo caro, y se repite para los mismos
+// destinos candidatos (cada nave dañada vuelve a probar los de las demás), así
+// que dentro de un cierre se recuerda su resultado: la clave es todo lo que
+// cambia entre llamadas (nave movida y destino); lo demás es fijo en el cierre.
+function cerrarDisparo(fase: FaseImpacto, opciones: OpcionesCierre): ResultadoAvanzar {
+  const { estadoInicial: estado, entrada, tirador } = fase;
+  const objetivoId = fase.objetivoId as IdNave;
+  const resultado = fase.resultadoDisparo as ResultadoDisparo;
+  const eventos = [...fase.eventos];
+  const arma = armaDelTurno(estado, entrada);
+  const naveTiradora = estado.naves[tirador];
+  const naveObjetivo = estado.naves[objetivoId];
+  const modoEspacial = naveTiradora.y !== undefined && naveObjetivo.y !== undefined;
+  const navesVivas = modoEspacial ? navesVivasDe(estado) : undefined;
+
   // desplazamiento-tras-impacto: toda nave viva que ha perdido integridad en
   // este turno se recoloca, para que repetir el disparo sin apuntar de nuevo
   // no vuelva a acertar. Se hace sobre la máscara ya con el cráter y con las
@@ -413,8 +591,12 @@ function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): Resu
   // forma de acabar salvo por la muerte súbita, y colocarNaves ya garantiza
   // lo contrario al empezar. Presupuesto acotado: se rinde al primer tiro con
   // daño y como mucho prueba PRESUPUESTO_VIABILIDAD_DESTINO vuelos.
+  const viabilidad = new Map<string, boolean>();
   const sinTiroEntreLosDos = (movida: IdNave, punto: { x: number; y: number }): boolean => {
     if (navesVivas === undefined) return false;
+    const clave = `${movida}:${punto.x}:${punto.y}`;
+    const recordado = opciones.sinCacheDeViabilidad ? undefined : viabilidad.get(clave);
+    if (recordado !== undefined) return recordado;
     const naves = navesVivas.map((nave) => (nave.id === movida ? { ...nave, x: punto.x, y: punto.y } : nave));
     const comun = {
       mascara: resultado.mascara,
@@ -429,13 +611,15 @@ function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): Resu
       rangoAngulos: RANGO_ANGULOS_ORACULO,
       presupuestoIntentos: PRESUPUESTO_VIABILIDAD_DESTINO,
     };
-    return !existeTiroViable({ ...comun, tiradorId: tirador, objetivoId }) || !existeTiroViable({ ...comun, tiradorId: objetivoId, objetivoId: tirador });
+    const sinTiro = !existeTiroViable({ ...comun, tiradorId: tirador, objetivoId }) || !existeTiroViable({ ...comun, tiradorId: objetivoId, objetivoId: tirador });
+    viabilidad.set(clave, sinTiro);
+    return sinTiro;
   };
   const desplazadas = desplazarNavesDanadas({
     estado,
-    navesTrasDanio,
+    navesTrasDanio: fase.navesTrasDanio,
     mascara: resultado.mascara,
-    planetas: planetasTrasDisparo,
+    planetas: fase.planetas,
     radioEfectoU: radioEfectoEnMundo(arma, estado.mundo.ancho, estado.mundo.alto),
     fuentes: resultado.puntosDeImpacto,
     danioMaximo: arma.efecto.tipo === "danio" || arma.efecto.tipo === "danio-y-autodanio" ? arma.efecto.danioMaximo : 0,
@@ -451,7 +635,6 @@ function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): Resu
   // objetivo: con daño de área cualquiera puede caer en este turno. Si no
   // queda nadie en pie (Despedida contra rivales ya muy dañados) es empate
   // real: ya no hay desempate a favor del objetivo.
-  const robotsTrasDisparo = [...(estado.robots ?? []), ...(robotNuevo ? [robotNuevo] : [])];
   const vivos = naves.flatMap((nave, id) => (nave.integridad > 0 ? [id as IdNave] : []));
   if (vivos.length <= 1) {
     const ganador: IdNave | null = vivos.length === 1 ? vivos[0] : null;
@@ -459,17 +642,17 @@ function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): Resu
     return {
       estado: {
         ...sinRobots(estado),
-        mascara: resultado.mascara,
+        mascara: fase.mascara,
         naves,
-        aleatorio: resultado.aleatorio,
+        aleatorio: fase.aleatorio,
         resultado: { tipo: "terminada", ganador },
-        planetas: planetasTrasDisparo,
-        saldos: saldosTrasDisparo,
+        planetas: fase.planetas,
+        saldos: fase.saldos,
         ...conRobots([]),
       },
       eventos,
-      categoriaBroma,
-      detonaciones,
+      categoriaBroma: fase.categoriaBroma,
+      detonaciones: fase.detonaciones,
     };
   }
 
@@ -477,73 +660,15 @@ function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): Resu
     estado,
     tirador,
     naves,
-    mascara: resultado.mascara,
-    planetas: planetasTrasDisparo,
-    aleatorio: resultado.aleatorio,
-    robots: robotsTrasDisparo,
-    saldos: saldosTrasDisparo,
+    mascara: fase.mascara,
+    planetas: fase.planetas,
+    aleatorio: fase.aleatorio,
+    robots: fase.robots,
+    saldos: fase.saldos,
     eventos,
-    detonaciones,
-    categoriaBroma,
-    armaGratis: presupuesto && costeArma(arma) === 0,
-  });
-}
-
-// escudo-y-propulsores: usar equipo ocupa el turno entero (nada de disparar).
-// En presupuesto se cobra aquí, como las armas de pago, y si no llega el saldo
-// se rechaza sin tocar el estado.
-function avanzarConEquipo(
-  estado: EstadoPartida,
-  accion: Exclude<AccionDeTurno, "disparo">,
-  entrada: EntradaDeTurno,
-): ReturnType<typeof avanzar> {
-  const tirador = estado.turno;
-  const equipo = buscarEquipo(accion);
-  const nave = estado.naves[tirador];
-  const presupuesto = estado.modo === "presupuesto";
-  const saldo = presupuesto ? estado.saldos?.[tirador] : undefined;
-  if (saldo !== undefined && equipo.coste > saldo) {
-    throw new Error(`avanzar: "${equipo.nombre}" cuesta ${equipo.coste} cr y la nave ${tirador} solo tiene ${saldo}`);
-  }
-  if (accion === "escudo" && estaProtegida(nave)) {
-    throw new Error(`avanzar: la nave ${tirador} ya tiene el escudo activo`);
-  }
-  const saldos = saldo !== undefined ? estado.saldos?.map((valor, id) => (id === tirador && valor !== undefined ? valor - equipo.coste : valor)) : estado.saldos;
-
-  const eventos: EventoSimulacion[] = [];
-  const naves: EstadoNave[] = [...estado.naves];
-  if (accion === "escudo") {
-    naves[tirador] = { ...nave, escudoTurnosRestantes: TURNOS_ESCUDO };
-    eventos.push({ tipo: "escudo-activado", nave: tirador, turnos: TURNOS_ESCUDO });
-  } else {
-    if (nave.y === undefined) throw new Error("avanzar: los propulsores solo existen en el modo espacial");
-    const otras = estado.naves.flatMap((otra, id) => (id !== tirador && otra.integridad > 0 && otra.y !== undefined ? [{ x: otra.x, y: otra.y }] : []));
-    const vuelo = volarConPropulsores({
-      desde: { x: nave.x, y: nave.y },
-      anguloGrados: entrada.anguloGrados,
-      potencia: entrada.potencia,
-      mundo: estado.mundo,
-      mascara: estado.mascara,
-      planetas: estado.planetas,
-      otras,
-    });
-    naves[tirador] = { ...nave, x: vuelo.destino.x, y: vuelo.destino.y };
-    eventos.push({ tipo: "propulsores", nave: tirador, desdeX: nave.x, desdeY: nave.y, x: vuelo.destino.x, y: vuelo.destino.y, motivo: vuelo.motivo, puntos: vuelo.ruta.map((punto) => ({ x: punto.x, y: punto.y })) });
-  }
-  // Un turno de equipo no dispara: sin categoría de broma, la cáscara no comenta.
-  return cerrarTurno({
-    estado: { ...estado, saldos },
-    tirador,
-    naves,
-    mascara: estado.mascara,
-    planetas: estado.planetas,
-    aleatorio: estado.aleatorio,
-    robots: estado.robots ?? [],
-    saldos,
-    eventos,
-    detonaciones: [],
-    categoriaBroma: undefined,
-    armaGratis: false,
+    detonaciones: fase.detonaciones,
+    categoriaBroma: fase.categoriaBroma,
+    armaGratis: fase.armaGratis,
   });
 }
 

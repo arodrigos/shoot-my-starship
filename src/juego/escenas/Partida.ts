@@ -11,7 +11,7 @@ import { colocarNaves } from "@/sim/naves/colocacion";
 import { factorPlanetasParaArea } from "@/sim/sistema/generador";
 import { crearEstadoAleatorio, type EstadoAleatorio } from "@/sim/aleatorio";
 import { crearPartidaInicial, jugarTurno } from "@/sim/partida/motor";
-import { avanzar } from "@/sim/partida/avanzar";
+import { avanzar, type ResultadoAvanzar } from "@/sim/partida/avanzar";
 import { PRESUPUESTO_BASE } from "@/sim/economia/parametros";
 import { costeArma } from "@/sim/partida/economia";
 import { direccionDeNave } from "@/sim/naves/contacto";
@@ -52,7 +52,9 @@ import { ClienteSim } from "@/juego/motor/clienteSim";
 import { crearTrabajadorSim } from "@/juego/motor/crearTrabajador";
 import { mostrarApuntandoIA, ocultarApuntandoIA } from "@/juego/hud/indicadorApuntandoIA";
 import { montarHudRendimiento } from "@/juego/rendimiento/hudRendimiento";
-import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaRastro, registrarLatenciaRelojTurno, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
+import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaDisparo, registrarLatenciaRastro, registrarLatenciaRelojTurno, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
+import { observarTareasLargas, reiniciarTareasLargas, tareasLargasActuales } from "@/juego/rendimiento/tareasLargas";
+import { mostrarCalculandoTurno, ocultarCalculandoTurno } from "@/juego/hud/indicadorCalculandoTurno";
 import {
   fijarModo,
   fijarModoEspacial,
@@ -147,7 +149,7 @@ import { guionResumenPrueba } from "@/juego/textos/guionesResumen";
 import { dibujarRastro } from "@/juego/rastro/DibujoRastro";
 import { ESTADO_RASTROS_VACIO, registrarRastro, rastroVisible, ALFA_RASTRO, type EstadoRastros } from "@/juego/rastro/rastros";
 import { ContadorAdherencia } from "@/juego/vuelo/ContadorAdherencia";
-import type { DebugEfectoVisible } from "@/debug/tipos";
+import type { DebugEfectoVisible, UltimoTurnoMedido } from "@/debug/tipos";
 import "@/debug/tipos";
 import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 
@@ -555,6 +557,10 @@ export class Partida extends Phaser.Scene {
   // Hay una petición al motor cuyo resultado aún no se ha aplicado: el turno no
   // es jugable y no se admite otro disparo hasta que vuelva.
   private solicitudEnCurso = false;
+  // respuesta-disparo: coste por fases del último turno de disparo (lo lee __debug.motor).
+  private ultimoTurnoMedido: UltimoTurnoMedido | null = null;
+  // Temporizador de la píldora «Calculando el turno…», armado al terminar la animación del impacto.
+  private temporizadorCalculando: ReturnType<typeof setTimeout> | null = null;
   private previsEnCurso = false;
   private previsClave = "";
   private previsEstadoPedido: EstadoPartida | null = null;
@@ -1046,8 +1052,14 @@ export class Partida extends Phaser.Scene {
     Object.defineProperty(window.__debug, "motor", {
       configurable: true,
       enumerable: true,
-      get: () => ({ modo: this.motor.modo, motivo: this.motor.motivoEnLinea }),
+      get: () => ({ modo: this.motor.modo, motivo: this.motor.motivoEnLinea, ultimoTurno: this.ultimoTurnoMedido }),
     });
+    Object.defineProperty(window.__debug, "tareasLargas", {
+      configurable: true,
+      enumerable: true,
+      get: () => tareasLargasActuales(),
+    });
+    window.__debug.retenerCierreTurno = (retener: boolean) => this.motor.retenerCierre(retener);
     window.__debug.bloquearHilo = (ms: number) => this.medidorRespuesta.bloquearHilo(ms);
     // apuntado-dedo: latencia del gesto (pointermove → primer frame con la
     // flecha) y atajo de prueba para fijar el apuntado sin gesto. Mismas
@@ -1088,10 +1100,14 @@ export class Partida extends Phaser.Scene {
     this.game.events.on(Phaser.Core.Events.PRE_RENDER, alInicioRender);
     this.game.events.on(Phaser.Core.Events.POST_RENDER, alFinRender);
     const dejarDeObservar = this.medidorFrames.observarFramesLargos();
+    const dejarDeObservarTareas = observarTareasLargas();
     const dejarDeMedirRespuesta = this.medidorRespuesta.observar();
     const quitarHud = new URLSearchParams(window.location.search).get("rendimiento") === "1" ? montarHudRendimiento(this.medidorFrames, this.medidorRespuesta, ultimasLatenciasApuntado) : null;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       dejarDeObservar();
+      dejarDeObservarTareas();
+      if (this.temporizadorCalculando !== null) clearTimeout(this.temporizadorCalculando);
+      ocultarCalculandoTurno();
       dejarDeMedirRespuesta();
       this.game.events.off(Phaser.Core.Events.PRE_RENDER, alInicioRender);
       this.game.events.off(Phaser.Core.Events.POST_RENDER, alFinRender);
@@ -1707,9 +1723,9 @@ export class Partida extends Phaser.Scene {
     const PASO_TURBO_MS = 32;
     const TANDA = 200;
     for (let guardia = 0; guardia < 400 && this.estado.resultado.tipo !== "terminada" && !this.puedeJugarAhora(); guardia++) {
-      if (!this.solicitudEnCurso) {
-        for (let i = 0; i < TANDA && !this.puedeJugarAhora(); i++) this.update(0, PASO_TURBO_MS);
-      }
+      // solicitudEnCurso ya no acaba al llegar el impacto, sino al aplicar el cierre
+      // tras la animación: hay que seguir empujando el reloj mientras tanto.
+      for (let i = 0; i < TANDA && !this.puedeJugarAhora(); i++) this.update(0, PASO_TURBO_MS);
       await new Promise<void>((resolver) => setTimeout(resolver, 0));
     }
   }
@@ -1736,7 +1752,10 @@ export class Partida extends Phaser.Scene {
         // respuesta-200ms: la decisión de la IA y la resolución del disparo
         // viven en el trabajador; se cede el hilo para que su respuesta
         // llegue en vez de salir de la ráfaga con un solo turno jugado.
-        await new Promise<void>((resolver) => setTimeout(resolver, 0));
+        // El cierre del turno se aplica al acabar la animación del impacto, que
+        // aquí avanza con update(): si hay algo en vuelo se empuja el reloj.
+        if (this.animador.enVuelo() || this.avanceTurnoPendiente || this.remate?.bloquea || this.movimientos.length > 0) this.update(0, PASO_TURBO_MS);
+        else await new Promise<void>((resolver) => setTimeout(resolver, 0));
       } else if (this.puedeJugarAhora()) {
         const solucion = this.calcularSolucionBalistica(this.estado);
         const ajuste = solucion ?? { anguloGrados: 45, potencia: 55 };
@@ -1966,15 +1985,17 @@ export class Partida extends Phaser.Scene {
     // prueba (jugarTurnosGuionizados, forzarFinDePartida), igual que la
     // estela de proy-4/proy-5.
     reproducirEfecto("disparo");
+    if (esJugador) performance.mark("disparo-toque");
 
     const tirador: IdNave = estadoAntes.turno;
     const naveTiradora = estadoAntes.naves[tirador];
     const origenX = naveTiradora.x;
     const origenY = naveTiradora.y ?? alturaSuperficie(estadoAntes.mascara, origenX) ?? estadoAntes.mundo.alto - 1;
 
-    const continuar = (resultadoAvance: ReturnType<typeof avanzar>): void => {
-      const { estado: estadoDespues, eventos, categoriaBroma, detonaciones } = resultadoAvance;
-
+    // respuesta-disparo: la animación arranca con lo que se sabe tras el impacto
+    // (eventosImpacto); el cierre del turno (desplazamientos, robots, universo)
+    // llega después, ya calculado o aún en el trabajador.
+    const continuar = (eventos: EventoSimulacion[], cierre: ResultadoAvanzar | Promise<ResultadoAvanzar | null>): void => {
       const eventoImpacto = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto");
 
       // ia-5: se mide AQUÍ (jugarTurno/avanzar ya ha resuelto el disparo real
@@ -2042,6 +2063,15 @@ export class Partida extends Phaser.Scene {
       const detenerse = detenerseEnSuelo(estadoAntes.mascara, estadoAntes.mundo.ancho, estadoAntes.mundo.alto);
       this.origenUltimoDisparo = { x: inicial.x, y: inicial.y };
       if (!prefiereMovimientoReducido()) this.visualArmas.fogonazo(inicial.x, inicial.y, aspectoDeId(entrada.arma).paleta.estela);
+      // La latencia se cierra en el primer frame ya pintado (POST_RENDER), no al
+      // encolar el efecto: es lo que percibe quien dispara.
+      if (esJugador && performance.getEntriesByName("disparo-toque", "mark").length > 0) {
+        this.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
+          registrarLatenciaDisparo(performance.measure("disparo-frame", "disparo-toque").duration);
+          performance.clearMarks("disparo-toque");
+          performance.clearMeasures("disparo-frame");
+        });
+      }
 
       // impacto-naves: mismo criterio que avanzar.ts para decidir si hay
       // cuerpo de colisión de casco -- modo espacial (las dos naves con `y`) y
@@ -2157,24 +2187,27 @@ export class Partida extends Phaser.Scene {
         // se resuelve el impacto y responde la máquina.
         window.__debug!.cuentaAtrasAdherencia = null;
         this.contadorAdherencia.actualizar(null, null);
-        // realce-impacto (rlc-1): alAvanzarTurno encadena la respuesta de la
-        // IA DESPUÉS de que el turno haya avanzado de verdad (inmediato, o
-        // retrasado hasta que la sacudida vuelva a reposo) -- mismo motivo que
-        // ya explicaba este comentario antes de este bloque: evita que
-        // jugarTurnosGuionizados/forzarFinDePartida, que también llaman a
-        // aplicarResultadoTurno pero con su propio guion de fuentes y SIN
-        // estas opciones, disparen un turno extra no contado por su bucle.
-        this.aplicarResultadoTurno(estadoDespues, eventos, categoriaBroma, entrada.arma, {
-          detonaciones,
-          retrasarSiHaySacudida: true,
-          alAvanzarTurno: () => {
-            if (this.esHumano(tirador)) this.ultimoHumano = tirador;
-            if (this.estado.resultado.tipo !== "terminada" && !this.esHumano(this.estado.turno)) {
-              this.dispararTurnoIA();
-            } else if (this.estado.resultado.tipo !== "terminada") {
-              this.abrirRelevoSiHaceFalta(estadoAntes, estadoDespues, entrada.arma);
-            }
-          },
+        this.esperarCierreDeTurno(cierre, (cerrado) => {
+          const { estado: estadoDespues, eventos: eventosTurno, categoriaBroma, detonaciones } = cerrado;
+          // realce-impacto (rlc-1): alAvanzarTurno encadena la respuesta de la
+          // IA DESPUÉS de que el turno haya avanzado de verdad (inmediato, o
+          // retrasado hasta que la sacudida vuelva a reposo) -- mismo motivo que
+          // ya explicaba este comentario antes de este bloque: evita que
+          // jugarTurnosGuionizados/forzarFinDePartida, que también llaman a
+          // aplicarResultadoTurno pero con su propio guion de fuentes y SIN
+          // estas opciones, disparen un turno extra no contado por su bucle.
+          this.aplicarResultadoTurno(estadoDespues, eventosTurno, categoriaBroma, entrada.arma, {
+            detonaciones,
+            retrasarSiHaySacudida: true,
+            alAvanzarTurno: () => {
+              if (this.esHumano(tirador)) this.ultimoHumano = tirador;
+              if (this.estado.resultado.tipo !== "terminada" && !this.esHumano(this.estado.turno)) {
+                this.dispararTurnoIA();
+              } else if (this.estado.resultado.tipo !== "terminada") {
+                this.abrirRelevoSiHaceFalta(estadoAntes, estadoDespues, entrada.arma);
+              }
+            },
+          });
         });
         },
         estadoAntes.planetas,
@@ -2188,18 +2221,62 @@ export class Partida extends Phaser.Scene {
     // respuesta-200ms: los hooks de prueba que encadenan turnos a mano piden el
     // camino síncrono; el juego real resuelve en el trabajador.
     if (sincrono) {
-      continuar(avanzar(estadoAntes, entrada));
+      const resultadoAvance = avanzar(estadoAntes, entrada);
+      continuar(resultadoAvance.eventos, resultadoAvance);
       return;
     }
+    // respuesta-disparo: dos peticiones seguidas al trabajador. La del impacto
+    // contesta en cuanto se sabe dónde cae y la pantalla anima; la del cierre
+    // se pide en ese mismo momento y se calcula mientras el proyectil vuela.
+    reiniciarTareasLargas();
     this.solicitudEnCurso = true;
     publicarJugable(false);
-    void this.motor.resolverDisparo({ tipo: "resolverDisparo", estado: estadoAntes, entrada }).then((resultadoAvance) => {
-      this.solicitudEnCurso = false;
-      if (resultadoAvance === null) {
+    void this.motor.resolverImpacto({ tipo: "resolverImpacto", estado: estadoAntes, entrada }).then((impacto) => {
+      if (impacto === null) {
+        this.solicitudEnCurso = false;
         publicarJugable(this.puedeJugarAhora());
         return;
       }
-      continuar(resultadoAvance);
+      const cierre = this.motor.cerrarTurno({ tipo: "cerrarTurno", fase: impacto.resultado }).then((cerrado) => {
+        if (cerrado === null) return null;
+        this.ultimoTurnoMedido = {
+          msImpacto: impacto.metricas.duracionMs,
+          msCierre: cerrado.metricas.duracionMs,
+          esperaColaMs: impacto.metricas.esperaColaMs + cerrado.metricas.esperaColaMs,
+          vuelosSimulados: impacto.metricas.vuelos + cerrado.metricas.vuelos,
+          modo: this.motor.modo,
+        };
+        return cerrado.resultado;
+      });
+      continuar(impacto.resultado.eventos, cierre);
+    });
+  }
+
+  // El cierre ya calculado se aplica al momento; si aún está en el trabajador,
+  // se espera mostrando «Calculando el turno…» pasados 300 ms desde que acabó la
+  // animación del impacto (este método se llama justo entonces).
+  private esperarCierreDeTurno(cierre: ResultadoAvanzar | Promise<ResultadoAvanzar | null>, aplicar: (cerrado: ResultadoAvanzar) => void): void {
+    if (!(cierre instanceof Promise)) {
+      this.solicitudEnCurso = false;
+      aplicar(cierre);
+      return;
+    }
+    let llegado = false;
+    this.temporizadorCalculando = setTimeout(() => {
+      this.temporizadorCalculando = null;
+      if (!llegado) mostrarCalculandoTurno();
+    }, 300);
+    void cierre.then((cerrado) => {
+      llegado = true;
+      if (this.temporizadorCalculando !== null) clearTimeout(this.temporizadorCalculando);
+      this.temporizadorCalculando = null;
+      ocultarCalculandoTurno();
+      this.solicitudEnCurso = false;
+      if (cerrado === null) {
+        publicarJugable(this.puedeJugarAhora());
+        return;
+      }
+      aplicar(cerrado);
     });
   }
 

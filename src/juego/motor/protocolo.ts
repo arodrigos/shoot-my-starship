@@ -6,7 +6,7 @@ import type { Mascara } from "@/sim/terreno/mascara";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
 import type { BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
-import type { avanzar } from "@/sim/partida/avanzar";
+import type { avanzar, FaseImpacto } from "@/sim/partida/avanzar";
 import type { EntradaDeTurno, EstadoPartida, IdNave } from "@/sim/partida/tipos";
 import type { Personalidad } from "@/sim/ia/tipos";
 import type { UltimoIntentoIA } from "@/sim/ia/decidir";
@@ -41,6 +41,20 @@ export interface PeticionResolverDisparo extends Cabecera {
   readonly entrada: EntradaDeTurno;
 }
 
+// respuesta-disparo: el turno viaja en dos peticiones. La primera devuelve en
+// cuanto se sabe dónde cae el disparo; la segunda recibe esa fase tal cual y
+// hace el resto (desplazamientos, robots, universo, asentamiento).
+export interface PeticionResolverImpacto extends Cabecera {
+  readonly tipo: "resolverImpacto";
+  readonly estado: EstadoPartida;
+  readonly entrada: EntradaDeTurno;
+}
+
+export interface PeticionCerrarTurno extends Cabecera {
+  readonly tipo: "cerrarTurno";
+  readonly fase: FaseImpacto;
+}
+
 export interface PeticionDecidirIA extends Cabecera {
   readonly tipo: "decidirIA";
   readonly estado: EstadoPartida;
@@ -50,7 +64,7 @@ export interface PeticionDecidirIA extends Cabecera {
   readonly danioRecibidoDesdeSuTurno: boolean;
 }
 
-export type Peticion = PeticionPrevisualizar | PeticionResolverDisparo | PeticionDecidirIA;
+export type Peticion = PeticionPrevisualizar | PeticionResolverDisparo | PeticionResolverImpacto | PeticionCerrarTurno | PeticionDecidirIA;
 export type TipoPeticion = Peticion["tipo"];
 
 export interface ResultadoPrevisualizar {
@@ -67,9 +81,18 @@ export interface ResultadoDecidirIA {
 
 export type ResultadoResolver = ReturnType<typeof avanzar>;
 
+// Lo que ha costado calcular la respuesta dentro del trabajador, para separar
+// el cálculo de la espera en cola al medir un turno.
+export interface MetricasDeCalculo {
+  readonly duracionMs: number;
+  readonly vuelos: number;
+}
+
 export type Respuesta =
   | (Cabecera & { readonly tipo: "previsualizar"; readonly resultado: ResultadoPrevisualizar })
   | (Cabecera & { readonly tipo: "resolverDisparo"; readonly resultado: ResultadoResolver })
+  | (Cabecera & { readonly tipo: "resolverImpacto"; readonly resultado: FaseImpacto; readonly metricas: MetricasDeCalculo })
+  | (Cabecera & { readonly tipo: "cerrarTurno"; readonly resultado: ResultadoResolver; readonly metricas: MetricasDeCalculo })
   | (Cabecera & { readonly tipo: "decidirIA"; readonly resultado: ResultadoDecidirIA })
   | (Cabecera & { readonly tipo: "error"; readonly mensaje: string });
 
@@ -78,7 +101,7 @@ export type Respuesta =
 // cálculo en línea bloquearía el hilo principal justo en el toque siguiente.
 export const TIEMPO_LIMITE_PETICION_MS = 60_000;
 
-const TIPOS: readonly string[] = ["previsualizar", "resolverDisparo", "decidirIA"];
+const TIPOS: readonly string[] = ["previsualizar", "resolverDisparo", "resolverImpacto", "cerrarTurno", "decidirIA"];
 
 // El trabajador es del mismo origen, pero un mensaje mal formado no debe
 // colgar la partida esperando: se rechaza por su discriminante.
