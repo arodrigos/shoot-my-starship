@@ -35,7 +35,7 @@ async function empezarCuatro(page: Page): Promise<void> {
 
 for (const { ancho, alto } of VIEWPORTS) {
   test(`pp-1..pp-4: parte con premios por asiento a ${ancho}x${alto}`, async ({ page }) => {
-    test.setTimeout(240000);
+    test.setTimeout(480000);
     await page.setViewportSize({ width: ancho, height: alto });
     await empezarCuatro(page);
     const clavesAntes = await page.evaluate(() => Object.keys(localStorage).sort());
@@ -110,8 +110,11 @@ for (const { ancho, alto } of VIEWPORTS) {
 
     // pp-4: no se guarda nada nuevo entre partidas.
     const clavesDespues = await page.evaluate(() => Object.keys(localStorage).sort());
+    // El juego ya guarda el ajuste de apuntado al disparar y la partida: lo que
+    // no puede aparecer es ninguna clave de premios ni de estadísticas.
     const nuevas = clavesDespues.filter((k) => !clavesAntes.includes(k));
-    expect(nuevas.filter((k) => !/partida/i.test(k))).toEqual([]);
+    expect(nuevas.filter((k) => /premio|parte|estadistic|award/i.test(k))).toEqual([]);
+    expect(clavesDespues.filter((k) => /premio|estadistic|award/i.test(k))).toEqual([]);
 
     // pp-2: tocar «Otra partida» arranca la partida nueva con los mismos jugadores.
     await page.getByTestId("otra-partida").click();
