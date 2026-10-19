@@ -50,6 +50,7 @@ interface Transitorio {
 const PROFUNDIDAD_AURA = 26;
 const PROFUNDIDAD_TRANSITORIO = 1900;
 const OFFSET_AURA_NAVE_U = 14;
+const DURACION_APLICACION_OBJETO_MS = 700;
 
 // Posiciones fijas, derivadas del índice: dibujar un efecto no puede consumir
 // ningún azar (ni el de la partida ni Math.random), o la partida dejaría de
@@ -102,7 +103,9 @@ export class EfectosEventos {
     else if (tipo === "terremoto") this.sacudidaYPolvo(datos, reducido);
   }
 
-  destelloCuracion(nave: number, datos: DatosEventos): void {
+  // La aplicación de un objeto se ve unos 700 ms: destello y el número con su
+  // signo, que es lo que cambia en la integridad de la nave.
+  destelloCuracion(nave: number, cambio: number, datos: DatosEventos): void {
     const posicion = datos.naves[nave];
     if (!posicion) return;
     const g = this.escena.add.graphics().setDepth(PROFUNDIDAD_TRANSITORIO).setPosition(posicion.x, posicion.y - OFFSET_AURA_NAVE_U);
@@ -110,10 +113,17 @@ export class EfectosEventos {
     g.fillCircle(0, 0, 46);
     g.lineStyle(3, 0xffffff, 0.9);
     g.strokeCircle(0, 0, 46);
-    this.terminarEn(g, 700, this.opciones.reducido() ? null : { alpha: 0, scale: 1.6 });
+    const reducido = this.opciones.reducido();
+    const tweens: Phaser.Tweens.Tween[] = [];
+    const texto = this.rotuloNumerico(posicion, `+${cambio}`, "#5dff8a", datos);
+    if (!reducido) {
+      tweens.push(this.escena.tweens.add({ targets: g, alpha: 0, scale: 1.6, duration: DURACION_APLICACION_OBJETO_MS }));
+      tweens.push(this.escena.tweens.add({ targets: texto, y: texto.y - 30 * datos.mundoPorCss, duration: DURACION_APLICACION_OBJETO_MS, ease: "Quad.easeOut" }));
+    }
+    this.registrarTransitorio("corazon", posicion.x, posicion.y, [g, texto], tweens, "nave", nave, DURACION_APLICACION_OBJETO_MS);
   }
 
-  descargaTormenta(nave: number, datos: DatosEventos): void {
+  descargaTormenta(nave: number, cambio: number, datos: DatosEventos): void {
     const posicion = datos.naves[nave];
     if (!posicion) return;
     const g = this.escena.add.graphics().setDepth(PROFUNDIDAD_TRANSITORIO).setPosition(posicion.x, posicion.y - OFFSET_AURA_NAVE_U);
@@ -128,7 +138,19 @@ export class EfectosEventos {
     g.strokePath();
     g.fillStyle(0xfff27a, 0.5);
     g.fillCircle(0, 0, 26);
-    this.terminarEn(g, 450, this.opciones.reducido() ? null : { alpha: 0 });
+    const reducido = this.opciones.reducido();
+    const tweens: Phaser.Tweens.Tween[] = [];
+    const texto = this.rotuloNumerico(posicion, `-${Math.abs(cambio)}`, "#fff27a", datos);
+    if (!reducido) tweens.push(this.escena.tweens.add({ targets: g, alpha: 0, duration: DURACION_APLICACION_OBJETO_MS }));
+    this.registrarTransitorio("tormenta", posicion.x, posicion.y, [g, texto], tweens, "nave", nave, DURACION_APLICACION_OBJETO_MS);
+  }
+
+  private rotuloNumerico(posicion: PuntoMundo, valor: string, color: string, datos: DatosEventos): Phaser.GameObjects.Text {
+    const k = datos.mundoPorCss;
+    return this.escena.add
+      .text(posicion.x, posicion.y - 50, valor, { fontFamily: "sans-serif", fontSize: `${Math.round(20 * k)}px`, fontStyle: "bold", color, stroke: "#000000", strokeThickness: Math.round(3 * k) })
+      .setOrigin(0.5, 1)
+      .setDepth(PROFUNDIDAD_TRANSITORIO + 1);
   }
 
   // Lo que ve el e2e: persistentes y transitorios vivos.
@@ -351,8 +373,8 @@ export class EfectosEventos {
     }
   }
 
-  private registrarTransitorio(tipo: TipoEvento, x: number, y: number, objetos: Phaser.GameObjects.GameObject[], tweens: Phaser.Tweens.Tween[], sobre: "nave" | "planeta" | "vacio", nave?: number): void {
-    const duracion = DURACION_TRANSITORIO_MS[tipo] ?? 1500;
+  private registrarTransitorio(tipo: TipoEvento, x: number, y: number, objetos: Phaser.GameObjects.GameObject[], tweens: Phaser.Tweens.Tween[], sobre: "nave" | "planeta" | "vacio", nave?: number, duracionMs?: number): void {
+    const duracion = duracionMs ?? DURACION_TRANSITORIO_MS[tipo] ?? 1500;
     const entrada: DebugEfectoVisible = { tipo: etiquetaDebug(tipo), x, y, radioOnda: 0, particulas: 0, escala: 1, sobre, duracionMs: duracion, ...(nave !== undefined ? { nave } : {}) };
     const transitorio: Transitorio = { entrada, objetos, tweens };
     this.transitorios.push(transitorio);

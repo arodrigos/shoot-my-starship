@@ -3496,6 +3496,9 @@ export class Partida extends Phaser.Scene {
       dibujarObjetoEvento(cuerpo, objeto.tipo, RADIO_OBJETO_U);
       this.marcasObjeto.push(puntos, cuerpo);
     }
+    // Los cuerpos también cuentan en efectosVisibles desde que existen, no solo
+    // al cerrar un turno: lo que se ve tiene que ser lo que hay en el estado.
+    this.efectosEventos?.sincronizar(this.datosParaEventos());
     window.__debug!.objetos = visibles.map(({ objeto, ruta }) => ({
       id: objeto.id,
       tipo: objeto.tipo,
@@ -3597,8 +3600,8 @@ export class Partida extends Phaser.Scene {
     for (const evento of eventos) {
       if (evento.tipo === "evento-universo" && evento.perdido !== true) this.efectosEventos.disparar(evento.evento as TipoEvento, evento.nave, datos);
       else if (evento.tipo === "objeto-alcanza") {
-        if (evento.objeto === "corazon") this.efectosEventos.destelloCuracion(evento.nave, datos);
-        else this.efectosEventos.descargaTormenta(evento.nave, datos);
+        if (evento.objeto === "corazon") this.efectosEventos.destelloCuracion(evento.nave, evento.cambio, datos);
+        else this.efectosEventos.descargaTormenta(evento.nave, evento.cambio, datos);
       }
     }
   }
