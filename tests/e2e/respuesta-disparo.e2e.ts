@@ -49,6 +49,9 @@ for (const t of TAMANOS) {
     const tareasAlSalir = await page.evaluate(() => window.__debug.tareasLargas!);
     test.info().annotations.push({ type: "tareas-al-salir", description: JSON.stringify(tareasAlSalir) });
     await page.screenshot({ path: `capturas/bug-respuesta-disparo-7-salida-${t.w}x${t.h}.png` });
+    // La medida se cierra en el primer frame pintado, que puede llegar un poco
+    // después de que el proyectil figure en vuelo: se espera a que exista.
+    await page.waitForFunction(() => window.__debug.latencias!().some((l) => l.nombre === "disparo"), undefined, { timeout: 10000 });
     const ms = await page.evaluate(() => window.__debug.latencias!().filter((l) => l.nombre === "disparo").at(-1)?.ms);
     expect(ms).toBeDefined();
     expect(ms!).toBeLessThanOrEqual(1000); // el límite de 200 ms lo mide el gatekeeper con la máquina libre
