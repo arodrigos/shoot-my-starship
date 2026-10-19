@@ -14,6 +14,8 @@ import { aplicarHuellaCapsula, aplicarHuellaCircular } from "@/sim/terreno/huell
 import { crearRastreadorImpactoNaves, type NavePosicion, type RastreadorImpactoNaves } from "@/sim/naves/impacto";
 import type { IdNave } from "@/sim/partida/tipos";
 
+const TOLERANCIA_ALCANCE_EMPUJE_PX = 1;
+
 export interface PuntoDeImpacto {
   readonly x: number;
   readonly y: number;
@@ -887,9 +889,28 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
       }
     }
   } else if (efecto.tipo === "empuje") {
+    // Solo empuja si alcanza de verdad: un Gravitón que cae lejos se anuncia
+    // como fallo y no puede mover a nadie (la distancia se mide al casco, como
+    // el daño por área, y se tolera 1 u de redondeo sobre el borde).
     const puntoRelevante = puntosDeImpacto[0];
-    const direccion = Math.sign(params.objetivoX - puntoRelevante.x) || 1;
-    desplazamientoObjetivoPx = direccion * efecto.desplazamientoPx;
+    const objetivoId = params.objetivoId ?? params.naves?.find((nave) => nave.x === params.objetivoX && nave.y === params.objetivoY)?.id;
+    if (puntoRelevante !== undefined) {
+      // Sin id de objetivo no hay silueta propia (varianteDeNave(-1) revienta):
+      // se usa la de la variante 0, y el empuje de radio 0 sigue exigiendo tocar casco.
+      const distancia = distanciaACasco(puntoRelevante.x, puntoRelevante.y, {
+        id: objetivoId ?? 0,
+        x: params.objetivoX,
+        y: params.objetivoY,
+        integridad: params.naves?.find((nave) => nave.id === objetivoId)?.integridad,
+      });
+      const alcanza =
+        (objetivoId !== undefined && puntoRelevante.impactoNave === objetivoId) ||
+        distancia <= radioEfectoEnMundo(arma, params.ancho, params.alto) + TOLERANCIA_ALCANCE_EMPUJE_PX;
+      if (alcanza) {
+        const direccion = Math.sign(params.objetivoX - puntoRelevante.x) || 1;
+        desplazamientoObjetivoPx = direccion * efecto.desplazamientoPx;
+      }
+    }
   }
 
   const danioObjetivo = danioPorPunto.reduce((total, danio) => total + danio, 0);

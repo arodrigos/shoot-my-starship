@@ -226,7 +226,8 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
     : escudoYaPuesto
       ? "Ya tienes el escudo activo"
       : `${equipoElegido.verboAccion}${enPresupuesto ? ` (${equipoElegido.coste} cr)` : ""}`;
-  const accionDeshabilitada = !estado.puedeDisparar || escudoYaPuesto;
+  const propulsoresBloqueados = estado.equipoId === "propulsores" && estado.propulsoresBloqueados;
+  const accionDeshabilitada = !estado.puedeDisparar || escudoYaPuesto || propulsoresBloqueados;
   const potenciaEnCero = Math.round(estado.ajuste.potencia) <= 0;
   // lay-6: motivo concreto de por qué "Disparar" no responde -- distinto de
   // puedeDisparar (que gobierna la escena: turno, animación en curso...) y
@@ -242,7 +243,9 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
   // necesita incluso en su mínimo (minHeight 44). "Qué pasa y qué hacer"
   // cabe en una frase corta; el resto era repetir la condición de
   // puedeDisparar que el usuario ya ve en el botón Disparar deshabilitado.
-  const avisoAccionImposible = potenciaEnCero && estado.equipoId !== "escudo"
+  const avisoAccionImposible = propulsoresBloqueados
+    ? "Bloqueado: apunta lejos del planeta"
+    : potenciaEnCero && estado.equipoId !== "escudo"
     ? "Potencia a 0: arrastra arriba para cargar el disparo."
     : !estado.puedeDisparar
       ? "Espera a que termine el disparo."
@@ -656,7 +659,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
         {avisoAccionImposible && (
           <div
             role="status"
-            data-testid="aviso-accion-imposible"
+            data-testid={propulsoresBloqueados ? "aviso-propulsores" : "aviso-accion-imposible"}
             style={{
               width: "100%",
               flexShrink: 0,
