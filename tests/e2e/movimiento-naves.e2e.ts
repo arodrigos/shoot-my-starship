@@ -34,9 +34,15 @@ for (const t of TAMANOS) {
     for (const f of [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]) {
       await arrastrarBarraHasta(page, "barra-angulo", f);
       await page.waitForFunction(() => window.__debug.previsualizacionPropulsores != null);
-      const motivo = await page.evaluate(() => window.__debug.previsualizacionPropulsores!.motivo);
+      const { motivo, corto } = await page.evaluate(() => {
+        const previa = window.__debug.previsualizacionPropulsores!;
+        const fin = previa.puntos[previa.puntos.length - 1];
+        const nave = window.__debug.naves![0];
+        return { motivo: previa.motivo, corto: Math.hypot(fin.x - nave.x, fin.y - (nave.y as number)) < 12 };
+      });
       const turno = await page.evaluate(() => window.__debug.numeroTurno!);
-      if (motivo === "obstaculo" && !bloqueado) {
+      if (motivo === "obstaculo" && corto) {
+        if (bloqueado) continue;
         bloqueado = true;
         await expect(page.getByTestId("disparar")).toBeDisabled();
         await expect(page.getByTestId("aviso-propulsores")).toBeVisible();
