@@ -440,6 +440,7 @@ function avanzarSinAsentar(estado: EstadoPartida, entrada: EntradaDeTurno): Resu
     fuentes: resultado.puntosDeImpacto,
     danioMaximo: arma.efecto.tipo === "danio" || arma.efecto.tipo === "danio-y-autodanio" ? arma.efecto.danioMaximo : 0,
     objetivoId,
+    excluirId: tirador,
     descartarDestinoDelObjetivo: (punto) => repetiriaElImpacto(punto) || sinTiroEntreLosDos(objetivoId, punto),
     descartarDestinoDeOtra: sinTiroEntreLosDos,
   });
@@ -603,6 +604,8 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
         fuentes: fase.detonaciones,
         danioMaximo: Math.max(...fase.danios.values()),
         objetivoId: -1,
+        // Solo detonan los robots de quien empieza turno: son su origen.
+        excluirId: turnoSiguiente,
         descartarDestinoDelObjetivo: () => false,
       });
       navesFinal = recolocadas.naves;
@@ -759,6 +762,9 @@ interface ParametrosDesplazarNaves {
   readonly fuentes: readonly { readonly x: number; readonly y: number; readonly vx?: number; readonly vy?: number }[];
   readonly danioMaximo: number;
   readonly objetivoId: IdNave;
+  // Quien origina la detonación (el tirador, o el dueño del robot que
+  // detona): nunca se recoloca por su propio daño ni por el autoimpacto.
+  readonly excluirId: IdNave;
   readonly descartarDestinoDelObjetivo: (punto: { x: number; y: number }) => boolean;
   // Cualquier otra nave dañada (el tirador por su propio disparo, una tercera
   // por el área) tampoco puede acabar donde ya no hay tiro entre los dos.
@@ -783,10 +789,11 @@ function direccionDeEmpuje(nave: { x: number; y: number }, fuentes: ParametrosDe
 }
 
 function desplazarNavesDanadas(parametros: ParametrosDesplazarNaves): { naves: EstadoNave[]; eventos: EventoSimulacion[] } {
-  const { estado, navesTrasDanio, mascara, planetas, radioEfectoU, fuentes, danioMaximo, objetivoId, descartarDestinoDelObjetivo, descartarDestinoDeOtra } = parametros;
+  const { estado, navesTrasDanio, mascara, planetas, radioEfectoU, fuentes, danioMaximo, objetivoId, excluirId, descartarDestinoDelObjetivo, descartarDestinoDeOtra } = parametros;
   const naves = [...navesTrasDanio];
   const eventos: EventoSimulacion[] = [];
   naves.forEach((nave, id) => {
+    if (id === excluirId) return;
     const antes = estado.naves[id];
     // Sin y no hay modo espacial: el suelo plano heredado no recoloca.
     if (nave.y === undefined || nave.integridad <= 0 || nave.integridad >= antes.integridad) return;
