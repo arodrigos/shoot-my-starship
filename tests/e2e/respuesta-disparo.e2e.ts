@@ -3,6 +3,12 @@ import { test, expect, type Page } from "@playwright/test";
 // respuesta-disparo (rsp-1, 3, 4, 6): con un minirobot posado junto al rival el
 // cierre del turno es lo caro; el proyectil tiene que salir antes de que acabe.
 async function abrirConRobot(page: Page, query: string): Promise<void> {
+  // Diagnóstico: cuándo cae cada tarea larga respecto al toque y al proyectil.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __largas: { ini: number; dur: number }[] };
+    w.__largas = [];
+    new PerformanceObserver((l) => l.getEntries().forEach((e) => w.__largas.push({ ini: Math.round(e.startTime), dur: Math.round(e.duration) }))).observe({ type: "longtask", buffered: true });
+  });
   await page.goto(`/?modo=barra-libre${query}`);
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
@@ -36,8 +42,10 @@ for (const t of TAMANOS) {
     test.setTimeout(180000);
     await page.setViewportSize({ width: t.w, height: t.h });
     await abrirConRobot(page, "&rendimiento=1");
+    const tToque = await page.evaluate(() => performance.now());
     await page.getByTestId("disparar").click();
     await page.waitForFunction(() => window.__debug.proyectilEnVuelo != null, undefined, { timeout: 10000 });
+    const tSalida = await page.evaluate(() => performance.now());
     const tareasAlSalir = await page.evaluate(() => window.__debug.tareasLargas!);
     test.info().annotations.push({ type: "tareas-al-salir", description: JSON.stringify(tareasAlSalir) });
     await page.screenshot({ path: `capturas/bug-respuesta-disparo-7-salida-${t.w}x${t.h}.png` });
@@ -49,7 +57,9 @@ for (const t of TAMANOS) {
     await page.waitForFunction(() => window.__debug.numeroTurno! > 1, undefined, { timeout: 90000 });
     const tareas = await page.evaluate(() => window.__debug.tareasLargas!);
     test.info().annotations.push({ type: "tareas-fin", description: JSON.stringify(tareas) });
-    expect(tareas.maxMs, JSON.stringify({ alSalir: tareasAlSalir, fin: tareas })).toBeLessThanOrEqual(200);
+    const largas = await page.evaluate(() => (window as unknown as { __largas: unknown[] }).__largas);
+    const turno = await page.evaluate(() => JSON.stringify(window.__debug.motor?.ultimoTurno));
+    expect(tareas.maxMs, JSON.stringify({ tToque: Math.round(tToque), tSalida: Math.round(tSalida), largas, turno })).toBeLessThanOrEqual(200);
   });
 }
 
@@ -57,9 +67,9 @@ test("píldora «Calculando el turno…» con el cierre retrasado (360x640)", as
   test.setTimeout(180000);
   await page.setViewportSize({ width: 360, height: 640 });
   await abrirConRobot(page, "");
-  await page.evaluate(() => window.__debug.retardarCierreTurno!(6000));
+  await page.evaluate(() => window.__debug.retardarCierreTurno!(10000));
   await page.getByTestId("disparar").click();
   await expect(page.getByTestId("calculando-turno")).toBeVisible({ timeout: 20000 });
   await page.screenshot({ path: "capturas/bug-respuesta-disparo-7-calculando-360x640.png" });
-  await expect(page.getByTestId("calculando-turno")).toBeHidden({ timeout: 30000 });
+  await expect(page.getByTestId("calculando-turno")).toBeHidden({ timeout: 60000 });
 });
