@@ -303,6 +303,8 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
     </button>
   );
 
+  // con-1: ocultar también está en mínima; si no, la única forma de despejar
+  // el campo era desplegar primero y ocultar después.
   // pan-2: con la consola plegada se apunta en el lienzo (apuntado directo) y
   // aquí solo queda lo imprescindible para disparar sin desplegar nada.
   if (plegada) {
@@ -324,7 +326,10 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           userSelect: "none",
         }}
       >
-        {botonPlegar}
+        <div style={{ display: "flex", gap: 4 }}>
+          {botonPlegar}
+          {botonOcultar}
+        </div>
         <div data-testid="arma-minima" style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif" }}>
           {equipoElegido === null ? <IconoArma armaId={armaSeleccionada.id} /> : <IconoEquipoGracioso equipoId={equipoElegido.id} tamano={28} />}
           <span data-testid="precio-arma-minima">
@@ -338,7 +343,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           data-testid="disparar"
           onClick={solicitarDisparo}
           disabled={accionDeshabilitada}
-          style={{ ...botonEstilo, minHeight: TAMANO_BOTON_PLEGAR_PX, padding: "6px 14px", background: "#ff6b4a", whiteSpace: "normal", maxWidth: 150, lineHeight: 1.1 }}
+          style={{ ...botonEstilo, minHeight: TAMANO_BOTON_PLEGAR_PX, padding: "6px 14px", background: "#ff6b4a", whiteSpace: "normal", maxWidth: 110, lineHeight: 1.1 }}
         >
           {etiquetaAccion}
         </button>
