@@ -29,6 +29,7 @@ import { barridoRejilla, RANGO_ANGULOS_ORACULO } from "@/sim/balistica/rejilla";
 import type { NavePosicion } from "@/sim/naves/impacto";
 import { crearProyectil, GRAVEDAD_REFERENCIA_PX_S2, type EstadoProyectil } from "@/sim/fisica/proyectil";
 import { contarPixelesDestruidos } from "@/sim/terreno/estadisticas";
+import { asignarPremios } from "@/juego/premios/premios";
 import { acumularTurno, estadisticasIniciales as estadisticasAsientosIniciales, type EstadisticasAsiento } from "@/juego/premios/estadisticas";
 import { estadisticasIniciales, generarParteDeGuerra, type EstadisticasPartida } from "@/sim/partida/parteDeGuerra";
 import { buscarMapa, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
@@ -2874,8 +2875,20 @@ export class Partida extends Phaser.Scene {
         window.__debug!.ganador = idGanador;
         const estadisticasGanador = this.estadisticas[idGanador ?? tirador];
         const parte = generarParteDeGuerra(estadisticasGanador);
-        publicarParteDeGuerra(parte, estadisticasGanador);
-        window.__debug!.parteDeGuerra = { ...parte, estadisticas: estadisticasGanador };
+        const premios = asignarPremios(this.estadisticasAsientos);
+        const tarjetas = this.estadisticasAsientos.map((estadisticasAsiento, indice) => ({
+          asiento: estadisticasAsiento.asiento,
+          nombre: nombreDeNave(this.controladores, estadisticasAsiento.asiento),
+          premios: premios[indice],
+          estadisticas: estadisticasAsiento,
+        }));
+        publicarParteDeGuerra(parte, estadisticasGanador, tarjetas);
+        window.__debug!.parteDeGuerra = {
+          ...parte,
+          estadisticas: estadisticasGanador,
+          premios,
+          estadisticasPorAsiento: this.estadisticasAsientos,
+        };
         // partida-5: intento de guardado best-effort -- si localStorage no
         // está disponible, guardarUltimaPartida se degrada en silencio (ver
         // progreso.ts) y la partida ya jugada no se pierde por eso.
