@@ -43,10 +43,27 @@ for (const { ancho, alto } of VIEWPORTS) {
     // El escudo gasta el turno sin depender de la puntería y el drenaje de la
     // muerte súbita deja una sola nave en pie: final determinista con 4 asientos.
     await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 13, integridades: [40, 1, 1, 2] }));
-    await page.getByTestId("selector-arma-abrir").click();
-    await page.getByTestId("pestana-equipo").click();
-    await page.getByTestId("equipo-escudo").click();
-    await page.getByTestId("disparar").click();
+    for (let turno = 0; turno < 10; turno++) {
+      await page.waitForFunction(
+        () =>
+          window.__debug.parteDeGuerra != null ||
+          window.__debug.control!.puedeDisparar === true ||
+          document.querySelector('[data-testid="relevo-confirmar"]') !== null,
+        undefined,
+        { timeout: 120000 },
+      );
+      if (await page.evaluate(() => window.__debug.parteDeGuerra != null)) break;
+      const confirmar = page.getByTestId("relevo-confirmar");
+      if (await confirmar.isVisible()) {
+        await confirmar.click();
+        continue;
+      }
+      await page.getByTestId("selector-arma-abrir").click();
+      await page.getByTestId("pestana-equipo").click();
+      await page.getByTestId("equipo-escudo").click();
+      await page.getByTestId("disparar").click();
+      await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
+    }
     await page.waitForFunction(() => window.__debug.parteDeGuerra != null, undefined, { timeout: 120000 });
     await expect(page.getByTestId("parte-de-guerra")).toBeVisible();
 
