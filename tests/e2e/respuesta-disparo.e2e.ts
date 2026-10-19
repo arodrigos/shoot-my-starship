@@ -75,9 +75,10 @@ test("píldora «Calculando el turno…» con el cierre retrasado (360x640)", as
   test.setTimeout(180000);
   await page.setViewportSize({ width: 360, height: 640 });
   await abrirConRobot(page, "");
-  await page.evaluate(() => window.__debug.retardarCierreTurno!(10000));
+  await page.evaluate(() => window.__debug.retenerCierreTurno!(true));
   await page.getByTestId("disparar").click();
-  await expect(page.getByTestId("calculando-turno")).toBeVisible({ timeout: 20000 });
+  await expect(page.getByTestId("calculando-turno")).toBeVisible({ timeout: 90000 });
   await page.screenshot({ path: "capturas/bug-respuesta-disparo-7-calculando-360x640.png" });
+  await page.evaluate(() => window.__debug.retenerCierreTurno!(false));
   await expect(page.getByTestId("calculando-turno")).toBeHidden({ timeout: 60000 });
 });

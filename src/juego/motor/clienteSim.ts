@@ -55,7 +55,9 @@ interface Pendiente {
 export class ClienteSim {
   modo: ModoMotor;
   motivoEnLinea: string | null = null;
-  retardoCierreMs = 0;
+  // Gancho de prueba: mientras sea true, el cierre no se entrega hasta soltarlo.
+  private cierreRetenido = false;
+  private liberarCierre: (() => void) | null = null;
   private previsEnVuelo = false;
   private previsPendiente: { readonly peticion: SinCabecera<Extract<Peticion, { tipo: "previsualizar" }>>; readonly resolver: (r: ResultadoPrevisualizar | null) => void } | null = null;
   private trabajador: TrabajadorLike | null = null;
@@ -123,6 +125,14 @@ export class ClienteSim {
     return this.pedir(peticion).then((r) => (r?.tipo === "resolverDisparo" ? r.resultado : null));
   }
 
+  retenerCierre(retener: boolean): void {
+    this.cierreRetenido = retener;
+    if (!retener) {
+      this.liberarCierre?.();
+      this.liberarCierre = null;
+    }
+  }
+
   async resolverImpacto(peticion: SinCabecera<Extract<Peticion, { tipo: "resolverImpacto" }>>): Promise<FaseResuelta<FaseImpacto> | null> {
     const enviada = this.reloj();
     const r = await this.pedir(peticion);
@@ -133,10 +143,14 @@ export class ClienteSim {
     const enviada = this.reloj();
     const r = await this.pedir(peticion);
     if (r?.tipo !== "cerrarTurno") return null;
-    // Gancho de prueba: retrasa la llegada del cierre para ver la píldora
-    // «Calculando el turno…» sin depender de una máquina lenta.
-    if (this.retardoCierreMs > 0) await new Promise<void>((seguir) => setTimeout(seguir, this.retardoCierreMs));
-    return { resultado: r.resultado, metricas: { ...r.metricas, esperaColaMs: Math.max(0, this.reloj() - enviada - r.metricas.duracionMs - this.retardoCierreMs) } };
+    // Se retiene hasta que la prueba lo suelta, no un tiempo fijo: con el render
+    // por software la animación del impacto dura lo que dure, y un retardo fijo
+    // podía vencer antes de que la píldora tuviera ocasión de mostrarse.
+    const retenido = this.cierreRetenido;
+    const inicioRetencion = this.reloj();
+    if (retenido) await new Promise<void>((seguir) => { this.liberarCierre = seguir; });
+    const esperaRetencion = retenido ? this.reloj() - inicioRetencion : 0;
+    return { resultado: r.resultado, metricas: { ...r.metricas, esperaColaMs: Math.max(0, this.reloj() - enviada - r.metricas.duracionMs - esperaRetencion) } };
   }
 
   decidirIA(peticion: SinCabecera<Extract<Peticion, { tipo: "decidirIA" }>>): Promise<ResultadoDecidirIA | null> {

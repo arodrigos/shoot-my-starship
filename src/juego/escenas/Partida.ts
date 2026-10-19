@@ -1059,9 +1059,7 @@ export class Partida extends Phaser.Scene {
       enumerable: true,
       get: () => tareasLargasActuales(),
     });
-    window.__debug.retardarCierreTurno = (ms: number) => {
-      this.motor.retardoCierreMs = Math.max(0, Math.min(10_000, ms));
-    };
+    window.__debug.retenerCierreTurno = (retener: boolean) => this.motor.retenerCierre(retener);
     window.__debug.bloquearHilo = (ms: number) => this.medidorRespuesta.bloquearHilo(ms);
     // apuntado-dedo: latencia del gesto (pointermove → primer frame con la
     // flecha) y atajo de prueba para fijar el apuntado sin gesto. Mismas

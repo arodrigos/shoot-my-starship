@@ -219,7 +219,7 @@ export interface DebugGlobal {
   // respuesta-disparo: tareas largas del hilo principal desde el inicio del turno.
   tareasLargas?: { readonly maxMs: number; readonly cuenta: number };
   // respuesta-disparo: retrasa la llegada del cierre del turno (solo pruebas) para ver la píldora «Calculando el turno…».
-  retardarCierreTurno?: (ms: number) => void;
+  retenerCierreTurno?: (retener: boolean) => void;
   // reloj-turno: espejo de relojTurnoStore y atajo de e2e para gastar tiempo.
   // partida-guardada: espejo del guardador de la escena.
   partidaGuardada?: {
