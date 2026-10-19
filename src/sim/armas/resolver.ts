@@ -895,14 +895,17 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     const puntoRelevante = puntosDeImpacto[0];
     const objetivoId = params.objetivoId ?? params.naves?.find((nave) => nave.x === params.objetivoX && nave.y === params.objetivoY)?.id;
     if (puntoRelevante !== undefined) {
+      // Sin id de objetivo no hay silueta propia (varianteDeNave(-1) revienta):
+      // se usa la de la variante 0, y el empuje de radio 0 sigue exigiendo tocar casco.
+      const distancia = distanciaACasco(puntoRelevante.x, puntoRelevante.y, {
+        id: objetivoId ?? 0,
+        x: params.objetivoX,
+        y: params.objetivoY,
+        integridad: params.naves?.find((nave) => nave.id === objetivoId)?.integridad,
+      });
       const alcanza =
         (objetivoId !== undefined && puntoRelevante.impactoNave === objetivoId) ||
-        distanciaACasco(puntoRelevante.x, puntoRelevante.y, {
-          id: objetivoId ?? -1,
-          x: params.objetivoX,
-          y: params.objetivoY,
-          integridad: objetivoId !== undefined ? params.naves?.find((nave) => nave.id === objetivoId)?.integridad : undefined,
-        }) <= radioEfectoEnMundo(arma, params.ancho, params.alto) + TOLERANCIA_ALCANCE_EMPUJE_PX;
+        distancia <= radioEfectoEnMundo(arma, params.ancho, params.alto) + TOLERANCIA_ALCANCE_EMPUJE_PX;
       if (alcanza) {
         const direccion = Math.sign(params.objetivoX - puntoRelevante.x) || 1;
         desplazamientoObjetivoPx = direccion * efecto.desplazamientoPx;
