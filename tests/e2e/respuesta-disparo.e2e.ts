@@ -38,16 +38,18 @@ for (const t of TAMANOS) {
     await abrirConRobot(page, "&rendimiento=1");
     await page.getByTestId("disparar").click();
     await page.waitForFunction(() => window.__debug.proyectilEnVuelo != null, undefined, { timeout: 10000 });
+    const tareasAlSalir = await page.evaluate(() => window.__debug.tareasLargas!);
+    test.info().annotations.push({ type: "tareas-al-salir", description: JSON.stringify(tareasAlSalir) });
     await page.screenshot({ path: `capturas/bug-respuesta-disparo-7-salida-${t.w}x${t.h}.png` });
     const ms = await page.evaluate(() => window.__debug.latencias!().filter((l) => l.nombre === "disparo").at(-1)?.ms);
     expect(ms).toBeDefined();
     expect(ms!).toBeLessThanOrEqual(1000); // el límite de 200 ms lo mide el gatekeeper con la máquina libre
     await expect(page.getByTestId("hud-rendimiento")).toContainText("disparo");
     await page.screenshot({ path: `capturas/bug-respuesta-disparo-7-panel-${t.w}x${t.h}.png` });
-    await page.waitForFunction(() => window.__debug.proyectilEnVuelo == null, undefined, { timeout: 30000 });
-    await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true || window.__debug.numeroTurno! > 1, undefined, { timeout: 60000 });
+    await page.waitForFunction(() => window.__debug.numeroTurno! > 1, undefined, { timeout: 90000 });
     const tareas = await page.evaluate(() => window.__debug.tareasLargas!);
-    expect(tareas.maxMs).toBeLessThanOrEqual(200);
+    test.info().annotations.push({ type: "tareas-fin", description: JSON.stringify(tareas) });
+    expect(tareas.maxMs, JSON.stringify({ alSalir: tareasAlSalir, fin: tareas })).toBeLessThanOrEqual(200);
   });
 }
 
