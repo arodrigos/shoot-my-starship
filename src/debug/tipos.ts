@@ -1,5 +1,7 @@
 import type { EventoSimulacion, TipoEventoHumor } from "@/sim/partida/eventos";
 import type { EstadisticasPartida, ParteDeGuerra } from "@/sim/partida/parteDeGuerra";
+import type { EstadisticasAsiento } from "@/juego/premios/estadisticas";
+import type { PremioAsiento } from "@/juego/premios/premios";
 import type { EstadoAudio, IdEfectoSonoro } from "@/juego/audio/motor";
 import type { CategoriaBroma } from "@/sim/partida/categoriaBroma";
 import type { IdVoz } from "@/contenido/bancoBromas";
@@ -425,7 +427,14 @@ export interface DebugGlobal {
   // humor-7: el parte de guerra publicado al terminar la partida, con las
   // estadísticas reales que lo sustentan -- para comprobar que el texto no
   // es un remate fijo disfrazado de dinámico.
-  parteDeGuerra?: (ParteDeGuerra & { estadisticas: EstadisticasPartida }) | null;
+  parteDeGuerra?:
+    | (ParteDeGuerra & {
+        estadisticas: EstadisticasPartida;
+        // premios-parte: los premios por asiento tal como los pinta el parte.
+        premios: readonly (readonly PremioAsiento[])[];
+        estadisticasPorAsiento: readonly EstadisticasAsiento[];
+      })
+    | null;
   // humor-2: dispara la reacción real (sacudida, frase, tono) para un tipo de
   // evento de humor concreto, sin tener que fabricar por juego real las
   // condiciones de física/IA de cada uno de los 7 -- pasa por el mismo

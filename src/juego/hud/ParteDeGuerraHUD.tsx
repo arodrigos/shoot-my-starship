@@ -1,6 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { MarcaAsiento } from "@/juego/hud/MarcaAsiento";
 import { textoGanador } from "@/juego/textosPartida";
 import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
 import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
@@ -10,8 +11,13 @@ import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } fr
 // los números reales que la sustentan -- nunca solo el nombre de la medalla,
 // que sería indistinguible de un remate fijo. El ganador se nombra siempre,
 // también en 1 humano contra IA: sin él, la medalla sola no dice si has ganado.
+// premios-parte: cada asiento (gane o pierda, humano o IA) tiene su tarjeta
+// con 1-2 premios y la cifra que lo justifica. Las estadísticas en bruto del
+// ganador siguen ahí, pero plegadas en «Ver números», para que a 360x640 con
+// 4 asientos la rejilla de 2x2 y «Otra partida» quepan sin desplazar.
 export function ParteDeGuerraHUD() {
-  const { parte } = useSyncExternalStore(suscribirParteDeGuerra, obtenerParteDeGuerra, obtenerParteDeGuerra);
+  const { parte, tarjetas } = useSyncExternalStore(suscribirParteDeGuerra, obtenerParteDeGuerra, obtenerParteDeGuerra);
+  const [numerosAbiertos, setNumerosAbiertos] = useState(false);
 
   const { ganador, ganadorEsHumano, humanos } = useSyncExternalStore(suscribirParticipantes, obtenerParticipantes, obtenerParticipantes);
 
@@ -31,56 +37,121 @@ export function ParteDeGuerraHUD() {
         color: "#e8eaf0",
         font: "14px system-ui, sans-serif",
         textAlign: "center",
-        padding: 24,
+        padding: 12,
+        overflowY: "auto",
       }}
     >
-      <div style={{ maxWidth: 360 }}>
-        <h2 data-testid="ganador-nombre" style={{ margin: "0 0 8px", overflowWrap: "anywhere" }}>
+      <div style={{ width: "100%", maxWidth: 520, margin: "auto" }}>
+        <h2 data-testid="ganador-nombre" style={{ margin: "0 0 4px", fontSize: 18, overflowWrap: "anywhere" }}>
           {textoGanador({ ganador, ganadorEsHumano, humanos })}
         </h2>
-        <h2 data-testid="parte-de-guerra-medalla" style={{ color: "#ffe08a", margin: "0 0 8px" }}>
+        <h2 data-testid="parte-de-guerra-medalla" style={{ color: "#ffe08a", margin: "0 0 4px", fontSize: 16 }}>
           {parte.medalla}
         </h2>
-        <p data-testid="parte-de-guerra-texto">{parte.texto}</p>
-        <dl
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "4px 12px",
-            textAlign: "left",
-            font: "12px system-ui, sans-serif",
-            marginTop: 12,
-          }}
+        <p data-testid="parte-de-guerra-texto" style={{ margin: "0 0 8px", fontSize: 13 }}>
+          {parte.texto}
+        </p>
+        <div
+          data-testid="premios-rejilla"
+          style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, textAlign: "left" }}
         >
-          <dt>Disparos</dt>
-          <dd>{parte.estadisticas.disparos}</dd>
-          <dt>Fallos</dt>
-          <dd>{parte.estadisticas.fallos}</dd>
-          <dt>Autoimpactos</dt>
-          <dd>{parte.estadisticas.autoimpactos}</dd>
-          <dt>Daño al enemigo</dt>
-          <dd>{parte.estadisticas.danioHechoAlEnemigo}</dd>
-          <dt>Píxeles destruidos</dt>
-          <dd>{parte.estadisticas.pixelesDestruidos}</dd>
-        </dl>
+          {tarjetas.map((tarjeta) => (
+            <section
+              key={tarjeta.asiento}
+              data-testid={`premio-asiento-${tarjeta.asiento}`}
+              style={{
+                minWidth: 0,
+                padding: "6px 8px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.05)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                data-testid={`premio-asiento-nombre-${tarjeta.asiento}`}
+                style={{ display: "flex", alignItems: "center", gap: 6, font: "600 13px system-ui, sans-serif", minWidth: 0 }}
+              >
+                <MarcaAsiento asiento={tarjeta.asiento} alto={14} />
+                <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>{tarjeta.nombre}</span>
+              </div>
+              {tarjeta.premios.map((premio) => (
+                <div key={premio.id} data-testid="premio" style={{ marginTop: 4, overflowWrap: "anywhere" }}>
+                  <div style={{ color: "#ffe08a", font: "600 12px system-ui, sans-serif" }}>{premio.nombre}</div>
+                  <div style={{ font: "11px system-ui, sans-serif", color: "#cfd3df" }}>{premio.texto}</div>
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
         <button
           type="button"
-          data-testid="otra-partida"
-          onClick={solicitarOtraPartida}
+          data-testid="ver-numeros"
+          aria-expanded={numerosAbiertos}
+          aria-controls="parte-numeros"
+          onClick={() => setNumerosAbiertos((abierto) => !abierto)}
           style={{
-            marginTop: 16,
+            marginTop: 8,
             minHeight: 44,
-            padding: "8px 16px",
+            padding: "4px 12px",
             borderRadius: 8,
             border: "1px solid rgba(255,255,255,0.25)",
-            background: "#ff6b4a",
+            background: "transparent",
             color: "#e8eaf0",
-            font: "14px system-ui, sans-serif",
+            font: "13px system-ui, sans-serif",
             cursor: "pointer",
           }}
         >
-          Otra partida
+          Ver números
         </button>
+        {numerosAbiertos && (
+          <table
+            id="parte-numeros"
+            data-testid="tabla-numeros"
+            style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", font: "11px system-ui, sans-serif" }}
+          >
+            <thead>
+              <tr>
+                <th scope="col" style={{ textAlign: "left" }}>Asiento</th>
+                <th scope="col">Disparos</th>
+                <th scope="col">Aciertos</th>
+                <th scope="col">Daño hecho</th>
+                <th scope="col">Autoimpactos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tarjetas.map((tarjeta) => (
+                <tr key={tarjeta.asiento} data-testid={`fila-numeros-${tarjeta.asiento}`}>
+                  <th scope="row" style={{ textAlign: "left", overflowWrap: "anywhere" }}>{tarjeta.nombre}</th>
+                  <td>{tarjeta.estadisticas.disparos}</td>
+                  <td>{tarjeta.estadisticas.aciertos}</td>
+                  <td>{tarjeta.estadisticas.danioHecho}</td>
+                  <td>{tarjeta.estadisticas.autoimpactos}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div>
+          <button
+            type="button"
+            data-testid="otra-partida"
+            onClick={solicitarOtraPartida}
+            style={{
+              marginTop: 8,
+              minHeight: 44,
+              padding: "8px 16px",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.25)",
+              background: "#ff6b4a",
+              color: "#e8eaf0",
+              font: "14px system-ui, sans-serif",
+              cursor: "pointer",
+            }}
+          >
+            Otra partida
+          </button>
+        </div>
       </div>
     </div>
   );

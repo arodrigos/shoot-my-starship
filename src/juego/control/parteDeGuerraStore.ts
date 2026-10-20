@@ -1,4 +1,16 @@
 import type { EstadisticasPartida, ParteDeGuerra } from "@/sim/partida/parteDeGuerra";
+import type { EstadisticasAsiento } from "@/juego/premios/estadisticas";
+import type { PremioAsiento } from "@/juego/premios/premios";
+
+// premios-parte: lo que pinta cada tarjeta del parte (asiento, nombre y sus
+// premios ya con la cifra). Se publica ya resuelto para que el HUD no
+// recalcule nada y __debug.parteDeGuerra refleje exactamente lo pintado.
+export interface TarjetaAsiento {
+  readonly asiento: number;
+  readonly nombre: string;
+  readonly premios: readonly PremioAsiento[];
+  readonly estadisticas: EstadisticasAsiento;
+}
 
 // Puente React/Phaser para la pantalla final (humor-7): mismo patrón
 // singleton pub/sub que store.ts y reaccion.ts. Guarda también las
@@ -7,9 +19,10 @@ import type { EstadisticasPartida, ParteDeGuerra } from "@/sim/partida/parteDeGu
 // no sea un remate fijo disfrazado de dinámico).
 export interface EstadoParteDeGuerra {
   readonly parte: (ParteDeGuerra & { estadisticas: EstadisticasPartida }) | null;
+  readonly tarjetas: readonly TarjetaAsiento[];
 }
 
-let estado: EstadoParteDeGuerra = { parte: null };
+let estado: EstadoParteDeGuerra = { parte: null, tarjetas: [] };
 const escuchas = new Set<() => void>();
 
 function fijar(parcial: Partial<EstadoParteDeGuerra>): void {
@@ -26,8 +39,12 @@ export function suscribirParteDeGuerra(escucha: () => void): () => void {
   return () => escuchas.delete(escucha);
 }
 
-export function publicarParteDeGuerra(parte: ParteDeGuerra, estadisticas: EstadisticasPartida): void {
-  fijar({ parte: { ...parte, estadisticas } });
+export function publicarParteDeGuerra(
+  parte: ParteDeGuerra,
+  estadisticas: EstadisticasPartida,
+  tarjetas: readonly TarjetaAsiento[] = [],
+): void {
+  fijar({ parte: { ...parte, estadisticas }, tarjetas });
 }
 
 // partida-completa: limpia la medalla de la partida anterior al arrancar
@@ -35,7 +52,7 @@ export function publicarParteDeGuerra(parte: ParteDeGuerra, estadisticas: Estadi
 // esto "otra partida" mostraría el parte de guerra ya obsoleto durante el
 // primer fotograma, antes de que la partida nueva pueda haber terminado.
 export function limpiarParteDeGuerra(): void {
-  fijar({ parte: null });
+  fijar({ parte: null, tarjetas: [] });
 }
 
 // Señal de "otra partida" (partida-1): el botón vive en React
