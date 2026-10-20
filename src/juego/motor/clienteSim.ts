@@ -5,6 +5,7 @@ import { manejarPeticion } from "@/juego/motor/manejador";
 import type { FaseImpacto } from "@/sim/partida/avanzar";
 import {
   TIEMPO_LIMITE_PETICION_MS,
+  TIEMPO_LIMITE_TRABAJADOR_VIVO_MS,
   type MetricasDeCalculo,
   type Peticion,
   type Respuesta,
@@ -68,6 +69,7 @@ export class ClienteSim {
   // Última vez que el trabajador contestó algo: distingue un trabajador roto
   // (mudo) de uno que solo va por detrás con la cola de peticiones.
   private ultimaRespuestaMs: number;
+  private haRespondido = false;
 
   constructor(
     fabrica: (() => TrabajadorLike) | null,
@@ -176,11 +178,12 @@ export class ClienteSim {
       const pendiente = this.pendientes.get(peticion.idPeticion);
       if (!pendiente) return;
       const mudoMs = this.reloj() - this.ultimaRespuestaMs;
-      if (mudoMs < TIEMPO_LIMITE_PETICION_MS) {
+      const limiteMs = this.haRespondido ? TIEMPO_LIMITE_TRABAJADOR_VIVO_MS : TIEMPO_LIMITE_PETICION_MS;
+      if (mudoMs < limiteMs) {
         this.pendientes.set(peticion.idPeticion, { ...pendiente, temporizador: this.armarTemporizador(peticion) });
         return;
       }
-      this.pasarAEnLinea(`la petición ${peticion.tipo} superó ${TIEMPO_LIMITE_PETICION_MS} ms (trabajador mudo ${Math.round(mudoMs)} ms, ${this.pendientes.size} pendientes)`);
+      this.pasarAEnLinea(`la petición ${peticion.tipo} superó ${limiteMs} ms (trabajador mudo ${Math.round(mudoMs)} ms, ${this.pendientes.size} pendientes)`);
     }, TIEMPO_LIMITE_PETICION_MS);
     return temporizador;
   }
@@ -202,6 +205,7 @@ export class ClienteSim {
 
   private alRecibir(respuesta: Respuesta): void {
     this.ultimaRespuestaMs = this.reloj();
+    this.haRespondido = true;
     const pendiente = this.pendientes.get(respuesta.idPeticion);
     if (!pendiente) return;
     clearTimeout(pendiente.temporizador);
