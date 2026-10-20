@@ -285,6 +285,7 @@ test("cam-7: con zoom manual la cámara sigue al proyectil sin acercar más y lo
   await tactil(cdp, "touchEnd", []);
   await expect.poll(async () => (await camara(page)).zoom).toBeGreaterThanOrEqual(1.8);
   const zoomInicial = (await camara(page)).zoom ?? 1;
+  const mundo = await page.evaluate(() => window.__debug.mundo!);
   await page.evaluate(() => window.__debug.fijarApuntado!(60, 90));
   await page.getByTestId("disparar").click();
   let muestras = 0;
@@ -294,10 +295,14 @@ test("cam-7: con zoom manual la cámara sigue al proyectil sin acercar más y lo
     if (m.p) {
       muestras++;
       expect(m.c.zoom ?? 1).toBeLessThanOrEqual(zoomInicial + 1e-6);
-      expect(m.p.x).toBeGreaterThanOrEqual(m.c.x - 8);
-      expect(m.p.x).toBeLessThanOrEqual(m.c.x + m.c.ancho + 8);
-      expect(m.p.y).toBeGreaterThanOrEqual(m.c.y - 8);
-      expect(m.p.y).toBeLessThanOrEqual(m.c.y + m.c.alto + 8);
+      // El encuadre nunca sale del mundo, así que un proyectil que se asoma
+      // fuera de él solo puede quedar en el borde: se mide su posición recortada.
+      const px = Math.min(Math.max(m.p.x, 0), mundo.ancho);
+      const py = Math.min(Math.max(m.p.y, 0), mundo.alto);
+      expect(px).toBeGreaterThanOrEqual(m.c.x - 8);
+      expect(px).toBeLessThanOrEqual(m.c.x + m.c.ancho + 8);
+      expect(py).toBeGreaterThanOrEqual(m.c.y - 8);
+      expect(py).toBeLessThanOrEqual(m.c.y + m.c.alto + 8);
       if (!capturada && muestras >= 3) {
         capturada = true;
         await captura(page, "cam-7-vuelo", MOVIL);
