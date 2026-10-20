@@ -11,6 +11,8 @@ const HORIZONTAL: Tamano = { ancho: 1180, alto: 820 };
 const TAMANOS = [MOVIL, TABLETA, HORIZONTAL];
 
 test.use({ hasTouch: true });
+// El WebGL por software tarda en asentar cada escenario; el primer caso recorre tres tamaños.
+test.beforeEach((_, testInfo) => testInfo.setTimeout(300_000));
 
 type Punto = { x: number; y: number };
 
