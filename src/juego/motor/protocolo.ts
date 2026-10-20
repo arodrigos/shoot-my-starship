@@ -5,7 +5,7 @@
 import type { Mascara } from "@/sim/terreno/mascara";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
 import type { EstadoAleatorio } from "@/sim/aleatorio";
-import type { BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
+import type { AbanicoPrevisualizacion, BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
 import type { avanzar, FaseImpacto } from "@/sim/partida/avanzar";
 import type { EntradaDeTurno, EstadoPartida, IdNave } from "@/sim/partida/tipos";
 import type { Personalidad } from "@/sim/ia/tipos";
@@ -33,6 +33,9 @@ export interface PeticionPrevisualizar extends Cabecera {
   readonly potencia: number;
   readonly armaId: string;
   readonly aleatorio: EstadoAleatorio;
+  // trayectoria-pantalla: si viene, se calcula el abanico por longitud en vez de
+  // la banda por potencia.
+  readonly abanico?: { readonly semiapertura1: number; readonly semiapertura2: number; readonly longitudMundoMax: number };
 }
 
 export interface PeticionResolverDisparo extends Cabecera {
@@ -69,6 +72,7 @@ export type TipoPeticion = Peticion["tipo"];
 
 export interface ResultadoPrevisualizar {
   readonly banda: BandaPrevisualizacion;
+  readonly abanico?: AbanicoPrevisualizacion;
   // Coste del cálculo medido dentro del trabajador: es lo que se compara con
   // el presupuesto de la mira (superaPresupuestoComputo).
   readonly duracionMs: number;

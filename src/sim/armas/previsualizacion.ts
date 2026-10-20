@@ -20,6 +20,9 @@ import type { EstadoAleatorio } from "@/sim/aleatorio";
 // realmente hace, así que se corta mucho antes.
 export const PASOS_PREVISUALIZACION = 90;
 export const PASOS_PREVISUALIZACION_ERRATICO = 8;
+// Tope duro de la trayectoria por longitud: a potencia mínima el proyectil avanza
+// poco por paso y, sin tope, un tiro que no choca simularía el vuelo entero.
+export const PASOS_MAXIMOS_TRAYECTORIA = 900;
 
 // gravedad-visible (grav-vis-2): "la previsualización no pasa del 25% del
 // vuelo estimado" -- cota relativa, no la cota fija de arriba. Si el vuelo
@@ -42,6 +45,16 @@ const FACTOR_UMBRAL_VUELO_CORTO = 4;
 // es sobre lo que se DIBUJA, no sobre si esta llamada en particular pudo
 // evitarse (eso ya lo paga el presupuesto de pasos de arriba).
 export const PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS = 8;
+
+// trayectoria-pantalla: el abanico son cinco vuelos en vez de tres y se calcula
+// en el trabajador, no en el hilo del juego; con el render por software
+// compitiendo por los dos núcleos, 8 ms lo dejaba en cuñas de forma casi
+// permanente. Mismo mecanismo de ocultación, techo cuatro veces mayor.
+export const PRESUPUESTO_COMPUTO_ABANICO_MS = 32;
+
+export function superaPresupuestoAbanico(duracionMs: number): boolean {
+  return duracionMs > PRESUPUESTO_COMPUTO_ABANICO_MS;
+}
 
 export function superaPresupuestoComputo(duracionMs: number): boolean {
   return duracionMs > PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS;
@@ -79,6 +92,12 @@ export interface ParametrosPrevisualizacion {
   // se quedaba en un punto y la banda desaparecía aunque el centro sí se viera.
   // No revela nada nuevo: nunca es más largo que lo que el centro ya enseña.
   readonly longitudFija?: number;
+  // trayectoria-pantalla: la mira nueva no recorta por pasos ni por el 25 % del
+  // vuelo, sino por longitud de arco; el llamante la convierte desde píxeles de
+  // pantalla. Con ella se devuelve el prefijo hasta esa longitud (o hasta el
+  // choque) sin ocultar el contacto, y la mosca vuela sin perturbación: el
+  // abanico es lo que enseña su imprevisibilidad.
+  readonly longitudMundoMax?: number;
 }
 
 export interface PuntoPrevisualizacion {
@@ -123,8 +142,9 @@ export function calcularPrevisualizacion(params: ParametrosPrevisualizacion): re
     detenerseReal = crearDetenerseConMecha(detenerseReal, pasosDeMecha(params.comportamiento.segundosHastaDetonar));
   }
 
+  const porLongitud = params.longitudMundoMax !== undefined;
   const perturbacion =
-    params.comportamiento.tipo === "erratico" && params.aleatorio
+    !porLongitud && params.comportamiento.tipo === "erratico" && params.aleatorio
       ? { magnitudPxS2: params.comportamiento.magnitudPxS2, aleatorio: params.aleatorio }
       : undefined;
 
@@ -133,8 +153,15 @@ export function calcularPrevisualizacion(params: ParametrosPrevisualizacion): re
 
   let llamadas = 0;
   let cortadoPorUmbral = false;
+  let arco = 0;
+  let anterior: EstadoProyectil | null = null;
   const detenerseAcotado = (p: EstadoProyectil): boolean => {
     if (detenerseReal(p)) return true;
+    if (porLongitud) {
+      if (anterior !== null) arco += Math.hypot(p.x - anterior.x, p.y - anterior.y);
+      anterior = p;
+      return arco > (params.longitudMundoMax as number) || ++llamadas > PASOS_MAXIMOS_TRAYECTORIA;
+    }
     llamadas++;
     if (llamadas > umbralVueloCorto) {
       cortadoPorUmbral = true;
@@ -152,6 +179,7 @@ export function calcularPrevisualizacion(params: ParametrosPrevisualizacion): re
   });
 
   const trayectoria = resultado.trayectoria ?? [inicial];
+  if (porLongitud) return trayectoria;
   if (params.longitudFija !== undefined) return trayectoria.slice(0, params.longitudFija);
 
   // gravedad-visible (grav-vis-2): el vuelo real no terminó dentro del
@@ -209,4 +237,27 @@ export function calcularBandaPrevisualizacion(params: ParametrosPrevisualizacion
   const extremoMenor = calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados - amplitudGrados, longitudFija });
   const extremoMayor = calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados + amplitudGrados, longitudFija });
   return { centro, extremoMenor, extremoMayor, amplitudGrados };
+}
+
+export interface AbanicoPrevisualizacion {
+  readonly centro: readonly PuntoPrevisualizacion[];
+  // Trayectorias reales (misma gravedad) a ±semiapertura1 y ±semiapertura2.
+  readonly tramo1: { readonly menor: readonly PuntoPrevisualizacion[]; readonly mayor: readonly PuntoPrevisualizacion[] };
+  readonly tramo2: { readonly menor: readonly PuntoPrevisualizacion[]; readonly mayor: readonly PuntoPrevisualizacion[] };
+}
+
+// trayectoria-pantalla: cinco llamadas al MISMO calcularPrevisualizacion (centro
+// y cuatro extremos), todas con la misma cota de longitud. No depende de la
+// potencia: la dispersión real del disparo no se muestra.
+export function calcularAbanicoPrevisualizacion(
+  params: ParametrosPrevisualizacion & { readonly longitudMundoMax: number },
+  semiapertura1: number,
+  semiapertura2: number,
+): AbanicoPrevisualizacion {
+  const en = (delta: number): readonly PuntoPrevisualizacion[] => calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados + delta });
+  return {
+    centro: en(0),
+    tramo1: { menor: en(-semiapertura1), mayor: en(semiapertura1) },
+    tramo2: { menor: en(-semiapertura2), mayor: en(semiapertura2) },
+  };
 }

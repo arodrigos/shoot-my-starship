@@ -1,5 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { DISTANCIA_MINIMA_OCULTA_IMPACTO_PX, PASOS_PREVISUALIZACION_ERRATICO } from "@/sim/armas/previsualizacion";
 import { arrastrarBarraHasta } from "./utilesControl";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import type { DebugUltimoDisparo } from "@/debug/tipos";
@@ -20,7 +19,7 @@ import type { DebugUltimoDisparo } from "@/debug/tipos";
 // el camino (ya cubierto por su propio test) donde el presupuesto de pasos
 // corta primero y no hay nada que ocultar. Medido una vez contra el build
 // real: 56 puntos dibujados, último punto a ~41px del impacto resuelto.
-test("pvr-2: el último punto dibujado nunca revela el impacto, la mira se oculta al disparar, y la mosca se corta mucho antes", async ({
+test("pvr-2: la mira termina en el choque, se oculta al disparar, y la mosca abre el doble de abanico", async ({
   page,
 }) => {
   test.setTimeout(60000);
@@ -85,12 +84,14 @@ test("pvr-2: el último punto dibujado nunca revela el impacto, la mira se ocult
   const captura = await page.evaluate(() => (window as unknown as { __pvrCaptura: DebugUltimoDisparo }).__pvrCaptura);
   expect(captura.impactoReal).toBeDefined();
 
+  // trayectoria-pantalla (tra-1): la mira ya no oculta el contacto; la línea
+  // termina en el choque. El último punto dibujado queda donde cae el tiro.
   const ultimo = previsualizacionAntes!.puntos[previsualizacionAntes!.puntos.length - 1];
   const distancia = Math.hypot(ultimo.x - captura.impactoReal!.x, ultimo.y - captura.impactoReal!.y);
   expect(
     distancia,
     `el último punto dibujado (${ultimo.x}, ${ultimo.y}) quedó a ${distancia}px del impacto real (${captura.impactoReal!.x}, ${captura.impactoReal!.y})`,
-  ).toBeGreaterThanOrEqual(DISTANCIA_MINIMA_OCULTA_IMPACTO_PX);
+  ).toBeLessThanOrEqual(30);
 
   // Caso específico de la mosca: una partida nueva, elegir la mosca y
   // comprobar que su mira publicada en window.__debug nunca se alarga más
@@ -109,7 +110,8 @@ test("pvr-2: el último punto dibujado nunca revela el impacto, la mira se ocult
   await page.getByTestId("arma-mosca-cojonera").click();
   await page.waitForFunction(() => window.__debug.control!.ajuste.armaId === "mosca-cojonera");
 
-  const previsualizacionMosca = await page.evaluate(() => window.__debug.previsualizacion);
-  expect(previsualizacionMosca?.puntos.length ?? 0).toBeGreaterThan(0);
-  expect(previsualizacionMosca!.puntos.length).toBeLessThanOrEqual(PASOS_PREVISUALIZACION_ERRATICO + 1);
+  // Con la mosca el abanico se abre al doble (±18° y ±90°).
+  await page.waitForFunction(() => window.__debug.trayectoriaPantalla?.tramo1.semiaperturaGrados === 18);
+  const trayectoriaMosca = await page.evaluate(() => window.__debug.trayectoriaPantalla);
+  expect(trayectoriaMosca?.tramo2.semiaperturaGrados).toBe(90);
 });
