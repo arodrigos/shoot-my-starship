@@ -9,7 +9,7 @@ const HORIZONTAL: Tamano = { ancho: 1180, alto: 820 };
 
 async function preparar(page: Page, tamano: Tamano): Promise<void> {
   await page.setViewportSize({ width: tamano.ancho, height: tamano.alto });
-  await page.goto("/?mapa=calma-de-los-restos");
+  await page.goto("/?modo=barra-libre");
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.cargarEscenario !== undefined);
