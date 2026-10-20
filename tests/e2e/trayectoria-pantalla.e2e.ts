@@ -20,32 +20,49 @@ async function preparar(page: Page, tamano: Tamano): Promise<void> {
 // Las dos naves en la franja central, con espacio libre alrededor: el primer
 // turno es de una al azar y la mira sale de la que dispara.
 async function cargar(page: Page, arma: string, anguloGrados: number, potencia: number): Promise<void> {
-  await page.evaluate(
-    ({ arma: a, ang, pot }) => {
-      const mundo = window.__debug.mundo!;
-      window.__debug.cargarEscenario!({
-        naves: [
-          { x: mundo.ancho * 0.4, y: mundo.alto * 0.5, integridad: 150 },
-          { x: mundo.ancho * 0.6, y: mundo.alto * 0.5, integridad: 150 },
-        ],
-        arma: a,
-        anguloGrados: ang,
-        potencia: pot,
-      });
-    },
-    { arma, ang: anguloGrados, pot: potencia },
-  );
-  // Tras cargarEscenario, __debug.naves se actualiza tarde: sin esperar a que la
-  // nave esté colocada se mediría sobre la posición de la partida anterior.
-  await page.waitForFunction(
-    (p) => {
-      const m = window.__debug.mundo!;
-      const centradas = Math.abs((window.__debug.naves?.[0].x ?? 0) - m.ancho * 0.4) < 2 && Math.abs((window.__debug.naves?.[1].x ?? 0) - m.ancho * 0.6) < 2;
-      return window.__debug.control!.ajuste.potencia === p && window.__debug.control!.puedeDisparar === true && centradas;
-    },
-    potencia,
-    { timeout: 20000 },
-  );
+  const colocadas = (p: number) =>
+    page.waitForFunction(
+      (pot) => {
+        const m = window.__debug.mundo!;
+        const [n0, n1] = window.__debug.naves ?? [];
+        return (
+          window.__debug.control!.ajuste.potencia === pot &&
+          window.__debug.control!.puedeDisparar === true &&
+          n0 !== undefined && n1 !== undefined &&
+          Math.abs(n0.x - m.ancho * 0.4) < 2 && Math.abs(n1.x - m.ancho * 0.6) < 2
+        );
+      },
+      p,
+      { timeout: 5000 },
+    );
+  // La escena puede recolocar las naves justo después de montarse: se reintenta
+  // la carga hasta que __debug.naves (que se actualiza tarde) las refleja.
+  for (let intento = 1; ; intento++) {
+    await page.evaluate(
+      ({ arma: a, ang, pot }) => {
+        const mundo = window.__debug.mundo!;
+        window.__debug.cargarEscenario!({
+          naves: [
+            { x: mundo.ancho * 0.4, y: mundo.alto * 0.5, integridad: 150 },
+            { x: mundo.ancho * 0.6, y: mundo.alto * 0.5, integridad: 150 },
+          ],
+          arma: a,
+          anguloGrados: ang,
+          potencia: pot,
+        });
+      },
+      { arma, ang: anguloGrados, pot: potencia },
+    );
+    try {
+      await colocadas(potencia);
+      return;
+    } catch (e) {
+      if (intento >= 4) {
+        const estado = await page.evaluate(() => ({ naves: window.__debug.naves?.map((n) => [n.x, n.y]), mundo: window.__debug.mundo, ajuste: window.__debug.control?.ajuste }));
+        throw new Error(`escenario sin colocar: ${JSON.stringify(estado)}`, { cause: e });
+      }
+    }
+  }
 }
 
 async function captura(page: Page, nombre: string, tamano: Tamano): Promise<void> {
