@@ -117,6 +117,6 @@ test("txt-3: invariante -- la ficha de cualquier arma dice «Gratis» como mucho
 
 test("txt-4: la ayuda de la primera partida explica el gesto del dedo", () => {
   assert.match(TEXTO_AYUDA_APUNTADO, /dedo/);
-  assert.match(TEXTO_AYUDA_APUNTADO, /arrastra/);
+  assert.match(TEXTO_AYUDA_APUNTADO, /alrededor de tu nave/);
   assert.match(TEXTO_AYUDA_APUNTADO, /fuerza/);
 });
