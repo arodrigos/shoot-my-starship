@@ -21,9 +21,9 @@ test("primera visita: explica el juego, cada rival se describe y el panel de úl
   await expect(descripcion).not.toBeEmpty();
   const textoDescripcion = (await descripcion.textContent())!;
   // Explica el juego Y cómo apuntar en la misma línea (una sola frase, tal
-  // como pide el criterio): "arrastra" es la palabra que delata que el
+  // como pide el criterio): «alrededor de tu nave» delata que el
   // texto cubre el gesto de apuntado, no solo el género del juego.
-  expect(textoDescripcion.toLowerCase()).toContain("arrastra");
+  expect(textoDescripcion.toLowerCase()).toContain("alrededor de tu nave");
 
   for (const rivalId of ["la-contable", "almirante-bisagra", "chispa"]) {
     const boton = page.getByTestId(`rival-${rivalId}`);

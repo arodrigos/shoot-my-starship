@@ -75,7 +75,8 @@ import {
   reiniciarControl,
   seleccionarArma,
 } from "@/juego/control/store";
-import { avanzarGesto, iniciarGesto, type GestoApuntado } from "@/juego/control/apuntado";
+import { avanzarGestoPolar, iniciarGestoPolar, type GestoPolar } from "@/juego/control/apuntado";
+import { mundoAPantallaCss } from "@/juego/camara/conversion";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
@@ -612,7 +613,7 @@ export class Partida extends Phaser.Scene {
   // apuntado-dedo: gesto relativo en curso, último punto del dedo (para
   // pintar la flecha sin tapar la etiqueta) y marca de la última interacción
   // aún sin medir hasta su primer frame.
-  private gestoApuntado: GestoApuntado | null = null;
+  private gestoApuntado: GestoPolar | null = null;
   private dedoApuntado: { x: number; y: number } | null = null;
   private marcaApuntadoPendiente: string | null = null;
   private contadorMarcasApuntado = 0;
@@ -1870,7 +1871,7 @@ export class Partida extends Phaser.Scene {
       this.punteroApuntando = evento.pointerId;
       this.dedoApuntado = { x: evento.clientX, y: evento.clientY };
       // El primer toque no cambia nada: solo ancla el gesto.
-      this.gestoApuntado = iniciarGesto(this.dedoApuntado);
+      this.gestoApuntado = iniciarGestoPolar(obtenerEstadoControl().ajuste, this.posicionPantallaNaveDelTurno(), this.dedoApuntado);
     }
   }
 
@@ -1899,10 +1900,9 @@ export class Partida extends Phaser.Scene {
   // Posición de la nave del turno en píxeles CSS, medida contra el rectángulo
   // real del lienzo (con Scale.FIT puede haber bandas laterales).
   private posicionPantallaNaveDelTurno(): { x: number; y: number } {
-    const rect = this.game.canvas.getBoundingClientRect();
     const nave = this.estado.naves[this.estado.turno];
     const y = alturaRenderNave(nave.y, alturaSuperficie(this.estado.mascara, nave.x) ?? MUNDO_ALTO - 1);
-    return { x: rect.left + (nave.x / MUNDO_ANCHO) * rect.width, y: rect.top + (y / MUNDO_ALTO) * rect.height };
+    return mundoAPantallaCss(this, { x: nave.x, y });
   }
 
   private apuntarHacia(clienteX: number, clienteY: number): void {
@@ -1911,11 +1911,11 @@ export class Partida extends Phaser.Scene {
     const marca = `apuntado-${this.contadorMarcasApuntado++}`;
     performance.mark(marca);
     const { anguloGrados, potencia } = obtenerEstadoControl().ajuste;
-    const resultado = avanzarGesto(this.gestoApuntado, this.posicionPantallaNaveDelTurno(), dedo, anguloGrados, potencia);
+    const resultado = avanzarGestoPolar(this.gestoApuntado, this.posicionPantallaNaveDelTurno(), dedo);
     this.gestoApuntado = resultado.gesto;
     this.dedoApuntado = dedo;
-    if (resultado.anguloGrados !== anguloGrados || resultado.potencia !== potencia) {
-      fijarApuntadoDirecto(resultado.anguloGrados, resultado.potencia);
+    if (resultado.ajuste.anguloGrados !== anguloGrados || resultado.ajuste.potencia !== potencia) {
+      fijarApuntadoDirecto(resultado.ajuste.anguloGrados, resultado.ajuste.potencia);
     }
     // Solo se mide la última marca sin pintar: si llegan varios pointermove
     // antes del frame, todos se pintan en el mismo y el más viejo es el peor caso.

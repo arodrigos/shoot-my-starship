@@ -116,16 +116,15 @@ export function potenciaDesdeFraccionControl(fraccionHorizontal: number): number
   return clampPotencia(POTENCIA_MINIMA + t * (POTENCIA_MAXIMA - POTENCIA_MINIMA));
 }
 
-// apuntado-dedo: gesto relativo desde cualquier punto del lienzo. El dedo no
-// manda la dirección por dónde está (así no tapa la nave ni la flecha): manda
-// cuánto se mueve. Lo que se mueve perpendicular a la línea nave→dedo gira la
-// dirección, y lo que se acerca o se aleja de la nave cambia la fuerza. Trabaja
-// en píxeles CSS de pantalla (y hacia abajo), no en unidades de mundo, para que
-// el gesto se sienta igual con cualquier escala de mundo.
-export const GRADOS_POR_PX_GIRO = 0.25;
+// apuntado-360: gesto polar de un dedo alrededor de la nave. El ángulo sigue
+// al dedo (suma de los deltas desenrollados de atan2 respecto a la nave), así
+// que una vuelta del dedo es una vuelta de la flecha sin topes; la fuerza
+// sigue en el mismo gesto con la variación de distancia a la nave. Trabaja en
+// píxeles CSS de pantalla (y hacia abajo) para sentirse igual con cualquier
+// escala de mundo.
 export const FUERZA_POR_PX_RADIAL = 0.3;
-// Dentro de este radio la línea nave→dedo es ruido: el eje radial pasa a ser
-// la dirección actual de la flecha, y el gesto funciona igual.
+// Dentro de este radio el atan2 del dedo es ruido: no se gira ni se cambia la
+// fuerza, y al salir esa posición pasa a ser la nueva referencia.
 export const RADIO_CERCA_NAVE_PX = 30;
 // Un toque que no llega a moverse tanto no es un gesto (el temblor del dedo al
 // apoyarlo no debe mover el apuntado).
@@ -136,79 +135,107 @@ export interface PuntoPantalla {
   readonly y: number;
 }
 
-// Los ejes y los valores de partida se fijan al apoyar el dedo y el movimiento
-// se mide siempre contra ese origen. Recalcular los ejes en cada evento hacía
-// que un barrido recto fuese «girando» la línea nave→dedo y se colase en la
-// fuerza, más cuanto más eventos llegaban (un iPad a 120 Hz más que un móvil
-// a 60 Hz): el resultado dependía de la frecuencia del táctil, no del gesto.
-interface AnclaGesto {
-  readonly ux: number;
-  readonly uy: number;
+export interface AjusteNumerico {
   readonly anguloGrados: number;
   readonly potencia: number;
 }
 
-export interface GestoApuntado {
-  readonly origen: PuntoPantalla;
-  // Se rellena en la primera llamada a avanzarGesto, que es cuando se conoce
-  // la nave y el apuntado vigente.
-  readonly ancla: AnclaGesto | null;
+// Se acumula contra una referencia (ultimoAnguloDedo, distanciaInicialPx) y no
+// contra el punto de partida en bruto: así el resultado depende del recorrido
+// y no de cuántos pointermove lo troceen (un iPad a 120 Hz manda más que un
+// móvil a 60 Hz) mientras dos eventos seguidos difieran menos de 180°.
+export interface GestoPolar {
+  readonly ajusteInicial: AjusteNumerico;
+  readonly anguloAcumulado: number;
+  readonly ultimoAnguloDedo: number | null;
+  readonly distanciaInicialPx: number;
+  readonly enZonaMuerta: boolean;
+  // Extensión del contrato: el umbral de toque necesita saber dónde apoyó el
+  // dedo y si el gesto ya empezó.
+  readonly origenDedo: PuntoPantalla;
   readonly iniciado: boolean;
+  // Último ajuste devuelto: es lo que se congela al entrar en la zona muerta.
+  readonly ajusteVigente: AjusteNumerico;
 }
 
-export interface ResultadoGesto {
-  readonly gesto: GestoApuntado;
-  readonly anguloGrados: number;
-  readonly potencia: number;
+export interface ResultadoGestoPolar {
+  readonly gesto: GestoPolar;
+  readonly ajuste: AjusteNumerico;
 }
 
-export function iniciarGesto(dedo: PuntoPantalla): GestoApuntado {
-  return { origen: dedo, ancla: null, iniciado: false };
+export function envolverAngulo(grados: number): number {
+  const v = ((grados % 360) + 360) % 360;
+  // -1e-15 % 360 + 360 redondea a 360 exacto: la costura vuelve a 0.
+  return v >= 360 ? 0 : v;
 }
 
-function anclarGesto(
-  origen: PuntoPantalla,
-  nave: PuntoPantalla,
-  anguloGrados: number,
-  potencia: number,
-): AnclaGesto {
-  const rx = origen.x - nave.x;
-  const ry = nave.y - origen.y;
-  const largo = Math.hypot(rx, ry);
-  const rad = (anguloGrados * Math.PI) / 180;
-  const lejos = largo >= RADIO_CERCA_NAVE_PX;
+// Ángulo de juego (antihorario, y hacia arriba) del dedo respecto a la nave.
+function anguloDelDedo(nave: PuntoPantalla, dedo: PuntoPantalla): number {
+  return (Math.atan2(nave.y - dedo.y, dedo.x - nave.x) * 180) / Math.PI;
+}
+
+function distanciaANave(nave: PuntoPantalla, dedo: PuntoPantalla): number {
+  return Math.hypot(dedo.x - nave.x, dedo.y - nave.y);
+}
+
+// Delta de ángulo desenrollado a (-180, 180].
+function deltaDesenrollado(desde: number, hasta: number): number {
+  let d = (hasta - desde) % 360;
+  if (d > 180) d -= 360;
+  else if (d <= -180) d += 360;
+  return d;
+}
+
+export function iniciarGestoPolar(ajuste: AjusteNumerico, navePantalla: PuntoPantalla, dedo: PuntoPantalla): GestoPolar {
+  // El store admite 360 como tope; el gesto trabaja siempre en [0,360).
+  const ajusteInicial = { anguloGrados: envolverAngulo(ajuste.anguloGrados), potencia: clampPotencia(ajuste.potencia) };
+  const d = distanciaANave(navePantalla, dedo);
+  const lejos = d >= RADIO_CERCA_NAVE_PX;
   return {
-    ux: lejos ? rx / largo : Math.cos(rad),
-    uy: lejos ? ry / largo : Math.sin(rad),
-    anguloGrados,
-    potencia,
+    ajusteInicial,
+    anguloAcumulado: ajusteInicial.anguloGrados,
+    ultimoAnguloDedo: lejos ? anguloDelDedo(navePantalla, dedo) : null,
+    distanciaInicialPx: lejos ? d : 0,
+    enZonaMuerta: !lejos,
+    origenDedo: dedo,
+    iniciado: false,
+    ajusteVigente: ajusteInicial,
   };
 }
 
-export function avanzarGesto(
-  gesto: GestoApuntado,
-  nave: PuntoPantalla,
-  dedo: PuntoPantalla,
-  anguloGrados: number,
-  potencia: number,
-): ResultadoGesto {
-  const ancla = gesto.ancla ?? anclarGesto(gesto.origen, nave, anguloGrados, potencia);
-  const dx = dedo.x - gesto.origen.x;
-  const dy = dedo.y - gesto.origen.y;
-  if (!gesto.iniciado && Math.hypot(dx, dy) < UMBRAL_TOQUE_PX) {
-    return { gesto: { ...gesto, ancla }, anguloGrados, potencia };
+function ajusteDe(gesto: GestoPolar, distanciaPx: number): AjusteNumerico {
+  return {
+    anguloGrados: envolverAngulo(gesto.anguloAcumulado),
+    potencia: clampPotencia(gesto.ajusteInicial.potencia + (distanciaPx - gesto.distanciaInicialPx) * FUERZA_POR_PX_RADIAL),
+  };
+}
+
+export function avanzarGestoPolar(gesto: GestoPolar, navePantalla: PuntoPantalla, dedo: PuntoPantalla): ResultadoGestoPolar {
+  if (!gesto.iniciado && Math.hypot(dedo.x - gesto.origenDedo.x, dedo.y - gesto.origenDedo.y) < UMBRAL_TOQUE_PX) {
+    return { gesto, ajuste: gesto.ajusteInicial };
   }
-  // Movimiento en ejes de juego (y hacia arriba) descompuesto en radial y en
-  // tangencial antihorario (-uy, ux).
-  const mx = dx;
-  const my = -dy;
-  const radial = mx * ancla.ux + my * ancla.uy;
-  const tangencial = -mx * ancla.uy + my * ancla.ux;
-  return {
-    gesto: { origen: gesto.origen, ancla, iniciado: true },
-    anguloGrados: clampAngulo(ancla.anguloGrados + tangencial * GRADOS_POR_PX_GIRO),
-    potencia: clampPotencia(ancla.potencia + radial * FUERZA_POR_PX_RADIAL),
-  };
+  const d = distanciaANave(navePantalla, dedo);
+  if (d < RADIO_CERCA_NAVE_PX) {
+    // Se congela el ajuste vigente como nueva base, para que la fuerza no
+    // salte al salir de la zona muerta.
+    const vigente = gesto.ajusteVigente;
+    return {
+      gesto: { ...gesto, ajusteInicial: vigente, anguloAcumulado: vigente.anguloGrados, ultimoAnguloDedo: null, enZonaMuerta: true, iniciado: true },
+      ajuste: vigente,
+    };
+  }
+  const angulo = anguloDelDedo(navePantalla, dedo);
+  const base: GestoPolar =
+    gesto.enZonaMuerta || gesto.ultimoAnguloDedo === null
+      ? { ...gesto, ultimoAnguloDedo: angulo, distanciaInicialPx: d, enZonaMuerta: false, iniciado: true }
+      : {
+          ...gesto,
+          anguloAcumulado: envolverAngulo(gesto.anguloAcumulado + deltaDesenrollado(gesto.ultimoAnguloDedo, angulo)),
+          ultimoAnguloDedo: angulo,
+          iniciado: true,
+        };
+  const ajuste = ajusteDe(base, d);
+  return { gesto: { ...base, ajusteVigente: ajuste }, ajuste };
 }
 
 // ctl-6: saneado del ajuste persistido en localStorage -- un valor corrupto

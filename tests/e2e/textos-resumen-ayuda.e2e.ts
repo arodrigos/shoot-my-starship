@@ -33,7 +33,7 @@ for (const { ancho, alto } of TAMANOS) {
     // txt-4: primera partida con almacenamiento limpio.
     const ayuda = page.getByTestId("ayuda-apuntado");
     await expect(ayuda).toContainText("dedo");
-    await expect(ayuda).toContainText("arrastra");
+    await expect(ayuda).toContainText("Gira");
     await captura(page, "ayuda-gesto", ancho, alto);
 
     // txt-1 y txt-2: el resumen del generador real y el rótulo del desplazamiento.

@@ -3,9 +3,9 @@
 import { useSyncExternalStore } from "react";
 import { cerrarAyudaApuntado, obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 
-// Mismo sentido que la descripción de la portada (#235): apoyar el dedo y
-// arrastrar; de lado se gira, y acercándolo o alejándolo de la nave, la fuerza.
-export const TEXTO_AYUDA_APUNTADO = "Apoya el dedo y arrastra: de lado giras, y acercándolo o alejándolo de tu nave cambias la fuerza";
+// apuntado-360: el dedo gira alrededor de la nave y la flecha lo sigue;
+// alejarlo o acercarlo cambia la fuerza.
+export const TEXTO_AYUDA_APUNTADO = "Gira el dedo alrededor de tu nave para apuntar; aléjalo para más fuerza";
 
 // apuntado-y-relevo (apu-6): una línea sobre el lienzo, no dentro de la
 // consola, porque a 360x640 la consola ya no tiene un píxel libre.
