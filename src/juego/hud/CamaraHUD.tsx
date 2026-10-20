@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { cerrarAyudaCamara, obtenerCamaraHud, pedirVerTodo, suscribirCamaraHud } from "@/juego/control/camaraStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 
@@ -37,8 +37,10 @@ export function VerTodoHUD() {
   );
 }
 
-// cam-10: la primera vez que se puede usar la cámara. Se va al tocarla o al
-// primer gesto (la escena llama a cerrarAyudaCamara).
+// cam-10: la primera vez que se puede usar la cámara. Se va al primer gesto
+// (la escena llama a cerrarAyudaCamara) o al primer toque en cualquier sitio.
+// No recibe punteros: encima del lienzo tapaba los paneles que se abren bajo
+// ella (selector de arma, pestañas de Equipo) y los clics no llegaban.
 // Depende del control (puedeDisparar cambia por turno) y de su propio store.
 function suscribirAyudaCamara(escucha: () => void): () => void {
   const bajas = [suscribirCamaraHud(escucha), suscribirControl(escucha)];
@@ -51,17 +53,21 @@ export function AyudaCamaraHUD() {
     () => obtenerCamaraHud().ayudaVisible && obtenerEstadoControl().puedeDisparar && !obtenerEstadoControl().ayudaVisible,
     () => false,
   );
+  useEffect(() => {
+    if (!visible) return;
+    // En captura y sin consumir el evento: el toque sigue su camino normal.
+    window.addEventListener("pointerdown", cerrarAyudaCamara, { capture: true, once: true });
+    return () => window.removeEventListener("pointerdown", cerrarAyudaCamara, { capture: true });
+  }, [visible]);
   if (!visible) return null;
   return (
-    <button
-      type="button"
+    <div
       data-testid="ayuda-camara"
       role="status"
-      onClick={cerrarAyudaCamara}
       style={{
         width: "100%",
         minHeight: 44,
-        pointerEvents: "auto",
+        pointerEvents: "none",
         padding: "6px 8px",
         textAlign: "left",
         background: "#101a33",
@@ -73,6 +79,6 @@ export function AyudaCamaraHUD() {
       }}
     >
       {TEXTO_AYUDA_CAMARA}
-    </button>
+    </div>
   );
 }
