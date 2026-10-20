@@ -1,6 +1,7 @@
 "use client";
 
 import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
+import { AyudaCamaraHUD } from "@/juego/hud/CamaraHUD";
 import { AvisoSinGuardadoHUD } from "@/juego/hud/AvisoSinGuardadoHUD";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { AvisoTiempoAgotadoHUD } from "@/juego/hud/RelojTurnoHUD";
@@ -34,6 +35,7 @@ export function CapaAvisosHUD() {
       }}
     >
       <AyudaApuntadoHUD />
+      <AyudaCamaraHUD />
       <CartelEventoHUD />
       <BromaHUD />
       <AvisoTiempoAgotadoHUD />

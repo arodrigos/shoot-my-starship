@@ -26,6 +26,8 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
     const ultimaRastro = todas.findLast((l) => l.nombre === "rastro");
     const ultimaReloj = todas.findLast((l) => l.nombre === "reloj-turno");
     const ultimoDisparo = todas.findLast((l) => l.nombre === "disparo");
+    const ultimoGestoCamara = todas.findLast((l) => l.nombre === "gesto-camara");
+    const ultimoVerTodo = todas.findLast((l) => l.nombre === "ver-todo");
     caja.style.color = dentro ? "#9f9" : "#f88";
     caja.textContent =
       `p95 ${i.p95.toFixed(1)} ms\nmax ${i.max.toFixed(1)} ms\nlargos ${i.framesLargos}\n` +
@@ -34,6 +36,8 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
       `rastro: ${ultimaRastro === undefined ? "–" : `${ultimaRastro.ms.toFixed(0)} ms`}\n` +
       `reloj-turno: ${ultimaReloj === undefined ? "–" : `${ultimaReloj.ms.toFixed(0)} ms`}\n` +
       `disparo: ${ultimoDisparo === undefined ? "–" : `${ultimoDisparo.ms.toFixed(0)} ms`}\n` +
+      `gesto-camara: ${ultimoGestoCamara === undefined ? "–" : `${ultimoGestoCamara.ms.toFixed(0)} ms`}\n` +
+      `ver-todo: ${ultimoVerTodo === undefined ? "–" : `${ultimoVerTodo.ms.toFixed(0)} ms`}\n` +
       (dentro ? "Respuesta ≤ 200 ms" : `Supera 200 ms (${peor.toFixed(0)} ms)`);
     caja.dataset.veredicto = dentro ? "verde" : "rojo";
   };

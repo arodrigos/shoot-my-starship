@@ -54,7 +54,7 @@ import { ClienteSim } from "@/juego/motor/clienteSim";
 import { crearTrabajadorSim } from "@/juego/motor/crearTrabajador";
 import { mostrarApuntandoIA, ocultarApuntandoIA } from "@/juego/hud/indicadorApuntandoIA";
 import { montarHudRendimiento } from "@/juego/rendimiento/hudRendimiento";
-import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaDisparo, registrarLatenciaRastro, registrarLatenciaRelojTurno, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
+import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaCamara, registrarLatenciaDisparo, registrarLatenciaRastro, registrarLatenciaRelojTurno, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
 import { observarTareasLargas, reiniciarTareasLargas, tareasLargasActuales } from "@/juego/rendimiento/tareasLargas";
 import { mostrarCalculandoTurno, ocultarCalculandoTurno } from "@/juego/hud/indicadorCalculandoTurno";
 import {
@@ -77,6 +77,8 @@ import {
 } from "@/juego/control/store";
 import { avanzarGestoPolar, iniciarGestoPolar, type GestoPolar } from "@/juego/control/apuntado";
 import { mundoAPantallaCss, pantallaCssAMundo } from "@/juego/camara/conversion";
+import { ControladorCamara, type InstantaneaCamara } from "@/juego/camara/controladorCamara";
+import { cerrarAyudaCamara, publicarCamaraManual, registrarManejadorVerTodo, reiniciarCamaraHud } from "@/juego/control/camaraStore";
 import { cortarPorLongitudPantalla, geometriaTrayectoria, longitudDeArco, type GeometriaTrayectoria, type PuntoPantalla } from "@/juego/mira/trayectoriaPantalla";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
@@ -490,7 +492,17 @@ export class Partida extends Phaser.Scene {
   // su fin) y false en el de solo destello, que no retrasa nada.
   private remate: { readonly ctl: ControladorRemate; readonly bloquea: boolean; readonly alTerminar: () => void; congelado: boolean } | null = null;
   private veloRemate: Phaser.GameObjects.Rectangle | null = null;
-  private encuadreGuardadoRemate: { zoom: number; scrollX: number; scrollY: number } | null = null;
+  private encuadreGuardadoRemate: InstantaneaCamara | null = null;
+  // camara-gestos: único dueño de la cámara principal; el resto de la escena
+  // le pide encuadres en vez de tocarla.
+  private camaraCtl!: ControladorCamara;
+  // Punteros que han caído sobre el lienzo, con su última posición: con dos
+  // es pellizco/arrastre, con uno apunta.
+  private readonly punterosLienzo = new Map<number, { x: number; y: number }>();
+  private ajusteAlApoyar: { anguloGrados: number; potencia: number } | null = null;
+  private marcaCamaraPendiente: { marca: string; nombre: "gesto-camara" | "ver-todo" } | null = null;
+  private contadorMarcasCamara = 0;
+  private cancelarCamara: (() => void) | null = null;
   // arma-mina-adherente (min-2): cuenta atrás anclada al mundo del vuelo
   // REAL en curso -- nunca el de repetición, mismo criterio que la estela y
   // que actualizarCuentaAtrasMecha.
@@ -952,6 +964,7 @@ export class Partida extends Phaser.Scene {
       }
       seleccionarArma(escenario.arma);
       fijarApuntadoDirecto(escenario.anguloGrados, escenario.potencia);
+      this.camaraCtl.alCambiarTurno();
       publicarTurno(turno);
       this.refrescarNaves();
     };
@@ -1179,6 +1192,7 @@ export class Partida extends Phaser.Scene {
     window.addEventListener("pointermove", this.manejarPointerMove);
     window.addEventListener("pointerup", this.manejarPointerFin);
     window.addEventListener("pointercancel", this.manejarPointerFin);
+    this.montarCamara();
     this.cancelarManejadorDisparo = registrarManejadorDisparo((entrada) => {
       // El store del control no sabe a quién apunta cada humano (trae un
       // objetivo fijo, válido solo con dos naves): el objetivo lo decide
@@ -1344,10 +1358,13 @@ export class Partida extends Phaser.Scene {
     // hay que refrescar el rectángulo visible cada fotograma mientras dura
     // esa sacudida, no solo una vez en create() (ver el comentario allí sobre
     // por qué el primer fotograma no sirve).
-    const vista = this.cameras.main.worldView;
-    if (vista.width > 0 && vista.height > 0) {
-      window.__debug!.camara = { x: vista.x, y: vista.y, ancho: vista.width, alto: vista.height };
-    }
+    // camara-gestos: el controlador mueve la cámara antes de leer su vista.
+    this.camaraCtl.avanzar(delta);
+    this.camaraCtl.seguir(this.animador.obtenerPosicion(), delta);
+    const estadoCamara = this.camaraCtl.estado();
+    window.__debug!.camara = { x: estadoCamara.x, y: estadoCamara.y, ancho: estadoCamara.ancho, alto: estadoCamara.alto, zoom: estadoCamara.zoom, modo: estadoCamara.modo };
+    publicarCamaraManual(this.camaraCtl.manual);
+    this.cerrarMedidaCamara();
     window.__debug!.sacudiendoCamara = this.cameras.main.shakeEffect.isRunning;
 
     // realce-impacto (rlc-1): mismo delta que mueve animador/animadorRepeticion
@@ -1879,6 +1896,8 @@ export class Partida extends Phaser.Scene {
     window.removeEventListener("pointermove", this.manejarPointerMove);
     window.removeEventListener("pointerup", this.manejarPointerFin);
     window.removeEventListener("pointercancel", this.manejarPointerFin);
+    this.cancelarCamara?.();
+    this.cancelarCamara = null;
     this.cancelarManejadorDisparo?.();
     this.cancelarManejadorDisparo = null;
     this.cancelarManejadorRepeticion?.();
@@ -1922,15 +1941,41 @@ export class Partida extends Phaser.Scene {
 
     // Solo el toque que cae sobre el propio lienzo apunta: los que caen en
     // la consola o en un panel superpuesto siguen su camino normal.
-    if (evento.target === this.game.canvas && this.puedeJugarAhora()) {
+    if (evento.target !== this.game.canvas) return;
+    this.punterosLienzo.set(evento.pointerId, { x: evento.clientX, y: evento.clientY });
+    if (this.punterosLienzo.size >= 2) {
+      // cam-2: un segundo dedo cancela el apuntado y deja la mira como estaba
+      // antes de ese gesto; no se reanuda hasta un pointerdown nuevo.
+      this.cancelarApuntadoPorSegundoDedo();
+      return;
+    }
+    if (this.puedeJugarAhora()) {
       this.punteroApuntando = evento.pointerId;
       this.dedoApuntado = { x: evento.clientX, y: evento.clientY };
       // El primer toque no cambia nada: solo ancla el gesto.
+      // El ajuste de este pointerdown se guarda aparte: el gesto reajusta su
+      // base al cruzar la zona muerta de la nave, y cam-2 pide el de entonces.
+      const { anguloGrados, potencia } = obtenerEstadoControl().ajuste;
+      this.ajusteAlApoyar = { anguloGrados, potencia };
       this.gestoApuntado = iniciarGestoPolar(obtenerEstadoControl().ajuste, this.posicionPantallaNaveDelTurno(), this.dedoApuntado);
     }
   }
 
+  private cancelarApuntadoPorSegundoDedo(): void {
+    const inicial = this.ajusteAlApoyar;
+    if (this.gestoApuntado !== null && inicial !== null) fijarApuntadoDirecto(inicial.anguloGrados, inicial.potencia);
+    this.soltarApuntado();
+  }
+
   private alPointerMove(evento: PointerEvent): void {
+    const previo = this.punterosLienzo.get(evento.pointerId);
+    if (previo !== undefined) {
+      this.punterosLienzo.set(evento.pointerId, { x: evento.clientX, y: evento.clientY });
+      if (this.punterosLienzo.size >= 2) {
+        this.gestoDosDedos(evento.pointerId, previo);
+        return;
+      }
+    }
     if (this.punteroApuntando !== evento.pointerId) return;
     if (!this.puedeJugarAhora()) {
       this.soltarApuntado();
@@ -1940,12 +1985,82 @@ export class Partida extends Phaser.Scene {
   }
 
   private alPointerFin(evento: PointerEvent): void {
+    this.punterosLienzo.delete(evento.pointerId);
     if (this.punteroApuntando === evento.pointerId) this.soltarApuntado();
+  }
+
+  // cam-1: pellizco y arrastre con dos dedos. Se compara cada movimiento con
+  // la posición anterior de los dos (patrón de MDN para dos punteros), así el
+  // resultado no depende de cuántos eventos trocean el gesto.
+  private gestoDosDedos(movido: number, anterior: { x: number; y: number }): void {
+    const [a, b] = [...this.punterosLienzo.entries()];
+    const antes = (id: number, actual: { x: number; y: number }): { x: number; y: number } => (id === movido ? anterior : actual);
+    const a0 = antes(a[0], a[1]);
+    const b0 = antes(b[0], b[1]);
+    const dist0 = Math.hypot(a0.x - b0.x, a0.y - b0.y);
+    const dist1 = Math.hypot(a[1].x - b[1].x, a[1].y - b[1].y);
+    if (dist0 < 1) return;
+    const rect = this.game.canvas.getBoundingClientRect();
+    const fraccion = (p: { x: number; y: number }): { fx: number; fy: number } => ({ fx: (p.x - rect.left) / rect.width, fy: (p.y - rect.top) / rect.height });
+    const marca = `camara-${this.contadorMarcasCamara++}`;
+    performance.mark(marca);
+    this.marcaCamaraPendiente ??= { marca, nombre: "gesto-camara" };
+    this.camaraCtl.transformar(
+      fraccion({ x: (a0.x + b0.x) / 2, y: (a0.y + b0.y) / 2 }),
+      fraccion({ x: (a[1].x + b[1].x) / 2, y: (a[1].y + b[1].y) / 2 }),
+      dist1 / dist0,
+    );
+    cerrarAyudaCamara();
+  }
+
+  // Rueda y pellizco de trackpad (ctrlKey): zoom del juego, no de la página.
+  private readonly manejarRueda = (evento: WheelEvent): void => {
+    evento.preventDefault();
+    if (this.remate?.bloquea) return;
+    const rect = this.game.canvas.getBoundingClientRect();
+    const f = { fx: (evento.clientX - rect.left) / rect.width, fy: (evento.clientY - rect.top) / rect.height };
+    // El pellizco del trackpad llega con deltas mucho más finos que la rueda.
+    const paso = evento.ctrlKey ? 0.01 : 0.0015;
+    const marca = `camara-${this.contadorMarcasCamara++}`;
+    performance.mark(marca);
+    this.marcaCamaraPendiente ??= { marca, nombre: "gesto-camara" };
+    this.camaraCtl.transformar(f, f, Math.exp(-evento.deltaY * paso));
+    cerrarAyudaCamara();
+  };
+
+  private montarCamara(): void {
+    const canvas = this.game.canvas;
+    this.camaraCtl = new ControladorCamara({ ancho: this.scale.width, alto: this.scale.height }, this.cameras.main, prefiereMovimientoReducido);
+    reiniciarCamaraHud();
+    this.punterosLienzo.clear();
+    // Sin esto el navegador se queda el pellizco y el arrastre para hacer zoom
+    // y desplazar la página.
+    canvas.style.touchAction = "none";
+    canvas.addEventListener("wheel", this.manejarRueda, { passive: false });
+    const quitarVerTodo = registrarManejadorVerTodo(() => {
+      const marca = `camara-${this.contadorMarcasCamara++}`;
+      performance.mark(marca);
+      this.marcaCamaraPendiente = { marca, nombre: "ver-todo" };
+      this.camaraCtl.verTodo();
+    });
+    this.cancelarCamara = () => {
+      canvas.removeEventListener("wheel", this.manejarRueda);
+      quitarVerTodo();
+    };
+  }
+
+  // Cierra la medida en el primer frame tras el gesto, como la del apuntado.
+  private cerrarMedidaCamara(): void {
+    const pendiente = this.marcaCamaraPendiente;
+    if (pendiente === null) return;
+    this.marcaCamaraPendiente = null;
+    registrarLatenciaCamara(pendiente.nombre, performance.measure(`${pendiente.marca}-frame`, pendiente.marca).duration);
   }
 
   private soltarApuntado(): void {
     this.punteroApuntando = null;
     this.gestoApuntado = null;
+    this.ajusteAlApoyar = null;
     this.dedoApuntado = null;
     this.marcaApuntadoPendiente = null;
     this.graficosFlecha?.clear();
@@ -1988,8 +2103,9 @@ export class Partida extends Phaser.Scene {
       this.etiquetaFlecha.setVisible(false);
       return;
     }
-    const rect = this.game.canvas.getBoundingClientRect();
-    const mundoPorPx = MUNDO_ANCHO / rect.width;
+    // Con zoom, la flecha se coloca con la cámara real y su grosor se escala
+    // para seguir midiendo lo mismo en pantalla.
+    const mundoPorPx = this.cssAMundo(1);
     const naveP = this.posicionPantallaNaveDelTurno();
     const { anguloGrados, potencia } = obtenerEstadoControl().ajuste;
     const rad = (anguloGrados * Math.PI) / 180;
@@ -1997,7 +2113,7 @@ export class Partida extends Phaser.Scene {
     const dy = -Math.sin(rad);
     const largoPx = 36 + (potencia / 100) * 90;
     const punta = { x: naveP.x + dx * largoPx, y: naveP.y + dy * largoPx };
-    const aMundo = (p: { x: number; y: number }): { x: number; y: number } => ({ x: (p.x - rect.left) * mundoPorPx, y: (p.y - rect.top) * mundoPorPx });
+    const aMundo = (p: { x: number; y: number }): { x: number; y: number } => pantallaCssAMundo(this, p);
     const origenM = aMundo({ x: naveP.x + dx * 18, y: naveP.y + dy * 18 });
     const puntaM = aMundo(punta);
     g.lineStyle(5 * mundoPorPx, 0xffd166, 0.95);
@@ -2447,6 +2563,8 @@ export class Partida extends Phaser.Scene {
       (suma, nave, id) => (id === tirador ? suma : suma + Math.max(0, nave.integridad - estadoDespues.naves[id].integridad)),
       0,
     );
+    // cam-4: la vista completa antes de que el relevo enseñe nada.
+    this.camaraCtl.alCambiarTurno();
     this.relevoPendiente = true;
     obtenerLocutor().callar();
     publicarJugable(false);
@@ -2639,6 +2757,9 @@ export class Partida extends Phaser.Scene {
   // texto. El rectángulo se publica en __debug porque el texto vive en el
   // lienzo y ningún selector de DOM lo ve.
   private mostrarAvisoPerdido(salida: { borde: string; x: number; y: number }, movimientoReducido: boolean): void {
+    // El texto se coloca contra los bordes de la vista completa: el tiro salió
+    // del mundo, así que se vuelve a ella.
+    this.camaraCtl.alCambiarTurno();
     const { ancho, alto } = this.estado.mundo;
     // displayScale.x son unidades de mundo por px CSS: se multiplica para
     // pasar de px CSS a mundo (dividir dejaba el texto 8 veces más pequeño).
@@ -2913,6 +3034,8 @@ export class Partida extends Phaser.Scene {
       this.publicarTension();
       window.__debug!.turno = this.estado.turno;
       window.__debug!.numeroTurno = this.estado.numeroTurno;
+      // cam-4: el turno nuevo siempre empieza en la vista completa.
+      this.camaraCtl.alCambiarTurno();
       publicarTurno(this.estado.turno);
       publicarJugable(this.puedeJugarAhora());
       // Turno cerrado y aún sin vuelo ni relevo: el único momento en que el
@@ -3025,7 +3148,7 @@ export class Partida extends Phaser.Scene {
     const ancho = this.scale.width;
     const alto = this.scale.height;
     const camara = this.cameras.main;
-    this.encuadreGuardadoRemate = { zoom: camara.zoom, scrollX: camara.scrollX, scrollY: camara.scrollY };
+    this.encuadreGuardadoRemate = this.camaraCtl.instantanea();
     const ctl = new ControladorRemate(modo, { x: camara.scrollX + ancho / 2, y: camara.scrollY + alto / 2 }, impacto, ancho, alto);
     const bloquea = modo === "completo";
     this.remate = { ctl, bloquea, alTerminar, congelado: false };
@@ -3062,10 +3185,8 @@ export class Partida extends Phaser.Scene {
       if (bloquea) alTerminar();
       return;
     }
-    const camara = this.cameras.main;
     if (remate.bloquea) {
-      camara.setZoom(f.zoom);
-      camara.centerOn(f.centro.x, f.centro.y);
+      this.camaraCtl.fijarExterno({ zoom: f.zoom, cx: f.centro.x, cy: f.centro.y });
       // Durante la pausa se retiene en su primer fotograma lo que ya estalló.
       if (f.congelado !== remate.congelado) {
         remate.congelado = f.congelado;
@@ -3097,10 +3218,7 @@ export class Partida extends Phaser.Scene {
     if (remate.congelado) this.reanudarTrasPausaRemate();
     const guardado = this.encuadreGuardadoRemate;
     this.encuadreGuardadoRemate = null;
-    if (guardado) {
-      this.cameras.main.setZoom(guardado.zoom);
-      this.cameras.main.setScroll(guardado.scrollX, guardado.scrollY);
-    }
+    if (guardado) this.camaraCtl.restaurar(guardado);
     this.veloRemate?.setVisible(false);
   }
 

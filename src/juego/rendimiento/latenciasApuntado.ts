@@ -3,7 +3,7 @@
 // (y no un campo de la escena) para que el panel ?rendimiento=1 las lea sin
 // conocer la escena.
 export interface LatenciaInteraccion {
-  readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo";
+  readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo" | "gesto-camara" | "ver-todo";
   readonly ms: number;
 }
 
@@ -32,6 +32,13 @@ export function registrarLatenciaRelojTurno(ms: number): void {
 // el fogonazo del cañón.
 export function registrarLatenciaDisparo(ms: number): void {
   medidas.push({ nombre: "disparo", ms });
+  if (medidas.length > CAPACIDAD) medidas.shift();
+}
+
+// camara-gestos: del pointermove/rueda del gesto al primer frame con el nuevo
+// encuadre, y del toque en «Ver todo» al primer frame que cambia.
+export function registrarLatenciaCamara(nombre: "gesto-camara" | "ver-todo", ms: number): void {
+  medidas.push({ nombre, ms });
   if (medidas.length > CAPACIDAD) medidas.shift();
 }
 

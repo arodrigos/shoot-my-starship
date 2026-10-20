@@ -217,7 +217,7 @@ export interface DebugGlobal {
   // apuntado-dedo: últimas medidas del gesto de apuntado (pointermove → primer
   // frame con la flecha), la flecha tal como se pintó y un atajo para fijar
   // ángulo y fuerza sin gesto (lo usan los e2e que apuntan solo como medio).
-  latencias?: () => readonly { readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo"; readonly ms: number }[];
+  latencias?: () => readonly { readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo" | "gesto-camara" | "ver-todo"; readonly ms: number }[];
   // respuesta-disparo: tareas largas del hilo principal desde el inicio del turno.
   tareasLargas?: { readonly maxMs: number; readonly cuenta: number };
   // respuesta-disparo: retrasa la llegada del cierre del turno (solo pruebas) para ver la píldora «Calculando el turno…».
@@ -371,7 +371,7 @@ export interface DebugGlobal {
   // render-4: el rectángulo de mundo que la cámara muestra ahora mismo, para
   // comprobar que el campo de batalla entero cabe sin recorte sin tener que
   // inferirlo de una captura de pantalla.
-  camara?: { x: number; y: number; ancho: number; alto: number };
+  camara?: { x: number; y: number; ancho: number; alto: number; zoom?: number; modo?: "auto" | "manual" };
   // encuadre-movil: el tamaño de mundo lógico que quedó activo tras ajustar
   // al contenedor real -- MUNDO_ANCHO/MUNDO_ALTO ya no son fijos, así que el
   // e2e necesita este canal en vez de asumir 1920x1080.
