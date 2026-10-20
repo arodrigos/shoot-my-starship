@@ -1,6 +1,7 @@
 import test from "node:test";
+import assert from "node:assert/strict";
 import fc from "fast-check";
-import { respuestaPrecacheable } from "@/juego/pwa/filtroPrecache";
+import { entradaPrecacheable, respuestaPrecacheable } from "@/juego/pwa/filtroPrecache";
 
 const ORIGEN = "https://juego.example.app";
 const respuesta = fc.record({
@@ -22,4 +23,11 @@ test("pwa-4: acepta solo status 200 del mismo origen y sin redirección", () => 
     }
     return respuestaPrecacheable(r, ORIGEN) === (!r.redirected && r.status === 200 && mismoOrigen);
   }));
+});
+
+test("bug10: el chunk de arranque del trabajador no se precachea, venga como cadena o como entrada", () => {
+  assert.equal(entradaPrecacheable("/_next/static/chunks/turbopack-worker-abc123.js"), false);
+  assert.equal(entradaPrecacheable({ url: "/_next/static/chunks/turbopack-worker-abc123.js" }), false);
+  assert.equal(entradaPrecacheable("/_next/static/chunks/app-page-abc.js"), true);
+  assert.equal(entradaPrecacheable({ url: "/icon-192.png" }), true);
 });
