@@ -45,7 +45,19 @@ async function captura(page: Page, nombre: string, tamano: Tamano): Promise<void
 const trayectoria = (page: Page) => page.evaluate(() => window.__debug.trayectoriaPantalla);
 
 async function esperarSimulada(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__debug.trayectoriaPantalla?.modo === "simulada", undefined, { timeout: 60000 });
+  try {
+    await page.waitForFunction(() => window.__debug.trayectoriaPantalla?.modo === "simulada", undefined, { timeout: 20000 });
+  } catch (e) {
+    const estado = await page.evaluate(() => ({
+      t: window.__debug.trayectoriaPantalla,
+      p: window.__debug.previsualizacion,
+      naves: window.__debug.naves,
+      mundo: window.__debug.mundo,
+      calculos: window.__debug.calculosPrevisualizacion,
+      lienzo: document.querySelector("#game-container canvas")!.getBoundingClientRect().toJSON(),
+    }));
+    throw new Error(`la trayectoria no llegó a 'simulada': ${JSON.stringify(estado)}`, { cause: e });
+  }
 }
 
 for (const tamano of [MOVIL, TABLETA, HORIZONTAL]) {
