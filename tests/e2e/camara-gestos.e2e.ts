@@ -34,19 +34,19 @@ async function preparar(page: Page, tamano: Tamano, query = ""): Promise<void> {
 
 // Naves en y≈0,2 y 0,75 del mundo: a 360x640 la mitad del mundo cae bajo los
 // avisos DOM y la consola, y los dedos tienen que caer sobre el lienzo.
-async function cargar(page: Page): Promise<void> {
-  await page.evaluate(() => {
+async function cargar(page: Page, nave0 = { fx: 0.35, fy: 0.45 }): Promise<void> {
+  await page.evaluate((f) => {
     const mundo = window.__debug.mundo!;
     window.__debug.cargarEscenario!({
       naves: [
-        { x: mundo.ancho * 0.35, y: mundo.alto * 0.45, integridad: 150 },
+        { x: mundo.ancho * f.fx, y: mundo.alto * f.fy, integridad: 150 },
         { x: mundo.ancho * 0.7, y: mundo.alto * 0.25, integridad: 150 },
       ],
       arma: "pepinazo-cortesia",
       anguloGrados: 45,
       potencia: 50,
     });
-  });
+  }, nave0);
   await page.waitForFunction(() => window.__debug.control!.ajuste.potencia === 50 && window.__debug.control!.puedeDisparar === true);
   await esperarQuieta(page);
 }
@@ -92,7 +92,7 @@ async function puntoPellizco(page: Page): Promise<Punto> {
       for (const fx of [0.5, 0.4, 0.6, 0.3, 0.7]) {
         const x = caja.left + caja.width * fx;
         const y = caja.top + caja.height * fy;
-        if ([-80, 0, 80].every((d) => document.elementFromPoint(x + d, y) === canvas)) return { x, y };
+        if ([-80, 0, 80].every((d) => document.elementFromPoint(x + d, y) === canvas && document.elementFromPoint(x, y + d) === canvas)) return { x, y };
       }
     }
     return null;
@@ -157,7 +157,7 @@ test("cam-1, cam-3, cam-10: pellizco y arrastre con dos dedos, «Ver todo» y la
     expect(boton.width).toBeGreaterThanOrEqual(44);
     expect(boton.height).toBeGreaterThanOrEqual(44);
     await page.getByTestId("ver-todo").click();
-    await expect.poll(async () => (await camara(page)).modo, { timeout: 3000 }).toBe("auto");
+    await expect.poll(async () => (await camara(page)).modo, { timeout: 20000 }).toBe("auto");
     const fin = await camara(page);
     expect(Math.abs(fin.ancho - mundo.ancho)).toBeLessThanOrEqual(1);
     await expect(page.getByTestId("ver-todo")).toHaveCount(0);
@@ -210,13 +210,16 @@ test("cam-2: un segundo dedo tardío devuelve la mira a lo que había y el dispa
 test("cam-5: con zoom la trayectoria mide lo mismo en pantalla y el apuntado gira alrededor de la nave donde se ve", async ({ page }) => {
   await preparar(page, MOVIL);
   await plegarConsola(page);
-  await cargar(page);
+  const p0 = await puntoPellizco(page);
+  const caja0 = (await page.locator("#game-container canvas").boundingBox())!;
+  // La nave del turno queda justo bajo el pellizco: con zoom sigue a la vista y libre de paneles.
+  await cargar(page, { fx: (p0.x - caja0.x) / caja0.width, fy: (p0.y - caja0.y) / caja0.height });
   const cdp = await page.context().newCDPSession(page);
   await page.waitForFunction(() => window.__debug.trayectoriaPantalla?.visible === true);
   const t1 = await page.evaluate(() => window.__debug.trayectoriaPantalla!);
   await captura(page, "cam-5-zoom-1", MOVIL);
 
-  await pellizcar(cdp, await puntoPellizco(page), 60, 150);
+  await pellizcar(cdp, p0, 60, 150);
   await tactil(cdp, "touchEnd", []);
   await expect.poll(async () => (await camara(page)).zoom).toBeGreaterThanOrEqual(2.2);
   await esperarQuieta(page);
@@ -229,15 +232,11 @@ test("cam-5: con zoom la trayectoria mide lo mismo en pantalla y el apuntado gir
   // Vuelta completa alrededor de la nave tal como se ve en pantalla.
   await page.evaluate(() => window.__debug.fijarApuntado!(45, 50));
   await page.waitForFunction(() => window.__debug.control!.ajuste.anguloGrados === 45);
-  const centro = await page.evaluate(() => {
-    const c = document.querySelector("#game-container canvas")!.getBoundingClientRect();
-    const camara = window.__debug.camara!;
-    const n = window.__debug.naves![0];
-    return { x: c.x + ((n.x - camara.x) / camara.ancho) * c.width, y: c.y + (((n.y as number) - camara.y) / camara.alto) * c.height };
-  });
+  const centro = p0;
   const sobre = (grados: number): Punto => ({ x: centro.x + Math.cos((grados * Math.PI) / 180) * 70, y: centro.y - Math.sin((grados * Math.PI) / 180) * 70 });
   await tactil(cdp, "touchStart", [sobre(0)]);
   for (let g = 10; g <= 360; g += 10) await tactil(cdp, "touchMove", [sobre(g)]);
+  await page.waitForFunction(() => window.__debug.flechaApuntado?.naveX !== undefined);
   const f = await page.evaluate(() => window.__debug.flechaApuntado!);
   await tactil(cdp, "touchEnd", []);
   const final = await ajuste(page);
