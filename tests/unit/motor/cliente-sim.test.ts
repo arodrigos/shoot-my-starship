@@ -62,6 +62,25 @@ test("res-2: una respuesta antigua se descarta y la última se aplica", async ()
   cliente.terminar();
 });
 
+test("res-6: un trabajador que ya contestó una vez no se abandona por un silencio de un cierre largo", () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    let ahora = 0;
+    const { t } = trabajadorManual();
+    const cliente = new ClienteSim(() => t, () => ahora);
+    t.responder({ tipo: "previsualizar", idPeticion: 999, idPartida: cliente["idPartida"], resultado: { banda: null, duracionMs: 1 } } as unknown as Respuesta);
+    void cliente.previsualizar(PREVIS);
+    ahora = 120_000;
+    mock.timers.tick(120_000);
+    assert.equal(cliente.modo, "trabajador", "2 minutos de silencio tras haber contestado no son un trabajador roto");
+    ahora = 301_000;
+    mock.timers.tick(181_000);
+    assert.equal(cliente.modo, "en-linea");
+  } finally {
+    mock.timers.reset();
+  }
+});
+
 test("rsp-5: 50 previsualizaciones seguidas dejan como mucho 2 en el trabajador y la última se resuelve", async () => {
   const { t, recibidas } = trabajadorManual();
   const cliente = new ClienteSim(() => t);

@@ -104,6 +104,11 @@ export type Respuesta =
 // la IA tarda más de 10 s sin que el trabajador esté roto; caer entonces al
 // cálculo en línea bloquearía el hilo principal justo en el toque siguiente.
 export const TIEMPO_LIMITE_PETICION_MS = 60_000;
+// Un trabajador que ya contestó alguna vez está vivo: si calla, es que está
+// dentro de un cierre de turno largo (búsqueda de viabilidad de varias naves
+// con la CPU limitada). Abandonarlo repetiría ese mismo cálculo en el hilo
+// principal, que es peor; solo un silencio mucho mayor lo da por perdido.
+export const TIEMPO_LIMITE_TRABAJADOR_VIVO_MS = 300_000;
 
 const TIPOS: readonly string[] = ["previsualizar", "resolverDisparo", "resolverImpacto", "cerrarTurno", "decidirIA"];
 
