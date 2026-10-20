@@ -42,9 +42,29 @@ async function captura(page: Page, nombre: string, tamano: Tamano): Promise<void
 
 const ajuste = (page: Page) => page.evaluate(() => window.__debug.control!.ajuste);
 
+// Con el render por software, el plegado de la consola y la colocación de la
+// nave siguen asentándose unos frames: se espera a que el lienzo y la nave
+// lleven quietos medio segundo antes de medir nada contra ellos.
+async function esperarEscenaQuieta(page: Page): Promise<void> {
+  const huella = () =>
+    page.evaluate(() => {
+      const c = document.querySelector("#game-container canvas")!.getBoundingClientRect();
+      const n = window.__debug.naves![0];
+      return `${c.x},${c.y},${c.width},${c.height},${n.x},${n.y}`;
+    });
+  let anterior = await huella();
+  for (let quietas = 0; quietas < 3; ) {
+    await page.waitForTimeout(250);
+    const actual = await huella();
+    quietas = actual === anterior ? quietas + 1 : 0;
+    anterior = actual;
+  }
+}
+
 // Apoya el dedo a `dx` px a la derecha de la nave sin mover nada y devuelve la
 // posición de la nave que usa el juego.
 async function apoyar(page: Page, dx: number, dy = 0): Promise<{ nave: { x: number; y: number }; dedo: { x: number; y: number } }> {
+  await esperarEscenaQuieta(page);
   const caja = (await page.locator("#game-container canvas").boundingBox())!;
   const estimada = await page.evaluate(({ x, y, w, h }) => {
     const n = window.__debug.naves![0];
