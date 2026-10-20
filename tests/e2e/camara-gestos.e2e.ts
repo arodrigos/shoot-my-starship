@@ -81,6 +81,26 @@ async function centroLibre(page: Page): Promise<Punto> {
   return { x: caja.x + (nave.n.x / nave.m.ancho) * caja.width, y: caja.y + ((nave.n.y as number) / nave.m.alto) * caja.height };
 }
 
+// Punto del lienzo donde caben los dos dedos de un pellizco (hasta 160 px de
+// separación) sin que ninguno caiga sobre un panel DOM: un toque fuera del
+// lienzo no llega a la cámara, que es lo que ocurre con las naves en 360x640.
+async function puntoPellizco(page: Page): Promise<Punto> {
+  const punto = await page.evaluate(() => {
+    const canvas = document.querySelector("#game-container canvas")!;
+    const caja = canvas.getBoundingClientRect();
+    for (let fy = 0.3; fy <= 0.95; fy += 0.05) {
+      for (const fx of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+        const x = caja.left + caja.width * fx;
+        const y = caja.top + caja.height * fy;
+        if ([-80, 0, 80].every((d) => document.elementFromPoint(x + d, y) === canvas)) return { x, y };
+      }
+    }
+    return null;
+  });
+  if (punto === null) throw new Error("no hay un punto del lienzo libre de paneles para pellizcar");
+  return punto;
+}
+
 // Pellizco de `desde` a `hasta` px entre los dos dedos, alrededor de `medio`, en 10 pasos.
 async function pellizcar(cdp: CDPSession, medio: Punto, desde: number, hasta: number): Promise<void> {
   const dedos = (sep: number): Punto[] => [{ x: medio.x - sep / 2, y: medio.y }, { x: medio.x + sep / 2, y: medio.y }];
@@ -110,7 +130,7 @@ test("cam-1, cam-3, cam-10: pellizco y arrastre con dos dedos, «Ver todo» y la
     await captura(page, "cam-1-antes", tamano);
 
     const ajusteAntes = await ajuste(page);
-    const medio = await centroLibre(page);
+    const medio = await puntoPellizco(page);
     await pellizcar(cdp, medio, 60, 120);
     await expect.poll(async () => (await camara(page)).zoom).toBeGreaterThanOrEqual(1.8);
     const zoom = await camara(page);
@@ -196,7 +216,7 @@ test("cam-5: con zoom la trayectoria mide lo mismo en pantalla y el apuntado gir
   const t1 = await page.evaluate(() => window.__debug.trayectoriaPantalla!);
   await captura(page, "cam-5-zoom-1", MOVIL);
 
-  await pellizcar(cdp, await centroLibre(page), 60, 150);
+  await pellizcar(cdp, await puntoPellizco(page), 60, 150);
   await tactil(cdp, "touchEnd", []);
   await expect.poll(async () => (await camara(page)).zoom).toBeGreaterThanOrEqual(2.2);
   await esperarQuieta(page);
@@ -251,7 +271,7 @@ test("cam-7: con zoom manual la cámara sigue al proyectil sin acercar más y lo
   await plegarConsola(page);
   await cargar(page);
   const cdp = await page.context().newCDPSession(page);
-  await pellizcar(cdp, await centroLibre(page), 60, 130);
+  await pellizcar(cdp, await puntoPellizco(page), 60, 130);
   await tactil(cdp, "touchEnd", []);
   await expect.poll(async () => (await camara(page)).zoom).toBeGreaterThanOrEqual(1.8);
   const zoomInicial = (await camara(page)).zoom ?? 1;
