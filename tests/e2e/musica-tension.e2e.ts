@@ -19,8 +19,11 @@ test("mus-2: el duelo con vida baja y aviso de muerte súbita sube las capas en 
   await page.setViewportSize({ width: 360, height: 640 });
   await jugar(page);
   const antes = await page.evaluate(() => window.__debug.musica!());
-  expect(antes.nivelTension).toBe(0);
-  expect(antes.capas).toEqual({ percusion: 0, bajo: 0 });
+  // En un 1 contra 1 ya hay duelo desde el principio (nivel 1): el bajo y el
+  // tempo vivo esperan a las otras dos señales.
+  expect(antes.nivelTension).toBeLessThan(3);
+  expect(antes.capas.bajo).toBe(0);
+  expect(antes.bpm).toBe(90);
   await page.evaluate(() => window.__debug.fijarMuerteSubita!({ ronda: 13, integridades: [20, 100] }));
   // Un compás a 90 BPM son 2,67 s; el margen cubre el reloj de CI.
   await expect
