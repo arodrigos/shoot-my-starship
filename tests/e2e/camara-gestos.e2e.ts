@@ -116,13 +116,15 @@ async function arrastrar(cdp: CDPSession, medio: Punto, sep: number, dx: number)
 test("cam-1, cam-3, cam-10: pellizco y arrastre con dos dedos, «Ver todo» y la ayuda", async ({ page }) => {
   for (const tamano of TAMANOS) {
     await preparar(page, tamano, "&rendimiento=1");
+    // cam-10: la ayuda sale en el primer turno humano. Se comprueba antes de
+    // plegar la consola porque la ayuda se cierra con el primer toque, también
+    // el de ese botón.
+    await expect(page.getByTestId("ayuda-camara")).toContainText("Pellizca con dos dedos");
     await plegarConsola(page);
     await cargar(page);
     const cdp = await page.context().newCDPSession(page);
     const mundo = await page.evaluate(() => window.__debug.mundo!);
 
-    // cam-10: la ayuda sale en el primer turno humano y se va al primer gesto.
-    await expect(page.getByTestId("ayuda-camara")).toContainText("Pellizca con dos dedos");
     await expect(page.getByTestId("ver-todo")).toHaveCount(0);
     const antes = await camara(page);
     expect(antes.zoom).toBe(1);
