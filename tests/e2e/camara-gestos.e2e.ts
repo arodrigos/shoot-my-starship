@@ -215,7 +215,7 @@ test("cam-5: con zoom la trayectoria mide lo mismo en pantalla y el apuntado gir
   // La nave del turno queda justo bajo el pellizco: con zoom sigue a la vista y libre de paneles.
   await cargar(page, { fx: (p0.x - caja0.x) / caja0.width, fy: (p0.y - caja0.y) / caja0.height });
   const cdp = await page.context().newCDPSession(page);
-  await page.waitForFunction(() => window.__debug.trayectoriaPantalla?.visible === true);
+  await page.waitForFunction(() => window.__debug.trayectoriaPantalla?.visible === true && window.__debug.trayectoriaPantalla.modo === "simulada");
   const t1 = await page.evaluate(() => window.__debug.trayectoriaPantalla!);
   await captura(page, "cam-5-zoom-1", MOVIL);
 
@@ -223,9 +223,18 @@ test("cam-5: con zoom la trayectoria mide lo mismo en pantalla y el apuntado gir
   await tactil(cdp, "touchEnd", []);
   await expect.poll(async () => (await camara(page)).zoom).toBeGreaterThanOrEqual(2.2);
   await esperarQuieta(page);
-  await page.waitForFunction(() => window.__debug.trayectoriaPantalla?.visible === true);
+  await page.waitForFunction(() => window.__debug.trayectoriaPantalla?.visible === true && window.__debug.trayectoriaPantalla.modo === "simulada");
   const t2 = await page.evaluate(() => window.__debug.trayectoriaPantalla!);
-  expect(Math.abs(t2.longitudPantallaPx - t1.longitudPantallaPx)).toBeLessThanOrEqual(2);
+  // La trayectoria se recorta a un alcance fijo en PANTALLA: si a zoom 1 cabía entera (el trazo
+  // choca antes), con zoom llega al alcance; si ya lo alcanzaba, mide lo mismo.
+  expect(t2.modo).toBe("simulada");
+  expect(t1.modo).toBe("simulada");
+  if (t1.longitudPantallaPx >= t1.tramo2.radioPx - 2) {
+    expect(Math.abs(t2.longitudPantallaPx - t1.longitudPantallaPx)).toBeLessThanOrEqual(2);
+  } else {
+    expect(t2.longitudPantallaPx).toBeGreaterThanOrEqual(t1.longitudPantallaPx - 2);
+    expect(t2.longitudPantallaPx).toBeLessThanOrEqual(t2.tramo2.radioPx + 2);
+  }
   expect(Math.abs(t2.tramo1.radioPx - t1.tramo1.radioPx)).toBeLessThanOrEqual(2);
   await captura(page, "cam-5-zoom-2", MOVIL);
 
