@@ -65,3 +65,46 @@ for (const vp of VIEWPORTS) {
     await page.screenshot({ path: `${nombre}-desplegada.png` });
   });
 }
+
+// con-2 tal como lo pide el diseño: desde mínima, Disparar resuelve el turno
+// con el apuntado fijado, y la barra mínima no pasa de 64 px más el área segura.
+for (const vp of VIEWPORTS) {
+  test(`con-2 (bug 0): ${vp.ancho}x${vp.alto}, Disparar en mínima resuelve el turno y la barra mide ≤ 64 px`, async ({ page }) => {
+    test.setTimeout(180000);
+    await entrarAPartida(page, vp.ancho, vp.alto);
+    await page.getByTestId("boton-plegar-consola").click();
+    await expect(page.getByTestId("barra-minima")).toBeVisible();
+    const alto = await page.getByTestId("consola").evaluate((el) => {
+      const seguro = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+      return { total: el.getBoundingClientRect().height, seguro };
+    });
+    expect(alto.total - alto.seguro).toBeLessThanOrEqual(64);
+    await page.screenshot({ path: `capturas/bug-consola-30-minima-disparar-${vp.ancho}x${vp.alto}.png` });
+
+    await page.evaluate(() => window.__debug.fijarApuntado!(45, 50));
+    const antes = await page.evaluate(() => window.__debug.numeroTurno!);
+    await page.getByTestId("disparar").click();
+    await page.waitForFunction(() => window.__debug.animacionEnCurso === false && window.__debug.numeroTurno! > 0, undefined, { timeout: 120000 });
+    await page.waitForFunction((n) => window.__debug.numeroTurno! > n, antes, { timeout: 120000 });
+    expect(await page.evaluate(() => window.__debug.numeroTurno!)).toBe(antes + 1);
+  });
+
+  // con-1, límite: con la consola oculta mientras el rival juega, la pestaña ▴
+  // sigue visible y se puede pulsar.
+  test(`con-1 (bug 0): ${vp.ancho}x${vp.alto}, oculta durante el turno del rival la pestaña sigue pulsable`, async ({ page }) => {
+    test.setTimeout(180000);
+    await entrarAPartida(page, vp.ancho, vp.alto);
+    await page.getByTestId("boton-plegar-consola").click();
+    await page.getByTestId("disparar").click();
+    await page.waitForFunction(() => window.__debug.control!.puedeDisparar === false, undefined, { timeout: 30000, polling: "raf" });
+    // Clic por DOM: durante el turno el lienzo repinta sin parar y, con la CPU
+    // saturada, Playwright no llega a ver el botón «estable». Lo que se
+    // comprueba aquí es el estado de la pestaña, no la actionability del botón.
+    await page.getByTestId("boton-ocultar-consola").evaluate((el) => (el as HTMLButtonElement).click());
+    await expect(page.getByTestId("pestana-consola")).toBeVisible();
+    expect(await page.evaluate(() => window.__debug.control!.puedeDisparar)).toBe(false);
+    await page.screenshot({ path: `capturas/bug-consola-30-oculta-turno-rival-${vp.ancho}x${vp.alto}.png` });
+    await page.getByTestId("pestana-consola").click();
+    expect(await page.evaluate(() => window.__debug.consola?.estado)).toBe("desplegada");
+  });
+}
