@@ -70,8 +70,11 @@ jobs:
       # cie-3: ningún activo binario ni URL externa de activos en src/ o
       # public/ -- ver ACTIVOS.md.
       - run: npm run verificar:activos
-      # hig-1: el repo es público y lo ya borrado sigue en el historial.
+      # hig-1: el repo es público y lo ya borrado sigue en el historial. Los
+      # patrones privados llegan por secret: sin él, falla.
       - run: node scripts/comprobar-publico.mjs
+        env:
+          COMPROBAR_PUBLICO_PATRONES: ${{ secrets.COMPROBAR_PUBLICO_PATRONES }}
 
   # Tests unitarios repartidos en 3 shards por fichero (node --test-shard),
   # en paralelo con lint y con el e2e: antes iban dentro de

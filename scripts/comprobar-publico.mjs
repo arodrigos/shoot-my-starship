@@ -6,13 +6,39 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const PATRONES = [
-  { nombre: "id de run", re: /[0-9]{8}-[0-9]{6}-[0-9a-f]{4}/ },
-  { nombre: "nombre de infraestructura", re: /VPS[12]|claude-fleet|tailscale/i },
-  { nombre: "ruta de máquina", re: /\/home\/claude-user/ },
-];
-// Este fichero declara los patrones, así que se describe a sí mismo.
-const EXCLUIDOS = new Set(["package-lock.json", "scripts/comprobar-publico.mjs"]);
+// Los nombres de infraestructura y las rutas de máquina no pueden vivir en
+// este fichero: el repo es público y escribirlos aquí ya los publica. Llegan
+// del secret COMPROBAR_PUBLICO_PATRONES de Actions (enmascarado en los logs)
+// como JSON: [["nombre", "regex"], ...]. Sin él la comprobación falla: una
+// guarda que pasa en silencio sin sus patrones es peor que ninguna.
+function patronesPrivados() {
+  const crudo = process.env.COMPROBAR_PUBLICO_PATRONES;
+  const fallar = (motivo) => {
+    console.error(`comprobar-publico: ${motivo}; sin los patrones privados no se puede comprobar nada.`);
+    process.exit(2);
+  };
+  if (!crudo || !crudo.trim()) fallar("falta la variable COMPROBAR_PUBLICO_PATRONES (secret de Actions)");
+  let pares;
+  try {
+    pares = JSON.parse(crudo);
+  } catch {
+    fallar("COMPROBAR_PUBLICO_PATRONES no es JSON válido");
+  }
+  if (!Array.isArray(pares) || pares.length === 0) fallar("COMPROBAR_PUBLICO_PATRONES no trae ningún patrón");
+  return pares.map((par, i) => {
+    if (!Array.isArray(par) || par.length !== 2 || typeof par[0] !== "string" || typeof par[1] !== "string" || !par[1]) {
+      fallar(`el patrón ${i + 1} de COMPROBAR_PUBLICO_PATRONES no es ["nombre", "regex"]`);
+    }
+    try {
+      return { nombre: par[0], re: new RegExp(par[1], "i") };
+    } catch {
+      return fallar(`el patrón ${i + 1} de COMPROBAR_PUBLICO_PATRONES no es una regex válida`);
+    }
+  });
+}
+
+const PATRONES = [{ nombre: "id de run", re: /[0-9]{8}-[0-9]{6}-[0-9a-f]{4}/ }, ...patronesPrivados()];
+const EXCLUIDOS = new Set(["package-lock.json"]);
 
 // Los ficheros extra permiten probar el caso negativo con uno temporal sin
 // versionar: `node scripts/comprobar-publico.mjs /tmp/fichero`.
