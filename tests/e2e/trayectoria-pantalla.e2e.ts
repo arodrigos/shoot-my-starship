@@ -17,16 +17,16 @@ async function preparar(page: Page, tamano: Tamano): Promise<void> {
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
 }
 
-// Las dos naves en la franja central, con espacio libre alrededor: el primer
-// turno es de una al azar y la mira sale de la que dispara.
+// La nave humana al centro, con espacio libre alrededor, y la rival lejos:
+// cargarEscenario da el turno a la humana, de la que sale la mira.
 async function cargar(page: Page, arma: string, anguloGrados: number, potencia: number): Promise<void> {
   await page.evaluate(
     ({ arma: a, ang, pot }) => {
       const mundo = window.__debug.mundo!;
       window.__debug.cargarEscenario!({
         naves: [
-          { x: mundo.ancho * 0.4, y: mundo.alto * 0.5, integridad: 150 },
-          { x: mundo.ancho * 0.6, y: mundo.alto * 0.5, integridad: 150 },
+          { x: mundo.ancho * 0.5, y: mundo.alto * 0.5, integridad: 150 },
+          { x: mundo.ancho * 0.2, y: mundo.alto * 0.2, integridad: 150 },
         ],
         arma: a,
         anguloGrados: ang,
@@ -114,7 +114,7 @@ test("tra-2 y tra-4: durante un gesto ningún fotograma oculta la trayectoria, l
   const centro = await page.evaluate(
     ({ x, y, w, h }) => {
       const m = window.__debug.mundo!;
-      return { x: x + ((m.ancho * 0.4) / m.ancho) * w, y: y + 0.5 * h };
+      return { x: x + 0.5 * w, y: y + 0.5 * h };
     },
     { x: caja.x, y: caja.y, w: caja.width, h: caja.height },
   );
