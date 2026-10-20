@@ -19,6 +19,7 @@ import { idsNavesVivas, type EntradaDeTurno, type EstadoPartida, type IdNave, ty
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
 import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } from "@/sim/armas/resolver";
 import { buscarArma, CATALOGO_ARMAS } from "@/sim/armas/catalogo";
+import { resumenTurno } from "@/juego/escenas/resumenTurno";
 import type { Arma } from "@/sim/armas/tipos";
 import { crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
 import { RADIO_ENVOLVENTE_NAVE_PX, SEMIALTO_MAXIMO_NAVE_PX, cajaCasco } from "@/sim/naves/geometriaCasco";
@@ -178,64 +179,15 @@ const DURACION_AVISO_PERDIDO_MS = 1200;
 // vida-color: el número de daño sube y se funde en este tiempo.
 const DURACION_NUMERO_DANIO_MS = 900;
 const RADIO_OBJETO_U = 18;
+// vis-1: el destello del minirobot mide lo mismo en pantalla a cualquier
+// tamaño (px CSS), y se mantiene opaco lo bastante para una captura de 300 ms.
+const RADIO_DESTELLO_ROBOT_CSS = 40;
+const DURACION_DESTELLO_ROBOT_MS = 400;
+const DURACION_APAGADO_ROBOT_MS = 250;
+const DURACION_DESTELLO_ROBOT_REDUCIDO_MS = 300;
+const RETARDO_DETONACION_ROBOT_TRAS_IMPACTO_MS = 600;
 // Un punto de cada tantos pasos en la ruta punteada: legible y barato de dibujar.
 const SALTO_PUNTEADO_OBJETO = 6;
-
-// render-espacio (esp-6): el texto del panel "resultado del turno" -- un
-// mensaje propio para "proyectil perdido en órbita" (grav-6), porque ese
-// turno no tiene ni impacto ni fallo que describir con el resto de casos.
-function resumenTurno(eventos: readonly EventoSimulacion[]): string {
-  const base = resumenBase(eventos);
-  const objetos = eventos.flatMap((evento) => {
-    if (evento.tipo !== "objeto-alcanza") return [];
-    return evento.objeto === "corazon" ? [`¡Corazón galáctico! +${evento.cambio} de vida.`] : [`¡Tormenta solar! ${evento.cambio} de vida.`];
-  });
-  return [...objetos, base].join(" ");
-}
-
-function resumenBase(eventos: readonly EventoSimulacion[]): string {
-  const escudoActivado = eventos.find((evento) => evento.tipo === "escudo-activado");
-  if (escudoActivado) return "Escudo activado: los disparos ajenos no te harán daño durante 2 turnos tuyos.";
-  const vuelo = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "propulsores" }> => evento.tipo === "propulsores");
-  if (vuelo) {
-    return vuelo.motivo === "alcance" ? "Propulsores: la nave llega al límite de su alcance y se queda ahí." : "Propulsores: la nave se detiene al toparse con algo.";
-  }
-  const bloqueo = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "escudo-bloquea" }> => evento.tipo === "escudo-bloquea");
-  if (bloqueo) return "El escudo ha parado el golpe: sin daño.";
-  const perdido = eventos.find((evento) => evento.tipo === "proyectil-perdido");
-  if (perdido?.tipo === "proyectil-perdido" && perdido.arma !== undefined && esComportamientoAdherente(buscarArma(perdido.arma).comportamiento)) {
-    return "El gancho no se agarra al vacío del borde: se pierde sin efecto. El turno pasa igual.";
-  }
-  if (perdido?.tipo === "proyectil-perdido" && perdido.arma !== undefined && buscarArma(perdido.arma).comportamiento.tipo === "minirobot") {
-    return "¡Perdido! El minirobot se ha ido por el borde y no explota. El turno pasa igual.";
-  }
-  if (perdido?.tipo === "proyectil-perdido" && perdido.salida) {
-    return "¡Perdido! Tu disparo ha salido de la pantalla. El turno pasa igual.";
-  }
-  if (perdido) {
-    return "Tu disparo se ha quedado atrapado en órbita, sin caer nunca. El turno pasa igual.";
-  }
-  if (eventos.some((evento) => evento.tipo === "arma-falla")) {
-    return "El arma ha fallado: ni huella ni daño este turno.";
-  }
-  const impacto = eventos.find(
-    (evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto",
-  );
-  const detonacionRobot = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "robot-detona" }> => evento.tipo === "robot-detona");
-  if (!impacto && eventos.some((evento) => evento.tipo === "robot-posado")) {
-    return "El minirobot se ha agarrado al planeta: saltará hacia su objetivo al empezar tu próximo turno.";
-  }
-  if (!impacto && detonacionRobot) {
-    return detonacionRobot.danio > 0 ? `El minirobot ha saltado encima y explota: ${detonacionRobot.danio} de daño.` : "El minirobot explota sin llegar a nadie.";
-  }
-  const despedida = eventos.some((evento) => evento.tipo === "desplazamiento" && evento.reserva !== "se-queda")
-    ? " La nave alcanzada salió despedida."
-    : "";
-  if (impacto) {
-    return (impacto.danio > 0 ? `Impacto directo: ${impacto.danio} de daño.` : "El disparo ha caído sin hacer daño.") + despedida;
-  }
-  return "Turno resuelto.";
-}
 
 // humor-sistemico: qué reacción (sacudida, tono, frase) dispara cada disparo
 // resuelto -- un evento es "de humor" si su tipo está en TIPOS_EVENTO_HUMOR,
@@ -579,6 +531,7 @@ export class Partida extends Phaser.Scene {
   private efectosDelTurno: readonly DebugEfectoVisible[] = [];
   private efectosEventos!: EfectosEventos;
   private numerosDanioVivos: DebugEfectoVisible[] = [];
+  private destellosRobotVivos: DebugEfectoVisible[] = [];
   // avi-1: el único «¡Perdido!» vivo; el siguiente destruye este antes de pintarse.
   private avisoPerdidoVivo: { texto: Phaser.GameObjects.Text; temporizador: Phaser.Time.TimerEvent } | null = null;
   // paron-explosion: medición permanente de frames, de solo lectura.
@@ -2857,7 +2810,7 @@ export class Partida extends Phaser.Scene {
   }
 
   private publicarEfectosVisibles(): void {
-    window.__debug!.efectosVisibles = [...this.efectosDelTurno, ...this.numerosDanioVivos, ...(this.efectosEventos?.entradasDebug() ?? [])];
+    window.__debug!.efectosVisibles = [...this.efectosDelTurno, ...this.numerosDanioVivos, ...this.destellosRobotVivos, ...(this.efectosEventos?.entradasDebug() ?? [])];
   }
 
   private manejarEventosVisuales(
@@ -2945,7 +2898,60 @@ export class Partida extends Phaser.Scene {
         }
       }
     }
+    // vis-1: la detonación del minirobot tiene su propio tratamiento, no solo las
+    // capas base de la explosión (destello de 150 ms y onda de radio de efecto,
+    // que a 360 px caben en ~15 px y no se ven). Si el mismo turno trae un
+    // impacto, se retrasa para que no compita con su número de daño.
+    const hayImpacto = eventos.some((evento) => evento.tipo === "impacto");
+    for (const evento of eventos) {
+      if (evento.tipo !== "robot-detona") continue;
+      if (hayImpacto) this.time.delayedCall(RETARDO_DETONACION_ROBOT_TRAS_IMPACTO_MS, () => this.mostrarDetonacionRobot(evento, tirador, movimientoReducido));
+      else this.mostrarDetonacionRobot(evento, tirador, movimientoReducido);
+    }
     return esperaSacudidaMs;
+  }
+
+  private mostrarDetonacionRobot(evento: Extract<EventoSimulacion, { tipo: "robot-detona" }>, tirador: number, movimientoReducido: boolean): void {
+    const radio = this.cssAMundo(RADIO_DESTELLO_ROBOT_CSS);
+    const disco = this.add.circle(evento.x, evento.y, radio, 0xfff2c2, 0.95).setDepth(1900);
+    const aro = this.add.circle(evento.x, evento.y, radio * 1.4).setStrokeStyle(this.cssAMundo(3), 0xff8a2a, 0.9).setFillStyle().setDepth(1900);
+    const efecto: DebugEfectoVisible = {
+      tipo: "explosion",
+      origen: "robot",
+      duracionMs: movimientoReducido ? DURACION_DESTELLO_ROBOT_REDUCIDO_MS : DURACION_DESTELLO_ROBOT_MS + DURACION_APAGADO_ROBOT_MS,
+      x: evento.x,
+      y: evento.y,
+      radioOnda: radio * 1.4,
+      particulas: 0,
+      escala: 1,
+      sobre: "nave",
+    };
+    this.destellosRobotVivos.push(efecto);
+    this.publicarEfectosVisibles();
+    const retirar = (): void => {
+      disco.destroy();
+      aro.destroy();
+      this.destellosRobotVivos = this.destellosRobotVivos.filter((e) => e !== efecto);
+      this.publicarEfectosVisibles();
+    };
+    if (movimientoReducido) {
+      // Destello estático, sin partículas ni movimiento.
+      this.time.delayedCall(DURACION_DESTELLO_ROBOT_REDUCIDO_MS, retirar);
+      return;
+    }
+    // Opaco el primer tramo y luego se apaga: así sale en una captura de 300 ms.
+    this.tweens.add({ targets: [disco, aro], alpha: 0, delay: DURACION_DESTELLO_ROBOT_MS, duration: DURACION_APAGADO_ROBOT_MS, onComplete: retirar });
+    this.tweens.add({ targets: aro, scale: 1.5, duration: DURACION_DESTELLO_ROBOT_MS + DURACION_APAGADO_ROBOT_MS, ease: "Quad.easeOut" });
+    if (evento.danio > 0) {
+      this.mostrarNumeroDanio(evento.x, evento.y, evento.danio, tirador);
+      this.emisorExplosion.explode(CANTIDAD_PARTICULAS_EXPLOSION, evento.x, evento.y);
+      if (permiteMovimientoCamara(obtenerEstadoControl().sacudidaActiva, movimientoReducido)) {
+        const amplitud = amplitudSacudida(evento.danio);
+        this.naves[evento.objetivo]?.destellarDanio(intensidadDestelloDanio(evento.danio));
+        this.sacudirCamara(DURACION_SACUDIDA_IMPACTO_MS, amplitud);
+      }
+    }
+    reproducirEfecto("impacto");
   }
 
   private aplicarResultadoTurno(

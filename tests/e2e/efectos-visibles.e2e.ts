@@ -42,8 +42,36 @@ for (const t of TAMANOS) {
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
     await page.getByTestId("disparar").click();
     // El robot detona al empezar el turno de su dueño: tras jugar la IA.
-    await page.waitForFunction(() => (window.__debug.detonaciones ?? []).some((d) => d.armaId === "minirobot-saltaplanetas") && (window.__debug.efectosVisibles ?? []).some((e) => e.tipo === "explosion"), undefined, { timeout: 200000, polling: "raf" });
-    await page.screenshot({ path: `capturas/bug-efectos-visibles-10-robot-${t.w}x${t.h}.png` });
+    // Se espera al destello propio del robot (origen «robot»), que dura ≥ 400 ms
+    // opaco, y se mide en el mismo instante: así la prueba no sale verde con la
+    // explosión invisible.
+    await page.waitForFunction(() => (window.__debug.efectosVisibles ?? []).some((e) => e.origen === "robot"), undefined, { timeout: 200000, polling: "raf" });
+    const claro = await page.evaluate(() => {
+      const e = window.__debug.efectosVisibles!.find((x) => x.origen === "robot")!;
+      const lienzo = document.querySelector<HTMLCanvasElement>("#game-container canvas")!;
+      const caja = lienzo.getBoundingClientRect();
+      const mundo = window.__debug.mundo!;
+      const cx = (e.x / mundo.ancho) * lienzo.width;
+      const cy = (e.y / mundo.alto) * lienzo.height;
+      const porCss = lienzo.width / caja.width;
+      const radio = Math.round(20 * porCss);
+      const copia = document.createElement("canvas");
+      copia.width = lienzo.width;
+      copia.height = lienzo.height;
+      const ctx = copia.getContext("2d")!;
+      ctx.drawImage(lienzo, 0, 0);
+      const x0 = Math.max(0, Math.round(cx - radio));
+      const y0 = Math.max(0, Math.round(cy - radio));
+      const datos = ctx.getImageData(x0, y0, Math.min(lienzo.width - x0, radio * 2), Math.min(lienzo.height - y0, radio * 2)).data;
+      let pixeles = 0;
+      for (let i = 0; i < datos.length; i += 4) {
+        if (0.2126 * datos[i] + 0.7152 * datos[i + 1] + 0.0722 * datos[i + 2] > 200) pixeles++;
+      }
+      return { pixeles, porCss };
+    });
+    await page.screenshot({ path: `capturas/bug-efectos-visibles-11-robot-${t.w}x${t.h}.png` });
+    // ≥ 600 px² CSS de área clara en un círculo de 20 px CSS alrededor del punto.
+    expect(claro.pixeles / (claro.porCss * claro.porCss), "área clara (px² CSS) alrededor de la detonación").toBeGreaterThanOrEqual(600);
     const r = await page.evaluate(() => {
       const d = window.__debug.detonaciones!.find((x) => x.armaId === "minirobot-saltaplanetas")!;
       const explosiones = (window.__debug.efectosVisibles ?? []).filter((e) => e.tipo === "explosion");

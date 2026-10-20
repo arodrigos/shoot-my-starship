@@ -181,6 +181,8 @@ export interface DebugEfectoVisible {
   // marca-asiento: solo "numero-danio" -- familia de casco del tirador.
   readonly silueta?: 0 | 1 | 2 | 3;
   readonly duracionMs?: number;
+  // Solo el destello propio de la detonación del minirobot (vis-1).
+  readonly origen?: "robot";
   readonly desde?: { readonly x: number; readonly y: number };
   readonly x: number;
   readonly y: number;
