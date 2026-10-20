@@ -4059,7 +4059,14 @@ export class Partida extends Phaser.Scene {
     // tiempo real superaba el timeout del e2e de escritorio.
     this.estado = {
       ...this.estado,
-      naves: this.estado.naves.map((nave) => ({ ...nave, integridad: Math.min(nave.integridad, VIDA_BASE_TOPE_DESENLACE) })),
+      // Con más de dos asientos hay que eliminar a casi todos: con la vida
+      // topada a 100 el autodaño de Despedida no alcanza en 12 turnos y la
+      // partida de 4 seguía en pie (premios-por-asiento). Solo queda con vida
+      // de verdad el último asiento; el resto muere con su propio disparo.
+      naves: this.estado.naves.map((nave, id, todas) => ({
+        ...nave,
+        integridad: Math.min(nave.integridad, todas.length > 2 && id !== todas.length - 1 ? 1 : VIDA_BASE_TOPE_DESENLACE),
+      })),
     };
     for (let i = 0; i < TOPE_TURNOS_DESENLACE; i++) {
       if (this.estado.resultado.tipo === "terminada") break;
