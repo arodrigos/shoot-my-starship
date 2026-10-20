@@ -169,7 +169,14 @@ test("invariante: sin gesto del usuario no se construye ningún AudioContext ni 
         if (evento === "leer-silencio") motor.sonidoSilenciado();
       }
       assert.equal(ContextoFalso.construcciones, 0);
-      assert.deepEqual(motor.estadoMusica(), { estado: "esperando-gesto", notasProgramadas: 0, vocesActivas: 0 });
+      assert.deepEqual(motor.estadoMusica(), {
+        estado: "esperando-gesto",
+        notasProgramadas: 0,
+        vocesActivas: 0,
+        nivelTension: 0,
+        capas: { percusion: 0, bajo: 0 },
+        bpm: 90,
+      });
     }),
   );
   // Con el gesto (desbloquearAudio solo se llama desde uno) sí se crea.

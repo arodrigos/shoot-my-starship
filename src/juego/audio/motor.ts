@@ -7,7 +7,8 @@
 // pública está envuelta en try/catch y no lanza nunca, así que un navegador
 // sin Web Audio, con --mute-audio o con la política de autoplay bloqueando
 // el contexto deja el juego mudo pero nunca roto.
-import { CLAVE_MUSICA, crearProgramador, sanearPreferenciaMusica, type Programador } from "@/juego/audio/musica";
+import { CLAVE_MUSICA, BPM_BASE, crearProgramador, sanearPreferenciaMusica, type CapaTension, type Programador } from "@/juego/audio/musica";
+import { HISTERESIS_INICIAL, nivelTension, siguienteHisteresis, type EstadoHisteresis, type NivelTension, type SenalesTension } from "@/juego/audio/tension";
 
 export type EstadoAudio = "sin-inicializar" | "suspendido" | "en-marcha";
 
@@ -67,14 +68,34 @@ export function musicaActivada(): boolean {
   return musicaActiva;
 }
 
+// musica-tension: el nivel se calcula aunque no haya audio (sin Web Audio o
+// con la música apagada), para que el estado siga siendo coherente al
+// reactivarla.
+let histeresis: EstadoHisteresis = HISTERESIS_INICIAL;
+
+export function reiniciarTension(): void {
+  histeresis = HISTERESIS_INICIAL;
+  programador?.fijarNivel(0);
+}
+
+// Un cierre de turno (o un cambio brusco de la partida): recalcula el nivel y
+// se lo pasa al programador, que lo aplica en la siguiente frontera de compás.
+export function actualizarTension(senales: SenalesTension): void {
+  histeresis = siguienteHisteresis(histeresis, nivelTension(senales));
+  programador?.fijarNivel(histeresis.aplicado);
+}
+
 export type EstadoMusicaDebug = "esperando-gesto" | "sonando" | "parada" | "sin-audio";
 
 export function estadoMusica(): {
   readonly estado: EstadoMusicaDebug;
   readonly notasProgramadas: number;
   readonly vocesActivas: number;
+  readonly nivelTension: NivelTension;
+  readonly capas: Readonly<Record<CapaTension, number>>;
+  readonly bpm: number;
 } {
-  const contadores = programador?.estado() ?? { notasProgramadas: 0, vocesActivas: 0 };
+  const contadores = programador?.estado() ?? { notasProgramadas: 0, vocesActivas: 0, nivelTension: 0 as NivelTension, capas: { percusion: 0, bajo: 0 }, bpm: BPM_BASE };
   const estado: EstadoMusicaDebug = !musicaActiva
     ? "parada"
     : audioNoDisponible
@@ -82,7 +103,9 @@ export function estadoMusica(): {
       : programador?.activo()
         ? "sonando"
         : "esperando-gesto";
-  return { estado, ...contadores };
+  // Con el programador parado el nivel que cuenta es el de la partida, no el
+  // que sonó la última vez.
+  return { estado, ...contadores, nivelTension: programador?.activo() ? contadores.nivelTension : histeresis.aplicado };
 }
 
 function arrancarMusica(): void {
