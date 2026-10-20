@@ -80,7 +80,7 @@ import { avanzarGestoPolar, iniciarGestoPolar, type GestoPolar } from "@/juego/c
 import { mundoAPantallaCss, pantallaCssAMundo } from "@/juego/camara/conversion";
 import { ControladorCamara, type InstantaneaCamara } from "@/juego/camara/controladorCamara";
 import { cerrarAyudaCamara, publicarCamaraManual, registrarManejadorVerTodo, reiniciarCamaraHud } from "@/juego/control/camaraStore";
-import { cortarPorLongitudPantalla, geometriaTrayectoria, longitudDeArco, type GeometriaTrayectoria, type PuntoPantalla } from "@/juego/mira/trayectoriaPantalla";
+import { cortarPorLongitudPantalla, geometriaTrayectoria, tramoEntre, longitudDeArco, type GeometriaTrayectoria, type PuntoPantalla } from "@/juego/mira/trayectoriaPantalla";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
@@ -266,14 +266,6 @@ const VIDA_BASE_TOPE_DESENLACE = 100;
 // gravedad-visible (grav-vis-3, corrección): grosor de la mira en píxeles
 // de PANTALLA, no de mundo -- ver actualizarPrevisualizacion().
 const ANCHO_MIRA_CSS_PX = 3;
-// Tramo de una polilínea entre dos longitudes de arco: parte del punto exacto
-// donde acaba el primer corte, para que el abanico ancho empiece donde acaba el
-// estrecho.
-function tramoEntre(puntos: readonly PuntoPantalla[], desde: number, hasta: number): PuntoPantalla[] {
-  const a = cortarPorLongitudPantalla(puntos, desde);
-  const b = cortarPorLongitudPantalla(puntos, hasta);
-  return [a[a.length - 1], ...b.slice(a.length)];
-}
 const ANCHO_BORDE_ABANICO_CSS_PX = 1.5;
 const COLOR_ABANICO_TRAMO1 = 0xffb347;
 const COLOR_ABANICO_TRAMO2 = 0xffd9a0;
