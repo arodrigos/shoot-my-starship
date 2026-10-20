@@ -132,7 +132,7 @@ import { permiteMovimientoCamara } from "@/juego/efectos/movimientoCamara";
 import { ControladorRemate, decidirRemate, type FotogramaRemate, type ModoRemate } from "@/juego/efectos/remate";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
-import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoComputo, type AbanicoPrevisualizacion, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
+import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoAbanico, type AbanicoPrevisualizacion, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { ocultarMira, tocaReintentarMira, type MiraOculta } from "@/juego/mira/miraOculta";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import {
@@ -1500,7 +1500,7 @@ export class Partida extends Phaser.Scene {
     // gravedad-visible (grav-vis-5): si no cabe en su presupuesto de cómputo, se
     // pasa a cuñas rectas antes que dibujar un trazado que ya ha costado más de
     // lo prometido.
-    if (abanico.centro.length < 2 || superaPresupuestoComputo(duracionComputoMs + this.costeMiraForzadoMs)) {
+    if (abanico.centro.length < 2 || superaPresupuestoAbanico(duracionComputoMs + this.costeMiraForzadoMs)) {
       if (abanico.centro.length >= 2) this.miraOculta = { ...ocultarMira(this.time.now, this.costeMiraForzadoMs > 0), estado };
       this.dibujarCunas(geometria, origenPantalla, anguloGradosActual);
       return;

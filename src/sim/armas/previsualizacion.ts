@@ -46,6 +46,16 @@ const FACTOR_UMBRAL_VUELO_CORTO = 4;
 // evitarse (eso ya lo paga el presupuesto de pasos de arriba).
 export const PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS = 8;
 
+// trayectoria-pantalla: el abanico son cinco vuelos en vez de tres y se calcula
+// en el trabajador, no en el hilo del juego; con el render por software
+// compitiendo por los dos núcleos, 8 ms lo dejaba en cuñas de forma casi
+// permanente. Mismo mecanismo de ocultación, techo cuatro veces mayor.
+export const PRESUPUESTO_COMPUTO_ABANICO_MS = 32;
+
+export function superaPresupuestoAbanico(duracionMs: number): boolean {
+  return duracionMs > PRESUPUESTO_COMPUTO_ABANICO_MS;
+}
+
 export function superaPresupuestoComputo(duracionMs: number): boolean {
   return duracionMs > PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS;
 }
