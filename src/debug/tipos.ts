@@ -408,6 +408,11 @@ export interface DebugGlobal {
     estado: "esperando-gesto" | "sonando" | "parada" | "sin-audio";
     notasProgramadas: number;
     vocesActivas: number;
+    // musica-tension: nivel aplicado (0-3), ganancia objetivo de cada capa y
+    // tempo vigente.
+    nivelTension: 0 | 1 | 2 | 3;
+    capas: { percusion: number; bajo: number };
+    bpm: number;
   };
   // voz-chistes: estado en vivo de la voz y lo que se le ha pedido al
   // sintetizador (cancel y speak, en orden).

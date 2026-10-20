@@ -115,7 +115,7 @@ import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integri
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
 import { obtenerLocutor } from "@/juego/audio/voz";
-import { desbloquearAudio, estadoAudioActual, pausarAudio, reanudarAudio, reproducirEfecto, reproducirTono } from "@/juego/audio/motor";
+import { actualizarTension, desbloquearAudio, estadoAudioActual, reiniciarTension, pausarAudio, reanudarAudio, reproducirEfecto, reproducirTono } from "@/juego/audio/motor";
 import { indiceTic } from "@/juego/audio/cadenciaTicTac";
 import type { DatosEscenaPartida } from "@/juego/main";
 import { GuardadorPartida } from "@/juego/partidaGuardada/guardador";
@@ -911,6 +911,7 @@ export class Partida extends Phaser.Scene {
       };
       this.refrescarNaves();
       this.refrescarUniverso([]);
+      this.publicarTension();
     };
     window.__debug.cargarEscenario = (escenario) => {
       const turno = this.estado.ordenTurno.find((id) => this.esHumano(id)) ?? this.estado.turno;
@@ -969,6 +970,9 @@ export class Partida extends Phaser.Scene {
       this.refrescarUniverso([]);
     };
     this.refrescarUniverso([]);
+    // Cada partida empieza sin tensión heredada de la anterior.
+    reiniciarTension();
+    this.publicarTension();
 
     // Universal desde colocacion-naves (nav-1): con nave.y presente (modo
     // espacial) se usa tal cual -- no hay ninguna columna de terreno bajo
@@ -2851,6 +2855,7 @@ export class Partida extends Phaser.Scene {
       this.reproducirSaltosRobot(eventos, prefiereMovimientoReducido());
       this.refrescarObjetos();
       this.refrescarUniverso(eventos);
+      this.publicarTension();
       window.__debug!.turno = this.estado.turno;
       window.__debug!.numeroTurno = this.estado.numeroTurno;
       publicarTurno(this.estado.turno);
@@ -3565,6 +3570,18 @@ export class Partida extends Phaser.Scene {
     } catch {
       return true;
     }
+  }
+
+  // musica-tension: las señales salen del estado que la escena ya tiene; un
+  // cierre de turno = una llamada (la histéresis cuenta cierres).
+  private publicarTension(): void {
+    const estado = this.estado;
+    const vivas = estado.naves.filter((nave) => nave.integridad > 0);
+    actualizarTension({
+      muerteSubita: estado.ronda !== undefined && (estado.muerteSubita === true || estado.ronda >= RONDA_MUERTE_SUBITA - 1),
+      integridadesVivas: vivas.map((nave) => (nave.integridad / INTEGRIDAD_MAXIMA) * 100),
+      vivas: vivas.length,
+    });
   }
 
   // eventos-universo: el pronóstico sale del calendario ya sorteado (nunca
