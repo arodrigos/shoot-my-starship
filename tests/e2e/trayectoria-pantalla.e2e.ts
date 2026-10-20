@@ -35,7 +35,17 @@ async function cargar(page: Page, arma: string, anguloGrados: number, potencia: 
     },
     { arma, ang: anguloGrados, pot: potencia },
   );
-  await page.waitForFunction((p) => window.__debug.control!.ajuste.potencia === p && window.__debug.control!.puedeDisparar === true, potencia);
+  // Tras cargarEscenario, __debug.naves se actualiza tarde: sin esperar a que la
+  // nave esté en el centro se mediría sobre la posición de la partida anterior.
+  await page.waitForFunction(
+    (p) => {
+      const n = window.__debug.naves?.find((x) => x.activa);
+      const m = window.__debug.mundo!;
+      return window.__debug.control!.ajuste.potencia === p && window.__debug.control!.puedeDisparar === true && n !== undefined && Math.abs(n.x - m.ancho / 2) < 2;
+    },
+    potencia,
+    { timeout: 20000 },
+  );
 }
 
 async function captura(page: Page, nombre: string, tamano: Tamano): Promise<void> {
