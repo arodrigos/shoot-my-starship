@@ -2178,6 +2178,23 @@ export class Partida extends Phaser.Scene {
     const origenX = naveTiradora.x;
     const origenY = naveTiradora.y ?? alturaSuperficie(estadoAntes.mascara, origenX) ?? estadoAntes.mundo.alto - 1;
 
+    // El fogonazo y la medida de latencia se hacen en el toque, no al volver
+    // el cálculo del impacto: el origen del cañón ya se conoce y esperar al
+    // trabajador (o, en «en-linea», a resolverImpacto en el hilo principal)
+    // metía en la medida un viaje que el jugador no percibe como respuesta.
+    if (!prefiereMovimientoReducido()) {
+      this.visualArmas.fogonazo(origenX, origenY - ALTURA_CANON_PX, aspectoDeId(entrada.arma).paleta.estela);
+    }
+    // La latencia se cierra en el primer frame ya pintado (POST_RENDER), no al
+    // encolar el efecto: es lo que percibe quien dispara.
+    if (esJugador && performance.getEntriesByName("disparo-toque", "mark").length > 0) {
+      this.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
+        registrarLatenciaDisparo(performance.measure("disparo-frame", "disparo-toque").duration);
+        performance.clearMarks("disparo-toque");
+        performance.clearMeasures("disparo-frame");
+      });
+    }
+
     // respuesta-disparo: la animación arranca con lo que se sabe tras el impacto
     // (eventosImpacto); el cierre del turno (desplazamientos, robots, universo)
     // llega después, ya calculado o aún en el trabajador.
@@ -2248,16 +2265,6 @@ export class Partida extends Phaser.Scene {
       const inicial: EstadoProyectil = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
       const detenerse = detenerseEnSuelo(estadoAntes.mascara, estadoAntes.mundo.ancho, estadoAntes.mundo.alto);
       this.origenUltimoDisparo = { x: inicial.x, y: inicial.y };
-      if (!prefiereMovimientoReducido()) this.visualArmas.fogonazo(inicial.x, inicial.y, aspectoDeId(entrada.arma).paleta.estela);
-      // La latencia se cierra en el primer frame ya pintado (POST_RENDER), no al
-      // encolar el efecto: es lo que percibe quien dispara.
-      if (esJugador && performance.getEntriesByName("disparo-toque", "mark").length > 0) {
-        this.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
-          registrarLatenciaDisparo(performance.measure("disparo-frame", "disparo-toque").duration);
-          performance.clearMarks("disparo-toque");
-          performance.clearMeasures("disparo-frame");
-        });
-      }
 
       // impacto-naves: mismo criterio que avanzar.ts para decidir si hay
       // cuerpo de colisión de casco -- modo espacial (las dos naves con `y`) y

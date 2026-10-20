@@ -1,5 +1,5 @@
 import { Serwist, type PrecacheEntry } from "serwist";
-import { respuestaPrecacheable } from "@/juego/pwa/filtroPrecache";
+import { entradaPrecacheable, respuestaPrecacheable } from "@/juego/pwa/filtroPrecache";
 
 declare const self: { __SW_MANIFEST: (PrecacheEntry | string)[]; location: { origin: string } };
 
@@ -8,7 +8,7 @@ declare const self: { __SW_MANIFEST: (PrecacheEntry | string)[]; location: { ori
 // solo actúa al activarse, así que en la primera instalación toma la página
 // sin recargarla.
 const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
+  precacheEntries: self.__SW_MANIFEST.filter(entradaPrecacheable),
   skipWaiting: false,
   clientsClaim: true,
   navigationPreload: false,
