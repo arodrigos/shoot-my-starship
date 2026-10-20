@@ -17,16 +17,16 @@ async function preparar(page: Page, tamano: Tamano): Promise<void> {
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
 }
 
-// Nave al centro con espacio libre alrededor; el primer turno puede ser de
-// cualquiera de las dos, así que se fija también el apuntado.
+// Las dos naves en la franja central, con espacio libre alrededor: el primer
+// turno es de una al azar y la mira sale de la que dispara.
 async function cargar(page: Page, arma: string, anguloGrados: number, potencia: number): Promise<void> {
   await page.evaluate(
     ({ arma: a, ang, pot }) => {
       const mundo = window.__debug.mundo!;
       window.__debug.cargarEscenario!({
         naves: [
-          { x: mundo.ancho / 2, y: mundo.alto * 0.5, integridad: 150 },
-          { x: mundo.ancho * 0.2, y: mundo.alto * 0.2, integridad: 150 },
+          { x: mundo.ancho * 0.4, y: mundo.alto * 0.5, integridad: 150 },
+          { x: mundo.ancho * 0.6, y: mundo.alto * 0.5, integridad: 150 },
         ],
         arma: a,
         anguloGrados: ang,
@@ -36,12 +36,12 @@ async function cargar(page: Page, arma: string, anguloGrados: number, potencia: 
     { arma, ang: anguloGrados, pot: potencia },
   );
   // Tras cargarEscenario, __debug.naves se actualiza tarde: sin esperar a que la
-  // nave esté en el centro se mediría sobre la posición de la partida anterior.
+  // nave esté colocada se mediría sobre la posición de la partida anterior.
   await page.waitForFunction(
     (p) => {
-      const n = window.__debug.naves?.find((x) => x.activa);
       const m = window.__debug.mundo!;
-      return window.__debug.control!.ajuste.potencia === p && window.__debug.control!.puedeDisparar === true && n !== undefined && Math.abs(n.x - m.ancho / 2) < 2;
+      const centradas = Math.abs((window.__debug.naves?.[0].x ?? 0) - m.ancho * 0.4) < 2 && Math.abs((window.__debug.naves?.[1].x ?? 0) - m.ancho * 0.6) < 2;
+      return window.__debug.control!.ajuste.potencia === p && window.__debug.control!.puedeDisparar === true && centradas;
     },
     potencia,
     { timeout: 20000 },
@@ -119,7 +119,7 @@ test("tra-2 y tra-4: durante un gesto ningún fotograma oculta la trayectoria, n
   const caja = (await page.locator("#game-container canvas").boundingBox())!;
   const centro = await page.evaluate(
     ({ x, y, w, h }) => {
-      const n = window.__debug.naves![0];
+      const n = window.__debug.naves!.find((x) => x.activa)!;
       const m = window.__debug.mundo!;
       return { x: x + (n.x / m.ancho) * w, y: y + ((n.y as number) / m.alto) * h };
     },
