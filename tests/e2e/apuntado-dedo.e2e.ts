@@ -195,14 +195,15 @@ test("a360-3: el giro responde en menos de 200 ms durante una vuelta completa", 
 test("a360-4: con la nave en una esquina el gesto gira en el arco libre y la barra de ángulo llega a 225°; la ayuda explica el gesto", async ({ page }) => {
   test.setTimeout(180000);
   await preparar(page, MOVIL);
+  await plegarConsola(page);
+  // La ayuda se comprueba antes de cargar el escenario, como en dedo-2.
+  await expect(page.getByTestId("ayuda-apuntado")).toContainText("alrededor de tu nave");
+  await captura(page, "esquina-ayuda", MOVIL);
   await cargarCentrado(page, 45, 50);
   await page.evaluate(() => {
     const mundo = window.__debug.mundo!;
     window.__debug.forzarPosicionNave!(window.__debug.naves![0].id, mundo.ancho * 0.08, mundo.alto * 0.7);
   });
-  await plegarConsola(page);
-  await expect(page.getByTestId("ayuda-apuntado")).toContainText("alrededor de tu nave");
-  await captura(page, "esquina-ayuda", MOVIL);
   const { nave } = await apoyar(page, 60, 0);
   // Cuadrante libre: de 0° a 90°, hacia arriba y a la derecha.
   for (let g = 10; g <= 80; g += 10) {
