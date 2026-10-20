@@ -190,7 +190,11 @@ test("gravedad-visible-4: el proyectil real pasa por los puntos previsualizados 
   // El proyectil real pasa por los puntos previsualizados: los primeros
   // puntos de la trayectoria real coinciden, dentro de 1px, con lo que se
   // enseñó antes de disparar.
-  for (let i = 0; i < puntosPrevistos.length && i < trayectoriaReal.length; i++) {
+  // El último punto de la mira es el corte por longitud de pantalla (2/8 del
+  // lado mayor), interpolado entre dos vértices: no es un paso de la
+  // simulación y no se compara con ninguno.
+  const verticesPrevistos = Math.min(puntosPrevistos.length - 1, trayectoriaReal.length);
+  for (let i = 0; i < verticesPrevistos; i++) {
     const previsto = puntosPrevistos[i];
     const real = trayectoriaReal[i];
     expect(Math.hypot(previsto.x - real.x, previsto.y - real.y), `paso ${i}`).toBeLessThanOrEqual(1);
