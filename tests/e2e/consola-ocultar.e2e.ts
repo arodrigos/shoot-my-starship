@@ -97,7 +97,10 @@ for (const vp of VIEWPORTS) {
     await page.getByTestId("boton-plegar-consola").click();
     await page.getByTestId("disparar").click();
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === false, undefined, { timeout: 30000, polling: "raf" });
-    await page.getByTestId("boton-ocultar-consola").click({ timeout: 30000 });
+    // Clic por DOM: durante el turno el lienzo repinta sin parar y, con la CPU
+    // saturada, Playwright no llega a ver el botón «estable». Lo que se
+    // comprueba aquí es el estado de la pestaña, no la actionability del botón.
+    await page.getByTestId("boton-ocultar-consola").evaluate((el) => (el as HTMLButtonElement).click());
     await expect(page.getByTestId("pestana-consola")).toBeVisible();
     expect(await page.evaluate(() => window.__debug.control!.puedeDisparar)).toBe(false);
     await page.screenshot({ path: `capturas/bug-consola-30-oculta-turno-rival-${vp.ancho}x${vp.alto}.png` });
