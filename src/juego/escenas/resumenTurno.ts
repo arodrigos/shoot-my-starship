@@ -23,31 +23,34 @@ function resumenBase(eventos: readonly EventoSimulacion[]): string {
   }
   const bloqueo = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "escudo-bloquea" }> => evento.tipo === "escudo-bloquea");
   if (bloqueo) return "El escudo ha parado el golpe: sin daño.";
+  // Un disparo fallido o perdido no impide que el minirobot detone en el mismo
+  // turno: sin su frase el bocadillo diría "ni daño" con 40 de daño en pantalla.
+  const detonacionRobot = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "robot-detona" }> => evento.tipo === "robot-detona");
+  const conRobot = (frase: string): string => (detonacionRobot ? `${frase} ${fraseRobot(detonacionRobot)}` : frase);
   const perdido = eventos.find((evento) => evento.tipo === "proyectil-perdido");
   if (perdido?.tipo === "proyectil-perdido" && perdido.arma !== undefined && esComportamientoAdherente(buscarArma(perdido.arma).comportamiento)) {
-    return "El gancho no se agarra al vacío del borde: se pierde sin efecto. El turno pasa igual.";
+    return conRobot("El gancho no se agarra al vacío del borde: se pierde sin efecto. El turno pasa igual.");
   }
   if (perdido?.tipo === "proyectil-perdido" && perdido.arma !== undefined && buscarArma(perdido.arma).comportamiento.tipo === "minirobot") {
-    return "¡Perdido! El minirobot se ha ido por el borde y no explota. El turno pasa igual.";
+    return conRobot("¡Perdido! El minirobot se ha ido por el borde y no explota. El turno pasa igual.");
   }
   if (perdido?.tipo === "proyectil-perdido" && perdido.salida) {
-    return "¡Perdido! Tu disparo ha salido de la pantalla. El turno pasa igual.";
+    return conRobot("¡Perdido! Tu disparo ha salido de la pantalla. El turno pasa igual.");
   }
   if (perdido) {
-    return "Tu disparo se ha quedado atrapado en órbita, sin caer nunca. El turno pasa igual.";
+    return conRobot("Tu disparo se ha quedado atrapado en órbita, sin caer nunca. El turno pasa igual.");
   }
   if (eventos.some((evento) => evento.tipo === "arma-falla")) {
-    return "El arma ha fallado: ni huella ni daño este turno.";
+    return conRobot("El arma ha fallado: ni huella ni daño este turno.");
   }
   const impacto = eventos.find(
     (evento): evento is Extract<EventoSimulacion, { tipo: "impacto" }> => evento.tipo === "impacto",
   );
-  const detonacionRobot = eventos.find((evento): evento is Extract<EventoSimulacion, { tipo: "robot-detona" }> => evento.tipo === "robot-detona");
   if (!impacto && eventos.some((evento) => evento.tipo === "robot-posado")) {
     return "El minirobot se ha agarrado al planeta: saltará hacia su objetivo al empezar tu próximo turno.";
   }
   if (!impacto && detonacionRobot) {
-    return detonacionRobot.danio > 0 ? `El minirobot ha saltado encima y explota: ${detonacionRobot.danio} de daño.` : "El minirobot explota sin llegar a nadie.";
+    return fraseRobot(detonacionRobot);
   }
   // Solo cuenta el empuje de la nave que alcanzó el disparo: el del minirobot
   // sobre su objetivo es otro golpe y ya lo cuenta su propia frase.
@@ -62,8 +65,11 @@ function resumenBase(eventos: readonly EventoSimulacion[]): string {
   if (impacto) {
     const frase = (impacto.danio > 0 ? `Impacto directo: ${impacto.danio} de daño.` : "El disparo ha caído sin hacer daño.") + despedida;
     if (!detonacionRobot) return frase;
-    const robot = detonacionRobot.danio > 0 ? `El minirobot ha saltado encima y explota: ${detonacionRobot.danio} de daño.` : "El minirobot explota sin llegar a nadie.";
-    return `${frase} ${robot}`;
+    return `${frase} ${fraseRobot(detonacionRobot)}`;
   }
   return "Turno resuelto.";
+}
+
+function fraseRobot(detonacion: Extract<EventoSimulacion, { tipo: "robot-detona" }>): string {
+  return detonacion.danio > 0 ? `El minirobot ha saltado encima y explota: ${detonacion.danio} de daño.` : "El minirobot explota sin llegar a nadie.";
 }

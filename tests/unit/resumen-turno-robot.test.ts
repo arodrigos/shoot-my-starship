@@ -16,3 +16,22 @@ test("vis-1: con impactoNave, solo el desplazamiento de esa nave cuenta como «d
   assert.ok(!texto.includes("salió despedida"));
   assert.ok(texto.includes("El minirobot ha saltado encima"));
 });
+
+// vis-1: si el disparo falla o se pierde y el robot detona en el mismo turno,
+// el bocadillo cuenta el daño del robot en vez de decir que no hubo daño.
+for (const [nombre, evento] of [
+  ["arma-falla", { tipo: "arma-falla" }],
+  ["proyectil-perdido por el borde", { tipo: "proyectil-perdido", salida: true }],
+  ["proyectil-perdido en órbita", { tipo: "proyectil-perdido", salida: false }],
+] as const) {
+  test(`vis-1: ${nombre} con robot-detona cuenta los 40 de daño del robot`, () => {
+    const eventos = [evento, { tipo: "robot-detona", nave: 0, objetivo: 2, x: 50, y: 50, danio: 40 }] as unknown as EventoSimulacion[];
+    const texto = resumenTurno(eventos);
+    assert.ok(texto.includes("El minirobot ha saltado encima y explota: 40 de daño."), texto);
+  });
+}
+
+test("vis-1: un disparo fallido sin robot sigue sin mencionarlo", () => {
+  const texto = resumenTurno([{ tipo: "arma-falla" }] as unknown as EventoSimulacion[]);
+  assert.ok(!texto.includes("minirobot"));
+});
