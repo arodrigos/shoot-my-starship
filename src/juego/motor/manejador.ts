@@ -2,7 +2,7 @@
 // adaptador en línea y el test de equivalencia, de modo que sacar la
 // simulación del hilo principal no puede cambiar ningún resultado.
 import { buscarArma } from "@/sim/armas/catalogo";
-import { calcularBandaPrevisualizacion } from "@/sim/armas/previsualizacion";
+import { calcularAbanicoPrevisualizacion, calcularBandaPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
 import { avanzar, cerrarTurnoTrasImpacto, contadoresDeCalculo, reiniciarContadoresDeCalculo, resolverImpacto } from "@/sim/partida/avanzar";
@@ -19,7 +19,7 @@ export function manejarPeticion(peticion: Peticion, ahora: () => number = () => 
       case "previsualizar": {
         const rastreadorNaves = peticion.navesVivas ? crearRastreadorImpactoNaves(peticion.navesVivas, peticion.tirador) : undefined;
         const inicio = ahora();
-        const banda = calcularBandaPrevisualizacion({
+        const base = {
           mascara: peticion.mascara,
           gravedad: peticion.gravedad,
           deriva: peticion.deriva,
@@ -33,7 +33,14 @@ export function manejarPeticion(peticion: Peticion, ahora: () => number = () => 
           potencia: peticion.potencia,
           comportamiento: buscarArma(peticion.armaId).comportamiento,
           aleatorio: peticion.aleatorio,
-        });
+        };
+        if (peticion.abanico) {
+          const { semiapertura1, semiapertura2, longitudMundoMax } = peticion.abanico;
+          const abanico = calcularAbanicoPrevisualizacion({ ...base, longitudMundoMax }, semiapertura1, semiapertura2);
+          const banda = { centro: abanico.centro, extremoMenor: abanico.centro, extremoMayor: abanico.centro, amplitudGrados: 0 };
+          return { tipo: "previsualizar", idPeticion, idPartida, resultado: { banda, abanico, duracionMs: ahora() - inicio } };
+        }
+        const banda = calcularBandaPrevisualizacion(base);
         return { tipo: "previsualizar", idPeticion, idPartida, resultado: { banda, duracionMs: ahora() - inicio } };
       }
       case "resolverDisparo":

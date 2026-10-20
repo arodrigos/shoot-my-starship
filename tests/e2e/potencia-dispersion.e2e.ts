@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { arrastrarBarraHasta } from "./utilesControl";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
-import { UMBRAL_POTENCIA_DISPERSION_VISIBLE } from "@/sim/balistica/dispersionPotencia";
+import { UMBRAL_POTENCIA_DISPERSION_VISIBLE, dispersionPorPotenciaGrados } from "@/sim/balistica/dispersionPotencia";
 
 async function entrarAPartida(page: import("@playwright/test").Page): Promise<void> {
   await page.setViewportSize({ width: 360, height: 640 });
@@ -22,12 +22,12 @@ function fraccionDeAngulo(grados: number): number {
   return (grados - ANGULO_MINIMO_GRADOS) / (ANGULO_MAXIMO_GRADOS - ANGULO_MINIMO_GRADOS);
 }
 
-// potencia-dispersion-3 (camino crítico): el cono de dispersión se muestra
+// potencia-dispersion-3 (camino crítico): la dispersión real queda acotada
 // antes de disparar y el impacto cae DENTRO de lo mostrado -- se comprueba
 // que el ángulo con el que de verdad vuela el proyectil (derivado de su
 // velocidad inicial real, tras la dispersión) queda entre los dos extremos
 // que la banda anunció, nunca fuera.
-test("potencia-dispersion-3: el disparo real cae dentro del cono de dispersión mostrado antes de disparar", async ({ page }) => {
+test("potencia-dispersion-3: el disparo real cae dentro de la amplitud de dispersión de su potencia", async ({ page }) => {
   test.setTimeout(60000);
   await entrarAPartida(page);
 
@@ -36,10 +36,10 @@ test("potencia-dispersion-3: el disparo real cae dentro del cono de dispersión 
   await arrastrarBarraHasta(page, "barra-potencia", fraccionDePotencia(95));
   await page.waitForFunction((esperado) => Math.abs(window.__debug.control!.ajuste.potencia - esperado) <= 1, 95);
 
-  await page.waitForFunction(() => (window.__debug.bandaDispersion?.extremoMenor.length ?? 0) >= 2, undefined, { timeout: 10000 });
-  const bandaAntes = await page.evaluate(() => window.__debug.bandaDispersion);
-  expect(bandaAntes).toBeTruthy();
-  expect(bandaAntes!.amplitudGrados).toBeGreaterThan(0);
+  // La mira ya no enseña la banda por potencia (trayectoria-pantalla): la
+  // amplitud con la que se compara es la de la propia dispersión real.
+  const amplitud = dispersionPorPotenciaGrados(95);
+  expect(amplitud).toBeGreaterThan(0);
 
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   await page.getByTestId("disparar").click();
@@ -49,7 +49,6 @@ test("potencia-dispersion-3: el disparo real cae dentro del cono de dispersión 
   const inicial = disparo!.inicial!;
   const anguloRealGrados = (Math.atan2(-inicial.vy, inicial.vx) * 180) / Math.PI;
 
-  const amplitud = bandaAntes!.amplitudGrados;
   const anguloPedido = 55;
   expect(anguloRealGrados).toBeGreaterThanOrEqual(anguloPedido - amplitud - 0.5);
   expect(anguloRealGrados).toBeLessThanOrEqual(anguloPedido + amplitud + 0.5);

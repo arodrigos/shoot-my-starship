@@ -76,7 +76,8 @@ import {
   seleccionarArma,
 } from "@/juego/control/store";
 import { avanzarGestoPolar, iniciarGestoPolar, type GestoPolar } from "@/juego/control/apuntado";
-import { mundoAPantallaCss } from "@/juego/camara/conversion";
+import { mundoAPantallaCss, pantallaCssAMundo } from "@/juego/camara/conversion";
+import { cortarPorLongitudPantalla, geometriaTrayectoria, longitudDeArco, type GeometriaTrayectoria, type PuntoPantalla } from "@/juego/mira/trayectoriaPantalla";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
@@ -131,7 +132,7 @@ import { permiteMovimientoCamara } from "@/juego/efectos/movimientoCamara";
 import { ControladorRemate, decidirRemate, type FotogramaRemate, type ModoRemate } from "@/juego/efectos/remate";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
-import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoComputo, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
+import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoComputo, type AbanicoPrevisualizacion, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { ocultarMira, tocaReintentarMira, type MiraOculta } from "@/juego/mira/miraOculta";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
 import {
@@ -311,9 +312,18 @@ const VIDA_BASE_TOPE_DESENLACE = 100;
 // gravedad-visible (grav-vis-3, corrección): grosor de la mira en píxeles
 // de PANTALLA, no de mundo -- ver actualizarPrevisualizacion().
 const ANCHO_MIRA_CSS_PX = 3;
-const ANCHO_EXTREMO_BANDA_CSS_PX = 1.5;
-const COLOR_BANDA_DISPERSION = 0xffb347;
-const COLOR_EXTREMO_BANDA = 0xffd9a0;
+// Tramo de una polilínea entre dos longitudes de arco: parte del punto exacto
+// donde acaba el primer corte, para que el abanico ancho empiece donde acaba el
+// estrecho.
+function tramoEntre(puntos: readonly PuntoPantalla[], desde: number, hasta: number): PuntoPantalla[] {
+  const a = cortarPorLongitudPantalla(puntos, desde);
+  const b = cortarPorLongitudPantalla(puntos, hasta);
+  return [a[a.length - 1], ...b.slice(a.length)];
+}
+const ANCHO_BORDE_ABANICO_CSS_PX = 1.5;
+const COLOR_ABANICO_TRAMO1 = 0xffb347;
+const COLOR_ABANICO_TRAMO2 = 0xffd9a0;
+const COLOR_BORDE_ABANICO = 0xffd9a0;
 
 // Reparto equiespaciado en X en el modo de suelo plano: con 2 naves da
 // exactamente 0.15 y 0.85 de siempre.
@@ -575,7 +585,7 @@ export class Partida extends Phaser.Scene {
   private previsClave = "";
   private previsEstadoPedido: EstadoPartida | null = null;
   private previsPendiente: { peticion: Parameters<ClienteSim["previsualizar"]>[0]; estado: EstadoPartida } | null = null;
-  private previsVigente: { estado: EstadoPartida; banda: BandaPrevisualizacion; duracionMs: number } | null = null;
+  private previsVigente: { estado: EstadoPartida; banda: BandaPrevisualizacion; abanico?: AbanicoPrevisualizacion; duracionMs: number } | null = null;
   // mira-oculta-timeouts: mientras la mira está oculta por presupuesto no se
   // recalcula con cada movimiento del apuntado; ver miraOculta.ts.
   private miraOculta: (MiraOculta & { readonly estado: EstadoPartida }) | null = null;
@@ -1409,6 +1419,7 @@ export class Partida extends Phaser.Scene {
 
     if (!jugable) {
       window.__debug!.previsualizacion = null;
+      window.__debug!.trayectoriaPantalla = null;
       return;
     }
 
@@ -1420,6 +1431,7 @@ export class Partida extends Phaser.Scene {
     const origenY = naveTiradora.y ?? alturaSuperficie(estado.mascara, origenX) ?? estado.mundo.alto - 1;
     const { anguloGrados, potencia, armaId } = obtenerEstadoControl().ajuste;
     if (obtenerEstadoControl().equipoId === "propulsores" && naveTiradora.y !== undefined) {
+      window.__debug!.trayectoriaPantalla = null;
       this.dibujarPrevisualizacionPropulsores(estado, anguloGrados, potencia);
       return;
     }
@@ -1435,13 +1447,15 @@ export class Partida extends Phaser.Scene {
           .filter(({ nave }) => nave.integridad > 0)
           .map(({ id, nave }) => ({ id, x: nave.x, y: nave.y as number, integridad: nave.integridad }))
       : undefined;
-    // mira-oculta-timeouts: oculta por presupuesto, el apuntado no la
-    // recalcula; vuelve a pedirse una sola vez al reintentar o al cambiar el
-    // estado (otro turno).
+    const geometria = geometriaTrayectoria({ anchoCss: window.innerWidth, altoCss: window.innerHeight, armaId });
+    const origenPantalla = mundoAPantallaCss(this, { x: origenX, y: origenY - ALTURA_CANON_PX });
+    const anguloGradosActual = anguloGrados;
+
+    // mira-oculta-timeouts: si el cálculo superó el presupuesto, el apuntado no
+    // lo repite; la trayectoria no desaparece, se pinta como cuñas rectas.
     if (this.miraOculta !== null) {
       if (this.miraOculta.estado === estado && !tocaReintentarMira(this.miraOculta, this.time.now)) {
-        window.__debug!.previsualizacion = null;
-        window.__debug!.bandaDispersion = null;
+        this.dibujarCunas(geometria, origenPantalla, anguloGradosActual);
         return;
       }
       this.liberarMiraOculta();
@@ -1449,6 +1463,9 @@ export class Partida extends Phaser.Scene {
     // respuesta-200ms: la mira se calcula en el trabajador, "la última gana".
     // Mientras llega la nueva se sigue dibujando la anterior del MISMO estado:
     // un parpadeo por frame sin mira sería peor que un cuadro de retraso.
+    const cam = this.cameras.main;
+    const rectLienzo = this.game.canvas.getBoundingClientRect();
+    const mundoPorPx = cam.width / cam.zoom / rectLienzo.width;
     this.pedirPrevisualizacion({
       tipo: "previsualizar",
       mascara: estado.mascara,
@@ -1465,72 +1482,110 @@ export class Partida extends Phaser.Scene {
       potencia,
       armaId,
       aleatorio: estado.aleatorio,
+      // La cota se redondea para que un zoom que vibra no pida un cálculo nuevo
+      // por fotograma; el recorte exacto se hace después, en pantalla.
+      abanico: {
+        semiapertura1: geometria.semiapertura1,
+        semiapertura2: geometria.semiapertura2,
+        longitudMundoMax: Math.ceil(geometria.radioTramo2Px * mundoPorPx * 1.05),
+      },
     }, estado);
     const vigente = this.previsVigente;
-    if (!vigente || vigente.estado !== estado) {
-      window.__debug!.previsualizacion = null;
-      window.__debug!.bandaDispersion = null;
+    if (!vigente || vigente.estado !== estado || !vigente.abanico) {
+      this.dibujarCunas(geometria, origenPantalla, anguloGradosActual);
       return;
     }
-    const { banda, duracionMs: duracionComputoMs } = vigente;
-    const puntos = banda.centro;
+    const { abanico, duracionMs: duracionComputoMs } = vigente;
 
-    // gravedad-visible (grav-vis-5): la promesa es que el preview no
-    // miente -- si no cabe en su presupuesto de cómputo, se oculta antes
-    // que dibujar un trazado que ya ha costado más de lo prometido.
-    if (puntos.length < 2 || superaPresupuestoComputo(duracionComputoMs + this.costeMiraForzadoMs)) {
-      if (puntos.length >= 2) this.miraOculta = { ...ocultarMira(this.time.now, this.costeMiraForzadoMs > 0), estado };
-      window.__debug!.previsualizacion = null;
-      window.__debug!.bandaDispersion = null;
+    // gravedad-visible (grav-vis-5): si no cabe en su presupuesto de cómputo, se
+    // pasa a cuñas rectas antes que dibujar un trazado que ya ha costado más de
+    // lo prometido.
+    if (abanico.centro.length < 2 || superaPresupuestoComputo(duracionComputoMs + this.costeMiraForzadoMs)) {
+      if (abanico.centro.length >= 2) this.miraOculta = { ...ocultarMira(this.time.now, this.costeMiraForzadoMs > 0), estado };
+      this.dibujarCunas(geometria, origenPantalla, anguloGradosActual);
       return;
     }
 
-    // gravedad-visible (grav-vis-3, corrección): el ancho de línea vivía en
-    // píxeles de MUNDO, que a este encuadre (p. ej. 1121x1156 mostrado en
-    // un lienzo de ~360px CSS) da un trazo sub-píxel (0,64 px CSS medido
-    // por el gatekeeper) -- invisible de por sí, y la mitad de tinta que
-    // antes al pasar a punteado. Se expresa en píxeles de PANTALLA y se
-    // convierte a mundo con displayScale.x (gameUnits/CSSpx), mismo patrón
-    // que IndicadorDeriva y ContadorAdherencia.
-    const grosorMiraMundoPx = ANCHO_MIRA_CSS_PX * this.scale.displayScale.x;
-    this.graficosPrevisualizacion.lineStyle(grosorMiraMundoPx, 0x9ad1ff, 0.9);
-    for (let i = 1; i < puntos.length; i++) {
+    const aPantalla = (puntos: readonly { x: number; y: number }[]): PuntoPantalla[] => puntos.map((p) => mundoAPantallaCss(this, p));
+    const r1 = geometria.radioTramo1Px;
+    const r2 = geometria.radioTramo2Px;
+    const centro = cortarPorLongitudPantalla(aPantalla(abanico.centro), r2);
+    const menor1 = cortarPorLongitudPantalla(aPantalla(abanico.tramo1.menor), r1);
+    const mayor1 = cortarPorLongitudPantalla(aPantalla(abanico.tramo1.mayor), r1);
+    const menor2 = tramoEntre(aPantalla(abanico.tramo2.menor), r1, r2);
+    const mayor2 = tramoEntre(aPantalla(abanico.tramo2.mayor), r1, r2);
+
+    this.pintarFranja(menor2, mayor2, COLOR_ABANICO_TRAMO2, 0.18);
+    this.pintarFranja(menor1, mayor1, COLOR_ABANICO_TRAMO1, 0.35);
+    // gravedad-visible (grav-vis-3): el ancho se expresa en píxeles de PANTALLA y
+    // se convierte a mundo, o a este encuadre el trazo sería sub-píxel.
+    this.graficosPrevisualizacion.lineStyle(this.cssAMundo(ANCHO_MIRA_CSS_PX), 0x9ad1ff, 0.9);
+    for (let i = 1; i < centro.length; i++) {
       if (i % 2 === 0) continue;
-      this.graficosPrevisualizacion.lineBetween(puntos[i - 1].x, puntos[i - 1].y, puntos[i].x, puntos[i].y);
+      this.lineaPantalla(centro[i - 1], centro[i]);
     }
 
-    // potencia-dispersion (pot-3, pot-4): la banda de riesgo. El cono real a
-    // 95 % mide ~3 px CSS de ancho en su extremo: con los extremos a 2 px y
-    // alfa 0,35 bajo la línea central de 3 px solo se leía como una línea
-    // punteada más gorda (medido por el gatekeeper a 360x640). Se rellena el
-    // área entre los extremos y se pintan estos con color claro y alfa alto,
-    // para que contrasten con el centro en vez de fundirse con él. Se dibuja
-    // siempre que haya amplitud, también por debajo del horizonte.
-    if (banda.amplitudGrados > 0 && banda.extremoMenor.length >= 2 && banda.extremoMayor.length >= 2) {
-      const poligono = [...banda.extremoMenor, ...[...banda.extremoMayor].reverse()].map((p) => new Phaser.Math.Vector2(p.x, p.y));
-      this.graficosPrevisualizacion.fillStyle(COLOR_BANDA_DISPERSION, 0.3);
-      this.graficosPrevisualizacion.fillPoints(poligono, true);
-      const grosorExtremoMundoPx = ANCHO_EXTREMO_BANDA_CSS_PX * this.scale.displayScale.x;
-      this.graficosPrevisualizacion.lineStyle(grosorExtremoMundoPx, COLOR_EXTREMO_BANDA, 0.85);
-      for (const extremo of [banda.extremoMenor, banda.extremoMayor]) {
-        for (let i = 1; i < extremo.length; i++) {
-          this.graficosPrevisualizacion.lineBetween(extremo[i - 1].x, extremo[i - 1].y, extremo[i].x, extremo[i].y);
-        }
-      }
-    }
+    const puntosMundo = centro.map((p) => pantallaCssAMundo(this, p));
+    window.__debug!.previsualizacion = { puntos: puntosMundo.map((p) => ({ x: p.x, y: p.y })), visible: true };
+    this.publicarTrayectoria(geometria, "simulada", longitudDeArco(centro));
+  }
 
-    window.__debug!.previsualizacion = { puntos: puntos.map((p) => ({ x: p.x, y: p.y })), visible: true };
-    window.__debug!.bandaDispersion = {
-      extremoMenor: banda.extremoMenor.map((p) => ({ x: p.x, y: p.y })),
-      extremoMayor: banda.extremoMayor.map((p) => ({ x: p.x, y: p.y })),
-      amplitudGrados: banda.amplitudGrados,
+  private cssAMundo(px: number): number {
+    return px * this.scale.displayScale.x / this.cameras.main.zoom;
+  }
+
+  private lineaPantalla(a: PuntoPantalla, b: PuntoPantalla): void {
+    const wa = pantallaCssAMundo(this, a);
+    const wb = pantallaCssAMundo(this, b);
+    this.graficosPrevisualizacion.lineBetween(wa.x, wa.y, wb.x, wb.y);
+  }
+
+  // Franja entre dos bordes que nacen en el mismo punto: relleno y borde fino.
+  private pintarFranja(menor: readonly PuntoPantalla[], mayor: readonly PuntoPantalla[], color: number, alfa: number): void {
+    if (menor.length < 2 || mayor.length < 2) return;
+    const poligono = [...menor, ...[...mayor].reverse()].map((p) => {
+      const w = pantallaCssAMundo(this, p);
+      return new Phaser.Math.Vector2(w.x, w.y);
+    });
+    this.graficosPrevisualizacion.fillStyle(color, alfa);
+    this.graficosPrevisualizacion.fillPoints(poligono, true);
+    this.graficosPrevisualizacion.lineStyle(this.cssAMundo(ANCHO_BORDE_ABANICO_CSS_PX), COLOR_BORDE_ABANICO, 0.7);
+    for (const borde of [menor, mayor]) {
+      for (let i = 1; i < borde.length; i++) this.lineaPantalla(borde[i - 1], borde[i]);
+    }
+  }
+
+  // Modo 'cunas': dos cuñas rectas con las mismas aperturas y radios. No simula
+  // nada, así que es lo que se ve cuando el cálculo no llega a tiempo.
+  private dibujarCunas(geometria: GeometriaTrayectoria, origen: PuntoPantalla, anguloGrados: number): void {
+    const en = (delta: number, radio: number): PuntoPantalla => {
+      const rad = ((anguloGrados + delta) * Math.PI) / 180;
+      return { x: origen.x + Math.cos(rad) * radio, y: origen.y - Math.sin(rad) * radio };
+    };
+    const { radioTramo1Px: r1, radioTramo2Px: r2, semiapertura1: a1, semiapertura2: a2 } = geometria;
+    this.pintarFranja([en(-a2, r1), en(-a2, r2)], [en(a2, r1), en(a2, r2)], COLOR_ABANICO_TRAMO2, 0.18);
+    this.pintarFranja([origen, en(-a1, r1)], [origen, en(a1, r1)], COLOR_ABANICO_TRAMO1, 0.35);
+    this.graficosPrevisualizacion.lineStyle(this.cssAMundo(ANCHO_MIRA_CSS_PX), 0x9ad1ff, 0.9);
+    this.lineaPantalla(origen, en(0, r2));
+    window.__debug!.previsualizacion = null;
+    this.publicarTrayectoria(geometria, "cunas", r2);
+  }
+
+  private publicarTrayectoria(geometria: GeometriaTrayectoria, modo: "simulada" | "cunas", longitudPantallaPx: number): void {
+    window.__debug!.trayectoriaPantalla = {
+      visible: true,
+      L: geometria.L,
+      longitudPantallaPx,
+      tramo1: { radioPx: geometria.radioTramo1Px, semiaperturaGrados: geometria.semiapertura1 },
+      tramo2: { radioPx: geometria.radioTramo2Px, semiaperturaGrados: geometria.semiapertura2 },
+      modo,
     };
   }
 
   // Una sola petición de mira en vuelo; si mientras tanto cambia el ajuste, se
   // guarda solo la más reciente y se envía al volver la anterior.
   private pedirPrevisualizacion(peticion: Parameters<ClienteSim["previsualizar"]>[0], estado: EstadoPartida): void {
-    const clave = JSON.stringify([peticion.tirador, peticion.origenX, peticion.origenY, peticion.anguloGrados, peticion.potencia, peticion.armaId]);
+    const clave = JSON.stringify([peticion.tirador, peticion.origenX, peticion.origenY, peticion.anguloGrados, peticion.potencia, peticion.armaId, peticion.abanico]);
     if (this.previsClave === clave && this.previsEstadoPedido === estado) return;
     this.previsClave = clave;
     this.previsEstadoPedido = estado;
@@ -1559,7 +1614,7 @@ export class Partida extends Phaser.Scene {
     window.__debug!.calculosPrevisualizacion = this.calculosPrevisualizacion;
     void this.motor.previsualizar(peticion).then((resultado) => {
       this.previsEnCurso = false;
-      if (resultado) this.previsVigente = { estado, banda: resultado.banda, duracionMs: resultado.duracionMs };
+      if (resultado) this.previsVigente = { estado, banda: resultado.banda, abanico: resultado.abanico, duracionMs: resultado.duracionMs };
       this.enviarPrevisualizacion();
     });
   }
