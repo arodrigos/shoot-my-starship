@@ -15,23 +15,49 @@ turno, y se pulsa "Jugar". El título y el
 interruptor «Música» van en una barra fija arriba y «Jugar» en otra fija
 abajo, así que en ningún tamaño hace falta desplazarse para encontrarlos.
 
-Para apuntar se apoya el dedo en cualquier punto del lienzo y se desliza. El
-primer toque no cambia nada, y lo que cuenta es cuánto se mueve el dedo:
-- **Dirección:** el movimiento perpendicular a la línea nave→dedo gira el tiro
-  0,25° por píxel, y cubre los 360°.
-- **Fuerza:** acercarse o alejarse de la nave cambia la fuerza 0,3 por píxel,
-  entre 0 y 100.
-- **Ejes fijos:** los ejes se fijan al apoyar el dedo. Un mismo gesto da el
-  mismo tiro en cualquier pantalla, llegue el táctil a 60 o a 120 eventos por
-  segundo.
-- **Cerca de la nave:** a menos de 30 px, el eje de la fuerza pasa a ser la
-  dirección de la flecha.
-- **Flecha:** sale de la nave y lleva en la punta la etiqueta «grados ·
-  fuerza». Se aparta si el dedo la taparía.
+Para apuntar se apoya el dedo en cualquier punto del lienzo y se gira
+alrededor de la propia nave (`src/juego/control/apuntado.ts`):
+- **Dirección:** la flecha sigue al dedo alrededor de la nave y cubre los 360°,
+  sin topes: una vuelta del dedo es una vuelta del tiro.
+- **Fuerza:** en el mismo gesto, alejar el dedo de la nave sube la fuerza y
+  acercarlo la baja, 0,3 por píxel, entre 0 y 100.
+- **Toque:** un movimiento de menos de 4 px no cambia nada, así que apoyar el
+  dedo no mueve el apuntado. El resultado depende del recorrido, no de
+  cuántos eventos táctiles entregue el dispositivo.
+- **Cerca de la nave:** a menos de 30 px de ella el apuntado se queda quieto;
+  al salir de esa zona se sigue desde donde estaba.
+- **Flecha:** sale de la nave, crece con la fuerza y lleva en la punta la
+  etiqueta «grados · fuerza». Se aparta si el dedo la taparía.
 
 Se dispara con "Disparar". El proyectil vuela de verdad, curvado por la
-gravedad de los planetas: al apuntar se dibujan los halos de cada pozo y la
-ruta corta que seguiría el disparo, junto con la banda de dispersión.
+gravedad de los planetas, cuyos halos marcan cada pozo. Mientras se apunta se
+ve una trayectoria corta (`src/juego/mira/trayectoriaPantalla.ts`), medida en
+la pantalla y no en el mundo para que se lea igual con o sin zoom. Si L es el
+lado mayor de la pantalla:
+- la línea central, simulada con la misma física que el disparo, llega hasta
+  2/8 de L o hasta donde choca;
+- un abanico estrecho (±9°) la acompaña hasta 1/8 de L, y uno ancho y tenue
+  (±45°) sigue de 1/8 a 2/8 de L;
+- con la Mosca Cojonera las aperturas son el doble.
+
+La trayectoria no depende de la potencia y siempre se ve: si el cálculo no
+llega a tiempo, se dibujan dos cuñas rectas con las mismas aperturas.
+
+### Cámara: zoom y desplazamiento
+
+El mundo se ve entero por defecto. Con dos dedos sobre el lienzo se pellizca
+para acercar (hasta ×3) y se deslizan juntos para moverse; si el segundo dedo llega
+con el apuntado ya empezado, el apuntado vuelve a como estaba al apoyar el
+primero. En escritorio, la rueda acerca o aleja anclada al puntero, y el
+pellizco del trackpad hace lo mismo. El encuadre nunca sale del mundo.
+
+Con zoom aparece a la derecha el botón «Ver todo», que vuelve a la vista
+completa en 300 ms (sin animación con movimiento reducido). Al cambiar de
+turno, y antes de que el relevo enseñe nada, la cámara vuelve a la vista completa sin animar.
+Con zoom, la cámara sigue al proyectil en vuelo sin dejar que se escape por el
+borde. La primera vez de cada partida sale la ayuda «Pellizca con dos dedos
+para acercar; «Ver todo» para volver», que se va al primer toque. Un único
+controlador mueve la cámara (`src/juego/camara/controladorCamara.ts`).
 
 La consola ocupa como mucho el 40 % del alto, anclada abajo (centro,
 izquierda o derecha) y respetando la zona segura de la pantalla. Tiene tres
@@ -78,8 +104,9 @@ angular crece con el cuadrado de la potencia
 (`dispersionPorPotenciaGrados`, `src/sim/balistica/dispersionPotencia.ts`) y
 pasa de despreciable a notarse por encima de la potencia
 `UMBRAL_POTENCIA_DISPERSION_VISIBLE`. Es determinista (sale de la semilla de
-la partida, el turno y la nave), así que la previsualización enseña las dos
-trayectorias extremas de esa banda y no miente.
+la partida, el turno y la nave). La trayectoria que se ve al apuntar no
+dibuja esa dispersión: su abanico tiene la misma apertura a cualquier
+potencia.
 
 Los halos de gravedad son de 3 a 4 anillos por pozo, calculados con la
 aceleración real (cada anillo marca donde el tirón cae a la mitad que en el
@@ -338,13 +365,16 @@ subida a la GPU por frame.
 Para medirlo en tu propio dispositivo, abre el juego con `?rendimiento=1`:
 aparece un recuadro con p95, max, frames largos, INP, la latencia del último
 toque en «Rastro», la del reloj de turno (`reloj-turno`, del toque en
-«Soy ...» a la píldora pintada) y un veredicto («Respuesta ≤ 200 ms» o «Supera 200 ms»).
+«Soy ...» a la píldora pintada), la del último gesto de cámara
+(`gesto-camara`) y la de «Ver todo» (`ver-todo`), y un veredicto («Respuesta ≤ 200 ms» o «Supera 200 ms»).
 Detalle en `docs/rendimiento.md`.
 
-La mira (la previsualización de la trayectoria) tiene un presupuesto de
-cómputo de 8 ms: si un cálculo lo supera, se oculta antes que dibujar algo
-que ya ha costado más de lo prometido. Mientras está oculta no se recalcula
-con cada movimiento del dedo; se vuelve a pedir una sola vez pasados 1,5 s
+La trayectoria de apuntado (la línea y su abanico)
+tiene un presupuesto de cómputo de 32 ms
+(`PRESUPUESTO_COMPUTO_ABANICO_MS`, `src/sim/armas/previsualizacion.ts`): si
+un cálculo lo supera, se dibujan las cuñas rectas antes que un trazado que ya
+ha costado más de lo prometido. Mientras tanto no se recalcula con cada
+movimiento del dedo; se vuelve a pedir una sola vez pasados 1,5 s
 (`REINTENTO_MIRA_OCULTA_MS`, `src/juego/mira/miraOculta.ts`) o al cambiar de
 turno.
 
@@ -366,14 +396,51 @@ siguiente carga.
 Si la caché sirviera una versión que no toca, abrir el juego con `?sw=0`
 desinstala el service worker, borra sus cachés y recarga sin él.
 
+## Stack y dependencias
+
+- **Next.js 16** (App Router, TypeScript estricto) y **React 19**. Phaser se
+  monta sin SSR porque toca `window` al cargarse.
+- **Phaser 4** para el lienzo del juego y **simplex-noise** para el terreno.
+- **easy-speech** para la voz (Web Speech API del navegador).
+- **Serwist** (`@serwist/window`, `@serwist/turbopack`, `serwist`) para el
+  service worker sin conexión.
+- Desarrollo y pruebas: ESLint, `node:test` con `tsx`, **fast-check**
+  (propiedades), **Playwright** con `@axe-core/playwright`, y `canvas`,
+  `jsdom`, `pngjs`, `pixelmatch` y `culori` para pruebas de render y de color.
+
+No hay base de datos, cuentas, servidor propio ni migraciones: todo corre en
+el navegador.
+
 ## Desarrollo
+
+El CI usa Node 22.
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000).
+Abre [http://localhost:3000](http://localhost:3000). Para probar el build de
+producción (el único en el que se registra el service worker):
+
+```bash
+npm run build
+npm run start
+```
+
+### Variables de entorno
+
+El juego no necesita ninguna para arrancar. Las que el código lee hoy:
+
+| Variable | Dónde | Para qué |
+| --- | --- | --- |
+| `VERCEL_GIT_COMMIT_SHA` | build (`next.config.ts`) | revisión del build; sin ella se usa `git rev-parse HEAD` y, sin git, un identificador aleatorio |
+| `NEXT_PUBLIC_VERSION_APP` | la fija `next.config.ts` | versión que enseña Ajustes y que versiona el precache; no hay que ponerla a mano |
+| `BASE_URL` | Playwright | apunta los tests a una URL ya desplegada en vez de levantar `npm run start` |
+| `CI` | Playwright | activa un reintento por test |
+| `PRUEBA_LARGA` | tests y scripts | con `1`, muestra completa en los tests estadísticos y en `medir:eventos` / `calibrar:economia` |
+| `CAPTURAS_DIR`, `RUTA_CAPTURA` | e2e | carpeta o fichero donde guardar capturas; sin ellas no se guardan |
+| `COMPROBAR_PUBLICO_PATRONES` | `scripts/comprobar-publico.mjs` | patrones que esa comprobación busca; llega del CI y sin ella el script falla |
 
 ## Comprobaciones
 
@@ -385,7 +452,7 @@ npm run verificar:presupuesto-bundle  # JS del primer arranque <= 1.3MB gzip
 npm run verificar:activos             # sin activos binarios ni URLs externas (ver ACTIVOS.md)
 npm run test:unit                     # núcleo de simulación, sin navegador
 PRUEBA_LARGA=1 npm run test:unit      # ídem, con la muestra completa de los tests estadísticos
-npm run test:e2e                      # Playwright, contra un build local
+npm run test:e2e                      # Playwright; levanta npm run start, así que pide npm run build antes
 npm run calibrar:economia             # recalibra precios y saldo, regenera docs/calibracion-economia.md
 npm run medir:eventos                 # calendario de eventos sobre muchas semillas
 ```
