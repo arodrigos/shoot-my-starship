@@ -35,3 +35,12 @@ export function pantallaCssAMundo(escena: EscenaConCamara, p: Punto): Punto {
   const r = escena.game.canvas.getBoundingClientRect();
   return { x: v.x + ((p.x - r.left) / r.width) * v.ancho, y: v.y + ((p.y - r.top) / r.height) * v.alto };
 }
+
+// Rectángulo de mundo que de verdad se ve: el lienzo puede asomar fuera del
+// viewport (ver el aviso «¡Perdido!»), así que se recorta por los dos.
+export function vistaVisibleMundo(escena: EscenaConCamara, viewport: { readonly ancho: number; readonly alto: number }): { x: number; y: number; ancho: number; alto: number } {
+  const r = escena.game.canvas.getBoundingClientRect();
+  const arribaIzquierda = pantallaCssAMundo(escena, { x: Math.max(0, r.left), y: Math.max(0, r.top) });
+  const abajoDerecha = pantallaCssAMundo(escena, { x: Math.min(viewport.ancho, r.left + r.width), y: Math.min(viewport.alto, r.top + r.height) });
+  return { x: arribaIzquierda.x, y: arribaIzquierda.y, ancho: abajoDerecha.x - arribaIzquierda.x, alto: abajoDerecha.y - arribaIzquierda.y };
+}

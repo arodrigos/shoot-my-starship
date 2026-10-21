@@ -77,7 +77,8 @@ import {
   seleccionarArma,
 } from "@/juego/control/store";
 import { avanzarGestoPolar, iniciarGestoPolar, type GestoPolar } from "@/juego/control/apuntado";
-import { mundoAPantallaCss, pantallaCssAMundo } from "@/juego/camara/conversion";
+import { mundoAPantallaCss, pantallaCssAMundo, vistaVisibleMundo } from "@/juego/camara/conversion";
+import { colocarEtiqueta, type Rect } from "@/juego/efectos/colocacionEtiquetas";
 import { ControladorCamara, type InstantaneaCamara } from "@/juego/camara/controladorCamara";
 import { cerrarAyudaCamara, publicarCamaraManual, registrarManejadorVerTodo, reiniciarCamaraHud } from "@/juego/control/camaraStore";
 import { cortarPorLongitudPantalla, geometriaTrayectoria, tramoEntre, tirasTramo2, longitudDeArco, type GeometriaTrayectoria, type PuntoPantalla } from "@/juego/mira/trayectoriaPantalla";
@@ -178,6 +179,10 @@ const RADIO_ROBOT_U = 14;
 const DURACION_AVISO_PERDIDO_MS = 1200;
 // vida-color: el número de daño sube y se funde en este tiempo.
 const DURACION_NUMERO_DANIO_MS = 900;
+// colocacion-etiquetas: px CSS entre dos etiquetas de impacto y hasta el borde
+// visible, para que el trazo negro de una no se coma el de otra.
+const SEPARACION_ETIQUETAS_CSS = 4;
+const MARGEN_ETIQUETAS_CSS = 8;
 const RADIO_OBJETO_U = 18;
 // vis-1: el destello del minirobot mide lo mismo en pantalla a cualquier
 // tamaño (px CSS), y se mantiene opaco lo bastante para una captura de 300 ms.
@@ -524,6 +529,10 @@ export class Partida extends Phaser.Scene {
   private efectosEventos!: EfectosEventos;
   private numerosDanioVivos: DebugEfectoVisible[] = [];
   private destellosRobotVivos: DebugEfectoVisible[] = [];
+  // colocacion-etiquetas: lo que ocupa cada etiqueta de impacto viva (números
+  // de daño con todo su recorrido de subida, «Estaba aquí»), para que la
+  // siguiente que salga en el mismo punto se aparte en vez de pisarla.
+  private etiquetasImpacto: { readonly tipo: "numero-danio" | "estaba-aqui"; readonly rect: Rect }[] = [];
   // avi-1: el único «¡Perdido!» vivo; el siguiente destruye este antes de pintarse.
   private avisoPerdidoVivo: { texto: Phaser.GameObjects.Text; temporizador: Phaser.Time.TimerEvent } | null = null;
   // paron-explosion: medición permanente de frames, de solo lectura.
@@ -622,6 +631,9 @@ export class Partida extends Phaser.Scene {
     window.__debug = window.__debug ?? {};
     this.movimientos = [];
     this.alTerminarMovimientos = null;
+    // Un reinicio de escena corta los tweens sin su onComplete: sin esto
+    // quedarían reservados los huecos de etiquetas que ya no existen.
+    this.etiquetasImpacto = [];
     // explosiones-por-capas (exl-1): función PURA (no lee nada de la escena
     // ni del DOM) -- el e2e la usa para preguntar "¿qué capas tocan a los X
     // ms del impacto?" sin depender de un sleep ni de la velocidad real del
@@ -2809,20 +2821,60 @@ export class Partida extends Phaser.Scene {
     silueta.fillPoints(contorno, true);
     silueta.strokePoints(contorno, true);
     silueta.setPosition(texto.x - texto.width / 2 - hueco - lado / 2, y - texto.height / 2);
+    // Se reserva el recorrido entero de la subida, no solo el primer
+    // fotograma: si no, el número sube y pisa lo que tenga encima.
+    const subida = 36 * escala;
+    const arriba = Math.min(texto.y - texto.height, silueta.y - lado / 2) - subida;
+    const izquierda = silueta.x - lado / 2;
+    const deseado = { x: izquierda, y: arriba, ancho: texto.x + texto.width / 2 - izquierda, alto: texto.y - arriba };
+    const etiqueta = this.colocarEtiquetaImpacto("numero-danio", deseado);
+    for (const objeto of [texto, silueta]) objeto.setPosition(objeto.x + etiqueta.rect.x - deseado.x, objeto.y + etiqueta.rect.y - deseado.y);
     const efecto: DebugEfectoVisible = { tipo: "numero-danio", valor: danio, color, silueta: varianteSiluetaAsiento(atacante), duracionMs: DURACION_NUMERO_DANIO_MS, x, y, radioOnda: 0, particulas: 0, escala: 0, sobre: "nave" };
     this.numerosDanioVivos.push(efecto);
     this.tweens.add({
       targets: [texto, silueta],
-      y: `-=${36 * escala}`,
+      y: `-=${subida}`,
       alpha: 0,
       duration: DURACION_NUMERO_DANIO_MS,
       ease: "Quad.easeOut",
       onComplete: () => {
         texto.destroy();
         silueta.destroy();
+        this.retirarEtiquetaImpacto(etiqueta);
         this.numerosDanioVivos = this.numerosDanioVivos.filter((e) => e !== efecto);
         this.publicarEfectosVisibles();
       },
+    });
+  }
+
+  // El área es la parte del mundo que se ve ahora mismo, menos un margen.
+  private colocarEtiquetaImpacto(tipo: "numero-danio" | "estaba-aqui", deseado: Rect): { readonly tipo: "numero-danio" | "estaba-aqui"; readonly rect: Rect } {
+    const escala = this.scale.displayScale.x;
+    const vista = vistaVisibleMundo(this, { ancho: window.innerWidth, alto: window.innerHeight });
+    const margen = MARGEN_ETIQUETAS_CSS * escala;
+    const area = { x: vista.x + margen, y: vista.y + margen, ancho: vista.ancho - 2 * margen, alto: vista.alto - 2 * margen };
+    const rect = colocarEtiqueta(
+      deseado,
+      this.etiquetasImpacto.map((e) => e.rect),
+      area,
+      SEPARACION_ETIQUETAS_CSS * escala,
+    );
+    const etiqueta = { tipo, rect };
+    this.etiquetasImpacto.push(etiqueta);
+    this.publicarEtiquetasImpacto();
+    return etiqueta;
+  }
+
+  private retirarEtiquetaImpacto(etiqueta: { readonly rect: Rect }): void {
+    this.etiquetasImpacto = this.etiquetasImpacto.filter((e) => e !== etiqueta);
+    this.publicarEtiquetasImpacto();
+  }
+
+  private publicarEtiquetasImpacto(): void {
+    window.__debug!.etiquetasImpacto = this.etiquetasImpacto.map(({ tipo, rect }) => {
+      const a = mundoAPantallaCss(this, rect);
+      const b = mundoAPantallaCss(this, { x: rect.x + rect.ancho, y: rect.y + rect.alto });
+      return { tipo, ...rect, css: { x: a.x, y: a.y, ancho: b.x - a.x, alto: b.y - a.y } };
     });
   }
 
@@ -3353,9 +3405,18 @@ export class Partida extends Phaser.Scene {
     );
   }
 
+  // El texto tiene el origen en (0.5, 0): su rectángulo empieza a media anchura.
+  private apartarEstabaAqui(texto: Phaser.GameObjects.Text): void {
+    const deseado = { x: texto.x - texto.width / 2, y: texto.y, ancho: texto.width, alto: texto.height };
+    const { rect } = this.colocarEtiquetaImpacto("estaba-aqui", deseado);
+    texto.setPosition(rect.x + texto.width / 2, rect.y);
+  }
+
   private limpiarMarcasFantasma(): void {
     for (const marca of this.marcasFantasma) marca.destroy();
     this.marcasFantasma = [];
+    this.etiquetasImpacto = this.etiquetasImpacto.filter((e) => e.tipo !== "estaba-aqui");
+    this.publicarEtiquetasImpacto();
     window.__debug!.fantasmas = [];
     publicarFantasmas([]);
   }
@@ -3407,6 +3468,7 @@ export class Partida extends Phaser.Scene {
           .setOrigin(0.5, 0)
           .setAlpha(0.8)
           .setDepth(29);
+        this.apartarEstabaAqui(etiqueta);
         this.marcasFantasma.push(marca, etiqueta);
         fantasmas.push({ nave: evento.nave, x: evento.desdeX, y: desdeYMarca });
         continue;
@@ -3425,6 +3487,7 @@ export class Partida extends Phaser.Scene {
         .setOrigin(0.5, 0)
         .setAlpha(0.8)
         .setDepth(29);
+      this.apartarEstabaAqui(texto);
       this.marcasFantasma.push(grafico, texto);
       fantasmas.push({ nave: evento.nave, x: evento.desdeX, y: desdeY });
       // La nave sigue los mismos puntos que calculó el núcleo (curva por la
