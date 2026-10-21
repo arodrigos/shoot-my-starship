@@ -17,8 +17,8 @@ abajo, así que en ningún tamaño hace falta desplazarse para encontrarlos.
 
 Para apuntar se apoya el dedo en cualquier punto del lienzo y se gira
 alrededor de la propia nave (`src/juego/control/apuntado.ts`):
-- **Dirección:** la flecha sigue al dedo alrededor de la nave. Se puede dar la
-  vuelta entera sin topes: una vuelta del dedo es una vuelta del tiro.
+- **Dirección:** la flecha sigue al dedo alrededor de la nave y cubre los 360°,
+  sin topes: una vuelta del dedo es una vuelta del tiro.
 - **Fuerza:** en el mismo gesto, alejar el dedo de la nave sube la fuerza y
   acercarlo la baja, 0,3 por píxel, entre 0 y 100.
 - **Toque:** un movimiento de menos de 4 px no cambia nada, así que apoyar el
@@ -46,7 +46,7 @@ llega a tiempo, se dibujan dos cuñas rectas con las mismas aperturas.
 ### Cámara: zoom y desplazamiento
 
 El mundo se ve entero por defecto. Con dos dedos sobre el lienzo se pellizca
-para acercar (hasta ×3) y se arrastra para moverse; si el segundo dedo llega
+para acercar (hasta ×3) y se deslizan juntos para moverse; si el segundo dedo llega
 con el apuntado ya empezado, el apuntado vuelve a como estaba al apoyar el
 primero. En escritorio, la rueda acerca o aleja anclada al puntero, y el
 pellizco del trackpad hace lo mismo. El encuadre nunca sale del mundo.
