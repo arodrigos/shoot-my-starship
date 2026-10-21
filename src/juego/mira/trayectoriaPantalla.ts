@@ -74,3 +74,26 @@ export function tramoEntre(puntos: readonly PuntoPantalla[], desde: number, hast
   if (salida.length === 1) salida.push(salida[0]);
   return salida;
 }
+
+// Franja ancha del abanico como tiras entre trayectorias vecinas, cada una
+// recortada entre r1 y r2. Una tira cuyo borde choca pronto queda cerrada en
+// ese punto y el resto del sector se sigue pintando con las demás.
+export function tirasTramo2(rayos: readonly (readonly PuntoPantalla[])[], desde: number, hasta: number): PuntoPantalla[][] {
+  const bordes = rayos.map((r) => tramoEntre(r, desde, hasta));
+  const tiras: PuntoPantalla[][] = [];
+  for (let i = 1; i < bordes.length; i++) {
+    const poligono = [...bordes[i - 1], ...[...bordes[i]].reverse()];
+    if (areaPoligono(poligono) > 0) tiras.push(poligono);
+  }
+  return tiras;
+}
+
+export function areaPoligono(puntos: readonly PuntoPantalla[]): number {
+  let doble = 0;
+  for (let i = 0; i < puntos.length; i++) {
+    const a = puntos[i];
+    const b = puntos[(i + 1) % puntos.length];
+    doble += a.x * b.y - b.x * a.y;
+  }
+  return Math.abs(doble) / 2;
+}
