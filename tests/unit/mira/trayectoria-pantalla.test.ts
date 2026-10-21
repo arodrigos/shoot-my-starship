@@ -9,6 +9,7 @@ import {
   cortarPorLongitudPantalla,
   geometriaTrayectoria,
   longitudDeArco,
+  tramoEntre,
 } from "@/juego/mira/trayectoriaPantalla";
 
 const pantalla = fc.record({ anchoCss: fc.integer({ min: 200, max: 3000 }), altoCss: fc.integer({ min: 200, max: 3000 }) });
@@ -79,4 +80,22 @@ test("cortarPorLongitudPantalla: una línea más corta que el límite se devuelv
   assert.deepEqual(cortarPorLongitudPantalla(p, 100), p);
   const corte = cortarPorLongitudPantalla(p, 2.5);
   assert.ok(Math.abs(longitudDeArco(corte) - 2.5) < 1e-9);
+});
+
+test("tra-1: un borde del abanico ancho que choca antes del tramo 1 sigue teniendo dos puntos (mosca con la nave posada)", () => {
+  const choqueTemprano = [{ x: 0, y: 0 }, { x: 10, y: 5 }];
+  const borde = tramoEntre(choqueTemprano, 40, 80);
+  assert.equal(borde.length, 2);
+  assert.deepEqual(borde[0], { x: 10, y: 5 });
+});
+
+test("tra-1: tramoEntre siempre devuelve al menos dos puntos si hay trayectoria", () => {
+  const punto = fc.record({ x: fc.integer({ min: -500, max: 500 }), y: fc.integer({ min: -500, max: 500 }) });
+  fc.assert(
+    fc.property(fc.array(punto, { minLength: 1, maxLength: 20 }), fc.integer({ min: 1, max: 300 }), fc.integer({ min: 1, max: 300 }), (puntos, r1, extra) => {
+      const borde = tramoEntre(puntos, r1, r1 + extra);
+      assert.ok(borde.length >= 2);
+      assert.ok(longitudDeArco(borde) <= extra + 1e-6);
+    }),
+  );
 });

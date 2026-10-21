@@ -61,3 +61,16 @@ export function cortarPorLongitudPantalla(puntos: readonly PuntoPantalla[], long
   }
   return salida;
 }
+
+// Borde de un tramo del abanico entre dos radios de pantalla. Si el vuelo de ese
+// borde choca antes de llegar al radio inicial (la mosca abre ±90° y con la nave
+// posada un borde cae enseguida en el planeta), queda en el punto de choque
+// repetido: la franja se pinta igualmente, cerrada en ese punto, en vez de
+// desaparecer por tener un solo punto.
+export function tramoEntre(puntos: readonly PuntoPantalla[], desde: number, hasta: number): PuntoPantalla[] {
+  const a = cortarPorLongitudPantalla(puntos, desde);
+  const b = cortarPorLongitudPantalla(puntos, hasta);
+  const salida = a.length === 0 ? [] : [a[a.length - 1], ...b.slice(a.length)];
+  if (salida.length === 1) salida.push(salida[0]);
+  return salida;
+}
