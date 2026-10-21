@@ -285,6 +285,16 @@ export interface DebugGlobal {
   // desplazamiento-tras-impacto (des-3): marcas «Estaba aquí» vivas durante el
   // turno siguiente, con el origen de cada desplazamiento.
   fantasmas?: readonly { readonly nave: number; readonly x: number; readonly y: number }[];
+  // colocacion-etiquetas: rectángulo (mundo y px CSS) de cada etiqueta de
+  // impacto viva; el de un número de daño abarca toda su subida.
+  etiquetasImpacto?: readonly {
+    readonly tipo: "numero-danio" | "estaba-aqui";
+    readonly x: number;
+    readonly y: number;
+    readonly ancho: number;
+    readonly alto: number;
+    readonly css: { readonly x: number; readonly y: number; readonly ancho: number; readonly alto: number };
+  }[];
   // fantasma (fan-1): naves muertas convertidas en fantasma. Aparte de
   // `fantasmas`, que son las marcas «Estaba aquí» de un desplazamiento.
   fantasmasNave?: readonly {
