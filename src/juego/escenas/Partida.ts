@@ -80,7 +80,7 @@ import { avanzarGestoPolar, iniciarGestoPolar, type GestoPolar } from "@/juego/c
 import { mundoAPantallaCss, pantallaCssAMundo } from "@/juego/camara/conversion";
 import { ControladorCamara, type InstantaneaCamara } from "@/juego/camara/controladorCamara";
 import { cerrarAyudaCamara, publicarCamaraManual, registrarManejadorVerTodo, reiniciarCamaraHud } from "@/juego/control/camaraStore";
-import { cortarPorLongitudPantalla, geometriaTrayectoria, tramoEntre, longitudDeArco, type GeometriaTrayectoria, type PuntoPantalla } from "@/juego/mira/trayectoriaPantalla";
+import { cortarPorLongitudPantalla, geometriaTrayectoria, tramoEntre, tirasTramo2, longitudDeArco, type GeometriaTrayectoria, type PuntoPantalla } from "@/juego/mira/trayectoriaPantalla";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
 import { limpiarParteDeGuerra, publicarParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
 import { publicarResultadoTurno, reiniciarResultadoTurno } from "@/juego/control/resultadoTurnoStore";
@@ -1474,10 +1474,11 @@ export class Partida extends Phaser.Scene {
     const centro = cortarPorLongitudPantalla(aPantalla(abanico.centro), r2);
     const menor1 = cortarPorLongitudPantalla(aPantalla(abanico.tramo1.menor), r1);
     const mayor1 = cortarPorLongitudPantalla(aPantalla(abanico.tramo1.mayor), r1);
-    const menor2 = tramoEntre(aPantalla(abanico.tramo2.menor), r1, r2);
-    const mayor2 = tramoEntre(aPantalla(abanico.tramo2.mayor), r1, r2);
+    const rayos2 = abanico.tramo2.rayos.map(aPantalla);
+    const menor2 = tramoEntre(rayos2[0], r1, r2);
+    const mayor2 = tramoEntre(rayos2[rayos2.length - 1], r1, r2);
 
-    this.pintarFranja(menor2, mayor2, COLOR_ABANICO_TRAMO2, 0.18);
+    this.pintarTiras(tirasTramo2(rayos2, r1, r2), [menor2, mayor2], COLOR_ABANICO_TRAMO2, 0.18);
     this.pintarFranja(menor1, mayor1, COLOR_ABANICO_TRAMO1, 0.35);
     // gravedad-visible (grav-vis-3): el ancho se expresa en píxeles de PANTALLA y
     // se convierte a mundo, o a este encuadre el trazo sería sub-píxel.
@@ -1513,6 +1514,23 @@ export class Partida extends Phaser.Scene {
     this.graficosPrevisualizacion.fillPoints(poligono, true);
     this.graficosPrevisualizacion.lineStyle(this.cssAMundo(ANCHO_BORDE_ABANICO_CSS_PX), COLOR_BORDE_ABANICO, 0.7);
     for (const borde of [menor, mayor]) {
+      for (let i = 1; i < borde.length; i++) this.lineaPantalla(borde[i - 1], borde[i]);
+    }
+  }
+
+  // Varias tiras con relleno y solo el borde exterior: los bordes interiores
+  // convertirían la franja en un enrejado.
+  private pintarTiras(tiras: readonly (readonly PuntoPantalla[])[], bordes: readonly (readonly PuntoPantalla[])[], color: number, alfa: number): void {
+    this.graficosPrevisualizacion.fillStyle(color, alfa);
+    for (const tira of tiras) {
+      const poligono = tira.map((p) => {
+        const w = pantallaCssAMundo(this, p);
+        return new Phaser.Math.Vector2(w.x, w.y);
+      });
+      this.graficosPrevisualizacion.fillPoints(poligono, true);
+    }
+    this.graficosPrevisualizacion.lineStyle(this.cssAMundo(ANCHO_BORDE_ABANICO_CSS_PX), COLOR_BORDE_ABANICO, 0.7);
+    for (const borde of bordes) {
       for (let i = 1; i < borde.length; i++) this.lineaPantalla(borde[i - 1], borde[i]);
     }
   }

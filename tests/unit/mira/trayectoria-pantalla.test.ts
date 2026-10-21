@@ -99,3 +99,44 @@ test("tra-1: tramoEntre siempre devuelve al menos dos puntos si hay trayectoria"
     }),
   );
 });
+
+import { areaPoligono, tirasTramo2 } from "@/juego/mira/trayectoriaPantalla";
+import { calcularAbanicoPrevisualizacion, RAYOS_POR_LADO_TRAMO2 } from "@/sim/armas/previsualizacion";
+import { crearMascaraPlana } from "../../utils/terrenoPlano";
+
+// Lo que se pinta, no solo que haya puntos: superficie de la franja ancha.
+function areaFranja(rayos: readonly (readonly { x: number; y: number }[])[], r1: number, r2: number): number {
+  return tirasTramo2(rayos, r1, r2).reduce((suma, tira) => suma + areaPoligono(tira), 0);
+}
+
+test("tra-1: con los dos bordes chocando antes de r1 la franja ancha sigue teniendo superficie", () => {
+  const rayo = (grados: number, largo: number) => {
+    const r = (grados * Math.PI) / 180;
+    return [0, largo / 2, largo].map((d) => ({ x: Math.cos(r) * d, y: -Math.sin(r) * d }));
+  };
+  // Mosca: ±90° alrededor de 90°. Los bordes mueren a 20 px (< r1 = 80); los intermedios llegan a 160.
+  const rayos = [0, 22.5, 45, 67.5, 90, 112.5, 135, 157.5, 180].map((g) => rayo(g, g === 0 || g === 180 ? 20 : 160));
+  const soloBordes = areaFranja([rayos[0], rayos[8]], 80, 160);
+  const conRayos = areaFranja(rayos, 80, 160);
+  assert.equal(soloBordes, 0);
+  // Media corona de 80 a 160 px menos los dos sectores extremos de 22,5°: bastante más de 10 000 px².
+  assert.ok(conRayos > 10000, `área pintada ${conRayos}`);
+});
+
+test("tra-1: el abanico simulado de la mosca con la nave posada llena la franja ancha", () => {
+  const mascara = crearMascaraPlana(2400, 1400, 1300);
+  const base = { mascara, gravedad: 1, deriva: 0, ancho: 2400, alto: 1400, origenX: 1200, origenY: 1299, comportamiento: { tipo: "impacto-simple" } as const, anguloGrados: 90, potencia: 50, longitudMundoMax: 600 };
+  const a = calcularAbanicoPrevisualizacion(base, 18, 90);
+  assert.equal(a.tramo2.rayos.length, 2 * RAYOS_POR_LADO_TRAMO2 + 1);
+  assert.equal(a.tramo2.rayos[RAYOS_POR_LADO_TRAMO2], a.centro);
+  const aPantalla = (t: readonly { x: number; y: number }[]) => t.map((p) => ({ x: p.x, y: p.y }));
+  const rayos = a.tramo2.rayos.map(aPantalla);
+  const antes = (() => {
+    const m = tramoEntre(rayos[0], 75, 150);
+    const M = tramoEntre(rayos[rayos.length - 1], 75, 150);
+    return areaPoligono([...m, ...[...M].reverse()]);
+  })();
+  const ahora = areaFranja(rayos, 75, 150);
+  assert.ok(ahora > 5000, `área pintada ${ahora}`);
+  assert.ok(ahora > antes * 3, `antes ${antes}, ahora ${ahora}`);
+});

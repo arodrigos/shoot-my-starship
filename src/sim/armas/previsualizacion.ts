@@ -243,8 +243,17 @@ export interface AbanicoPrevisualizacion {
   readonly centro: readonly PuntoPrevisualizacion[];
   // Trayectorias reales (misma gravedad) a ±semiapertura1 y ±semiapertura2.
   readonly tramo1: { readonly menor: readonly PuntoPrevisualizacion[]; readonly mayor: readonly PuntoPrevisualizacion[] };
-  readonly tramo2: { readonly menor: readonly PuntoPrevisualizacion[]; readonly mayor: readonly PuntoPrevisualizacion[] };
+  readonly tramo2: {
+    readonly menor: readonly PuntoPrevisualizacion[];
+    readonly mayor: readonly PuntoPrevisualizacion[];
+    // Trayectorias de menor a mayor ángulo, extremos incluidos. Con solo los dos
+    // bordes, un abanico ancho (la mosca abre ±90°) que choca pronto por ambos
+    // lados se quedaba sin superficie que pintar.
+    readonly rayos: readonly (readonly PuntoPrevisualizacion[])[];
+  };
 }
+
+export const RAYOS_POR_LADO_TRAMO2 = 4;
 
 // trayectoria-pantalla: cinco llamadas al MISMO calcularPrevisualizacion (centro
 // y cuatro extremos), todas con la misma cota de longitud. No depende de la
@@ -255,9 +264,14 @@ export function calcularAbanicoPrevisualizacion(
   semiapertura2: number,
 ): AbanicoPrevisualizacion {
   const en = (delta: number): readonly PuntoPrevisualizacion[] => calcularPrevisualizacion({ ...params, anguloGrados: params.anguloGrados + delta });
+  const centro = en(0);
+  const rayos: (readonly PuntoPrevisualizacion[])[] = [];
+  for (let k = -RAYOS_POR_LADO_TRAMO2; k <= RAYOS_POR_LADO_TRAMO2; k++) {
+    rayos.push(k === 0 ? centro : en((semiapertura2 * k) / RAYOS_POR_LADO_TRAMO2));
+  }
   return {
-    centro: en(0),
+    centro,
     tramo1: { menor: en(-semiapertura1), mayor: en(semiapertura1) },
-    tramo2: { menor: en(-semiapertura2), mayor: en(semiapertura2) },
+    tramo2: { menor: rayos[0], mayor: rayos[rayos.length - 1], rayos },
   };
 }
