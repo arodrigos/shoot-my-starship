@@ -37,7 +37,8 @@ La consola ocupa como mucho el 40 % del alto, anclada abajo (centro,
 izquierda o derecha) y respetando la zona segura de la pantalla. Tiene tres
 estados: desplegada, mínima y oculta; oculta solo deja una pestaña de 48 × 48
 «Mostrar controles». El estado y el anclaje se recuerdan (`consola:estado` y
-`consola:anclaje`).
+`consola:anclaje`). En mínima, el icono del arma y su precio van sobre una
+pastilla con fondo opaco, para que se lean con cualquier planeta detrás.
 
 Los avisos van en una capa propia, aparte de la consola, así que se ven aunque
 esté oculta: la ayuda de apuntado, el cartel de evento, la broma y la

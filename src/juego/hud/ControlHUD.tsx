@@ -333,7 +333,25 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           {botonPlegar}
           {botonOcultar}
         </div>
-        <div data-testid="arma-minima" style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif" }}>
+        {/* La barra mínima es transparente y deja este texto encima del
+            lienzo: sin fondo propio su contraste dependía del planeta que
+            hubiera detrás (y en esquema claro el texto casi negro desaparecía
+            sobre el espacio). Fondo con alfa 1, mismo criterio esp-5. */}
+        <div
+          data-testid="arma-minima"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            minWidth: 0,
+            padding: "2px 6px",
+            borderRadius: 8,
+            border: "1px solid var(--color-cromado-borde)",
+            background: "var(--color-cromado-fondo)",
+            color: "var(--color-cromado-texto)",
+            font: "12px system-ui, sans-serif",
+          }}
+        >
           {equipoElegido === null ? <IconoArma armaId={armaSeleccionada.id} /> : <IconoEquipoGracioso equipoId={equipoElegido.id} tamano={28} />}
           <span data-testid="precio-arma-minima">
             {equipoElegido !== null

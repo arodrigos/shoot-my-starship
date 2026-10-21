@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { ratioDeContraste, RATIO_MINIMO_TEXTO } from "../utils/contraste";
 
 const VIEWPORTS = [
   { ancho: 360, alto: 640, anchoConsola: 320 },
@@ -126,3 +127,23 @@ test("con-3: botones nuevos con nombre accesible y ≥ 44×44, y axe sin violaci
   expect(p.height).toBeGreaterThanOrEqual(44);
   expect(await axe()).toEqual([]);
 });
+
+// La barra mínima es transparente sobre el lienzo: el arma y su precio solo
+// se leen con cualquier planeta detrás si llevan fondo propio opaco, y el
+// contraste se mide contra ese fondo, no contra lo que asome del campo.
+for (const esquema of ["dark", "light"] as const) {
+  for (const vp of VIEWPORTS) {
+    test(`con-4: ${vp.ancho}x${vp.alto} (${esquema}), el arma de la consola plegada tiene fondo opaco y >= 4,5:1`, async ({ page }) => {
+      test.setTimeout(120000);
+      await page.emulateMedia({ colorScheme: esquema });
+      await page.addInitScript(() => window.localStorage.setItem("consola:estado", "minima"));
+      await entrarAPartida(page, vp.ancho, vp.alto);
+      const { fondo, texto } = await page.getByTestId("arma-minima").evaluate((el) => {
+        const precio = el.querySelector('[data-testid="precio-arma-minima"]')!;
+        return { fondo: getComputedStyle(el).backgroundColor, texto: getComputedStyle(precio).color };
+      });
+      expect(fondo, "fondo sin transparencia").toMatch(/^rgb\(/);
+      expect(ratioDeContraste(texto, fondo)).toBeGreaterThanOrEqual(RATIO_MINIMO_TEXTO);
+    });
+  }
+}
