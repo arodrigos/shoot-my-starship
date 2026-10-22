@@ -59,12 +59,22 @@ function conProximo(estado: EstadoPartida, proximo: EventoProgramado): EstadoPar
   return { ...estado, universo: { ...universoDe(estado), proximo } };
 }
 
+// SEMILLAS_EVT_1 sube las semillas a mano (npm run test:eventos-1000) sin
+// tocar el CI de cada push, que sigue con las rápidas: con 1000 tarda minutos.
+function semillasEvt1(): number {
+  const pedidas = process.env.SEMILLAS_EVT_1;
+  if (pedidas === undefined || pedidas === "") return NUM_SEMILLAS_EVT_1_RAPIDO;
+  // Un valor mal escrito no puede degradar en silencio a la pasada corta.
+  assert.match(pedidas, /^[1-9][0-9]*$/, `SEMILLAS_EVT_1 inválido: "${pedidas}"`);
+  return Number(pedidas);
+}
+
 // evt-1 (invariantes 1 y 5): para toda semilla, el hueco entre eventos de
 // calendario está en [2, 5] y el evento que ocurre es exactamente el
 // anunciado. Aquí corre con pocas semillas; el lote de 1000 vive en
 // scripts/medir-eventos.ts (PRUEBA_LARGA), fuera del CI rápido.
 test("evt-1: huecos del calendario en [2,5] y el pronóstico siempre acierta", () => {
-  comprobarCalendarioDeEventos(NUM_SEMILLAS_EVT_1_RAPIDO);
+  comprobarCalendarioDeEventos(semillasEvt1());
 });
 
 // evt-3: vitaminas ×2 durante exactamente 3 turnos propios y luego desaparece;

@@ -446,6 +446,7 @@ El juego no necesita ninguna para arrancar. Las que el código lee hoy:
 | `NEXT_PUBLIC_VERSION_APP` | la fija `next.config.ts` | versión que enseña Ajustes y que versiona el precache; no hay que ponerla a mano |
 | `BASE_URL` | Playwright | apunta los tests a una URL ya desplegada en vez de levantar `npm run start` |
 | `CI` | Playwright | activa un reintento por test |
+| `SEMILLAS_EVT_1` | `tests/unit/universo-eventos.test.ts` | semillas del test de propiedades del calendario (evt-1); sin ella, las del CI |
 | `PRUEBA_LARGA` | tests y scripts | con `1`, muestra completa en los tests estadísticos y en `medir:eventos` / `calibrar:economia` |
 | `CAPTURAS_DIR`, `RUTA_CAPTURA` | e2e | carpeta o fichero donde guardar capturas; sin ellas no se guardan |
 | `COMPROBAR_PUBLICO_PATRONES` | `scripts/comprobar-publico.mjs` | patrones que esa comprobación busca; llega del CI y sin ella el script falla |
@@ -460,6 +461,7 @@ npm run verificar:presupuesto-bundle  # JS del primer arranque <= 1.3MB gzip
 npm run verificar:activos             # sin activos binarios ni URLs externas (ver ACTIVOS.md)
 npm run test:unit                     # núcleo de simulación, sin navegador
 PRUEBA_LARGA=1 npm run test:unit      # ídem, con la muestra completa de los tests estadísticos
+npm run test:eventos-1000             # solo el test de propiedades del calendario (evt-1), con 1000 semillas
 npm run test:e2e                      # Playwright; levanta npm run start, así que pide npm run build antes
 npm run calibrar:economia             # recalibra precios y saldo, regenera docs/calibracion-economia.md
 npm run medir:eventos                 # calendario de eventos sobre muchas semillas
@@ -483,7 +485,11 @@ El CI (`.github/workflows/ci.yml`) ejecuta todas estas comprobaciones en
 cada push y cada pull request. Los tests estadísticos largos (ia-n*, arm-6,
 partida-3, nav-3, nucleo-4...) corren ahí con una muestra reducida
 (`tests/utils/muestra.ts`); la batería completa (`PRUEBA_LARGA=1`) corre cada
-noche en `.github/workflows/pruebas-largas.yml`. La partida completa
+noche en `.github/workflows/pruebas-largas.yml`. El test de propiedades del
+calendario (evt-1) corre en el CI con pocas semillas; para pasarlo con 1000
+(varios minutos), `npm run test:eventos-1000` en local o, sin máquina propia,
+el workflow «Pruebas a demanda» con `tipo` = `unit`, `specs` =
+`tests/unit/universo-eventos.test.ts` y `semillas_evt_1` = `1000`. La partida completa
 (`tests/e2e/partida-completa.e2e.ts`: de la portada al final en 360x640,
 820x1180 y 1180x820 con CPU ×4, comprobando que cada toque responde en 200 ms
 o menos) va en su propio job, `e2e-partida-completa`, uno por tamaño de
