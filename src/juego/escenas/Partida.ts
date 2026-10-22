@@ -43,6 +43,7 @@ import { aspectoDeId, aspectosDelCatalogo, trazadoDeArma } from "@/juego/armas/a
 import { crearFuenteIA } from "@/sim/ia/fuente";
 import { buscarEquipo, esIdEquipo } from "@/sim/equipo/catalogo";
 import { alcancePropulsores, volarConPropulsores } from "@/sim/equipo/propulsores";
+import { clasificarVueloPropulsores } from "@/juego/control/vueloPropulsores";
 import { LA_CONTABLE, ALMIRANTE_BISAGRA, buscarPersonalidad } from "@/sim/ia/personalidades";
 import { aplicarNivel, etiquetaNivel, NIVEL_IA_POR_DEFECTO } from "@/sim/ia/nivel";
 import { NOMBRES_CORTOS_RIVAL } from "@/juego/textos/nombresEnTexto";
@@ -64,7 +65,7 @@ import {
   obtenerEstadoControl,
   publicarDisparoJugadorResuelto,
   publicarJugable,
-  publicarPropulsoresBloqueados,
+  publicarVueloPropulsores,
   solicitarDisparoAutomatico,
   publicarNombreRival,
   publicarEconomia,
@@ -164,10 +165,6 @@ import { INTEGRIDAD_MAXIMA } from "@/sim/naves/vida";
 // cat-2: el haz del Rayo Láser se ve al menos esto antes de apagarse.
 // Holgura entre el vértice de la solución de depuración y el borde superior.
 const MARGEN_VERTICE_SOLUCION_PX = 40;
-// Por debajo de esta distancia al origen, la ruta de propulsores no es un
-// movimiento: la nave apunta contra la superficie y no llegaría a salir.
-const DISTANCIA_MINIMA_PROPULSORES_PX = 12;
-
 const DURACION_HAZ_MS = 450;
 
 // desplazamiento-tras-impacto (des-3): el deslizamiento dura entre 300 y 600 ms.
@@ -1410,7 +1407,7 @@ export class Partida extends Phaser.Scene {
       return;
     }
     window.__debug!.previsualizacionPropulsores = null;
-    publicarPropulsoresBloqueados(false);
+    publicarVueloPropulsores("normal");
 
     // impacto-naves: mismo criterio que dispararEntrada -- el casco solo
     // existe como cuerpo de colisión en modo espacial, con naves vivas.
@@ -1626,9 +1623,11 @@ export class Partida extends Phaser.Scene {
     grafico.lineStyle(grosor, 0x7fd7ff, 0.8).strokeCircle(nave.x, nave.y, alcance);
     grafico.fillStyle(0x7fd7ff, 0.07).fillCircle(nave.x, nave.y, alcance);
     // Bloqueado: la nave no llegaría a salir (apunta hacia dentro del planeta).
-    // Se pinta en rojo y el HUD no deja gastar el turno.
-    const bloqueado = vuelo.motivo === "obstaculo" && Math.hypot(vuelo.destino.x - nave.x, vuelo.destino.y - nave.y) < DISTANCIA_MINIMA_PROPULSORES_PX;
-    publicarPropulsoresBloqueados(bloqueado);
+    // Se pinta en rojo y el HUD no deja gastar el turno. Un vuelo corto solo
+    // lo avisa el HUD: la ruta se dibuja igual que cualquier otra.
+    const clase = clasificarVueloPropulsores(vuelo.motivo, Math.hypot(vuelo.destino.x - nave.x, vuelo.destino.y - nave.y));
+    const bloqueado = clase === "bloqueado";
+    publicarVueloPropulsores(clase);
     grafico.lineStyle(grosor, bloqueado ? 0xff4d4d : 0xffd23f, 0.95);
     for (let i = 1; i < vuelo.ruta.length; i++) {
       if (i % 2 === 0) continue;

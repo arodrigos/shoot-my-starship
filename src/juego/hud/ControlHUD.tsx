@@ -227,6 +227,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
       ? "Ya tienes el escudo activo"
       : `${equipoElegido.verboAccion}${enPresupuesto ? ` (${equipoElegido.coste} cr)` : ""}`;
   const propulsoresBloqueados = estado.equipoId === "propulsores" && estado.propulsoresBloqueados;
+  const vueloCorto = estado.equipoId === "propulsores" && estado.propulsoresVueloCorto;
   const accionDeshabilitada = !estado.puedeDisparar || escudoYaPuesto || propulsoresBloqueados;
   const potenciaEnCero = Math.round(estado.ajuste.potencia) <= 0;
   // lay-6: motivo concreto de por qué "Disparar" no responde -- distinto de
@@ -250,6 +251,9 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
     : !estado.puedeDisparar
       ? "Espera a que termine el disparo."
       : null;
+  // Mismo hueco y estilo que los avisos de arriba, pero cede ante ellos: no es
+  // un motivo para no lanzar, solo que el salto apenas cambiará la posición.
+  const avisoVisible = avisoAccionImposible ?? (vueloCorto ? "Vuelo corto: la nave apenas se mueve." : null);
 
   const estiloBotonConsola = {
     ...botonEstilo,
@@ -674,10 +678,10 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
         <ObjetosHUD />
         <MuerteSubitaHUD />
         <PronosticoHUD />
-        {avisoAccionImposible && (
+        {avisoVisible && (
           <div
             role="status"
-            data-testid={propulsoresBloqueados ? "aviso-propulsores" : "aviso-accion-imposible"}
+            data-testid={propulsoresBloqueados ? "aviso-propulsores" : avisoAccionImposible === null ? "aviso-vuelo-corto" : "aviso-accion-imposible"}
             style={{
               width: "100%",
               flexShrink: 0,
@@ -696,7 +700,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
               boxSizing: "border-box",
             }}
           >
-            {avisoAccionImposible}
+            {avisoVisible}
           </div>
         )}
       </div>
