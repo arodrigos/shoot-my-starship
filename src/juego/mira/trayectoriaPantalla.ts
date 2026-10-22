@@ -70,7 +70,13 @@ export function cortarPorLongitudPantalla(puntos: readonly PuntoPantalla[], long
 export function tramoEntre(puntos: readonly PuntoPantalla[], desde: number, hasta: number): PuntoPantalla[] {
   const a = cortarPorLongitudPantalla(puntos, desde);
   const b = cortarPorLongitudPantalla(puntos, hasta);
-  const salida = a.length === 0 ? [] : [a[a.length - 1], ...b.slice(a.length)];
+  if (a.length === 0) return [];
+  // Si `desde` cae a mitad de segmento, el último punto de `a` es interpolado y
+  // ocupa el índice del siguiente vértice real, que no hay que saltarse.
+  const inicio = a[a.length - 1];
+  const vertice = puntos[a.length - 1];
+  const interpolado = inicio.x !== vertice.x || inicio.y !== vertice.y;
+  const salida = [inicio, ...b.slice(interpolado ? a.length - 1 : a.length)];
   if (salida.length === 1) salida.push(salida[0]);
   return salida;
 }
