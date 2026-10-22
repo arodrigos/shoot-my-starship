@@ -1,13 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { arrastrarBarraHasta } from "../e2e/utilesControl";
+import { BASE_URL, ORIGEN_PRUEBAS } from "../origen";
 
 // cie-2: el smoke test que la etapa de traspaso ejecuta contra la URL real
 // ya desplegada (manifiesto: BASE_URL="$DEPLOY_URL" npx playwright test
-// tests/smoke/traspaso.spec.ts) -- deliberadamente fuera de tests/e2e/ y de
-// testMatch (*.e2e.ts) para que "npm run test:e2e" no lo recoja dos veces y
-// para que se pueda invocar solo, con su propio BASE_URL, sin depender del
-// webServer local de playwright.config.ts.
+// tests/smoke/traspaso.spec.ts). testMatch de playwright.config.ts incluye
+// *.spec.ts, así que "npm run test:e2e" también lo recoge y el CI lo ejecuta
+// contra el build local. Vive fuera de tests/e2e/ para poder invocarlo solo,
+// con su propio BASE_URL, sin arrastrar el resto de la suite.
 //
 // Verificado en este bloque contra el servidor de producción local (npm run
 // start, BASE_URL por defecto) -- ver desviaciones del entregable: la etapa
@@ -16,7 +17,6 @@ import { arrastrarBarraHasta } from "../e2e/utilesControl";
 // "ejecutado contra la URL de DEV" no es verificable todavía desde
 // desarrollo. El smoke test queda listo para que esa etapa lo reejecute con
 // BASE_URL=<url-de-dev-real> sin ningún cambio.
-const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:3000";
 
 test("la aplicación desplegada carga, muestra el sistema, y un disparo dirigido impacta y hace daño real", async ({
   page,
@@ -25,11 +25,10 @@ test("la aplicación desplegada carga, muestra el sistema, y un disparo dirigido
   await page.setViewportSize({ width: 360, height: 640 });
 
   const peticionesAjenas: string[] = [];
-  const origenPropio = new URL(BASE_URL).origin;
   page.on("request", (peticion) => {
     const url = new URL(peticion.url());
     if (url.protocol === "data:" || url.protocol === "blob:") return;
-    if (url.origin !== origenPropio) peticionesAjenas.push(peticion.url());
+    if (url.origin !== ORIGEN_PRUEBAS) peticionesAjenas.push(peticion.url());
   });
 
   await page.goto(BASE_URL);
