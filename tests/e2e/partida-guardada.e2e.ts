@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CLAVE_PARTIDA_GUARDADA } from "@/juego/partidaGuardada/almacen";
+import { ORIGEN_PRUEBAS } from "../origen";
 
 // partida-guardada-flujo: se juega por la portada real y se recarga la página,
 // que es lo que le pasa a una persona cuando el navegador mata la pestaña.
@@ -14,7 +15,7 @@ const TAMANOS = [
 test.use({
   storageState: {
     cookies: [],
-    origins: [{ origin: "http://127.0.0.1:3000", localStorage: [{ name: "universo:eventos", value: "0" }, { name: "muerte-subita:activada", value: "0" }] }],
+    origins: [{ origin: ORIGEN_PRUEBAS, localStorage: [{ name: "universo:eventos", value: "0" }, { name: "muerte-subita:activada", value: "0" }] }],
   },
 });
 

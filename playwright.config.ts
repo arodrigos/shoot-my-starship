@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { BASE_URL, BASE_URL_EXTERNA, ORIGEN_LOCAL, ORIGEN_PRUEBAS, PUERTO_LOCAL } from "./tests/origen";
 
 // cie-2 (corrección): el comando del manifiesto ("BASE_URL=$DEPLOY_URL npx
 // playwright test tests/smoke/traspaso.spec.ts") usa esta misma
@@ -7,8 +8,8 @@ import { defineConfig, devices } from "@playwright/test";
 // muere con "Could not find a production build" antes de tocar la URL
 // remota, porque el comando del manifiesto no hace "npm run build". Con
 // BASE_URL puesto, la intención es clara (hay un despliegue real contra el
-// que apuntar) y no hace falta ningún servidor local.
-const BASE_URL_EXTERNA = process.env.BASE_URL;
+// que apuntar) y no hace falta ningún servidor local. BASE_URL_EXTERNA sale
+// de tests/origen.ts, igual que el origen que siembra storageState.
 
 export default defineConfig({
   // cie-2: testDir sube a "./tests" (antes "./tests/e2e") y testMatch gana
@@ -28,7 +29,7 @@ export default defineConfig({
     // pwa-sin-conexion: ningún e2e juzga algo servido desde la caché de un
     // service worker; solo pwa-sin-conexion.e2e.ts lo permite.
     serviceWorkers: "block",
-    baseURL: BASE_URL_EXTERNA ?? "http://127.0.0.1:3000",
+    baseURL: BASE_URL,
     // cie-6, desviación diagnosticada en desarrollo-29: "retain-on-failure"
     // graba (y solo descarta al final) la traza de CADA intento, incluido
     // el que pasa -- ese coste de grabación, no la contención de CI, es lo
@@ -48,7 +49,7 @@ export default defineConfig({
     // drenaje de la muerte súbita (`?muerte=1`): recortaría partidas largas.
     storageState: {
       cookies: [],
-      origins: [{ origin: "http://127.0.0.1:3000", localStorage: [{ name: "universo:eventos", value: "0" }, { name: "muerte-subita:activada", value: "0" }, { name: "partida-guardada:activada", value: "0" }] }],
+      origins: [{ origin: ORIGEN_PRUEBAS, localStorage: [{ name: "universo:eventos", value: "0" }, { name: "muerte-subita:activada", value: "0" }, { name: "partida-guardada:activada", value: "0" }] }],
     },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
@@ -73,8 +74,8 @@ export default defineConfig({
           // local tras un npm ci limpio). Requiere "npm run build" ya
           // ejecutado antes -- lo hace CI como paso propio; en local,
           // ejecutar "npm run build" antes de "npm run test:e2e".
-          command: "npm run start -- -p 3000",
-          url: "http://127.0.0.1:3000",
+          command: `npm run start -- -p ${PUERTO_LOCAL}`,
+          url: ORIGEN_LOCAL,
           reuseExistingServer: false,
           timeout: 180000,
         },
