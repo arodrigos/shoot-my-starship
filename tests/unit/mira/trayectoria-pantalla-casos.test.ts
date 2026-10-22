@@ -110,11 +110,11 @@ test("tramoEntre: empieza en el punto a distancia `desde` y acaba en el de dista
   cerca(longitudDeArco(tramo), 20);
 });
 
-// Pendiente: tramoEntre toma los vértices de `hasta` a partir del índice a.length,
-// y cuando `desde` cae a mitad de segmento `a` lleva un punto interpolado de más,
-// así que se pierde el primer vértice real tras r1. En una curva el borde del
-// tramo ancho corta esa esquina con una cuerda y mide menos de r2 − r1.
-test("tramoEntre: con `desde` a mitad de segmento conserva el primer vértice posterior", { todo: "tramoEntre se salta un vértice cuando `desde` no cae en un vértice" }, () => {
+// Cuando `desde` cae a mitad de segmento, `a` lleva un punto interpolado de más:
+// si los vértices de `hasta` se tomaran desde el índice a.length se perdería el
+// primer vértice real tras r1, y en una curva el borde del tramo ancho cortaría
+// esa esquina con una cuerda y mediría menos de r2 − r1.
+test("tramoEntre: con `desde` a mitad de segmento conserva el primer vértice posterior", () => {
   const tramo = tramoEntre(ESCUADRA, 5, 15);
   assert.equal(tramo.length, 3);
   puntoCerca(tramo[0], 5, 0);
