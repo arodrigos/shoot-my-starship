@@ -40,6 +40,13 @@ lado mayor de la pantalla:
   (±45°) sigue de 1/8 a 2/8 de L;
 - con la Mosca Cojonera las aperturas son el doble.
 
+El abanico ancho no se calcula solo con sus dos bordes: son nueve
+trayectorias repartidas por toda la apertura (bordes y centro incluidos) y se
+pinta en tiras entre cada par de vecinas, recortadas entre 1/8 y 2/8 de L,
+sin líneas entre tiras: solo llevan trazo los dos bordes. Así, aunque con la
+Mosca (±90°) un borde choque enseguida contra el planeta, el resto del abanico
+sigue viéndose.
+
 La trayectoria no depende de la potencia y siempre se ve: si el cálculo no
 llega a tiempo, se dibujan dos cuñas rectas con las mismas aperturas.
 
