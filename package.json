@@ -11,6 +11,7 @@
     "test:e2e": "playwright test",
     "test": "npm run test:unit",
     "test:unit": "node --import tsx --test --test-concurrency=1 tests/unit/*.test.ts tests/unit/**/*.test.ts",
+    "test:eventos-1000": "SEMILLAS_EVT_1=1000 node --import tsx --test --test-name-pattern=\"^evt-1: huecos\" tests/unit/universo-eventos.test.ts",
     "medir:ia": "tsx scripts/medir-ia.ts",
     "medir:premios": "tsx scripts/medir-premios.ts",
     "medir:armas": "tsx scripts/medir-armas.ts",

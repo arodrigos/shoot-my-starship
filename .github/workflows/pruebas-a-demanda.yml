@@ -16,6 +16,10 @@ on:
         description: "Ficheros o filtros de test, separados por espacios (vacío = todos)"
         required: false
         default: ""
+      semillas_evt_1:
+        description: "Semillas del test de propiedades del calendario (evt-1); vacío = las del CI. 1000 tarda unos minutos"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -36,6 +40,7 @@ jobs:
         env:
           TIPO: ${{ inputs.tipo }}
           SPECS: ${{ inputs.specs }}
+          SEMILLAS: ${{ inputs.semillas_evt_1 }}
         run: |
           [[ "$TIPO" =~ ^(e2e|unit)$ ]] || { echo "::error::tipo inválido"; exit 1; }
           [[ "$SPECS" =~ ^[A-Za-z0-9_./*@,\ -]{0,500}$ ]] || { echo "::error::specs con caracteres no permitidos"; exit 1; }
@@ -45,6 +50,8 @@ jobs:
             echo "PRUEBA_LARGA=1" >> "$GITHUB_ENV"
             SPECS="${SPECS//@larga/}"
           fi
+          [[ "$SEMILLAS" =~ ^([1-9][0-9]{0,4})?$ ]] || { echo "::error::semillas_evt_1 inválido"; exit 1; }
+          [ -n "$SEMILLAS" ] && echo "SEMILLAS_EVT_1=$SEMILLAS" >> "$GITHUB_ENV"
           echo "PRUEBAS_SPECS=$SPECS" >> "$GITHUB_ENV"
       - run: npm ci
       - name: unitarios
