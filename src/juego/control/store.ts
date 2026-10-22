@@ -20,6 +20,7 @@ import {
 import { UMBRAL_POTENCIA_DISPERSION_VISIBLE } from "@/sim/balistica/dispersionPotencia";
 import { alternarMusica, alternarSonido, musicaActivada, sonidoSilenciado } from "@/juego/audio/motor";
 import { obtenerLocutor } from "@/juego/audio/voz";
+import type { ClaseVueloPropulsores } from "@/juego/control/vueloPropulsores";
 
 // Puente entre React (ControlHUD, fuera del lienzo) y la escena de Phaser
 // (que sí sabe de terreno y física): un módulo-singleton con
@@ -44,6 +45,9 @@ export interface EstadoControl {
   // sale de la nave (apunta hacia dentro del planeta) y gastar el turno sería
   // un turno perdido.
   readonly propulsoresBloqueados: boolean;
+  // Publicado por la escena: la ruta prevista no supera el largo de la nave.
+  // Solo avisa; a diferencia del bloqueo, no impide lanzar.
+  readonly propulsoresVueloCorto: boolean;
   readonly ayudaVisible: boolean;
   // potencia-dispersion (pot-6): texto de ayuda aparte de la ayuda inicial
   // -- avisa la PRIMERA vez que la potencia cruza el umbral donde la
@@ -239,6 +243,7 @@ let estado: EstadoControl = {
   ultimoDisparo: null,
   puedeDisparar: false,
   propulsoresBloqueados: false,
+  propulsoresVueloCorto: false,
   ayudaVisible: !ayudaYaVista(),
   ayudaDispersionVisible: false,
   modoEspacial: false,
@@ -429,8 +434,12 @@ export function repetirUltimoDisparo(): void {
   fijarAjuste({ ...estado.ultimoDisparo });
 }
 
-export function publicarPropulsoresBloqueados(valor: boolean): void {
-  if (estado.propulsoresBloqueados !== valor) fijar({ propulsoresBloqueados: valor });
+export function publicarVueloPropulsores(clase: ClaseVueloPropulsores): void {
+  const bloqueados = clase === "bloqueado";
+  const vueloCorto = clase === "corto";
+  if (estado.propulsoresBloqueados !== bloqueados || estado.propulsoresVueloCorto !== vueloCorto) {
+    fijar({ propulsoresBloqueados: bloqueados, propulsoresVueloCorto: vueloCorto });
+  }
 }
 
 export function publicarJugable(valor: boolean): void {
@@ -611,6 +620,7 @@ export function reiniciarControl(): void {
     ultimoDisparo: null,
     puedeDisparar: false,
     propulsoresBloqueados: false,
+    propulsoresVueloCorto: false,
     ayudaDispersionVisible: false,
     modoEspacial: false,
     modo: "barra-libre",
