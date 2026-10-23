@@ -139,7 +139,7 @@ for (const tam of TAMANOS) {
           tarjetas.slice(i + 1).forEach((c) => cruza(a, c) && intersecciones++);
         });
         const desbordes = Array.from(document.querySelectorAll('[data-testid="parte-de-guerra"] *')).filter(
-          (e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible",
+          (e) => e.scrollWidth > e.clientWidth + 1,
         ).length;
         const panel = document.querySelector('[data-testid="parte-de-guerra"] > div')!;
         return { n: tarjetas.length, intersecciones, desbordes: desbordes + (panel.scrollWidth > panel.clientWidth ? 1 : 0), botonDentro: b.top >= 0 && b.bottom <= innerHeight && b.left >= 0 && b.right <= innerWidth };
@@ -207,3 +207,42 @@ test("tg-4: la portada mide igual con y sin el ajuste", async ({ page }) => {
   mkdirSync("capturas", { recursive: true });
   await page.screenshot({ path: "capturas/texto-grande-4-portada-con-ajuste-360x640.png" });
 });
+
+// tg-3 (consola): 1 humano, 3 IA y reloj de 30 s. Sin filtrar por overflow-x: con
+// overflow:hidden y elipsis, scrollWidth > clientWidth es justo el nombre cortado.
+for (const tam of TAMANOS) {
+  for (const grande of [true, false]) {
+    test(`tg-3 consola: pestañas de vida sin cortes y píldora fuera del nombre (${tam.width}x${tam.height}, ${grande ? "grande" : "normal"})`, async ({ page }) => {
+      test.setTimeout(180000);
+      mkdirSync("capturas", { recursive: true });
+      await page.setViewportSize(tam);
+      if (grande) await page.addInitScript(() => localStorage.setItem("legibilidad:texto-grande", "1"));
+      await page.goto(`/?mapa=${MAPA_SEMBRADO}`);
+      await page.getByTestId("humanos-1").click();
+      await page.getByTestId("ias-3").click();
+      await page.getByTestId("reloj-30").click();
+      await page.getByTestId("boton-jugar").click();
+      await page.waitForSelector("#game-container canvas");
+      await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined);
+      if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
+      await expect(page.getByTestId("reloj-turno")).toBeVisible();
+      await expect(page.getByTestId("ayuda-apuntado")).toBeVisible();
+
+      const m = await page.evaluate(() => {
+        const cortados = Array.from(document.querySelectorAll('[data-testid^="integridad-etiqueta-"], [data-testid^="integridad-nivel-"]'))
+          .filter((e) => e.scrollWidth > e.clientWidth)
+          .map((e) => e.getAttribute("data-testid"));
+        const reloj = document.querySelector('[data-testid="reloj-turno"]')!.getBoundingClientRect();
+        const cruza = (a: DOMRect, c: DOMRect) => a.left < c.right && c.left < a.right && a.top < c.bottom && c.top < a.bottom;
+        const etiquetas = Array.from(document.querySelectorAll('[data-testid^="integridad-etiqueta-"]')).map((e) => e.getBoundingClientRect());
+        const cerrar = parseFloat(getComputedStyle(document.querySelector('[data-testid="ayuda-apuntado-cerrar"]')!).fontSize);
+        return { cortados, cruzaReloj: etiquetas.filter((e) => cruza(reloj, e)).length, cerrar };
+      });
+      expect(m.cortados, "pestañas con el texto cortado").toEqual([]);
+      expect(m.cruzaReloj).toBe(0);
+      expect(m.cerrar).toBeGreaterThanOrEqual(grande ? 18 : 14);
+      expect(await palabrasPartidas(page, '[data-testid="consola"]'), "palabras partidas a mitad").toEqual([]);
+      await page.screenshot({ path: `capturas/texto-grande-3-consola-${grande ? "grande" : "normal"}-${tam.width}x${tam.height}.png` });
+    });
+  }
+}
