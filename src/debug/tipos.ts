@@ -234,6 +234,8 @@ export interface DebugGlobal {
   };
   relojTurno?: { configuradoS: 30 | 45 | 60 | null; estado: "parado" | "corriendo" | "pausado" | "agotado"; restanteMs: number };
   adelantarRelojTurno?: (ms: number) => void;
+  // anuncios-accesibles: lo anunciado por la región aria-live, como mucho 20, solo en memoria.
+  anuncios?: () => readonly { readonly texto: string; readonly enMs: number }[];
   flechaApuntado?: {
     readonly anguloGrados: number;
     readonly potencia: number;
