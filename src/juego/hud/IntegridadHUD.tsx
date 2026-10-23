@@ -143,6 +143,7 @@ export function IntegridadHUD() {
       }),
     };
   }, [estado, participantes, rivalesIA, control.nombreRival]);
+  const grande = control.textoGrande;
   const transicion = movimientoReducido() ? "none" : `width ${DURACION_BAJADA_MS}ms ease-out`;
 
   return (
@@ -150,11 +151,14 @@ export function IntegridadHUD() {
       style={{
         display: "flex",
         flexDirection: "row",
-        gap: estado.naves.length >= 3 ? 2 : 4,
+        gap: grande && estado.naves.length >= 3 ? 4 : estado.naves.length >= 3 ? 2 : 4,
+        // Con «Texto grande» y 3 o 4 naves las pestañas pasan a dos columnas: en una
+        // sola fila el nombre a 18,2 px no cabe en ~77 px y la elipsis lo cortaría.
+        ...(grande && estado.naves.length >= 3 ? { flexWrap: "wrap" as const } : {}),
         // Con cuatro pestañas a 14 px «Contable» + la marca de 12 px necesitan
         // ~75 px y la fila da 69: se gana el padding de 4 px de la consola a cada
         // lado (la fila sigue dentro del borde de la consola, solo invade su relleno).
-        ...(estado.naves.length >= 4 ? { width: "calc(100% + 8px)", margin: "0 -4px", flexShrink: 0 } : { width: "100%" }),
+        ...(estado.naves.length >= 4 && !grande ? { width: "calc(100% + 8px)", margin: "0 -4px", flexShrink: 0 } : { width: "100%" }),
         minWidth: 0,
       }}
     >
@@ -172,7 +176,8 @@ export function IntegridadHUD() {
             style={{
               ...BARRA_ESTILO,
               position: "relative",
-              padding: estado.naves.length >= 4 ? "4px 0" : "4px 2px",
+              padding: estado.naves.length >= 4 && !grande ? "4px 0" : "4px 2px",
+              ...(grande && estado.naves.length >= 3 ? { flex: "1 1 calc(50% - 2px)", minWidth: 0 } : {}),
               ...(estado.naves.length >= 4 ? { fontSize: tamTexto(14) } : {}),
               background: esTurno ? "var(--color-roce-fondo)" : "var(--color-cromado-fondo)",
               color: esTurno ? "var(--color-roce-texto)" : "var(--color-cromado-texto)",
@@ -185,7 +190,6 @@ export function IntegridadHUD() {
             title={eliminada ? `${etiqueta}: eliminada` : esTurno ? `${etiqueta}: turno` : etiqueta}
             aria-current={esTurno ? "true" : undefined}
           >
-            {esTurno ? <PildoraRelojTurno /> : null}
             <div
               data-testid={`integridad-etiqueta-${nave.id}`}
               style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 400 }}
@@ -212,6 +216,7 @@ export function IntegridadHUD() {
                 {rival.etiquetaNivel}
               </div>
             ) : null}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
             {nave.integridad > 0 ? (
               <div
                 role="progressbar"
@@ -220,7 +225,8 @@ export function IntegridadHUD() {
                 aria-valuemax={INTEGRIDAD_MAXIMA}
                 aria-valuenow={valor}
                 style={{
-                  marginTop: 4,
+                  flex: 1,
+                  minWidth: 0,
                   height: 8,
                   borderRadius: 4,
                   background: "rgba(255,255,255,0.15)",
@@ -240,6 +246,8 @@ export function IntegridadHUD() {
                 />
               </div>
             ) : null}
+              {esTurno ? <PildoraRelojTurno /> : null}
+            </div>
           </div>
         );
       })}

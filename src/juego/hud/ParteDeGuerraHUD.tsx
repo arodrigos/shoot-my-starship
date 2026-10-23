@@ -159,13 +159,13 @@ export function ParteDeGuerraHUD() {
             ))}
           </table>
         )}
-        <div style={{ position: "sticky", bottom: 0, padding: "0 0 12px", background: "#0a0c14" }}>
+        <div style={{ position: "sticky", bottom: 0, padding: "8px 0 12px", background: "#0a0c14" }}>
           <button
             type="button"
             data-testid="otra-partida"
             onClick={solicitarOtraPartida}
             style={{
-              marginTop: 8,
+              marginTop: 0,
               minHeight: 44,
               padding: "8px 16px",
               borderRadius: 8,

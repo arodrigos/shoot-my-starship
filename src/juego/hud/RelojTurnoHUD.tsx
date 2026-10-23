@@ -10,7 +10,9 @@ function movimientoReducido(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-// Píldora sobre la esquina de la pestaña del jugador activo. Colores fijos con
+// Píldora de la pestaña del jugador activo, en el flujo junto a la barra de
+// vida: superpuesta con un `top` fijo en px invadía el nombre en cuanto la
+// letra crecía con «Texto grande». Colores fijos con
 // contraste propio: la pestaña cambia de fondo con el tema. No usa el círculo
 // de CuentaAtrasHUD, que es de la espoleta y solo vive durante el vuelo.
 export function PildoraRelojTurno() {
@@ -28,9 +30,7 @@ export function PildoraRelojTurno() {
         role="timer"
         aria-label={`Quedan ${segundos} segundos`}
         style={{
-          position: "absolute",
-          top: -13,
-          right: 4,
+          flex: "none",
           minWidth: 22,
           padding: "0 6px",
           borderRadius: 10,
