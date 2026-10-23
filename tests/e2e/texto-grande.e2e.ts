@@ -158,28 +158,26 @@ for (const tam of TAMANOS) {
   });
 }
 
-// tg-3: dos avisos a la vez (la ayuda de apuntado y «¡Tiempo!») con texto grande.
+// tg-3: dos avisos a la vez (las ayudas de apuntado y de cámara, que salen
+// juntas en un navegador nuevo) con texto grande. «¡Tiempo!» no coincide con
+// ellas: al agotarse el reloj el disparo automático las oculta.
 test("tg-3: dos avisos a la vez no se pisan entre sí ni con el botón ⚙ a 360x640", async ({ page }) => {
   test.setTimeout(240000);
   mkdirSync("capturas", { recursive: true });
   await page.addInitScript(() => localStorage.setItem("legibilidad:texto-grande", "1"));
   await page.setViewportSize(TAMANOS[0]);
   await page.goto(`/?mapa=${MAPA_SEMBRADO}`);
-  await page.getByTestId("reloj-30").click();
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
-  await page.waitForFunction(
-    () => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.adelantarRelojTurno !== undefined,
-  );
+  await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
   await expect(page.getByTestId("ayuda-apuntado")).toBeVisible();
-  await page.evaluate(() => window.__debug.adelantarRelojTurno!(30000));
-  await expect(page.getByTestId("aviso-tiempo-agotado")).toBeVisible();
+  await expect(page.getByTestId("ayuda-camara")).toBeVisible();
   const m = await page.evaluate(() => {
     const caja = (id: string) => document.querySelector(`[data-testid="${id}"]`)!.getBoundingClientRect();
     const cruza = (a: DOMRect, c: DOMRect) => a.left < c.right && c.left < a.right && a.top < c.bottom && c.top < a.bottom;
     const ayuda = caja("ayuda-apuntado");
-    const tiempo = caja("aviso-tiempo-agotado");
+    const tiempo = caja("ayuda-camara");
     const ajustes = caja("boton-ajustes");
     const textos = Array.from(document.querySelectorAll('[data-testid="capa-avisos"] *')).filter((e) => e.scrollWidth > e.clientWidth + 1).length;
     return {
@@ -188,7 +186,7 @@ test("tg-3: dos avisos a la vez no se pisan entre sí ni con el botón ⚙ a 360
       tiempoConAjustes: cruza(tiempo, ajustes),
       textosCortados: textos,
       dentro: ayuda.left >= 0 && tiempo.right <= innerWidth,
-      fontSize: parseFloat(getComputedStyle(document.querySelector('[data-testid="aviso-tiempo-agotado"]')!).fontSize),
+      fontSize: parseFloat(getComputedStyle(document.querySelector('[data-testid="ayuda-camara"]')!).fontSize),
     };
   });
   expect(m).toMatchObject({ entreSi: false, ayudaConAjustes: false, tiempoConAjustes: false, textosCortados: 0, dentro: true });
