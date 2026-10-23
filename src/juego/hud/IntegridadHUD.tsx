@@ -150,8 +150,11 @@ export function IntegridadHUD() {
       style={{
         display: "flex",
         flexDirection: "row",
-        gap: 4,
-        width: "100%",
+        gap: estado.naves.length >= 3 ? 2 : 4,
+        // Con cuatro pestañas a 14 px «Contable» + la marca de 12 px necesitan
+        // ~75 px y la fila da 69: se gana el padding de 4 px de la consola a cada
+        // lado (la fila sigue dentro del borde de la consola, solo invade su relleno).
+        ...(estado.naves.length >= 4 ? { width: "calc(100% + 8px)", margin: "0 -4px", flexShrink: 0 } : { width: "100%" }),
         minWidth: 0,
       }}
     >
@@ -169,7 +172,7 @@ export function IntegridadHUD() {
             style={{
               ...BARRA_ESTILO,
               position: "relative",
-              padding: "4px 2px",
+              padding: estado.naves.length >= 4 ? "4px 0" : "4px 2px",
               ...(estado.naves.length >= 4 ? { fontSize: tamTexto(14) } : {}),
               background: esTurno ? "var(--color-roce-fondo)" : "var(--color-cromado-fondo)",
               color: esTurno ? "var(--color-roce-texto)" : "var(--color-cromado-texto)",
@@ -185,13 +188,13 @@ export function IntegridadHUD() {
             {esTurno ? <PildoraRelojTurno /> : null}
             <div
               data-testid={`integridad-etiqueta-${nave.id}`}
-              style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: estado.naves.length >= 3 ? 400 : 600 }}
+              style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 400 }}
             >
               {/* Con varios jugadores el estado va DELANTE del nombre: con cuatro
                   barras en 360 px el nombre largo se corta con puntos suspensivos y
                   un sufijo "turno" se perdería justo cuando más hace falta. */}
               {participantes ? marcadorDeEstado(eliminada, esTurno, estado.naves.length) : ""}
-              {rival ? null : <MarcaAsiento asiento={nave.id} alto={12} />}
+              <MarcaAsiento asiento={nave.id} alto={12} />
               <span aria-hidden="true">{abreviarNombre(rival ? rival.nombreCorto : nombreBarra, estado.naves.length)}</span>
               <span style={SOLO_LECTORES}>{etiqueta}</span>
               {/* En el 1 contra 1 el turno ya se ve por el resaltado y aria-current:
@@ -199,17 +202,14 @@ export function IntegridadHUD() {
               {participantes || !esTurno ? null : <span style={SOLO_LECTORES}> · turno</span>}
             </div>
             {/* El nivel completo en su propia línea: junto al nombre no cabe en 3 y 4
-                barras a 360 px, y una inicial («·D») no dice «Difícil». Con el
-                texto a 14 px tampoco cabe la marca del asiento junto a un nombre
-                de ocho letras: en las IA la marca va aquí, y con tres o más
-                naves el nombre va sin negrita por el mismo motivo. */}
+                barras a 360 px, y una inicial («·D») no dice «Difícil». */}
             {rival ? (
               <div
                 aria-hidden="true"
                 data-testid={`integridad-nivel-${nave.id}`}
                 style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: tamTexto(14), lineHeight: 1.2, opacity: 0.85 }}
               >
-                <MarcaAsiento asiento={nave.id} alto={12} /> {rival.etiquetaNivel}
+                {rival.etiquetaNivel}
               </div>
             ) : null}
             {nave.integridad > 0 ? (

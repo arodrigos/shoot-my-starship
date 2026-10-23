@@ -17,6 +17,15 @@ import { tamTexto } from "@/juego/hud/legibilidad";
 // ganador siguen ahí, pero plegadas en «Ver números», para que a 360x640 con
 // 4 asientos la rejilla de 2x2 quepa; con textos de 14 px o más el contenido
 // puede desplazarse dentro del panel, y «Otra partida» queda fija al pie.
+type Estadisticas = ReturnType<typeof obtenerParteDeGuerra>["tarjetas"][number]["estadisticas"];
+
+const FILAS_NUMEROS: readonly (readonly [string, (e: Estadisticas) => number])[] = [
+  ["Disparos", (e) => e.disparos],
+  ["Aciertos", (e) => e.aciertos],
+  ["Daño hecho", (e) => e.danioHecho],
+  ["Autoimpactos", (e) => e.autoimpactos],
+];
+
 export function ParteDeGuerraHUD() {
   const { parte, tarjetas } = useSyncExternalStore(suscribirParteDeGuerra, obtenerParteDeGuerra, obtenerParteDeGuerra);
   const [numerosAbiertos, setNumerosAbiertos] = useState(false);
@@ -31,7 +40,9 @@ export function ParteDeGuerraHUD() {
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 25,
+        // Por encima de todo el HUD (⚙ a 50, avisos y relevo a 40): el parte tapa
+        // lo que queda debajo en vez de dejar que un aviso pise el ganador.
+        zIndex: 60,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -122,31 +133,30 @@ export function ParteDeGuerraHUD() {
           Ver números
         </button>
         {numerosAbiertos && (
+          // Una tabla de cinco columnas no cabe a 360 px con 14 px (y menos con
+          // «Texto grande»): «Autoimpactos» sola mide ~110 px. Cada asiento es
+          // un bloque con su nombre en una fila entera (se parte por palabras,
+          // nunca a mitad de una) y sus cuatro cifras en filas de etiqueta y valor.
           <table
             id="parte-numeros"
             data-testid="tabla-numeros"
-            style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", font: `${tamTexto(14)} system-ui, sans-serif` }}
+            style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", textAlign: "left", font: `${tamTexto(14)} system-ui, sans-serif` }}
           >
-            <thead>
-              <tr>
-                <th scope="col" style={{ textAlign: "left" }}>Asiento</th>
-                <th scope="col">Disparos</th>
-                <th scope="col">Aciertos</th>
-                <th scope="col">Daño hecho</th>
-                <th scope="col">Autoimpactos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tarjetas.map((tarjeta) => (
-                <tr key={tarjeta.asiento} data-testid={`fila-numeros-${tarjeta.asiento}`}>
-                  <th scope="row" style={{ textAlign: "left", overflowWrap: "anywhere" }}>{tarjeta.nombre}</th>
-                  <td>{tarjeta.estadisticas.disparos}</td>
-                  <td>{tarjeta.estadisticas.aciertos}</td>
-                  <td>{tarjeta.estadisticas.danioHecho}</td>
-                  <td>{tarjeta.estadisticas.autoimpactos}</td>
+            {tarjetas.map((tarjeta) => (
+              <tbody key={tarjeta.asiento} data-testid={`fila-numeros-${tarjeta.asiento}`} style={{ borderTop: "1px solid rgba(255,255,255,0.2)" }}>
+                <tr>
+                  <th colSpan={2} scope="colgroup" style={{ padding: "6px 0 2px", overflowWrap: "break-word", wordBreak: "normal" }}>
+                    {tarjeta.nombre}
+                  </th>
                 </tr>
-              ))}
-            </tbody>
+                {FILAS_NUMEROS.map(([etiqueta, valor]) => (
+                  <tr key={etiqueta}>
+                    <th scope="row" style={{ padding: "1px 0", fontWeight: 400 }}>{etiqueta}</th>
+                    <td style={{ padding: "1px 0", textAlign: "right" }}>{valor(tarjeta.estadisticas)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
           </table>
         )}
         <div style={{ position: "sticky", bottom: 0, padding: "0 0 12px", background: "#0a0c14" }}>

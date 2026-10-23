@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { wcagContrast, parse, formatHex } from "culori";
 import { comprobarContrasteHud } from "../utils/axeHud";
+import { palabrasPartidas } from "../utils/palabrasPartidas";
 
 // P2 (contraste-y-tamano): ct-1, ct-2, ct-4, ct-6. Se juega por la portada real
 // en el mapa sembrado de siempre.
@@ -79,10 +80,14 @@ for (const esquema of ["dark", "light"] as const) {
           cajas.slice(i + 1).forEach((c) => cruza(a, c) && intersecciones++);
         });
         const tabla = document.querySelector('[data-testid="tabla-numeros"]')!;
+        // El panel (con overflow-y) también debe caber a lo ancho: lo que la
+        // tabla desborda por la derecha queda recortado por él.
+        const panel = document.querySelector('[data-testid="parte-de-guerra"] > div')!;
+        const celdas = Array.from(tabla.querySelectorAll("th, td")).filter((c) => c.scrollWidth > c.clientWidth).length;
         return {
           tarjetas: tarjetas.length,
           intersecciones,
-          desbordan: tarjetas.filter((t) => t.scrollWidth > t.clientWidth).length + (tabla.scrollWidth > tabla.clientWidth ? 1 : 0),
+          desbordan: tarjetas.filter((t) => t.scrollWidth > t.clientWidth).length + (tabla.scrollWidth > tabla.clientWidth ? 1 : 0) + (panel.scrollWidth > panel.clientWidth ? 1 : 0) + celdas,
           botonTop: b.top,
           botonBottom: b.bottom,
           scrollY: window.scrollY,
@@ -93,6 +98,7 @@ for (const esquema of ["dark", "light"] as const) {
     expect(arriba.tarjetas).toBe(4);
     expect(arriba.intersecciones).toBe(0);
     expect(arriba.desbordan).toBe(0);
+    expect(await palabrasPartidas(page, '[data-testid="parte-de-guerra"]'), "palabras partidas a mitad").toEqual([]);
     expect(arriba.botonTop).toBeGreaterThanOrEqual(0);
     expect(arriba.botonBottom).toBeLessThanOrEqual(640);
     await page.screenshot({ path: `capturas/contraste-y-tamano-3-parte-arriba-${esquema}-360x640.png` });
@@ -101,6 +107,7 @@ for (const esquema of ["dark", "light"] as const) {
     await page.getByTestId("tabla-numeros").evaluate((el) => el.scrollIntoView({ block: "end" }));
     const abajo = await medir();
     expect(abajo.intersecciones).toBe(0);
+    expect(abajo.desbordan).toBe(0);
     expect(abajo.botonBottom).toBeLessThanOrEqual(640);
     await page.screenshot({ path: `capturas/contraste-y-tamano-3-parte-abajo-${esquema}-360x640.png` });
 
