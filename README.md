@@ -296,7 +296,12 @@ bloquea el daño y el empuje de los disparos ajenos durante 2 turnos tuyos; no
 frena los objetos de evento ni el drenaje de la muerte súbita. Los
 **propulsores** (60 cr) lanzan la nave con la misma gravedad que un proyectil
 y la cortan al llegar al círculo marcado, de área un cuarto de la pantalla. La
-previsualización dibuja el recorrido. Tras recibir daño, una nave se desplaza
+previsualización dibuja el recorrido. Si la ruta apunta contra el planeta y
+la nave se quedaría a menos de 12 u de donde está, se pinta en rojo, sale
+«Bloqueado: apunta lejos del planeta» y no se puede gastar el turno. Si el
+vuelo previsto no supera el largo de la nave, sale «Vuelo corto: la nave
+apenas se mueve.» en el mismo hueco de avisos, pero solo avisa: se puede
+lanzar igual (`src/juego/control/vueloPropulsores.ts`). Tras recibir daño, una nave se desplaza
 en la dirección del disparo, de modo que repetir el disparo sin volver a
 apuntar no acierta.
 
@@ -444,7 +449,8 @@ El juego no necesita ninguna para arrancar. Las que el código lee hoy:
 | --- | --- | --- |
 | `VERCEL_GIT_COMMIT_SHA` | build (`next.config.ts`) | revisión del build; sin ella se usa `git rev-parse HEAD` y, sin git, un identificador aleatorio |
 | `NEXT_PUBLIC_VERSION_APP` | la fija `next.config.ts` | versión que enseña Ajustes y que versiona el precache; no hay que ponerla a mano |
-| `BASE_URL` | Playwright | apunta los tests a una URL ya desplegada en vez de levantar `npm run start` |
+| `BASE_URL` | Playwright (`tests/origen.ts`) | apunta los tests a una URL ya desplegada en vez de levantar `npm run start`; sin ella, el origen local es `http://127.0.0.1:3000`. El localStorage que siembran los tests usa el origen que salga de aquí |
+| `URL_OBJETIVO` | `scripts/smoke-traspaso.sh` | despliegue contra el que corre `npm run smoke:traspaso`; sin ella, construye si hace falta y arranca el juego en local |
 | `CI` | Playwright | activa un reintento por test |
 | `SEMILLAS_EVT_1` | `tests/unit/universo-eventos.test.ts` | semillas del test de propiedades del calendario (evt-1); sin ella, las del CI |
 | `PRUEBA_LARGA` | tests y scripts | con `1`, muestra completa en los tests estadísticos y en `medir:eventos` / `calibrar:economia` |
@@ -463,6 +469,7 @@ npm run test:unit                     # núcleo de simulación, sin navegador
 PRUEBA_LARGA=1 npm run test:unit      # ídem, con la muestra completa de los tests estadísticos
 npm run test:eventos-1000             # solo el test de propiedades del calendario (evt-1), con 1000 semillas
 npm run test:e2e                      # Playwright; levanta npm run start, así que pide npm run build antes
+npm run smoke:traspaso                # smoke de tests/smoke/traspaso.spec.ts, en local o contra URL_OBJETIVO
 npm run calibrar:economia             # recalibra precios y saldo, regenera docs/calibracion-economia.md
 npm run medir:eventos                 # calendario de eventos sobre muchas semillas
 ```
