@@ -588,3 +588,43 @@ CI.
   entra solo como dependencia de desarrollo.
 - **Reloj de turno** (#270): Off, 30, 45 o 60 s por turno humano, elegido en
   la portada; al agotarse dispara solo lo que haya en la mira.
+- **Marca del asiento** (#271, #277, #278): mini-silueta del asiento en las
+  pestañas de vida y en el número de daño; con cuatro naves la pestaña no
+  corta el nombre y el turno se marca con una sombra interior.
+- **Partida guardada** (#272, #275, #276): se guarda al cerrar cada turno y al
+  ocultar la página; la portada ofrece continuar la partida interrumpida o
+  descartarla, y avisa si no se puede guardar.
+- **Movimiento de naves y propulsores** (#284, #319): el tirador no se
+  desplaza con su propio tiro, el Gravitón solo empuja si alcanza y los
+  propulsores salen de la superficie. Por debajo de 12 u contra un obstáculo
+  quedan bloqueados (ruta roja y botón deshabilitado); si el vuelo no supera el
+  largo de la nave, solo se avisa de «Vuelo corto».
+- **Respuesta al disparo** (#285, #294, #295): el proyectil sale y el impacto
+  se anima mientras el trabajador cierra el turno; el fogonazo se pinta en el
+  toque, el service worker no sirve del precache el arranque del trabajador y
+  un cierre de turno largo no da al trabajador por mudo.
+- **Objetos y minirobot visibles** (#286, #296, #299): los objetos de evento y
+  su aplicación se ven en pantalla; la detonación del minirobot tiene destello,
+  partículas y número propios, y el bocadillo cuenta su daño aunque el tiro
+  falle o se pierda.
+- **Premios en el parte de guerra** (#287, #288): estadísticas por asiento y
+  una tarjeta de premios en el parte de guerra.
+- **Música con tensión** (#289): la música gana percusión y bajo a medida que
+  la partida se aprieta.
+- **Apuntado de 360°** (#290): el dedo gira alrededor de la nave y la flecha
+  lo sigue en toda la vuelta.
+- **Trayectoria corta en pantalla** (#291, #300, #301, #318, #320): la mira se
+  mide sobre el lado mayor de la pantalla con un abanico de dos tramos; el
+  abanico ancho se pinta en tiras entre nueve trayectorias aunque sus bordes
+  choquen pronto.
+- **Cámara con gestos** (#293): zoom y desplazamiento con dos dedos o con la
+  rueda, botón «Ver todo» y seguimiento del proyectil.
+- **Consola y etiquetas** (#283, #298, #316, #317): la consola plegada también
+  se puede ocultar; el arma de la barra mínima va sobre fondo opaco para leerse
+  sobre cualquier fondo; las etiquetas de un impacto a quemarropa se apartan
+  en vez de pisarse.
+- **Pruebas y guardias** (#297, #322, #323, #324): `forzarFinDePartida` cierra
+  también partidas de cuatro asientos; `npm run test:eventos-1000` lanza evt-1
+  con 1000 semillas; el origen local de los tests sale de `BASE_URL` en un
+  único sitio; los guardias de `scripts/` comprueban su caso negativo sin
+  escribir en `src/`.

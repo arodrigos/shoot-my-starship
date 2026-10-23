@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   clasificarVueloPropulsores,
-  DISTANCIA_MINIMA_PROPULSORES_PX,
+  DISTANCIA_MINIMA_PROPULSORES,
   LARGO_NAVE_U,
 } from "@/juego/control/vueloPropulsores";
 import {
@@ -18,8 +18,8 @@ import {
 // El aviso solo tiene sentido si el largo de la nave queda por encima del
 // umbral de bloqueo: si no, nunca habría un tramo "avisa y deja lanzar".
 test("vuelo-corto: el largo de la nave supera el umbral de bloqueo de 12 u", () => {
-  assert.equal(DISTANCIA_MINIMA_PROPULSORES_PX, 12);
-  assert.ok(LARGO_NAVE_U > DISTANCIA_MINIMA_PROPULSORES_PX, `largo ${LARGO_NAVE_U}`);
+  assert.equal(DISTANCIA_MINIMA_PROPULSORES, 12);
+  assert.ok(LARGO_NAVE_U > DISTANCIA_MINIMA_PROPULSORES, `largo ${LARGO_NAVE_U}`);
 });
 
 test("vuelo-corto: por debajo de 12 u contra un obstáculo bloquea como antes", () => {
@@ -27,7 +27,7 @@ test("vuelo-corto: por debajo de 12 u contra un obstáculo bloquea como antes", 
 });
 
 test("vuelo-corto: entre 12 u y el largo de la nave avisa sin bloquear", () => {
-  const medio = (DISTANCIA_MINIMA_PROPULSORES_PX + LARGO_NAVE_U) / 2;
+  const medio = (DISTANCIA_MINIMA_PROPULSORES + LARGO_NAVE_U) / 2;
   for (const d of [12, 15, medio, LARGO_NAVE_U - 0.01]) {
     assert.equal(clasificarVueloPropulsores("obstaculo", d), "corto", `d=${d}`);
   }
