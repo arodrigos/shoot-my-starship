@@ -91,6 +91,10 @@ Abre un panel con:
 - **Sacudida**, **Rastro**, **Sonido**, **Música** y **Voz**, cada uno con
   una línea que explica qué hace. Si el dispositivo no tiene voz local en
   castellano, el aviso sale debajo de «Voz».
+- **Texto grande**: agranda un 30 % los textos HTML del HUD (consola, menú,
+  avisos, relevo y parte de guerra), no la portada ni los textos pintados en
+  el lienzo. Se aplica al momento, sin reiniciar la partida, y se recuerda
+  entre visitas.
 - El estado del juego sin conexión y la versión instalada.
 
 **Legibilidad.** Todo texto HTML del HUD (consola, menú, avisos, relevo y

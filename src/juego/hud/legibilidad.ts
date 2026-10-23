@@ -11,6 +11,18 @@ export function tamTexto(px: number): string {
   return `calc(${px}px * var(--escala-texto, 1))`;
 }
 
+export const CLAVE_TEXTO_GRANDE = "legibilidad:texto-grande";
+
+// Solo "1" lo enciende: ausente, "0", basura o un almacenamiento que lanza lo
+// dejan apagado, para que un valor corrupto nunca agrande el HUD sin pedirlo.
+export function leerTextoGrandeGuardado(almacen: Pick<Storage, "getItem"> | undefined): boolean {
+  try {
+    return almacen?.getItem(CLAVE_TEXTO_GRANDE) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export interface ParContraste {
   readonly id: string;
   readonly texto: string;
