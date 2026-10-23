@@ -164,4 +164,6 @@ test("tg-4: la portada mide igual con y sin el ajuste", async ({ page }) => {
   const sin = await medir();
   await page.evaluate(() => (document.documentElement.dataset.textoGrande = "1"));
   expect(await medir()).toEqual(sin);
+  mkdirSync("capturas", { recursive: true });
+  await page.screenshot({ path: "capturas/texto-grande-4-portada-con-ajuste-360x640.png" });
 });
