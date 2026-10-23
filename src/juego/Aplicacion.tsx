@@ -5,6 +5,7 @@ import { JuegoLienzo } from "@/juego/JuegoLienzo";
 import { PantallaInicio } from "@/juego/PantallaInicio";
 import { elegirMapaDistinto, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
+import { instalarPantallaEncendida, marcarPartidaEnCurso } from "@/juego/control/pantallaEncendidaStore";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import type { JugadorConfig } from "@/juego/jugadores";
 import type { SegundosReloj } from "@/juego/control/relojTurnoStore";
@@ -91,6 +92,19 @@ export function Aplicacion() {
     modo: modoInicial(),
   }));
 
+  // El bloqueo de pantalla vive por encima de JuegoLienzo, que se remonta en
+  // cada «Otra partida»: aquí solo se le dice cuándo hay actividad.
+  useEffect(() => {
+    const baja = instalarPantallaEncendida();
+    return () => {
+      baja();
+      marcarPartidaEnCurso(false);
+    };
+  }, []);
+  useEffect(() => {
+    if (fase !== "jugando") marcarPartidaEnCurso(false);
+  }, [fase]);
+
   useEffect(() => {
     return suscribirOtraPartida(() => {
       setFase("jugando");
@@ -118,10 +132,12 @@ export function Aplicacion() {
       <PantallaInicio
         onJugar={(rivalId, modo, jugadores, todosVemosTodo, nivelIA, relojTurnoS) => {
           setPartida((actual) => ({ ...actual, personalidadId: rivalId, modo, jugadores, todosVemosTodo, nivelIA, relojTurnoS, reanudar: undefined }));
+          marcarPartidaEnCurso(true);
           setFase("jugando");
         }}
         onContinuar={(datos) => {
           setPartida((actual) => ({ ...actual, reanudar: datos }));
+          marcarPartidaEnCurso(true);
           setFase("jugando");
         }}
       />

@@ -391,6 +391,27 @@ movimiento del dedo; se vuelve a pedir una sola vez pasados 1,5 s
 (`REINTENTO_MIRA_OCULTA_MS`, `src/juego/mira/miraOculta.ts`) o al cambiar de
 turno.
 
+## Pantalla encendida durante la partida
+
+Mientras hay una partida en curso, el juego pide al navegador que no apague ni
+atenúe la pantalla (Screen Wake Lock API), para que un rato sin tocar nada
+—pensar el tiro, pasar el dispositivo, la IA jugando— no corte el ritmo, la
+música ni la voz.
+
+- Se pide dentro del gesto de «Jugar», «Continuar» y «Otra partida». En la
+  portada no se pide nunca.
+- Se suelta al aparecer el parte de guerra, y el navegador lo suelta solo
+  cuando la página queda oculta; al volver, si la partida sigue, se pide otra
+  vez. Si el sistema lo suelta o lo rechaza con la partida en curso, se
+  reintenta en el siguiente toque (hasta 3 rechazos seguidos por partida).
+- Si el navegador no lo soporta o lo rechaza, el juego sigue igual que sin esta
+  mejora: no aparece ningún aviso ni error.
+- En la PWA instalada en iOS solo funciona desde iOS 18.4; en versiones
+  anteriores la pantalla se apaga como siempre.
+- Playwright no simula el apagado de pantalla: los e2e usan un doble de
+  `navigator.wakeLock` (`tests/utils/wakeLockFalso.ts`) y leen el estado en
+  `window.__debug.pantallaEncendida()`.
+
 ## Jugar sin conexión
 
 En el build de producción, un service worker de

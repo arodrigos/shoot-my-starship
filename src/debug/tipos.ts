@@ -234,6 +234,16 @@ export interface DebugGlobal {
   };
   relojTurno?: { configuradoS: 30 | 45 | 60 | null; estado: "parado" | "corriendo" | "pausado" | "agotado"; restanteMs: number };
   adelantarRelojTurno?: (ms: number) => void;
+  // pantalla-encendida: espejo de solo lectura del bloqueo de pantalla; los
+  // e2e lo leen porque Playwright no simula el apagado del sistema.
+  pantallaEncendida?: () => {
+    readonly soportada: boolean;
+    readonly deseada: boolean;
+    readonly estado: "no-soportado" | "inactivo" | "pidiendo" | "activo" | "soltado" | "rechazado";
+    readonly peticiones: number;
+    readonly sentinelasVivas: number;
+    readonly rechazosSeguidos: number;
+  };
   flechaApuntado?: {
     readonly anguloGrados: number;
     readonly potencia: number;
