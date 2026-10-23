@@ -48,7 +48,7 @@ export function AyudaApuntadoHUD() {
         data-testid="ayuda-apuntado-cerrar"
         aria-label="Cerrar ayuda de apuntado"
         onClick={cerrarAyudaApuntado}
-        style={{ pointerEvents: "auto", minWidth: 44, minHeight: 44, background: "transparent", color: "inherit", border: "1px solid #3b5aa8", borderRadius: 8 }}
+        style={{ pointerEvents: "auto", font: "inherit", minWidth: 44, minHeight: 44, background: "transparent", color: "inherit", border: "1px solid #3b5aa8", borderRadius: 8 }}
       >
         ✕
       </button>
