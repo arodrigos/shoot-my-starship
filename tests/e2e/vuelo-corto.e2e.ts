@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { DISTANCIA_MINIMA_PROPULSORES_PX, LARGO_NAVE_U } from "@/juego/control/vueloPropulsores";
+import { DISTANCIA_MINIMA_PROPULSORES, LARGO_NAVE_U } from "@/juego/control/vueloPropulsores";
 
 // Con los propulsores, un vuelo previsto que no supera el largo de la nave
 // muestra el aviso de vuelo corto pero deja lanzar; uno más largo no avisa.
@@ -47,7 +47,7 @@ for (const t of TAMANOS) {
           const nave = window.__debug.naves![0];
           return { motivo: previa.motivo, distancia: Math.hypot(fin.x - nave.x, fin.y - (nave.y as number)) };
         });
-        if (motivo === "obstaculo" && distancia < DISTANCIA_MINIMA_PROPULSORES_PX) continue;
+        if (motivo === "obstaculo" && distancia < DISTANCIA_MINIMA_PROPULSORES) continue;
         if (distancia <= LARGO_NAVE_U && !corto) {
           corto = true;
           await expect(page.getByTestId("aviso-vuelo-corto")).toBeVisible();
