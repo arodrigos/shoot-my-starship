@@ -531,7 +531,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           />
           <div
             data-testid="valor-angulo"
-            style={{ marginLeft: "auto", marginRight: 8, color: "var(--color-cromado-texto)", font: `${tamTexto(14)} system-ui, sans-serif`, pointerEvents: "none" }}
+            style={{ marginLeft: "auto", marginRight: 8, position: "relative", color: "var(--color-cromado-texto)", font: `${tamTexto(14)} system-ui, sans-serif`, pointerEvents: "none" }}
           >
             {textoAnguloGrados(estado.ajuste.anguloGrados)}°
           </div>
@@ -579,7 +579,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           />
           <div
             data-testid="valor-potencia"
-            style={{ marginLeft: 10, color: "var(--color-cromado-texto)", font: `${tamTexto(14)} system-ui, sans-serif`, pointerEvents: "none" }}
+            style={{ marginLeft: 10, position: "relative", color: "var(--color-cromado-texto)", font: `${tamTexto(14)} system-ui, sans-serif`, pointerEvents: "none" }}
           >
             {Math.round(estado.ajuste.potencia)}%
           </div>
