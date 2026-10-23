@@ -9,6 +9,7 @@ import { PildoraRelojTurno } from "@/juego/hud/RelojTurnoHUD";
 import { MarcaAsiento } from "@/juego/hud/MarcaAsiento";
 import { varianteSiluetaAsiento } from "@/juego/naves/siluetaAsiento";
 import { acotarIntegridad, INTEGRIDAD_MAXIMA, porcentajeIntegridad } from "@/sim/naves/vida";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // imp-11: hasta este bloque no existía NINGÚN indicador de integridad en el
 // HUD -- lo único que la reflejaba era el alfa del casco de la nave dentro
@@ -95,7 +96,7 @@ const BARRA_ESTILO: React.CSSProperties = {
   minWidth: 0,
   borderRadius: 10,
   padding: "4px 6px",
-  font: "12px system-ui, sans-serif",
+  font: `${tamTexto(14)} system-ui, sans-serif`,
   boxSizing: "border-box",
 };
 
@@ -169,7 +170,7 @@ export function IntegridadHUD() {
               ...BARRA_ESTILO,
               position: "relative",
               padding: "4px 2px",
-              ...(estado.naves.length >= 4 ? { fontSize: 11 } : {}),
+              ...(estado.naves.length >= 4 ? { fontSize: tamTexto(14) } : {}),
               background: esTurno ? "var(--color-roce-fondo)" : "var(--color-cromado-fondo)",
               color: esTurno ? "var(--color-roce-texto)" : "var(--color-cromado-texto)",
               // El borde del turno va como sombra interior: un borde real quita 2 px de
@@ -203,7 +204,7 @@ export function IntegridadHUD() {
               <div
                 aria-hidden="true"
                 data-testid={`integridad-nivel-${nave.id}`}
-                style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 10, lineHeight: "12px", opacity: 0.85 }}
+                style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: tamTexto(14), lineHeight: 1.2, opacity: 0.85 }}
               >
                 {rival.etiquetaNivel}
               </div>

@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { obtenerCuentaAtras, suscribirCuentaAtras } from "@/juego/control/cuentaAtrasStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // arma-granada-espoleta (gra-2): contador propio, superpuesto a la ESQUINA
 // SUPERIOR de la zona de juego (lay-1) con position:fixed -- nunca dentro de
@@ -32,7 +33,7 @@ export function CuentaAtrasHUD() {
         borderRadius: "50%",
         padding: "10px 6px",
         color: "var(--color-cuenta-atras-texto)",
-        font: "bold 20px system-ui, sans-serif",
+        font: `bold ${tamTexto(20)} system-ui, sans-serif`,
         pointerEvents: "none",
       }}
     >

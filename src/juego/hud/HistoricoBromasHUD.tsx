@@ -6,6 +6,7 @@ import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
 import { etiquetaDeNave } from "@/juego/hud/IntegridadHUD";
 import { colorDeAsiento } from "@/juego/naves/paletaNaves";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 const TAMANO_TACTIL_PX = 44;
 const SELECTOR_FOCALIZABLE = "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])";
@@ -93,11 +94,11 @@ function HistoricoBromasHUDSinMemo({ onCerrar }: Props) {
           // Fijo, no la variable de esquema: el fondo del panel es siempre oscuro
           // y en esquema claro la variable da texto casi negro (axe color-contrast).
           color: "#e8eaf0",
-          font: "15px/1.4 system-ui, sans-serif",
+          font: `${tamTexto(15)}/1.4 system-ui, sans-serif`,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <h2 id="historico-bromas-titulo" style={{ margin: 0, font: "600 17px/1.4 system-ui, sans-serif" }}>
+          <h2 id="historico-bromas-titulo" style={{ margin: 0, font: `600 ${tamTexto(17)}/1.4 system-ui, sans-serif` }}>
             Histórico ({contarMensajes(estado.historico)})
           </h2>
           <button
@@ -112,7 +113,7 @@ function HistoricoBromasHUDSinMemo({ onCerrar }: Props) {
               border: "1px solid #cfe8ff",
               borderRadius: 8,
               color: "#cfe8ff",
-              font: "15px system-ui, sans-serif",
+              font: `${tamTexto(15)} system-ui, sans-serif`,
               cursor: "pointer",
             }}
           >
@@ -132,7 +133,7 @@ function HistoricoBromasHUDSinMemo({ onCerrar }: Props) {
           ) : (
             turnos.map(({ entrada, indice }) => (
               <section key={indice} data-testid={`historico-bromas-entrada-${indice}`} style={{ marginBottom: 12 }}>
-                <h3 style={{ margin: "0 0 4px", font: "600 13px/1.4 system-ui, sans-serif", color: "#b8c7da" }}>
+                <h3 style={{ margin: "0 0 4px", font: `600 ${tamTexto(14)}/1.4 system-ui, sans-serif`, color: "#b8c7da" }}>
                   Turno {entrada.numeroTurno + 1}
                 </h3>
                 {mensajesDe(entrada).map((texto, posicion) => (

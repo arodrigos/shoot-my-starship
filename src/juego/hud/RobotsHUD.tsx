@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { obtenerRobots, suscribirRobots } from "@/juego/control/robotsStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // minirobot (rob-2): una línea por robot vivo con su contador de saltos.
 export function RobotsHUD() {
@@ -22,7 +23,7 @@ export function RobotsHUD() {
             borderRadius: 10,
             padding: "4px 10px",
             color: "var(--color-roce-texto)",
-            font: "12px system-ui, sans-serif",
+            font: `${tamTexto(14)} system-ui, sans-serif`,
             pointerEvents: "none",
             flexShrink: 0,
           }}

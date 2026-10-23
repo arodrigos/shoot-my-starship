@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // apuntado-y-relevo (apu-4): colocar 3-4 naves tarda de 4 a 9 s y bloquea el
 // hilo principal, así que sin un aviso la pantalla parece colgada. Se pinta
@@ -22,7 +23,7 @@ export function PreparandoHUD() {
         justifyContent: "center",
         background: "#05060f",
         color: "#e8eefc",
-        font: "16px system-ui, sans-serif",
+        font: `${tamTexto(16)} system-ui, sans-serif`,
       }}
     >
       Preparando el sistema…

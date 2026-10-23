@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { limpiarReaccion, obtenerReaccion, solicitarRepeticion, suscribirReaccion } from "@/juego/control/reaccion";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // Cuánto tiempo queda visible una reacción antes de desaparecer sola --
 // bastante para leerla, poco para que estorbe al siguiente disparo.
@@ -38,7 +39,7 @@ export function ReaccionHUD() {
         color: "#ffe08a",
         borderRadius: 10,
         padding: "8px 14px",
-        font: "13px system-ui, sans-serif",
+        font: `${tamTexto(14)} system-ui, sans-serif`,
         textAlign: "center",
         pointerEvents: "none",
         display: "flex",
@@ -59,7 +60,7 @@ export function ReaccionHUD() {
           border: "1px solid rgba(255,255,255,0.25)",
           background: "rgba(30,34,46,0.9)",
           color: "#e8eaf0",
-          font: "12px system-ui, sans-serif",
+          font: `${tamTexto(14)} system-ui, sans-serif`,
           cursor: "pointer",
         }}
       >

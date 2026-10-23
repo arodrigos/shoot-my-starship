@@ -93,6 +93,14 @@ Abre un panel con:
   castellano, el aviso sale debajo de «Voz».
 - El estado del juego sin conexión y la versión instalada.
 
+**Legibilidad.** Todo texto HTML del HUD (consola, menú, avisos, relevo y
+parte de guerra) mide 14 px o más y pasa por `tamTexto()`
+(`src/juego/hud/legibilidad.ts`), que lo multiplica por `--escala-texto`. Los
+pares de color del HUD llegan a 4,5:1 (WCAG AA), y «Otra partida» lleva texto
+oscuro sobre el coral. En el parte de guerra el contenido va sobre un panel
+opaco, se desplaza si no cabe y «Otra partida» queda fija al pie. El texto
+pintado en el lienzo no cambia.
+
 Tocar el lienzo no cierra el panel, porque ese toque apunta; se cierra con
 «Cerrar», con Escape o volviendo a pulsar ⚙, y se cierra solo al disparar
 para no tapar la trayectoria.

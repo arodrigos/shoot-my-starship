@@ -39,6 +39,7 @@ import { ObjetosHUD } from "@/juego/hud/ObjetosHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
 import { MuerteSubitaHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
 import "@/debug/tipos";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // La cáscara React del control (fuera del lienzo, ver arquitectura): todo lo
 // de aquí es matemática de pantalla o de UI, nunca de terreno -- si algo
@@ -262,7 +263,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
     minWidth: TAMANO_BOTON_PLEGAR_PX,
     minHeight: TAMANO_BOTON_PLEGAR_PX,
     padding: 0,
-    font: "20px system-ui, sans-serif",
+    font: `${tamTexto(20)} system-ui, sans-serif`,
   } as const;
 
   // Reducir y ampliar son el mismo botón (desplegada <-> mínima); ocultar y
@@ -353,7 +354,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             border: "1px solid var(--color-cromado-borde)",
             background: "var(--color-cromado-fondo)",
             color: "var(--color-cromado-texto)",
-            font: "12px system-ui, sans-serif",
+            font: `${tamTexto(14)} system-ui, sans-serif`,
           }}
         >
           {equipoElegido === null ? <IconoArma armaId={armaSeleccionada.id} /> : <IconoEquipoGracioso equipoId={equipoElegido.id} tamano={28} />}
@@ -368,7 +369,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           data-testid="disparar"
           onClick={solicitarDisparo}
           disabled={accionDeshabilitada}
-          style={{ ...botonEstilo, minHeight: TAMANO_BOTON_PLEGAR_PX, padding: "6px 14px", background: "#ff6b4a", whiteSpace: "normal", maxWidth: 110, lineHeight: 1.1 }}
+          style={{ ...botonEstilo, minHeight: TAMANO_BOTON_PLEGAR_PX, padding: "6px 14px", background: "#ff6b4a", color: "#12141a", whiteSpace: "normal", maxWidth: 110, lineHeight: 1.1 }}
         >
           {etiquetaAccion}
         </button>
@@ -447,7 +448,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
               borderRadius: 10,
               padding: "6px 10px",
               color: "var(--color-cromado-texto)",
-              font: "12px system-ui, sans-serif",
+              font: `${tamTexto(14)} system-ui, sans-serif`,
               wordBreak: "break-word",
               overflowWrap: "anywhere",
             }}
@@ -462,7 +463,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
                 borderRadius: 10,
                 padding: "4px 10px",
                 color: "var(--color-cromado-texto)",
-                font: "12px system-ui, sans-serif",
+                font: `${tamTexto(14)} system-ui, sans-serif`,
               }}
             >
               Saldo: {estado.saldo ?? 0} cr
@@ -530,7 +531,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           />
           <div
             data-testid="valor-angulo"
-            style={{ marginLeft: "auto", marginRight: 8, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif", pointerEvents: "none" }}
+            style={{ marginLeft: "auto", marginRight: 8, color: "var(--color-cromado-texto)", font: `${tamTexto(14)} system-ui, sans-serif`, pointerEvents: "none" }}
           >
             {textoAnguloGrados(estado.ajuste.anguloGrados)}°
           </div>
@@ -578,7 +579,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           />
           <div
             data-testid="valor-potencia"
-            style={{ marginLeft: 10, color: "var(--color-cromado-texto)", font: "12px system-ui, sans-serif", pointerEvents: "none" }}
+            style={{ marginLeft: 10, color: "var(--color-cromado-texto)", font: `${tamTexto(14)} system-ui, sans-serif`, pointerEvents: "none" }}
           >
             {Math.round(estado.ajuste.potencia)}%
           </div>
@@ -605,7 +606,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             borderRadius: 8,
             padding: "4px 8px",
             color: "var(--color-aviso-texto)",
-            font: "12px system-ui, sans-serif",
+            font: `${tamTexto(14)} system-ui, sans-serif`,
             textAlign: "center",
             wordBreak: "break-word",
             overflowWrap: "anywhere",
@@ -692,7 +693,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
               borderRadius: 8,
               padding: "4px 8px",
               color: "var(--color-aviso-texto)",
-              font: "12px system-ui, sans-serif",
+              font: `${tamTexto(14)} system-ui, sans-serif`,
               textAlign: "center",
               pointerEvents: "none",
               wordBreak: "break-word",
@@ -752,7 +753,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
                 maxHeight: "min(62vh, 440px)",
                 overflowY: "auto",
                 color: "var(--color-cromado-texto)",
-                font: "12px system-ui, sans-serif",
+                font: `${tamTexto(14)} system-ui, sans-serif`,
               }}
             >
               <div role="tablist" style={{ display: "flex", gap: 6, marginBottom: 6 }}>
@@ -800,11 +801,11 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
                           <IconoEquipoGracioso equipoId={equipo.id} />
                           <strong style={{ lineHeight: 1.1 }}>{equipo.nombre}</strong>
                         </span>
-                        <span style={{ fontSize: 11 }}>
+                        <span style={{ fontSize: tamTexto(14) }}>
                           {enPresupuesto && <span data-testid={`precio-equipo-${equipo.id}`}>{equipo.coste} cr</span>}
                           {motivo !== null && <span data-testid={`faltan-equipo-${equipo.id}`}>{enPresupuesto ? " · " : ""}{motivo}</span>}
                         </span>
-                        <span data-testid={`ayuda-equipo-${equipo.id}`} style={{ fontSize: 10.5, opacity: 0.85 }}>{equipo.ayuda}</span>
+                        <span data-testid={`ayuda-equipo-${equipo.id}`} style={{ fontSize: tamTexto(14), opacity: 0.85 }}>{equipo.ayuda}</span>
                       </button>
                     );
                   })}
@@ -850,7 +851,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
                         <IconoArmaGracioso armaId={arma.id} />
                         <strong style={{ lineHeight: 1.1 }}>{arma.nombre}</strong>
                       </span>
-                      <span style={{ fontSize: 11 }}>
+                      <span style={{ fontSize: tamTexto(14) }}>
                         {agotada ? "(agotada) Ya la usaste en esta partida" : ""}
                         {enPresupuesto && <span data-testid={`precio-${arma.id}`}>{etiquetaPrecio(coste)}</span>}
                         {eje !== "" && <span data-testid={`eje-${arma.id}`}>{enPresupuesto ? " · " : ""}{eje}</span>}
@@ -862,9 +863,9 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
                         )}
                         {enPresupuesto && faltan > 0 && !agotada && <span data-testid={`faltan-${arma.id}`}> · Te faltan {faltan} cr</span>}
                       </span>
-                      <span style={{ fontSize: 10.5, opacity: 0.85 }}>{arma.descripcion}</span>
+                      <span style={{ fontSize: tamTexto(14), opacity: 0.85 }}>{arma.descripcion}</span>
                       {arma.notaAyuda && (
-                        <span data-testid={`ayuda-arma-${arma.id}`} style={{ color: "#9fd3ff", fontStyle: "italic", fontSize: 10.5 }}>
+                        <span data-testid={`ayuda-arma-${arma.id}`} style={{ color: "#9fd3ff", fontStyle: "italic", fontSize: tamTexto(14) }}>
                           {arma.notaAyuda}
                         </span>
                       )}
@@ -892,7 +893,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             data-testid="disparar"
             onClick={solicitarDisparo}
             disabled={accionDeshabilitada}
-            style={{ ...botonEstilo, background: "#ff6b4a", whiteSpace: "normal", maxWidth: 132, lineHeight: 1.1 }}
+            style={{ ...botonEstilo, background: "#ff6b4a", color: "#12141a", whiteSpace: "normal", maxWidth: 132, lineHeight: 1.1 }}
           >
             {etiquetaAccion}
           </button>
@@ -912,7 +913,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             justifyContent: "center",
             background: "var(--color-cromado-fondo)",
             color: "var(--color-cromado-texto)",
-            font: "14px system-ui, sans-serif",
+            font: `${tamTexto(14)} system-ui, sans-serif`,
             textAlign: "center",
             padding: 24,
           }}
@@ -964,6 +965,6 @@ const botonEstilo: React.CSSProperties = {
   border: "1px solid var(--color-cromado-borde)",
   background: "var(--color-cromado-boton)",
   color: "var(--color-cromado-texto)",
-  font: "12px system-ui, sans-serif",
+  font: `${tamTexto(14)} system-ui, sans-serif`,
   cursor: "pointer",
 };

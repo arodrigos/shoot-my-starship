@@ -5,6 +5,12 @@
    transparencia, que llevaba este HUD hasta ahora): con transparencia el
    contraste real depende de qué haya detrás en el lienzo en ese instante, y
    esp-5 exige 4,5:1 medible sin ambigüedad contra el propio fondo del panel. */
+/* P2: multiplicador del tamaño de letra del HUD HTML (tamTexto en
+   src/juego/hud/legibilidad.ts). La portada y el lienzo no lo leen. */
+:root {
+  --escala-texto: 1;
+}
+
 :root {
   --color-cromado-fondo: #0a0c14;
   --color-cromado-texto: #e8eaf0;
