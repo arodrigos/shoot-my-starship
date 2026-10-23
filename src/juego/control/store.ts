@@ -18,6 +18,7 @@ import {
   type FraccionDeVentana,
 } from "@/juego/control/apuntado";
 import { UMBRAL_POTENCIA_DISPERSION_VISIBLE } from "@/sim/balistica/dispersionPotencia";
+import { CLAVE_TEXTO_GRANDE, leerTextoGrandeGuardado } from "@/juego/hud/legibilidad";
 import { alternarMusica, alternarSonido, musicaActivada, sonidoSilenciado } from "@/juego/audio/motor";
 import { obtenerLocutor } from "@/juego/audio/voz";
 import type { ClaseVueloPropulsores } from "@/juego/control/vueloPropulsores";
@@ -73,6 +74,9 @@ export interface EstadoControl {
   // rastro-ultimo-disparo: si se dibuja la trayectoria del último tiro; misma
   // persistencia que sacudidaActiva (preferencia del navegador).
   readonly rastroActivo: boolean;
+  // legibilidad (P2): «Texto grande». Preferencia del navegador, como
+  // rastroActivo; el atributo data-texto-grande de <html> activa la escala.
+  readonly textoGrande: boolean;
   // sonido-procedimental (snd-1): espejo de motor.ts/sonidoSilenciado() para
   // que el HUD (React) se reactive al alternar -- motor.ts sigue siendo la
   // única fuente de verdad y la que persiste en localStorage; este campo solo
@@ -233,6 +237,33 @@ function guardarRastroActivo(valor: boolean): void {
   }
 }
 
+function guardarTextoGrande(valor: boolean): void {
+  try {
+    window.localStorage.setItem(CLAVE_TEXTO_GRANDE, valor ? "1" : "0");
+  } catch {
+    // Sin almacenamiento el ajuste no persiste, pero el interruptor funciona.
+  }
+}
+
+// El atributo se pone al crear el store, antes de que el HUD pinte, para que
+// el primer fotograma ya salga a tamaño grande.
+function aplicarTextoGrande(valor: boolean): void {
+  if (typeof document === "undefined") return;
+  if (valor) document.documentElement.dataset.textoGrande = "1";
+  else delete document.documentElement.dataset.textoGrande;
+}
+
+const textoGrandeInicial = leerTextoGrandeGuardado(
+  (() => {
+    try {
+      return window.localStorage;
+    } catch {
+      return undefined;
+    }
+  })(),
+);
+aplicarTextoGrande(textoGrandeInicial);
+
 let estado: EstadoControl = {
   ajuste: leerAjusteGuardado() ?? {
     anguloGrados: ANGULO_INICIAL_GRADOS,
@@ -251,6 +282,7 @@ let estado: EstadoControl = {
   saldo: null,
   sacudidaActiva: leerSacudidaActivaGuardada(),
   rastroActivo: leerRastroActivoGuardado(),
+  textoGrande: textoGrandeInicial,
   silenciado: sonidoSilenciado(),
   musicaActiva: musicaActivada(),
   vozActiva: true,
@@ -524,6 +556,12 @@ export function fijarRastroActivo(valor: boolean): void {
   if (typeof performance !== "undefined") performance.mark("rastro-toque");
   fijar({ rastroActivo: valor });
   guardarRastroActivo(valor);
+}
+
+export function fijarTextoGrande(valor: boolean): void {
+  aplicarTextoGrande(valor);
+  fijar({ textoGrande: valor });
+  guardarTextoGrande(valor);
 }
 
 // sonido-procedimental (snd-1): único punto de alternado del sonido -- delega

@@ -7,6 +7,7 @@ import {
   alternarVozActiva,
   fijarRastroActivo,
   fijarSacudidaActiva,
+  fijarTextoGrande,
   obtenerEstadoControl,
   suscribirControl,
 } from "@/juego/control/store";
@@ -142,6 +143,14 @@ export function MenuAjustesHUD() {
           : "Leer los chistes en voz alta",
       alPulsar: () => alternarVozActiva(),
       deshabilitado: !estado.vozDisponible,
+    },
+    {
+      testId: "toggle-texto-grande",
+      etiqueta: `Texto grande: ${estado.textoGrande ? "Sí" : "No"}`,
+      ayuda: "Agranda los textos del juego para leerlos de lejos",
+      pulsado: estado.textoGrande,
+      title: estado.textoGrande ? "Volver al tamaño normal del texto" : "Agrandar los textos del juego",
+      alPulsar: () => fijarTextoGrande(!estado.textoGrande),
     },
   ];
 
