@@ -55,7 +55,6 @@ export function AvisoTiempoAgotadoHUD() {
   if (!reloj.aviso) return null;
   return (
     <div
-      role="status"
       data-testid="aviso-tiempo-agotado"
       style={{
         padding: "8px 12px",

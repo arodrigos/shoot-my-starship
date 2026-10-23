@@ -103,6 +103,11 @@ para no tapar la trayectoria.
 contorno de su silueta en el punto de impacto. Cada disparo sustituye al
 anterior, y un tiro perdido no lleva silueta.
 
+**Lectores de pantalla**: una región `aria-live="polite"` invisible
+(`src/juego/hud/AnunciosHUD.tsx`) anuncia el cambio de turno («Tu turno» o
+«Turno de <nombre>»), «¡Tiempo! Disparo automático» y el ganador. Vive solo en
+memoria y se vacía en cada partida.
+
 ### Física: gravedad y potencia
 
 La gravedad está recalibrada para que se note: un tiro que pasa cerca de un

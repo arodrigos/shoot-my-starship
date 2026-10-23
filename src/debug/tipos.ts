@@ -244,6 +244,8 @@ export interface DebugGlobal {
     readonly sentinelasVivas: number;
     readonly rechazosSeguidos: number;
   };
+  // anuncios-accesibles: lo anunciado por la región aria-live, como mucho 20, solo en memoria.
+  anuncios?: () => readonly { readonly texto: string; readonly enMs: number }[];
   flechaApuntado?: {
     readonly anguloGrados: number;
     readonly potencia: number;
