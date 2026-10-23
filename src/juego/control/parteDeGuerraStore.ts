@@ -62,6 +62,9 @@ export function limpiarParteDeGuerra(): void {
 const escuchasOtraPartida = new Set<() => void>();
 
 export function solicitarOtraPartida(): void {
+  // El parte se quita en el propio clic: si esperase a Partida.create() de la
+  // escena nueva, seguiría en pantalla todo lo que tarde Phaser en arrancar.
+  limpiarParteDeGuerra();
   for (const escucha of escuchasOtraPartida) escucha();
 }
 

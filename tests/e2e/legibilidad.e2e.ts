@@ -111,8 +111,13 @@ for (const esquema of ["dark", "light"] as const) {
     expect(abajo.botonBottom).toBeLessThanOrEqual(640);
     await page.screenshot({ path: `capturas/contraste-y-tamano-3-parte-abajo-${esquema}-360x640.png` });
 
+    // Con la CPU a un sexto, el parte tiene que irse en el propio clic y no
+    // esperar a que Phaser genere el mundo nuevo.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
     await boton.click();
     await expect(page.getByTestId("parte-de-guerra")).toHaveCount(0, { timeout: 1000 });
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
     await page.waitForFunction(() => window.__debug.numeroTurno === 0);
   });
 }
@@ -144,6 +149,15 @@ for (const esquema of ["dark", "light"] as const) {
     await pasar("consola", ['[data-testid="consola"]']);
     expect(await tamanosMinimos(page, '[data-testid="consola"]')).toBeGreaterThanOrEqual(14);
 
+    // La ayuda de apuntado (con su ✕, un <button> que no hereda la letra) solo
+    // existe mientras se puede disparar: se mide antes de agotar el reloj.
+    await expect(page.getByTestId("ayuda-apuntado")).toBeVisible();
+    await pasar("ayuda-apuntado", ['[data-testid="capa-avisos"]']);
+    expect(await tamanosMinimos(page, '[data-testid="ayuda-apuntado"]')).toBeGreaterThanOrEqual(14);
+    expect(
+      await page.getByTestId("ayuda-apuntado-cerrar").evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+    ).toBeGreaterThanOrEqual(14);
+
     await page.evaluate(() => window.__debug.adelantarRelojTurno!(30000));
     await expect(page.getByTestId("aviso-tiempo-agotado")).toBeVisible();
     await pasar("avisos", ['[data-testid="capa-avisos"]']);
@@ -153,6 +167,16 @@ for (const esquema of ["dark", "light"] as const) {
     await page.getByTestId("ver-numeros").click();
     await pasar("parte", ['[data-testid="parte-de-guerra"]']);
     expect(await tamanosMinimos(page, '[data-testid="parte-de-guerra"]')).toBeGreaterThanOrEqual(14);
+    // Desplazado hasta abajo, axe marca "parcialmente tapado" lo que sale del
+    // panel: se centra cada tarjeta antes de medir para que decida el contraste.
+    const tarjetas = page.getByTestId(/^premio-asiento-\d+$/);
+    const n = await tarjetas.count();
+    expect(n).toBeGreaterThan(0);
+    for (let i = 0; i < n; i++) {
+      await tarjetas.nth(i).evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const id = await tarjetas.nth(i).getAttribute("data-testid");
+      await pasar(`parte-desplazado-${i}`, [`[data-testid="${id}"]`]);
+    }
     mkdirSync("capturas", { recursive: true });
     await page.screenshot({ path: `capturas/contraste-y-tamano-3-numeros-${esquema}-360x640.png` });
     expect(fallos, fallos.join("\n")).toEqual([]);
