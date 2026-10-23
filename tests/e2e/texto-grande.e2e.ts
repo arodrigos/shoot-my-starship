@@ -23,9 +23,6 @@ async function empezar(page: Page, tam: { width: number; height: number }, previ
   if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
 }
 
-const tamano = (page: Page, testId: string) =>
-  page.getByTestId(testId).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-
 test("tg-1: el interruptor agranda el HUD un 30 % al momento, sin remontar nada", async ({ page }) => {
   test.setTimeout(180000);
   mkdirSync("capturas", { recursive: true });
@@ -36,7 +33,6 @@ test("tg-1: el interruptor agranda el HUD un 30 % al momento, sin remontar nada"
   await expect(boton).toHaveText("Texto grande: No");
   const idAyuda = await boton.getAttribute("aria-describedby");
   await expect(page.locator(`[id="${idAyuda}"]`)).toHaveText("Agranda los textos del juego para leerlos de lejos");
-  const antes = await tamano(page, "otra-partida").catch(() => 0);
   const ayudaAntes = await page.locator(`[id="${idAyuda}"]`).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   const contadores = () => page.evaluate(() => ({ r: window.__debug.contadorResize, b: window.__debug.fondoEspacial?.bakes }));
   const c0 = await contadores();
@@ -56,7 +52,6 @@ test("tg-1: el interruptor agranda el HUD un 30 % al momento, sin remontar nada"
   expect(await page.evaluate(() => document.documentElement.dataset.textoGrande)).toBe("1");
   const ayudaDespues = await page.locator(`[id="${idAyuda}"]`).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   expect(Math.abs(ayudaDespues - ayudaAntes * 1.3)).toBeLessThanOrEqual(0.5);
-  expect(antes).toBeGreaterThanOrEqual(0);
   expect(await contadores()).toEqual(c0);
   await page.screenshot({ path: "capturas/texto-grande-1-despues-360x640.png" });
 
