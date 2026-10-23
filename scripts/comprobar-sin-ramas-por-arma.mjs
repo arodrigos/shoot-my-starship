@@ -4,7 +4,7 @@
 // de un arma en concreto (switch (arma.id) / if (arma.id === "...")): eso
 // es exactamente cómo el resolutor deja de ser genérico sobre los ejes del
 // catálogo y empieza a acumular un caso especial por arma añadida.
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 
 const FICHERO = "src/sim/armas/resolver.ts";
 // Cubre tanto `arma.id === "x"` como `switch (arma.id)`, con comillas
@@ -18,16 +18,13 @@ async function contieneRamaPorId(contenido) {
 // Caso negativo (mismo patrón que comprobar-un-solo-oraculo-tiro.mjs): sin
 // este autotest, el guardia podría estar comprobando un patrón que nunca
 // coincide con nada y pasaría siempre en verde por las razones equivocadas.
+// El texto contaminado vive solo en memoria: escribirlo sobre resolver.ts
+// dejaría el árbol de trabajo contaminado si el proceso muere a medias.
 async function comprobarQueElGuardiaDetectaUnaRamaPorId(original) {
   const contaminado = `${original}\n// _autotest_comprobar-sin-ramas-por-arma:\nfunction _autotest() { return arma.id === "arma-inventada"; }\n`;
-  await writeFile(FICHERO, contaminado, "utf8");
-  try {
-    const detectado = await contieneRamaPorId(contaminado);
-    if (!detectado) {
-      throw new Error("el autotest negativo introdujo una rama por id a propósito y el guardia NO la detectó -- está roto");
-    }
-  } finally {
-    await writeFile(FICHERO, original, "utf8");
+  const detectado = await contieneRamaPorId(contaminado);
+  if (!detectado) {
+    throw new Error("el autotest negativo introdujo una rama por id a propósito y el guardia NO la detectó -- está roto");
   }
 }
 

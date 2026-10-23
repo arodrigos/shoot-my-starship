@@ -10,7 +10,7 @@
 // divergirían (dos físicas), rompiendo exactamente lo que este bloque existe
 // para impedir. Mecánico a propósito, igual que comprobar-frontera-nucleo.mjs
 // y comprobar-un-solo-oraculo-tiro.mjs.
-import { readFile, readdir, writeFile, rm } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
 const DIRECTORIO = "src/juego";
@@ -61,43 +61,51 @@ async function ficherosTypeScript(directorio) {
   return resultados;
 }
 
+// Separado del recorrido del disco para que los autotest negativos puedan
+// analizar un texto en memoria sin escribir nada dentro de src/.
+function infraccionesDeFichero(relativo, contenido) {
+  const infracciones = [];
+  for (const nombre of FUNCIONES_NUCLEO) {
+    if (patronRedeclaracion(nombre).test(contenido)) {
+      infracciones.push(`${relativo}: redeclara ${nombre} en vez de importarla del núcleo`);
+    }
+  }
+
+  if (PATRON_RAMA_TIPO_EXTENDIDO.test(contenido) && !PATRON_IMPORT_NUCLEO.test(contenido)) {
+    infracciones.push(
+      `${relativo}: rama sobre un comportamiento de vuelo-extensible (erratico/mecha/adherente-con-mecha) sin importar las funciones puras de comportamientoExtendido.ts -- reimplementación sospechosa`,
+    );
+  }
+
+  if (PATRON_NOMBRE_RETIRADO.test(contenido) && !PATRON_IMPORT_PREVISUALIZACION.test(contenido)) {
+    infracciones.push(
+      `${relativo}: menciona una trayectoria previa sin importar el oráculo real de src/sim/armas/previsualizacion.ts -- vuelve la parábola de gravedad uniforme calculada a mano (pvr-4)`,
+    );
+  }
+  return infracciones;
+}
+
 async function encontrarInfracciones(directorio) {
   const infracciones = [];
   const raiz = process.cwd();
   for (const fichero of await ficherosTypeScript(directorio)) {
     const relativo = path.relative(raiz, fichero).split(path.sep).join("/");
     const contenido = await readFile(fichero, "utf8");
-
-    for (const nombre of FUNCIONES_NUCLEO) {
-      if (patronRedeclaracion(nombre).test(contenido)) {
-        infracciones.push(`${relativo}: redeclara ${nombre} en vez de importarla del núcleo`);
-      }
-    }
-
-    if (PATRON_RAMA_TIPO_EXTENDIDO.test(contenido) && !PATRON_IMPORT_NUCLEO.test(contenido)) {
-      infracciones.push(
-        `${relativo}: rama sobre un comportamiento de vuelo-extensible (erratico/mecha/adherente-con-mecha) sin importar las funciones puras de comportamientoExtendido.ts -- reimplementación sospechosa`,
-      );
-    }
-
-    if (PATRON_NOMBRE_RETIRADO.test(contenido) && !PATRON_IMPORT_PREVISUALIZACION.test(contenido)) {
-      infracciones.push(
-        `${relativo}: menciona una trayectoria previa sin importar el oráculo real de src/sim/armas/previsualizacion.ts -- vuelve la parábola de gravedad uniforme calculada a mano (pvr-4)`,
-      );
-    }
+    infracciones.push(...infraccionesDeFichero(relativo, contenido));
   }
   return infracciones;
 }
 
 // Caso negativo (mismo patrón que comprobar-un-solo-oraculo-tiro.mjs): un
-// fichero ficticio que rama sobre "erratico" con su propia perturbación, sin
-// importar nada del núcleo -- si el guardia no lo atrapa, está roto.
-async function comprobarQueElGuardiaDetectaUnaReimplementacion() {
-  const ficheroFicticio = path.join(DIRECTORIO, "vuelo", "_autotest_perturbacion_propia.ts");
+// texto ficticio, analizado en memoria como si viviera en src/juego/vuelo,
+// que rama sobre "erratico" con su propia perturbación, sin importar nada
+// del núcleo -- si el guardia no lo atrapa, está roto.
+function comprobarQueElGuardiaDetectaUnaReimplementacion() {
+  const relativoFicticio = `${DIRECTORIO}/vuelo/_autotest_perturbacion_propia.ts`;
   const contenidoReimplementado = [
     'import type { ComportamientoDeVuelo } from "@/sim/armas/tipos";',
     "",
-    "// Fichero temporal del autotest de comprobar-vuelo-unica-definicion.mjs:",
+    "// Texto ficticio del autotest de comprobar-vuelo-unica-definicion.mjs:",
     "// una perturbación propia, exactamente lo que el guardia debe atrapar.",
     "export function perturbacionPropiaDelCliente(comportamiento: ComportamientoDeVuelo, t: number): number {",
     '  if (comportamiento.tipo === "erratico") {',
@@ -108,26 +116,20 @@ async function comprobarQueElGuardiaDetectaUnaReimplementacion() {
     "",
   ].join("\n");
 
-  await writeFile(ficheroFicticio, contenidoReimplementado, "utf8");
-  try {
-    const infracciones = await encontrarInfracciones(DIRECTORIO);
-    const relativoFicticio = path.relative(process.cwd(), ficheroFicticio).split(path.sep).join("/");
-    const detectado = infracciones.some((linea) => linea.startsWith(`${relativoFicticio}:`));
-    if (!detectado) {
-      throw new Error("el autotest negativo introdujo una perturbación propia a propósito y el guardia NO la detectó -- está roto");
-    }
-  } finally {
-    await rm(ficheroFicticio, { force: true });
+  const infracciones = infraccionesDeFichero(relativoFicticio, contenidoReimplementado);
+  const detectado = infracciones.some((linea) => linea.startsWith(`${relativoFicticio}:`));
+  if (!detectado) {
+    throw new Error("el autotest negativo introdujo una perturbación propia a propósito y el guardia NO la detectó -- está roto");
   }
 }
 
-// Caso negativo de pvr-4: un fichero ficticio que menciona "trayectoriaPrevia"
+// Caso negativo de pvr-4: un texto ficticio que menciona "trayectoriaPrevia"
 // sin importar el oráculo real -- la reaparición exacta que el criterio pide
 // vigilar.
-async function comprobarQueElGuardiaDetectaUnaTrayectoriaPropia() {
-  const ficheroFicticio = path.join(DIRECTORIO, "hud", "_autotest_trayectoria_propia.ts");
+function comprobarQueElGuardiaDetectaUnaTrayectoriaPropia() {
+  const relativoFicticio = `${DIRECTORIO}/hud/_autotest_trayectoria_propia.ts`;
   const contenidoConTrayectoriaPropia = [
-    "// Fichero temporal del autotest de comprobar-vuelo-unica-definicion.mjs:",
+    "// Texto ficticio del autotest de comprobar-vuelo-unica-definicion.mjs:",
     "// una trayectoriaPreviaSVG calculada a mano, exactamente lo que el guardia debe atrapar.",
     "export function trayectoriaPreviaSVG(anguloGrados: number, potencia: number): string {",
     "  return `M0,0 Q${potencia},${anguloGrados} 60,60`;",
@@ -135,22 +137,16 @@ async function comprobarQueElGuardiaDetectaUnaTrayectoriaPropia() {
     "",
   ].join("\n");
 
-  await writeFile(ficheroFicticio, contenidoConTrayectoriaPropia, "utf8");
-  try {
-    const infracciones = await encontrarInfracciones(DIRECTORIO);
-    const relativoFicticio = path.relative(process.cwd(), ficheroFicticio).split(path.sep).join("/");
-    const detectado = infracciones.some((linea) => linea.startsWith(`${relativoFicticio}:`));
-    if (!detectado) {
-      throw new Error("el autotest negativo introdujo una trayectoriaPreviaSVG propia a propósito y el guardia NO la detectó -- está roto");
-    }
-  } finally {
-    await rm(ficheroFicticio, { force: true });
+  const infracciones = infraccionesDeFichero(relativoFicticio, contenidoConTrayectoriaPropia);
+  const detectado = infracciones.some((linea) => linea.startsWith(`${relativoFicticio}:`));
+  if (!detectado) {
+    throw new Error("el autotest negativo introdujo una trayectoriaPreviaSVG propia a propósito y el guardia NO la detectó -- está roto");
   }
 }
 
 async function main() {
-  await comprobarQueElGuardiaDetectaUnaReimplementacion();
-  await comprobarQueElGuardiaDetectaUnaTrayectoriaPropia();
+  comprobarQueElGuardiaDetectaUnaReimplementacion();
+  comprobarQueElGuardiaDetectaUnaTrayectoriaPropia();
 
   const infracciones = await encontrarInfracciones(DIRECTORIO);
   if (infracciones.length > 0) {

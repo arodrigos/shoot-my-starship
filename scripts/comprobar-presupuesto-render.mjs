@@ -6,7 +6,7 @@
 // (que sí valida el techo contra el registro): este guardia falla si
 // aparece un `.add.particles(` en cualquier otro fichero de src/juego, que
 // es exactamente cómo un efecto nuevo se colaría sin pasar por el registro.
-import { readFile, readdir, writeFile, rm } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
 const DIRECTORIO = "src/juego";
@@ -36,28 +36,38 @@ async function ficherosTypeScript(directorio) {
   return resultados;
 }
 
-async function encontrarInfracciones(directorio) {
+// Lee cada fichero y delega en una función de texto puro, para que los
+// autotest negativos puedan analizar un texto en memoria sin escribir nada
+// dentro de src/.
+async function infraccionesEnDirectorio(directorio, esInfraccion) {
   const infracciones = [];
   const raiz = process.cwd();
   for (const fichero of await ficherosTypeScript(directorio)) {
     const relativo = path.relative(raiz, fichero).split(path.sep).join("/");
-    if (relativo === FICHERO_PERMITIDO) continue;
     const contenido = await readFile(fichero, "utf8");
-    if (PATRON_CREACION_EMISOR.test(contenido)) {
+    if (esInfraccion(relativo, contenido)) {
       infracciones.push(relativo);
     }
   }
   return infracciones;
 }
 
+function creaEmisorFueraDelRegistro(relativo, contenido) {
+  return relativo !== FICHERO_PERMITIDO && PATRON_CREACION_EMISOR.test(contenido);
+}
+
+function encontrarInfracciones(directorio) {
+  return infraccionesEnDirectorio(directorio, creaEmisorFueraDelRegistro);
+}
+
 // Caso negativo (mismo patrón que los guardias existentes, p. ej.
 // comprobar-un-solo-oraculo-tiro.mjs): sin este autotest, el guardia podría
 // estar comprobando un patrón que nunca coincide con nada y pasaría siempre
 // en verde por las razones equivocadas.
-async function comprobarQueElGuardiaDetectaUnEmisorFueraDelRegistro() {
-  const ficheroFicticio = path.join(DIRECTORIO, "_autotest_emisor_sin_registro.ts");
+function comprobarQueElGuardiaDetectaUnEmisorFueraDelRegistro() {
+  const ficheroFicticio = `${DIRECTORIO}/_autotest_emisor_sin_registro.ts`;
   const contenidoConEmisorSinRegistro = [
-    "// Fichero temporal del autotest de comprobar-presupuesto-render.mjs:",
+    "// Texto ficticio del autotest de comprobar-presupuesto-render.mjs:",
     "// un emisor creado sin pasar por crearEmisorRegistrado, exactamente lo",
     "// que el guardia debe atrapar.",
     "export function crearEmisorFicticio(escena) {",
@@ -66,62 +76,43 @@ async function comprobarQueElGuardiaDetectaUnEmisorFueraDelRegistro() {
     "",
   ].join("\n");
 
-  await writeFile(ficheroFicticio, contenidoConEmisorSinRegistro, "utf8");
-  try {
-    const infracciones = await encontrarInfracciones(DIRECTORIO);
-    const detectado = infracciones.includes(path.relative(process.cwd(), ficheroFicticio).split(path.sep).join("/"));
-    if (!detectado) {
-      throw new Error(
-        "el autotest negativo introdujo un emisor de partículas fuera del registro a propósito y el guardia NO lo detectó -- está roto",
-      );
-    }
-  } finally {
-    await rm(ficheroFicticio, { force: true });
+  if (!creaEmisorFueraDelRegistro(ficheroFicticio, contenidoConEmisorSinRegistro)) {
+    throw new Error(
+      "el autotest negativo introdujo un emisor de partículas fuera del registro a propósito y el guardia NO lo detectó -- está roto",
+    );
   }
 }
 
-async function encontrarRamasPorIdDeArma(directorio) {
-  const infracciones = [];
-  const raiz = process.cwd();
-  for (const fichero of await ficherosTypeScript(directorio)) {
-    const relativo = path.relative(raiz, fichero).split(path.sep).join("/");
-    const contenido = await readFile(fichero, "utf8");
-    if (PATRON_RAMA_POR_ID.test(contenido)) {
-      infracciones.push(relativo);
-    }
-  }
-  return infracciones;
+function ramificaPorIdDeArma(_relativo, contenido) {
+  return PATRON_RAMA_POR_ID.test(contenido);
+}
+
+function encontrarRamasPorIdDeArma(directorio) {
+  return infraccionesEnDirectorio(directorio, ramificaPorIdDeArma);
 }
 
 // Mismo patrón de autotest negativo que comprobar-sin-ramas-por-arma.mjs:
-// un fichero temporal con una rama por id a propósito, dentro del propio
-// directorio de proyectiles, que el guardia debe atrapar.
-async function comprobarQueElGuardiaDetectaUnaRamaPorIdEnProyectiles() {
-  const ficheroFicticio = path.join(DIRECTORIO_PROYECTILES, "_autotest_rama_por_id.ts");
+// un texto en memoria con una rama por id a propósito, como si viviera en el
+// propio directorio de proyectiles, que el guardia debe atrapar.
+function comprobarQueElGuardiaDetectaUnaRamaPorIdEnProyectiles() {
+  const ficheroFicticio = `${DIRECTORIO_PROYECTILES}/_autotest_rama_por_id.ts`;
   const contenidoConRamaPorId = [
-    "// Fichero temporal del autotest de comprobar-presupuesto-render.mjs (pyl-2):",
+    "// Texto ficticio del autotest de comprobar-presupuesto-render.mjs (pyl-2):",
     "// una rama por id de arma, exactamente lo que este guardia debe atrapar.",
     'function _autotest(arma) { return arma.id === "arma-inventada"; }',
     "",
   ].join("\n");
 
-  await writeFile(ficheroFicticio, contenidoConRamaPorId, "utf8");
-  try {
-    const infracciones = await encontrarRamasPorIdDeArma(DIRECTORIO_PROYECTILES);
-    const detectado = infracciones.includes(path.relative(process.cwd(), ficheroFicticio).split(path.sep).join("/"));
-    if (!detectado) {
-      throw new Error(
-        "el autotest negativo introdujo una rama por id de arma en src/juego/proyectiles a propósito y el guardia NO la detectó -- está roto",
-      );
-    }
-  } finally {
-    await rm(ficheroFicticio, { force: true });
+  if (!ramificaPorIdDeArma(ficheroFicticio, contenidoConRamaPorId)) {
+    throw new Error(
+      "el autotest negativo introdujo una rama por id de arma en src/juego/proyectiles a propósito y el guardia NO la detectó -- está roto",
+    );
   }
 }
 
 async function main() {
-  await comprobarQueElGuardiaDetectaUnEmisorFueraDelRegistro();
-  await comprobarQueElGuardiaDetectaUnaRamaPorIdEnProyectiles();
+  comprobarQueElGuardiaDetectaUnEmisorFueraDelRegistro();
+  comprobarQueElGuardiaDetectaUnaRamaPorIdEnProyectiles();
 
   const infraccionesEmisor = await encontrarInfracciones(DIRECTORIO);
   const infraccionesRamaPorId = await encontrarRamasPorIdDeArma(DIRECTORIO_PROYECTILES);
