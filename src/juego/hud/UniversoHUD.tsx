@@ -22,13 +22,15 @@ export function PronosticoHUD() {
         border: "1px solid var(--color-roce-borde)",
         borderRadius: 10,
         // consola-compacta: con la consola a 320 px el texto del evento
-        // inminente no cabe en una línea a 12 px y padding 10.
+        // inminente no cabe en una línea con padding 10.
         padding: "4px 6px",
         color: "var(--color-roce-texto)",
         font: `${tamTexto(14)} system-ui, sans-serif`,
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
+        // A 14 px (mínimo de legibilidad) el evento inminente con su nave no
+        // cabe en 320 px con la tipografía ancha de Linux: baja a una segunda
+        // línea en vez de cortarse con puntos suspensivos. La cuenta atrás
+        // corta sigue entrando en una.
+        overflowWrap: "anywhere",
         pointerEvents: "none",
         flexShrink: 0,
       }}
