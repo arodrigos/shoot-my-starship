@@ -14,6 +14,7 @@ import {
   type EstadoConsola,
 } from "@/juego/hud/estadoConsola";
 import "@/debug/tipos";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // consola-compacta: el 40 % del ancho con un mínimo de 320 px (que cabe en el
 // móvil más estrecho) y, como mucho, el viewport menos 8 px por lado.
@@ -131,7 +132,7 @@ export function ConsolaSuperpuesta({ children }: Props) {
             borderRadius: 12,
             background: "rgba(10, 12, 20, 0.85)",
             color: "#e8eaf0",
-            font: "20px system-ui, sans-serif",
+            font: `${tamTexto(20)} system-ui, sans-serif`,
             cursor: "pointer",
           }}
         >

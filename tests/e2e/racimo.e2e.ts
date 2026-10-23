@@ -1,19 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
-import { GANANCIA_ANGULO_GRADOS, GANANCIA_POTENCIA } from "@/juego/control/apuntado";
+import { test, expect } from "@playwright/test";
 import { SEPARACION_PERDIGON_U } from "@/sim/armas/resolver";
-
-async function arrastrarHasta(page: Page, anguloObjetivo: number, potenciaObjetivo: number, ancho: number, alto: number): Promise<void> {
-  const ajusteAntes = (await page.evaluate(() => window.__debug.control!.ajuste))!;
-  const deltaY = -(anguloObjetivo - ajusteAntes.anguloGrados) / GANANCIA_ANGULO_GRADOS;
-  const deltaX = (potenciaObjetivo - ajusteAntes.potencia) / GANANCIA_POTENCIA;
-  const inicio = { x: ancho * 0.45, y: alto * 0.88 };
-  const fin = { x: inicio.x + deltaX * ancho, y: inicio.y + deltaY * alto };
-  await page.mouse.move(inicio.x, inicio.y);
-  await page.mouse.down();
-  await page.mouse.move((inicio.x + fin.x) / 2, (inicio.y + fin.y) / 2, { steps: 5 });
-  await page.mouse.move(fin.x, fin.y, { steps: 5 });
-  await page.mouse.up();
-}
 
 // rac-1 y rac-2: el Racimo, con la solución dirigida al casco del rival, se
 // abre en tres perdigones en fila, separados >= 70 u, y en vuelo se abre en
@@ -36,7 +22,10 @@ test("rac-1/rac-2: tres detonaciones separadas y tres perdigones en vuelo", asyn
   const turnoAntes = (await page.evaluate(() => window.__debug.numeroTurno)) ?? 0;
   const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
   expect(solucion).not.toBeNull();
-  await arrastrarHasta(page, solucion!.anguloGrados, solucion!.potencia, 1180, 820);
+  // Se fija el apuntado por el gancho en vez de arrastrar sobre el lienzo: con
+  // el texto del HUD a 14 px la consola con la nota del Racimo crece y tapa el
+  // punto de partida del arrastre, y el gesto ya no llegaba al lienzo.
+  await page.evaluate((s) => window.__debug.fijarApuntado!(s.anguloGrados, s.potencia), solucion!);
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
   await page.getByTestId("disparar").click();
   await page.waitForFunction((n) => (window.__debug.numeroTurno ?? 0) >= n + 1, turnoAntes, { timeout: 150000 });

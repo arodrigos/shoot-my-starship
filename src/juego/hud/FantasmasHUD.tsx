@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { obtenerFantasmas, suscribirFantasmas } from "@/juego/control/fantasmasStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // desplazamiento-tras-impacto (des-3): un aviso por nave desplazada durante el
 // turno siguiente, para que quien juega sepa que la marca del lienzo es el
@@ -24,7 +25,7 @@ export function FantasmasHUD() {
             borderRadius: 10,
             padding: "4px 10px",
             color: "var(--color-roce-texto)",
-            font: "12px system-ui, sans-serif",
+            font: `${tamTexto(14)} system-ui, sans-serif`,
             pointerEvents: "none",
             flexShrink: 0,
           }}

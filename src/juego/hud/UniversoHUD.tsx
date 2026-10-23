@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { obtenerUniverso, retirarCartel, suscribirUniverso } from "@/juego/control/universoStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // Lo que dura el cartel en pantalla antes de irse solo.
 export const DURACION_CARTEL_MS = 4000;
@@ -21,13 +22,15 @@ export function PronosticoHUD() {
         border: "1px solid var(--color-roce-borde)",
         borderRadius: 10,
         // consola-compacta: con la consola a 320 px el texto del evento
-        // inminente no cabe en una línea a 12 px y padding 10.
+        // inminente no cabe en una línea con padding 10.
         padding: "4px 6px",
         color: "var(--color-roce-texto)",
-        font: "11px system-ui, sans-serif",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
+        font: `${tamTexto(14)} system-ui, sans-serif`,
+        // A 14 px (mínimo de legibilidad) el evento inminente con su nave no
+        // cabe en 320 px con la tipografía ancha de Linux: baja a una segunda
+        // línea en vez de cortarse con puntos suspensivos. La cuenta atrás
+        // corta sigue entrando en una.
+        overflowWrap: "anywhere",
         pointerEvents: "none",
         flexShrink: 0,
       }}
@@ -53,7 +56,7 @@ export function MuerteSubitaHUD() {
         borderRadius: 10,
         padding: "4px 10px",
         color: "#fff",
-        font: "bold 12px system-ui, sans-serif",
+        font: `bold ${tamTexto(14)} system-ui, sans-serif`,
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
@@ -92,16 +95,16 @@ export function CartelEventoHUD() {
         borderRadius: 12,
         padding: "8px 12px",
         color: "#fff",
-        font: "500 14px/1.3 system-ui, sans-serif",
+        font: `500 ${tamTexto(14)}/1.3 system-ui, sans-serif`,
         textAlign: "center",
         overflowWrap: "anywhere",
         pointerEvents: "none",
       }}
     >
-      <div data-testid="cartel-evento-titulo" style={{ font: "700 16px/1.3 system-ui, sans-serif", color: "#ffd23f" }}>
+      <div data-testid="cartel-evento-titulo" style={{ font: `700 ${tamTexto(16)}/1.3 system-ui, sans-serif`, color: "#ffd23f" }}>
         {cartel.titulo}
       </div>
-      <div data-testid="cartel-evento-quien" style={{ font: "600 14px/1.3 system-ui, sans-serif", color: cartel.quien?.color ?? "#fff" }}>
+      <div data-testid="cartel-evento-quien" style={{ font: `600 ${tamTexto(14)}/1.3 system-ui, sans-serif`, color: cartel.quien?.color ?? "#fff" }}>
         {cartel.quien?.nombre ?? "Todos"}
       </div>
       <div data-testid="cartel-evento-texto">{cartel.texto}</div>

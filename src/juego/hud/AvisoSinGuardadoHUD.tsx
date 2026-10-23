@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { avisoSinGuardadoVisible, suscribirAvisoSinGuardado } from "@/juego/control/avisoSinGuardadoStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 export function AvisoSinGuardadoHUD() {
   const visible = useSyncExternalStore(suscribirAvisoSinGuardado, avisoSinGuardadoVisible, () => false);
@@ -16,7 +17,7 @@ export function AvisoSinGuardadoHUD() {
         background: "#3b2f0b",
         color: "#ffe08a",
         border: "1px solid #ffcc66",
-        font: "13px system-ui, sans-serif",
+        font: `${tamTexto(14)} system-ui, sans-serif`,
         textAlign: "center",
       }}
     >

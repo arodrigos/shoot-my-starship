@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { obtenerRelojTurno, suscribirRelojTurno } from "@/juego/control/relojTurnoStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 const ULTIMOS_SEGUNDOS_AMBAR = 10;
 
@@ -37,8 +38,8 @@ export function PildoraRelojTurno() {
           background: urgente ? "#ffb020" : "#0b0f1a",
           color: urgente ? "#1a1000" : "#ffffff",
           border: urgente ? "1px solid #1a1000" : "1px solid #ffffff",
-          font: "bold 12px system-ui, sans-serif",
-          lineHeight: "15px",
+          font: `bold ${tamTexto(14)} system-ui, sans-serif`,
+          lineHeight: 1.3,
           textAlign: "center",
           pointerEvents: "none",
           animation: late ? "reloj-turno-pulso 1s ease-in-out infinite" : "none",
@@ -62,7 +63,7 @@ export function AvisoTiempoAgotadoHUD() {
         background: "#8a2c14",
         color: "#ffffff",
         border: "2px solid #ffcc66",
-        font: "bold 14px system-ui, sans-serif",
+        font: `bold ${tamTexto(14)} system-ui, sans-serif`,
         textAlign: "center",
       }}
     >

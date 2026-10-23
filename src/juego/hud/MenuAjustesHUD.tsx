@@ -14,6 +14,7 @@ import { contarMensajes, obtenerBromas, suscribirBromas } from "@/juego/control/
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import { obtenerDatosPwa, suscribirPwa, TEXTO_ESTADO_PWA, versionApp } from "@/juego/pwa/estadoPwa";
 import "@/debug/tipos";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 const LADO_BOTON_PX = 48;
 const ALTO_MINIMO_INTERRUPTOR_PX = 44;
@@ -26,7 +27,7 @@ const ESTILO_INTERRUPTOR: CSSProperties = {
   border: "none",
   background: "var(--color-cromado-fondo)",
   color: "var(--color-cromado-texto)",
-  font: "14px system-ui, sans-serif",
+  font: `${tamTexto(14)} system-ui, sans-serif`,
   textAlign: "left",
   cursor: "pointer",
 };
@@ -34,7 +35,7 @@ const ESTILO_INTERRUPTOR: CSSProperties = {
 const ESTILO_AYUDA: CSSProperties = {
   margin: "2px 4px 0",
   color: "rgba(232,234,240,0.75)",
-  font: "12px/1.3 system-ui, sans-serif",
+  font: `${tamTexto(14)}/1.3 system-ui, sans-serif`,
 };
 
 // Los cinco interruptores salieron de la consola (que se aparta en el vuelo y
@@ -165,7 +166,7 @@ export function MenuAjustesHUD() {
           border: "none",
           background: "var(--color-cromado-fondo)",
           color: "var(--color-cromado-texto)",
-          font: "24px system-ui, sans-serif",
+          font: `${tamTexto(24)} system-ui, sans-serif`,
           cursor: "pointer",
         }}
       >
@@ -197,7 +198,7 @@ export function MenuAjustesHUD() {
             gap: 8,
           }}
         >
-          <h2 style={{ margin: 0, font: "600 16px system-ui, sans-serif" }}>Ajustes</h2>
+          <h2 style={{ margin: 0, font: `600 ${tamTexto(16)} system-ui, sans-serif` }}>Ajustes</h2>
 
           <div>
             <button
@@ -249,7 +250,7 @@ export function MenuAjustesHUD() {
                     padding: "6px 10px",
                     borderRadius: 8,
                     border: "1px solid rgba(255,255,255,0.25)",
-                    font: "12px/1.3 system-ui, sans-serif",
+                    font: `${tamTexto(14)}/1.3 system-ui, sans-serif`,
                   }}
                 >
                   {estado.avisoVoz}

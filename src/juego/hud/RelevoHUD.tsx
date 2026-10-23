@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { confirmarRelevo, obtenerRelevo, suscribirRelevo } from "@/juego/control/relevoStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // Pantalla opaca a pantalla completa: tapa el campo y la consola para que
 // quien recibe el dispositivo no vea la información del anterior, y no deja
@@ -30,16 +31,16 @@ export function RelevoHUD() {
         padding: 20,
         background: "#12141a",
         color: "#e8eaf0",
-        font: "14px system-ui, sans-serif",
+        font: `${tamTexto(14)} system-ui, sans-serif`,
         textAlign: "center",
         overflowY: "auto",
       }}
     >
-      <h2 data-testid="relevo-jugador" style={{ margin: 0, fontSize: 22, overflowWrap: "anywhere" }}>
+      <h2 data-testid="relevo-jugador" style={{ margin: 0, fontSize: tamTexto(22), overflowWrap: "anywhere" }}>
         Turno de {relevo.jugador}
       </h2>
       {resumen && (
-        <p data-testid="relevo-resumen" style={{ margin: 0, maxWidth: 320, font: "15px system-ui, sans-serif" }}>
+        <p data-testid="relevo-resumen" style={{ margin: 0, maxWidth: 320, font: `${tamTexto(15)} system-ui, sans-serif` }}>
           {resumen.sinTiempo ? `${resumen.tirador} se quedó sin tiempo: disparo automático. ` : ""}
           {resumen.fallo
             ? `${resumen.tirador} ha fallado${resumen.arma ? ` con ${resumen.arma}` : ""}.`
@@ -64,7 +65,7 @@ export function RelevoHUD() {
           borderRadius: 10,
           background: "#8a2c14",
           color: "#ffffff",
-          font: "bold 16px system-ui, sans-serif",
+          font: `bold ${tamTexto(16)} system-ui, sans-serif`,
         }}
       >
         Soy {relevo.jugador}

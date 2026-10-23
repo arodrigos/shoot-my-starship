@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { obtenerBromas, suscribirBromas } from "@/juego/control/broma";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // hud-canales-1: el bocadillo vive en el canal PASIVO -- se desvanece solo sin
 // que nadie lo cierre. El plazo es FIJO para cada texto (issue #151: nada de
@@ -73,7 +74,7 @@ export function BromaHUD() {
           role="status"
           style={{
             color: "#ffe08a",
-            font: "12px system-ui, sans-serif",
+            font: `${tamTexto(14)} system-ui, sans-serif`,
             textAlign: "center",
             wordBreak: "break-word",
             overflowWrap: "anywhere",
@@ -100,7 +101,7 @@ export function BromaHUD() {
           background: "transparent",
           border: "none",
           color: "#cfe8ff",
-          font: "14px system-ui, sans-serif",
+          font: `${tamTexto(14)} system-ui, sans-serif`,
           cursor: "pointer",
         }}
       >

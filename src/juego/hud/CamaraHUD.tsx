@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { cerrarAyudaCamara, obtenerCamaraHud, pedirVerTodo, suscribirCamaraHud } from "@/juego/control/camaraStore";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 export const TEXTO_AYUDA_CAMARA = "Pellizca con dos dedos para acercar; «Ver todo» para volver";
 
@@ -29,7 +30,7 @@ export function VerTodoHUD() {
         color: "#e8eefc",
         border: "1px solid #3b5aa8",
         borderRadius: 10,
-        font: "14px system-ui, sans-serif",
+        font: `${tamTexto(14)} system-ui, sans-serif`,
       }}
     >
       Ver todo
@@ -74,7 +75,7 @@ export function AyudaCamaraHUD() {
         border: "1px solid #3b5aa8",
         borderRadius: 10,
         color: "#e8eefc",
-        font: "12px system-ui, sans-serif",
+        font: `${tamTexto(14)} system-ui, sans-serif`,
         boxSizing: "border-box",
       }}
     >

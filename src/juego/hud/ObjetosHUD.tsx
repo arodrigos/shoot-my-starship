@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { obtenerObjetos, suscribirObjetos } from "@/juego/control/objetosStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // Dos formas distintas (corazón / nube con rayo) y no solo dos colores: se
 // distinguen también en escala de grises (WCAG 1.4.1).
@@ -46,7 +47,7 @@ export function ObjetosHUD() {
             borderRadius: 10,
             padding: "2px 10px",
             color: "var(--color-roce-texto)",
-            font: "12px system-ui, sans-serif",
+            font: `${tamTexto(14)} system-ui, sans-serif`,
             pointerEvents: "none",
             flexShrink: 0,
           }}

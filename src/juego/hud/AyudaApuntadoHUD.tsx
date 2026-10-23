@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { cerrarAyudaApuntado, obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // apuntado-360: el dedo gira alrededor de la nave y la flecha lo sigue;
 // alejarlo o acercarlo cambia la fuerza.
@@ -37,7 +38,7 @@ export function AyudaApuntadoHUD() {
         border: "1px solid #3b5aa8",
         borderRadius: 10,
         color: "#e8eefc",
-        font: "12px system-ui, sans-serif",
+        font: `${tamTexto(14)} system-ui, sans-serif`,
         boxSizing: "border-box",
       }}
     >

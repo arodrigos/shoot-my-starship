@@ -5,6 +5,7 @@ import { MarcaAsiento } from "@/juego/hud/MarcaAsiento";
 import { textoGanador } from "@/juego/textosPartida";
 import { obtenerParticipantes, suscribirParticipantes } from "@/juego/control/participantesStore";
 import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } from "@/juego/control/parteDeGuerraStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 
 // Pantalla final (humor-7): se superpone al tablero ya congelado (la
 // partida ha terminado, nadie va a disparar otra vez) mostrando la medalla y
@@ -14,7 +15,8 @@ import { obtenerParteDeGuerra, solicitarOtraPartida, suscribirParteDeGuerra } fr
 // premios-parte: cada asiento (gane o pierda, humano o IA) tiene su tarjeta
 // con 1-2 premios y la cifra que lo justifica. Las estadísticas en bruto del
 // ganador siguen ahí, pero plegadas en «Ver números», para que a 360x640 con
-// 4 asientos la rejilla de 2x2 y «Otra partida» quepan sin desplazar.
+// 4 asientos la rejilla de 2x2 quepa; con textos de 14 px o más el contenido
+// puede desplazarse dentro del panel, y «Otra partida» queda fija al pie.
 export function ParteDeGuerraHUD() {
   const { parte, tarjetas } = useSyncExternalStore(suscribirParteDeGuerra, obtenerParteDeGuerra, obtenerParteDeGuerra);
   const [numerosAbiertos, setNumerosAbiertos] = useState(false);
@@ -35,20 +37,35 @@ export function ParteDeGuerraHUD() {
         justifyContent: "center",
         background: "rgba(4,5,10,0.82)",
         color: "#e8eaf0",
-        font: "14px system-ui, sans-serif",
+        font: `${tamTexto(14)} system-ui, sans-serif`,
         textAlign: "center",
         padding: 12,
-        overflowY: "auto",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 520, margin: "auto" }}>
-        <h2 data-testid="ganador-nombre" style={{ margin: "0 0 4px", fontSize: 18, overflowWrap: "anywhere" }}>
+      {/* Panel opaco: sobre el velo semitransparente axe no puede decidir el
+          contraste (queda «incomplete»). El velo se queda alrededor para ver
+          el tablero congelado, y el contenido se desplaza dentro del panel
+          mientras «Otra partida» queda fija al pie. */}
+      <div
+        style={{
+          boxSizing: "border-box",
+          width: "100%",
+          maxWidth: 520,
+          maxHeight: "100%",
+          overflowY: "auto",
+          padding: "12px 12px 0",
+          borderRadius: 12,
+          border: "1px solid rgba(255,255,255,0.25)",
+          background: "#0a0c14",
+        }}
+      >
+        <h2 data-testid="ganador-nombre" style={{ margin: "0 0 4px", fontSize: tamTexto(18), overflowWrap: "anywhere" }}>
           {textoGanador({ ganador, ganadorEsHumano, humanos })}
         </h2>
-        <h2 data-testid="parte-de-guerra-medalla" style={{ color: "#ffe08a", margin: "0 0 4px", fontSize: 16 }}>
+        <h2 data-testid="parte-de-guerra-medalla" style={{ color: "#ffe08a", margin: "0 0 4px", fontSize: tamTexto(16) }}>
           {parte.medalla}
         </h2>
-        <p data-testid="parte-de-guerra-texto" style={{ margin: "0 0 8px", fontSize: 13 }}>
+        <p data-testid="parte-de-guerra-texto" style={{ margin: "0 0 8px", fontSize: tamTexto(14) }}>
           {parte.texto}
         </p>
         <div
@@ -70,15 +87,15 @@ export function ParteDeGuerraHUD() {
             >
               <div
                 data-testid={`premio-asiento-nombre-${tarjeta.asiento}`}
-                style={{ display: "flex", alignItems: "center", gap: 6, font: "600 13px system-ui, sans-serif", minWidth: 0 }}
+                style={{ display: "flex", alignItems: "center", gap: 6, font: `600 ${tamTexto(14)} system-ui, sans-serif`, minWidth: 0 }}
               >
                 <MarcaAsiento asiento={tarjeta.asiento} alto={14} />
                 <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>{tarjeta.nombre}</span>
               </div>
               {tarjeta.premios.map((premio) => (
                 <div key={premio.id} data-testid="premio" style={{ marginTop: 4, overflowWrap: "anywhere" }}>
-                  <div style={{ color: "#ffe08a", font: "600 12px system-ui, sans-serif" }}>{premio.nombre}</div>
-                  <div style={{ font: "11px system-ui, sans-serif", color: "#cfd3df" }}>{premio.texto}</div>
+                  <div style={{ color: "#ffe08a", font: `600 ${tamTexto(14)} system-ui, sans-serif` }}>{premio.nombre}</div>
+                  <div style={{ font: `${tamTexto(14)} system-ui, sans-serif`, color: "#cfd3df" }}>{premio.texto}</div>
                 </div>
               ))}
             </section>
@@ -98,7 +115,7 @@ export function ParteDeGuerraHUD() {
             border: "1px solid rgba(255,255,255,0.25)",
             background: "transparent",
             color: "#e8eaf0",
-            font: "13px system-ui, sans-serif",
+            font: `${tamTexto(14)} system-ui, sans-serif`,
             cursor: "pointer",
           }}
         >
@@ -108,7 +125,7 @@ export function ParteDeGuerraHUD() {
           <table
             id="parte-numeros"
             data-testid="tabla-numeros"
-            style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", font: "11px system-ui, sans-serif" }}
+            style={{ width: "100%", marginTop: 6, borderCollapse: "collapse", font: `${tamTexto(14)} system-ui, sans-serif` }}
           >
             <thead>
               <tr>
@@ -132,7 +149,7 @@ export function ParteDeGuerraHUD() {
             </tbody>
           </table>
         )}
-        <div>
+        <div style={{ position: "sticky", bottom: 0, padding: "0 0 12px", background: "#0a0c14" }}>
           <button
             type="button"
             data-testid="otra-partida"
@@ -144,8 +161,8 @@ export function ParteDeGuerraHUD() {
               borderRadius: 8,
               border: "1px solid rgba(255,255,255,0.25)",
               background: "#ff6b4a",
-              color: "#e8eaf0",
-              font: "14px system-ui, sans-serif",
+              color: "#12141a",
+              font: `600 ${tamTexto(14)} system-ui, sans-serif`,
               cursor: "pointer",
             }}
           >
