@@ -246,3 +246,57 @@ for (const tam of TAMANOS) {
     });
   }
 }
+
+// tg-3 (1 contra 1 con reloj): el caso de la sonda del gatekeeper. Con dos naves la fila
+// no pasa a dos columnas, así que el nombre y el nivel tienen que caber en una pestaña.
+for (const tam of TAMANOS) {
+  test(`tg-3 consola 1 contra 1: pestañas enteras con «Texto grande» y reloj (${tam.width}x${tam.height})`, async ({ page }) => {
+    test.setTimeout(180000);
+    mkdirSync("capturas", { recursive: true });
+    await page.setViewportSize(tam);
+    await page.addInitScript(() => localStorage.setItem("legibilidad:texto-grande", "1"));
+    await page.goto(`/?mapa=${MAPA_SEMBRADO}`);
+    await page.getByTestId("humanos-1").click();
+    await page.getByTestId("ias-1").click();
+    await page.getByTestId("reloj-30").click();
+    await page.getByTestId("boton-jugar").click();
+    await page.waitForSelector("#game-container canvas");
+    await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined);
+    if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
+    await expect(page.getByTestId("reloj-turno")).toBeVisible();
+    const m = await page.evaluate(() => {
+      const cortados = Array.from(document.querySelectorAll('[data-testid^="integridad-etiqueta-"], [data-testid^="integridad-nivel-"]'))
+        .filter((e) => e.scrollWidth > e.clientWidth)
+        .map((e) => `${e.getAttribute("data-testid")}:${e.scrollWidth}>${e.clientWidth}`);
+      return { cortados };
+    });
+    expect(m.cortados, "pestañas con el texto cortado").toEqual([]);
+    await page.screenshot({ path: `capturas/texto-grande-3-consola-1c1-${tam.width}x${tam.height}.png` });
+  });
+}
+
+// La ayuda de la primera partida tiene que poder cerrarse a 360x640 con «Texto grande»:
+// no basta con que isVisible() sea cierto, el botón tiene que quedar dentro de la pantalla
+// una vez desplazada la ayuda.
+test("tg-3 ayuda inicial: «Entendido» alcanzable a 360x640 con «Texto grande»", async ({ page }) => {
+  test.setTimeout(180000);
+  await page.setViewportSize(TAMANOS[0]);
+  await page.addInitScript(() => localStorage.setItem("legibilidad:texto-grande", "1"));
+  await page.goto(`/?mapa=${MAPA_SEMBRADO}`);
+  await page.getByTestId("humanos-1").click();
+  await page.getByTestId("ias-1").click();
+  await page.getByTestId("boton-jugar").click();
+  await page.waitForSelector("#game-container canvas");
+  const ayuda = page.getByTestId("ayuda-inicial");
+  await expect(ayuda).toBeVisible();
+  const desplazable = await ayuda.evaluate((e) => getComputedStyle(e).overflowY === "auto" && e.scrollHeight >= e.clientHeight);
+  expect(desplazable).toBe(true);
+  await ayuda.evaluate((e) => e.scrollTo(0, e.scrollHeight));
+  const caja = await page.getByTestId("ayuda-cerrar").boundingBox();
+  expect(caja!.y).toBeGreaterThanOrEqual(0);
+  expect(caja!.y + caja!.height).toBeLessThanOrEqual(640);
+  mkdirSync("capturas", { recursive: true });
+  await page.screenshot({ path: "capturas/texto-grande-3-ayuda-360x640.png" });
+  await page.getByTestId("ayuda-cerrar").click();
+  await expect(ayuda).toBeHidden();
+});
