@@ -155,6 +155,9 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const resultadoTurno = useSyncExternalStore(suscribirResultadoTurno, obtenerResultadoTurno, obtenerResultadoTurno);
   const navesEnPartida = useSyncExternalStore(suscribirIntegridad, obtenerIntegridad, obtenerIntegridad).naves.length;
+  // Con «Texto grande» las pestañas de vida también van en su propia fila en el 1 contra 1:
+  // al lado del resultado del turno (44 % del ancho) quedaban en ~78 px y el nombre se cortaba.
+  const pestanasEnFilaPropia = navesEnPartida > 2 || estado.textoGrande;
   const [selectorAbierto, setSelectorAbierto] = useState(false);
   const [pestana, setPestana] = useState<"armas" | "equipo">("armas");
   useEffect(() => {
@@ -433,13 +436,13 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           style={{
             display: "flex",
             flexDirection: "row",
-            flexWrap: navesEnPartida > 2 ? "wrap" : "nowrap",
+            flexWrap: pestanasEnFilaPropia ? "wrap" : "nowrap",
             justifyContent: "space-between",
             alignItems: "flex-start",
             gap: 6,
           }}
         >
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: navesEnPartida > 2 ? "100%" : "44%", minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: pestanasEnFilaPropia ? "100%" : "44%", minWidth: 0 }}>
           <div
             role="status"
             data-testid="resultado-turno"
@@ -470,7 +473,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             </div>
           )}
         </div>
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0, ...(navesEnPartida > 2 ? { flex: "1 1 100%" } : { flex: "1 1 140px" }) }}>
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0, ...(pestanasEnFilaPropia ? { flex: "1 1 100%" } : { flex: "1 1 140px" }) }}>
           <IntegridadHUD />
         </div>
         </div>
@@ -909,16 +912,19 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
             inset: 0,
             zIndex: 20,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             background: "var(--color-cromado-fondo)",
             color: "var(--color-cromado-texto)",
             font: `${tamTexto(14)} system-ui, sans-serif`,
             textAlign: "center",
             padding: 24,
+            boxSizing: "border-box",
+            // Con «Texto grande» a 360x640 la ayuda es más alta que la pantalla: el
+            // margin auto centra cuando cabe y, a diferencia de align-items:center,
+            // no deja el principio fuera de alcance cuando hay que desplazar.
+            overflowY: "auto",
           }}
         >
-          <div style={{ maxWidth: 320 }}>
+          <div style={{ maxWidth: 320, margin: "auto" }}>
             <p data-testid="ayuda-control-angulo">
               La barra de arriba es el ángulo: arrástrala de un extremo a otro para girar en círculo completo (0° a
               360°, también hacia abajo) en un solo gesto, o usa +0.1°/-0.1° para el ajuste fino.
