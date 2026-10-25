@@ -141,11 +141,14 @@ test(`rem-1, rem-2, rem-4: remate completo con fases en orden, entradas bloquead
   }
   expect(activas.some((m) => m.camara.ancho < camaraAntes.ancho - 1), "la cámara se acerca").toBe(true);
   expect(remate.destellosCamara.length).toBe(1);
-  // Se compara con la cámara al acabar el remate, dentro del turno del disparo: al
-  // cambiar de turno la consola se aparta y el encuadre preferido se recalcula.
-  const ultimaActiva = muestras.map((m) => m.activo).lastIndexOf(true);
-  const camaraDespues = (muestras.slice(ultimaActiva + 1).find((m) => m.turno === turno0) ?? muestras[ultimaActiva]).camara;
-  for (const k of ["x", "y", "ancho", "alto"] as const) expect(Math.abs(camaraDespues[k] - camaraAntes[k])).toBeLessThanOrEqual(0.5);
+  // El remate devuelve la cámara y, en el mismo fotograma, el turno avanza y el
+  // encuadre preferido se recalcula (la consola se aparta con el turno del rival),
+  // así que ya no tiene que coincidir con el de antes: tiene que ser el automático,
+  // válido y sin el acercamiento del remate.
+  await expect.poll(() => page.evaluate(() => window.__debug.zonasCamara!().zoom), { timeout: 20000 }).toBeLessThanOrEqual(1);
+  const zonas = await page.evaluate(() => window.__debug.zonasCamara!());
+  expect(zonas.modo).toBe("auto");
+  expect(zonas.valido, JSON.stringify(zonas)).toBe(true);
   await capturar(page, `remate-impacto-rem-2-despues-${ancho}x${alto}`);
 });
 }

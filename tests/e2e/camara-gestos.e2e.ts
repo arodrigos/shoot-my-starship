@@ -160,6 +160,9 @@ test("cam-1, cam-3, cam-10: pellizco y arrastre con dos dedos, «Ver todo» y la
     expect(boton.height).toBeGreaterThanOrEqual(44);
     await page.getByTestId("ver-todo").click();
     await expect.poll(async () => (await camara(page)).modo, { timeout: 20000 }).toBe("auto");
+    // La vuelta dura 300 ms (más en el WebGL por software): se lee el encuadre ya asentado.
+    await expect.poll(async () => (await page.evaluate(() => window.__debug.zonasCamara!().zoom)) <= 1, { timeout: 20000 }).toBe(true);
+    await esperarQuieta(page);
     const fin = await camara(page);
     // «Ver todo» vuelve al encuadre auto: el mundo entero si nada importante queda
     // bajo el HUD (el recuadro de ?rendimiento=1 es una zona) y, si no, el grupo
