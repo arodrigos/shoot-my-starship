@@ -198,8 +198,11 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
         if (!obtenerEstadoControl().propulsoresBloqueados) break;
       }
       solicitarDisparo();
-      // El vuelo acaba cuando el turno pasa al rival.
-      await esperar(() => (window.__debug?.turno ?? 0) === 1, 15_000);
+      // Primero a que el vuelo arranque (el turno sigue siendo del humano justo
+      // al pedir el disparo) y solo entonces a que el turno pase al rival: si no,
+      // el tramo acababa en el mismo instante y quedaba sin frames.
+      await esperar(() => !turnoHumano(), 5000);
+      await esperar(() => (window.__debug?.turno ?? 0) === 1, 30_000);
     });
 
     await medir("turno-ia", async () => {
