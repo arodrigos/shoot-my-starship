@@ -83,7 +83,7 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   // Con el shard cargado el tope puede cortar antes del primer tramo; entonces el
   // resumen lo dice y es el único caso en que no hay línea de reposo.
   if (estado === "terminada") expect(texto).toMatch(/Reposo:/);
-  else expect(texto).toContain("tiempo agotado");
+  else expect(texto).toMatch(/tiempo agotado|sin frames/);
   expect(texto).not.toMatch(/NaN|undefined|Infinity|http|\/home/);
   await expect(page.getByTestId("texto-medicion")).toHaveAttribute("readonly", "");
   // md-3: cabe en 360x640
@@ -94,6 +94,8 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   await captura(page, "md-3-resumen", 360, 640);
   // md-4: copia automática o aviso de que hay que pulsar «Copiar»
   await expect(page.getByTestId("estado-copia")).toContainText(/Copiado al portapapeles|No se pudo copiar solo: pulsa Copiar o selecciona el texto/);
+  // La copia nunca se queda en «pendiente» con el recorrido ya acabado.
+  await expect.poll(() => page.evaluate(() => window.__debug.medicion!().copia), { timeout: 15000 }).not.toBe("pendiente");
   await captura(page, "md-4-copia", 360, 640);
   // md-7: ninguna petición de red durante la medición
   expect(peticiones).toEqual([]);

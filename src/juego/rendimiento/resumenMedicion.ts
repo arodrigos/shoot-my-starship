@@ -55,7 +55,7 @@ export interface EntradaResumen {
   readonly huecoMaxRafMs: number;
   readonly medianaReposoMs: number | null;
   // Por qué no llegó al final, si no llegó.
-  readonly interrupcion: "cancelada" | "tiempo-agotado" | null;
+  readonly interrupcion: "cancelada" | "tiempo-agotado" | "sin-frames" | null;
 }
 
 export const HUECO_RAF_INVALIDO_MS = 1000;
@@ -112,6 +112,7 @@ export function construirResumen(entrada: EntradaResumen): Resumen {
   }
   if (entrada.interrupcion === "cancelada") motivos.push("medición cancelada (INCOMPLETA)");
   if (entrada.interrupcion === "tiempo-agotado") motivos.push("tiempo agotado (INCOMPLETA)");
+  if (entrada.interrupcion === "sin-frames") motivos.push("sin frames: la partida no llegó a pintar (¿pestaña en segundo plano o equipo muy lento?) (INCOMPLETA)");
   const m = entrada.medianaReposoMs;
   if (m !== null && Number.isFinite(m) && m >= REPOSO_30FPS_MIN_MS && m <= REPOSO_30FPS_MAX_MS) {
     avisos.push("rAF limitado a 30 fps (¿modo de bajo consumo?)");
@@ -120,7 +121,8 @@ export function construirResumen(entrada: EntradaResumen): Resumen {
     tramos: entrada.tramos,
     entorno: entrada.entorno,
     apis: entrada.apis,
-    inpToques: entrada.apis.eventTiming ? entrada.inpToques : null,
+    // Un INP de 0 es "sin interacciones medidas", no una respuesta instantánea.
+    inpToques: entrada.apis.eventTiming && entrada.inpToques !== null && entrada.inpToques > 0 ? entrada.inpToques : null,
     validez: { valida: motivos.length === 0, motivos, avisos },
   };
 }
