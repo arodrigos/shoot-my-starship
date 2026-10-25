@@ -29,6 +29,14 @@ import {
 export const CALENTAMIENTO_MS = 1000;
 export const FRAMES_ENTRE_TRAMOS = 30;
 export const TOPE_RECORRIDO_MS = 90_000;
+
+// Solo para pruebas: `?tope-medicion=<segundos>` cambia el tope. El e2e de CI
+// pinta el WebGL por software y no cabe en 90 s; con un tope corto se prueba
+// además el corte por tiempo agotado.
+function topeRecorridoMs(): number {
+  const segundos = Number(new URLSearchParams(window.location.search).get("tope-medicion"));
+  return Number.isFinite(segundos) && segundos > 0 ? segundos * 1000 : TOPE_RECORRIDO_MS;
+}
 const DURACION_REPOSO_MS = 3000;
 const VENTANA_TRAS_EXPLOSION_MS = 1000;
 const ESPERA_MAX_TRAMO_MS = 25_000;
@@ -50,6 +58,7 @@ const TRAMOS: readonly NombreTramoStore[] = ["reposo", "pepinazo", "racimo", "pr
 
 export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
   const inicio = performance.now();
+  const tope = topeRecorridoMs();
   window.__debug = window.__debug ?? {};
   window.__debug.medicion = () => structuredClone(obtenerMedicion());
   let paginaOculta = document.visibilityState === "hidden";
@@ -60,7 +69,7 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
 
   const comprobar = (): void => {
     if (medicionCancelada()) throw new Interrumpido("cancelada");
-    if (performance.now() - inicio > TOPE_RECORRIDO_MS) throw new Interrumpido("tiempo-agotado");
+    if (performance.now() - inicio > tope) throw new Interrumpido("tiempo-agotado");
   };
   // Polling sobre el estado real, no esperas fijas cruzando los dedos.
   const esperar = async (condicion: () => boolean, maxMs = ESPERA_MAX_TRAMO_MS): Promise<boolean> => {

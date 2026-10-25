@@ -47,7 +47,7 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   test.setTimeout(240000);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => undefined);
   const peticiones: string[] = [];
-  await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1");
+  await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=900");
   // La partida guardada se compara byte a byte antes y después (md-6).
   const guardadoAntes = await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()));
   page.on("request", (r) => {
@@ -60,7 +60,7 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
 
   await expect(page.getByTestId("panel-medicion")).toBeVisible({ timeout: 200000 });
   const estado = await page.evaluate(() => window.__debug.medicion!().estado);
-  expect(["terminada", "incompleta"]).toContain(estado);
+  expect(estado).toBe("terminada");
   const texto = await page.getByTestId("texto-medicion").inputValue();
   expect(texto).toContain("Medición de rendimiento");
   expect(texto).toContain("INP de tus toques (no del recorrido)");
@@ -94,4 +94,13 @@ test("md-8: «Cancelar» deja el panel «Medición cancelada» con el estado 'ca
   expect(await page.evaluate(() => window.__debug.medicion!().estado)).toBe("cancelada");
   expect(await page.getByTestId("texto-medicion").inputValue()).toContain("INCOMPLETA");
   await captura(page, "md-8-cancelada", 360, 640);
+});
+
+test("md-8: al agotar el tope el estado es 'incompleta' con «tiempo agotado»", async ({ page }) => {
+  test.setTimeout(120000);
+  await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=4");
+  await page.getByTestId("medir-rendimiento").click();
+  await expect(page.getByTestId("panel-medicion")).toContainText("tiempo agotado", { timeout: 60000 });
+  expect(await page.evaluate(() => window.__debug.medicion!().estado)).toBe("incompleta");
+  expect(await page.getByTestId("texto-medicion").inputValue()).toContain("NO VÁLIDA: tiempo agotado");
 });
