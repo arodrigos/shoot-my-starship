@@ -15,6 +15,7 @@ import {
 } from "@/juego/hud/estadoConsola";
 import "@/debug/tipos";
 import { tamTexto } from "@/juego/hud/legibilidad";
+import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
 import { useZonaOcupada } from "@/juego/hud/useZonaOcupada";
 
 // consola-compacta: el 40 % del ancho con un mínimo de 320 px (que cabe en el
@@ -48,6 +49,14 @@ function posicionHorizontal(anclaje: AnclajeConsola): CSSProperties {
   if (anclaje === "abajo-izquierda") return { left: MARGEN_LATERAL_PX };
   if (anclaje === "abajo-derecha") return { right: MARGEN_LATERAL_PX };
   return { left: 0, right: 0, marginLeft: "auto", marginRight: "auto" };
+}
+
+// Con la consola oculta el contenedor mide lo que la pestaña, así que la ayuda
+// se alinea con el lado al que está anclada para no salirse del viewport.
+function ladoAyudaOculta(anclaje: AnclajeConsola): CSSProperties {
+  if (anclaje === "abajo-izquierda") return { left: 0 };
+  if (anclaje === "abajo-derecha") return { right: 0 };
+  return { left: "50%", transform: "translateX(-50%)" };
 }
 
 interface Props {
@@ -146,12 +155,30 @@ export function ConsolaSuperpuesta({ children }: Props) {
           <span aria-hidden="true">▴</span>
         </button>
       )}
+      {(oculta || minima) && (
+        // En mínima y oculta no hay fila de avisos: la ayuda flota sobre la
+        // barra o la pestaña (y sobre su fila de botones) como parte de la zona.
+        <div
+          data-zona-extra=""
+          style={{
+            position: "absolute",
+            bottom: `calc(100% + 8px)`,
+            width: ANCHO_CONSOLA,
+            maxWidth: "calc(100vw - 16px)",
+            pointerEvents: "none",
+            ...(oculta ? ladoAyudaOculta(anclaje) : { left: 0 }),
+          }}
+        >
+          <AyudaApuntadoHUD />
+        </div>
+      )}
       <div style={oculta ? { display: "none" } : { position: "relative", height: minima ? "100%" : undefined }}>
         <ControlHUD
           plegada={minima}
           alAlternarPlegado={() => cambiarEstado(minima ? "desplegada" : "minima")}
           alOcultar={() => cambiarEstado("oculta")}
           alMover={mover}
+          conAyudaApuntado={!oculta && !minima}
         />
         {children}
       </div>

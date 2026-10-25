@@ -104,3 +104,9 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Los avisos pasan por encima de las naves sin recoger toques cuando ningún
+   anclaje de la capa las deja libres (incluido el cierre de la broma). */
+[data-testid="capa-avisos"][data-sin-toques] * {
+  pointer-events: none !important;
+}

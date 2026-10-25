@@ -38,6 +38,7 @@ import { FantasmasHUD } from "@/juego/hud/FantasmasHUD";
 import { ObjetosHUD } from "@/juego/hud/ObjetosHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
 import { MuerteSubitaHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
+import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
 import "@/debug/tipos";
 import { tamTexto } from "@/juego/hud/legibilidad";
 
@@ -129,6 +130,9 @@ interface PropsControl {
   readonly alAlternarPlegado: () => void;
   readonly alOcultar: () => void;
   readonly alMover: () => void;
+  // false cuando la consola está oculta o mínima: entonces la ayuda la monta
+  // ConsolaSuperpuesta sobre la pestaña o la barra, y no se duplica.
+  readonly conAyudaApuntado?: boolean;
 }
 
 // Icono del arma en la barra mínima: el mismo dibujo que la celda del selector,
@@ -151,7 +155,7 @@ function textoEjeDeArma(arma: (typeof CATALOGO_ARMAS)[number]): string {
   return "";
 }
 
-export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: PropsControl) {
+export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, conAyudaApuntado = true }: PropsControl) {
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const resultadoTurno = useSyncExternalStore(suscribirResultadoTurno, obtenerResultadoTurno, obtenerResultadoTurno);
   const navesEnPartida = useSyncExternalStore(suscribirIntegridad, obtenerIntegridad, obtenerIntegridad).naves.length;
@@ -678,6 +682,9 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           pointerEvents: "none",
         }}
       >
+        {/* La ayuda del apuntado vive aquí, en la zona de la consola: la cámara
+            ya aparta las naves de este rectángulo y su ✕ nunca cae sobre una. */}
+        {conAyudaApuntado && <AyudaApuntadoHUD />}
         <FantasmasHUD />
         <RobotsHUD />
         <ObjetosHUD />

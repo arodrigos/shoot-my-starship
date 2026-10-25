@@ -152,7 +152,7 @@ for (const esquema of ["dark", "light"] as const) {
     // La ayuda de apuntado (con su ✕, un <button> que no hereda la letra) solo
     // existe mientras se puede disparar: se mide antes de agotar el reloj.
     await expect(page.getByTestId("ayuda-apuntado")).toBeVisible();
-    await pasar("ayuda-apuntado", ['[data-testid="capa-avisos"]']);
+    await pasar("ayuda-apuntado", ['[data-testid="ayuda-apuntado"]']);
     expect(await tamanosMinimos(page, '[data-testid="ayuda-apuntado"]')).toBeGreaterThanOrEqual(14);
     expect(
       await page.getByTestId("ayuda-apuntado-cerrar").evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),

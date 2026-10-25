@@ -8,8 +8,9 @@ import { tamTexto } from "@/juego/hud/legibilidad";
 // alejarlo o acercarlo cambia la fuerza.
 export const TEXTO_AYUDA_APUNTADO = "Gira el dedo alrededor de tu nave para apuntar; aléjalo para más fuerza";
 
-// apuntado-y-relevo (apu-6): una línea sobre el lienzo, no dentro de la
-// consola, porque a 360x640 la consola ya no tiene un píxel libre.
+// av-1 (#312): vive en la zona de la consola (encima de sus controles, o de la
+// pestaña si está oculta), no en la capa de avisos: la cámara aparta las naves
+// de esa zona y el ✕ de 44x44 no se queda con el toque que iba a una nave.
 export function AyudaApuntadoHUD() {
   const visible = useSyncExternalStore(
     suscribirControl,
@@ -24,9 +25,8 @@ export function AyudaApuntadoHUD() {
       data-testid="ayuda-apuntado"
       role="status"
       style={{
-        // Vive en CapaAvisosHUD (flujo en columna): con posición propia se
-        // pisaba con los demás avisos y con el rótulo de la deriva.
         width: "100%",
+        flexShrink: 0,
         // Solo el botón de cerrar captura toques: el resto no debe impedir
         // apuntar a través de la ayuda.
         pointerEvents: "none",

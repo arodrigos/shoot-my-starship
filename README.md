@@ -84,10 +84,15 @@ estados: desplegada, mínima y oculta; oculta solo deja una pestaña de 48 × 48
 `consola:anclaje`). En mínima, el icono del arma y su precio van sobre una
 pastilla con fondo opaco, para que se lean con cualquier planeta detrás.
 
-Los avisos van en una capa propia, aparte de la consola, así que se ven aunque
-esté oculta: la ayuda de apuntado, el cartel de evento, la broma y la
-reacción. Esa capa empieza a 130 px del borde superior, por debajo del rótulo
-de la deriva, y cada aviso lleva fondo opaco. En las partidas espaciales el
+La ayuda del apuntado vive dentro de la zona de la consola (encima de sus
+controles, o de la pestaña si está oculta), así que la cámara la aparta de las
+naves y su ✕ nunca cae sobre una. El resto de avisos (cartel de evento, broma,
+reacción) van en una capa propia, aparte de la consola, y se ven aunque esté
+oculta. Esa capa elige entre empezar a 130 px del borde superior, por debajo
+del rótulo de la deriva, o ir justo encima de la consola: el sitio que no
+pisa ninguna nave, y solo cambia entre avisos. Si los dos pisan alguna, los
+avisos pasan por encima sin recoger toques; la capa nunca reencuadra la
+cámara. Cada aviso lleva fondo opaco. En las partidas espaciales el
 rótulo «Vacío: aquí no empuja nada…» se ve 4 s y se desvanece para no tapar
 ningún planeta (con movimiento reducido desaparece sin transición). Solo hay
 un «¡Perdido!» a la vez: el siguiente retira el anterior, y si arriba está el
