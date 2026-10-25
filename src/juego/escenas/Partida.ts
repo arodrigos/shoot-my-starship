@@ -1345,12 +1345,15 @@ export class Partida extends Phaser.Scene {
     const estadoCamara = this.camaraCtl.estado();
     // Cada franja de estrellas solo se dibuja si la vista asoma por su lado:
     // dentro del mundo no cuesta nada.
+    // Con zoom 1 la vista casi nunca sale por más que unos px y las franjas
+    // costaban fps en el render por software: solo se pintan con la vista alejada.
     if (this.fondoExterior) {
+      const alejada = estadoCamara.zoom < 1;
       const { ancho: mundoAncho, alto: mundoAlto } = this.estado.mundo;
-      this.fondoExterior.arriba.setVisible(estadoCamara.y < 0);
-      this.fondoExterior.abajo.setVisible(estadoCamara.y + estadoCamara.alto > mundoAlto);
-      this.fondoExterior.izquierda.setVisible(estadoCamara.x < 0);
-      this.fondoExterior.derecha.setVisible(estadoCamara.x + estadoCamara.ancho > mundoAncho);
+      this.fondoExterior.arriba.setVisible(alejada && estadoCamara.y < 0);
+      this.fondoExterior.abajo.setVisible(alejada && estadoCamara.y + estadoCamara.alto > mundoAlto);
+      this.fondoExterior.izquierda.setVisible(alejada && estadoCamara.x < 0);
+      this.fondoExterior.derecha.setVisible(alejada && estadoCamara.x + estadoCamara.ancho > mundoAncho);
     }
     window.__debug!.camara = { x: estadoCamara.x, y: estadoCamara.y, ancho: estadoCamara.ancho, alto: estadoCamara.alto, zoom: estadoCamara.zoom, modo: estadoCamara.modo };
     publicarCamaraManual(this.camaraCtl.manual);
