@@ -63,8 +63,17 @@ async function esperarValido(page: Page): Promise<void> {
     .toBe(true);
 }
 
+// La consola incluye su fila ⇄ ▾ ✕, que flota por encima de la caja: el criterio
+// pide que ninguna nave quede bajo ella.
 async function rectConsola(page: Page) {
-  return page.evaluate(() => document.querySelector('[data-testid="consola"]')!.getBoundingClientRect().toJSON() as { x: number; y: number; width: number; height: number; top: number; bottom: number; left: number; right: number });
+  return page.evaluate(() => {
+    const cajas = [document.querySelector('[data-testid="consola"]')!, ...document.querySelectorAll('[data-testid="fila-botones-consola"]')].map((e) => e.getBoundingClientRect());
+    const left = Math.min(...cajas.map((r) => r.left));
+    const top = Math.min(...cajas.map((r) => r.top));
+    const right = Math.max(...cajas.map((r) => r.right));
+    const bottom = Math.max(...cajas.map((r) => r.bottom));
+    return { x: left, y: top, width: right - left, height: bottom - top, top, bottom, left, right };
+  });
 }
 
 async function navesFueraDeLaConsola(page: Page, tamano: Tamano): Promise<void> {

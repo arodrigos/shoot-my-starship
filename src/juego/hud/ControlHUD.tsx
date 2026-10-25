@@ -414,7 +414,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
     >
       {/* Flota sobre el borde superior del panel (no dentro de su alto): el
           panel ya no tiene sitio libre en 360x640 con el tope del 45 %. */}
-      <div style={{ position: "absolute", right: 0, top: -(TAMANO_BOTON_PLEGAR_PX + 4), display: "flex", gap: 4 }}>
+      <div data-zona-extra="" data-testid="fila-botones-consola" style={{ position: "absolute", right: 0, top: -(TAMANO_BOTON_PLEGAR_PX + 4), display: "flex", gap: 4 }}>
         {botonMover}
         {botonPlegar}
         {botonOcultar}

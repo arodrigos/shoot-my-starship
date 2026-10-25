@@ -25,18 +25,18 @@ async function empezar(page: Page, reducido: boolean): Promise<void> {
 async function comprobarAvisoVisible(page: Page, reducido: boolean): Promise<void> {
   const medida = await page.evaluate(() => {
     const aviso = window.__debug.avisoPerdido!;
-    const mundo = window.__debug.mundo!;
     const lienzo = document.querySelector<HTMLCanvasElement>("#game-container canvas")!;
     const caja = lienzo.getBoundingClientRect();
-    const cssPorMundo = caja.width / mundo.ancho;
-    const rect = { x: caja.left + aviso.x * cssPorMundo, y: caja.top + aviso.y * cssPorMundo, w: aviso.ancho * cssPorMundo, h: aviso.alto * cssPorMundo };
+    // El rectángulo en px CSS ya incluye el zoom y el desplazamiento de la
+    // cámara: con la vista alejada, mundo y pantalla no se corresponden 1 a 1.
+    const rect = { x: aviso.css.x, y: aviso.css.y, w: aviso.css.ancho, h: aviso.css.alto };
     const encima = document.elementFromPoint(rect.x + rect.w / 2, rect.y + rect.h / 2);
-    const pxPorMundo = lienzo.width / mundo.ancho;
+    const pxPorCss = lienzo.width / caja.width;
     const copia = document.createElement("canvas");
-    copia.width = Math.max(1, Math.round(aviso.ancho * pxPorMundo));
-    copia.height = Math.max(1, Math.round(aviso.alto * pxPorMundo));
+    copia.width = Math.max(1, Math.round(rect.w * pxPorCss));
+    copia.height = Math.max(1, Math.round(rect.h * pxPorCss));
     const ctx = copia.getContext("2d")!;
-    ctx.drawImage(lienzo, aviso.x * pxPorMundo, aviso.y * pxPorMundo, copia.width, copia.height, 0, 0, copia.width, copia.height);
+    ctx.drawImage(lienzo, (rect.x - caja.left) * pxPorCss, (rect.y - caja.top) * pxPorCss, copia.width, copia.height, 0, 0, copia.width, copia.height);
     const datos = ctx.getImageData(0, 0, copia.width, copia.height).data;
     let dorados = 0;
     for (let i = 0; i < datos.length; i += 4) {

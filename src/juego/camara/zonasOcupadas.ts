@@ -74,13 +74,32 @@ export function limpiarZonas(): void {
   avisar();
 }
 
+// Rectángulo del elemento más el de sus descendientes marcados con
+// data-zona-extra: la fila ⇄ ▾ ✕ de la consola flota fuera de su caja
+// (position:absolute) y, si no se cuenta, la cámara deja una nave debajo.
+export function medirZona(elemento: HTMLElement): RectCss {
+  const r = elemento.getBoundingClientRect();
+  let izq = r.left;
+  let arr = r.top;
+  let der = r.right;
+  let aba = r.bottom;
+  for (const extra of elemento.querySelectorAll("[data-zona-extra]")) {
+    const e = extra.getBoundingClientRect();
+    if (e.width === 0 && e.height === 0) continue;
+    izq = Math.min(izq, e.left);
+    arr = Math.min(arr, e.top);
+    der = Math.max(der, e.right);
+    aba = Math.max(aba, e.bottom);
+  }
+  return { x: izq, y: arr, ancho: der - izq, alto: aba - arr };
+}
+
 // Mide el elemento con ResizeObserver y con resize/orientationchange de la
 // ventana, nunca por frame, y sin escribir estilos en lo que observa (un
 // observador que cambia lo que mide acaba en un bucle de maquetación).
 export function observarZona(id: IdZona, elemento: HTMLElement, visible: () => boolean): () => void {
   const medir = (): void => {
-    const r = elemento.getBoundingClientRect();
-    publicarZona(id, { x: r.left, y: r.top, ancho: r.width, alto: r.height, visible: visible() });
+    publicarZona(id, { ...medirZona(elemento), visible: visible() });
   };
   medir();
   const observador = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(medir);

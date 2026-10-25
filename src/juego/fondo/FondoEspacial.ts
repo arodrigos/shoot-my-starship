@@ -45,6 +45,47 @@ export function crearFondoEspacial(
   return { imagen, halos };
 }
 
+const LADO_MOSAICO_EXTERIOR = 512;
+const MARGEN_EXTERIOR_FACTOR = 2;
+
+export interface FondoExterior {
+  readonly arriba: Phaser.GameObjects.TileSprite;
+  readonly abajo: Phaser.GameObjects.TileSprite;
+  readonly izquierda: Phaser.GameObjects.TileSprite;
+  readonly derecha: Phaser.GameObjects.TileSprite;
+}
+
+// Con la cámara alejada se ve más allá del mundo y ahí solo había el negro del
+// renderer (franjas lisas con borde recto). Cuatro franjas de un mosaico
+// pequeño de estrellas, solo por fuera del mundo, lo rellenan sin tocar el
+// bake único del fondo (esp-3). Son franjas y no un tapiz bajo el mundo
+// porque el relleno duplicado por debajo hundía los fps del render por software.
+export function crearFondoExterior(escena: Phaser.Scene, semilla: number, ancho: number, alto: number): FondoExterior {
+  const clave = "fondo-exterior";
+  if (!escena.textures.exists(clave)) {
+    const aleatorio = crearGeneradorAleatorio(semilla ^ 0x5bd1e995);
+    const lienzo = escena.make.graphics({ x: 0, y: 0 });
+    lienzo.fillStyle(0x05060c, 1);
+    lienzo.fillRect(0, 0, LADO_MOSAICO_EXTERIOR, LADO_MOSAICO_EXTERIOR);
+    for (let i = 0; i < 70; i++) {
+      lienzo.fillStyle(0xffffff, 0.35 + aleatorio() * 0.55);
+      lienzo.fillCircle(aleatorio() * LADO_MOSAICO_EXTERIOR, aleatorio() * LADO_MOSAICO_EXTERIOR, 0.6 + aleatorio() * 1.2);
+    }
+    lienzo.generateTexture(clave, LADO_MOSAICO_EXTERIOR, LADO_MOSAICO_EXTERIOR);
+    lienzo.destroy();
+  }
+  const mx = ancho * MARGEN_EXTERIOR_FACTOR;
+  const my = alto * MARGEN_EXTERIOR_FACTOR;
+  const franja = (x: number, y: number, w: number, h: number): Phaser.GameObjects.TileSprite =>
+    escena.add.tileSprite(x, y, w, h, clave).setOrigin(0, 0).setDepth(-2).setVisible(false);
+  return {
+    arriba: franja(-mx, -my, ancho + 2 * mx, my),
+    abajo: franja(-mx, alto, ancho + 2 * mx, my),
+    izquierda: franja(-mx, 0, mx, alto),
+    derecha: franja(ancho, 0, mx, alto),
+  };
+}
+
 // Vuelve a pintar el fondo sobre la MISMA textura (Phaser dibuja encima del
 // canvas existente y el fondo es opaco): los halos de gravedad cambian con los
 // efectos del universo, y sin esto se quedarían como al crear la escena. Se
