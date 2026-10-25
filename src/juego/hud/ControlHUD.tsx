@@ -645,6 +645,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover }: P
           ya usan sus hijos) en vez de empujar fila-armas fuera del
           viewport. */}
       <div
+        data-zona-extra=""
         data-testid="fila-avisos"
         style={{
           display: "flex",

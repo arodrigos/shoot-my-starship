@@ -75,8 +75,10 @@ export function limpiarZonas(): void {
 }
 
 // Rectángulo del elemento más el de sus descendientes marcados con
-// data-zona-extra: la fila ⇄ ▾ ✕ de la consola flota fuera de su caja
-// (position:absolute) y, si no se cuenta, la cámara deja una nave debajo.
+// data-zona-extra: la fila ⇄ ▾ ✕ y la fila de avisos («Próximo evento…», muerte
+// súbita, vuelo corto…) flotan fuera de la caja (position:absolute) y, si no se
+// cuentan, la cámara deja una nave debajo. Una fila de avisos vacía mide ancho
+// completo y alto 0: no debe ensanchar la zona.
 export function medirZona(elemento: HTMLElement): RectCss {
   const r = elemento.getBoundingClientRect();
   let izq = r.left;
@@ -85,7 +87,7 @@ export function medirZona(elemento: HTMLElement): RectCss {
   let aba = r.bottom;
   for (const extra of elemento.querySelectorAll("[data-zona-extra]")) {
     const e = extra.getBoundingClientRect();
-    if (e.width === 0 && e.height === 0) continue;
+    if (e.width === 0 || e.height === 0) continue;
     izq = Math.min(izq, e.left);
     arr = Math.min(arr, e.top);
     der = Math.max(der, e.right);
@@ -104,10 +106,32 @@ export function observarZona(id: IdZona, elemento: HTMLElement, visible: () => b
   medir();
   const observador = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(medir);
   observador?.observe(elemento);
+  // Los extras cuelgan fuera de la caja y su tamaño cambia sin que cambie el de
+  // la raíz (aparece el pronóstico): se observan ellos también, y se vuelven a
+  // enlazar cuando cambian sus hijos.
+  const observados = new Set<Element>();
+  const enlazarExtras = (): void => {
+    if (observador === null) return;
+    for (const extra of elemento.querySelectorAll("[data-zona-extra]")) {
+      if (observados.has(extra)) continue;
+      observados.add(extra);
+      observador.observe(extra);
+    }
+  };
+  enlazarExtras();
+  const mutaciones =
+    typeof MutationObserver === "undefined"
+      ? null
+      : new MutationObserver(() => {
+          enlazarExtras();
+          medir();
+        });
+  mutaciones?.observe(elemento, { childList: true, subtree: true });
   window.addEventListener("resize", medir);
   window.addEventListener("orientationchange", medir);
   return () => {
     observador?.disconnect();
+    mutaciones?.disconnect();
     window.removeEventListener("resize", medir);
     window.removeEventListener("orientationchange", medir);
     publicarZona(id, null);

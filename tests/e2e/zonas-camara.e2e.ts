@@ -15,11 +15,16 @@ test.beforeEach(async ({}, testInfo) => {
 async function preparar(page: Page, tamano: Tamano, query = ""): Promise<void> {
   await page.setViewportSize({ width: tamano.ancho, height: tamano.alto });
   await page.goto(`/${query}`);
+  // La config de Playwright apaga los eventos en bloque, y con ellos el aviso
+  // «Próximo evento…» que en el preview sale desde el primer turno: sin él el
+  // spec nunca vio lo que tapa la nave bajo la consola.
+  await page.evaluate(() => window.localStorage.setItem("universo:eventos", "1"));
   await page.getByTestId("boton-jugar").click();
   await page.waitForSelector("#game-container canvas");
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.cargarEscenario !== undefined && window.__debug.zonasCamara !== undefined, undefined, { timeout: 60000 });
   if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
+  await expect(page.getByTestId("pronostico")).toBeVisible({ timeout: 30000 });
 }
 
 async function cargar(page: Page, f0: { fx: number; fy: number }, f1: { fx: number; fy: number }): Promise<void> {
@@ -63,15 +68,21 @@ async function esperarValido(page: Page): Promise<void> {
     .toBe(true);
 }
 
-// La consola incluye su fila ⇄ ▾ ✕, que flota por encima de la caja: el criterio
-// pide que ninguna nave quede bajo ella.
+// Lo que la consola pinta: su caja, la fila ⇄ ▾ ✕ y los avisos que cuelgan de
+// ella («Próximo evento…», vuelo corto, muerte súbita). Se mide del DOM por
+// separado del código (que usa data-zona-extra) para que el oráculo no repita la
+// lista de excepciones de la implementación: todo descendiente visible de
+// tamaño no nulo de la consola cuenta.
 async function rectConsola(page: Page) {
   return page.evaluate(() => {
-    const cajas = [document.querySelector('[data-testid="consola"]')!, ...document.querySelectorAll('[data-testid="fila-botones-consola"]')].map((e) => e.getBoundingClientRect());
-    const left = Math.min(...cajas.map((r) => r.left));
-    const top = Math.min(...cajas.map((r) => r.top));
-    const right = Math.max(...cajas.map((r) => r.right));
-    const bottom = Math.max(...cajas.map((r) => r.bottom));
+    const raiz = document.querySelector('[data-testid="consola"]')!;
+    const visibles = [raiz, ...raiz.querySelectorAll('[data-testid="fila-botones-consola"], [data-testid="fila-avisos"], [data-testid="pronostico"], [data-testid="aviso-vuelo-corto"], [data-testid="muerte-subita"]')]
+      .map((e) => e.getBoundingClientRect())
+      .filter((r) => r.width > 0 && r.height > 0);
+    const left = Math.min(...visibles.map((r) => r.left));
+    const top = Math.min(...visibles.map((r) => r.top));
+    const right = Math.max(...visibles.map((r) => r.right));
+    const bottom = Math.max(...visibles.map((r) => r.bottom));
     return { x: left, y: top, width: right - left, height: bottom - top, top, bottom, left, right };
   });
 }
