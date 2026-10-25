@@ -9,7 +9,10 @@ import { engancharToquesHud, observarZona, publicarZona, type IdZona } from "@/j
 // en cada render del componente, que es cuando cambia cualquiera de las dos.
 export function useZonaOcupada(id: IdZona, ref: RefObject<HTMLElement | null>, visible: boolean): void {
   const visibleRef = useRef(visible);
-  visibleRef.current = visible;
+  // La ref se actualiza en un efecto: escribirla durante el render no es puro.
+  useEffect(() => {
+    visibleRef.current = visible;
+  });
 
   useEffect(() => {
     const elemento = ref.current;

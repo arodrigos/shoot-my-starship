@@ -56,7 +56,18 @@ El mundo se ve entero por defecto. Con dos dedos sobre el lienzo se pellizca
 para acercar (hasta ×3) y se deslizan juntos para moverse; si el segundo dedo llega
 con el apuntado ya empezado, el apuntado vuelve a como estaba al apoyar el
 primero. En escritorio, la rueda acerca o aleja anclada al puntero, y el
-pellizco del trackpad hace lo mismo. El encuadre nunca sale del mundo.
+pellizco del trackpad hace lo mismo. El encuadre nunca sale del mundo salvo por lo que tapa el HUD.
+
+Con el HUD tapando parte de la pantalla (consola, ⚙, recuadro de
+`?rendimiento=1`), la cámara solo se mueve si una nave, el proyectil o el impacto
+quedarían tapados: entonces encuadra ese grupo en el mayor rectángulo libre, con
+zoom ≤ 1 y pudiendo salir del mundo por el lado tapado (lo de fuera se ve como
+espacio). Si nada queda tapado, la vista es la completa de siempre. Plegar,
+ocultar o reanclar la consola, girar el dispositivo y «Texto grande» reencuadran
+en 300 ms; apartarse la consola al disparar no mueve las naves. En modo manual
+(zoom) la cámara no se reencuadra sola. Con `?rendimiento=1` el recuadro enseña
+`reencuadre: N ms`, y `__debug.zonasCamara()` (solo lectura) da las zonas, el
+rectángulo libre y si el encuadre es válido.
 
 Con zoom aparece a la derecha el botón «Ver todo», que vuelve a la vista
 completa en 300 ms (sin animación con movimiento reducido). Al cambiar de
