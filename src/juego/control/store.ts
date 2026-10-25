@@ -496,9 +496,9 @@ export function publicarTurno(turno: IdNave): void {
 // El apuntado directo fija ángulo y potencia de un solo gesto: dos llamadas
 // seguidas a fijarAnguloGrados/fijarPotencia publicarían un estado
 // intermedio con la mitad del gesto.
-export function fijarApuntadoDirecto(anguloGrados: number | null, potencia: number): void {
+export function fijarApuntadoDirecto(anguloGrados: number | null, potencia: number, conservarAyuda = false): void {
   fijarAjuste({ ...(anguloGrados === null ? {} : { anguloGrados: clampAngulo(anguloGrados) }), potencia: clampPotencia(potencia) });
-  if (estado.ayudaApuntadoVisible) cerrarAyudaApuntado();
+  if (estado.ayudaApuntadoVisible && !conservarAyuda) cerrarAyudaApuntado();
 }
 
 export function cerrarAyudaApuntado(): void {

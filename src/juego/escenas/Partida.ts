@@ -81,7 +81,7 @@ import { avanzarGestoPolar, iniciarGestoPolar, type GestoPolar } from "@/juego/c
 import { mundoAPantallaCss, pantallaCssAMundo, vistaVisibleMundo } from "@/juego/camara/conversion";
 import { colocarEtiqueta, type Rect } from "@/juego/efectos/colocacionEtiquetas";
 import { ControladorCamara, type InstantaneaCamara, type ObjetivoEncuadre, type Rect as RectLienzo } from "@/juego/camara/controladorCamara";
-import { engancharToquesHud, exponerDepuracionZonas, type DepuracionZonasCamara, obtenerZonas, suscribirZonas, tomarMarcaToque, type ZonaOcupada } from "@/juego/camara/zonasOcupadas";
+import { engancharToquesHud, exponerDepuracionZonas, publicarNavesCss, type DepuracionZonasCamara, obtenerZonas, suscribirZonas, tomarMarcaToque, type ZonaOcupada } from "@/juego/camara/zonasOcupadas";
 import { cerrarAyudaCamara, publicarCamaraManual, registrarManejadorVerTodo, reiniciarCamaraHud } from "@/juego/control/camaraStore";
 import { cortarPorLongitudPantalla, geometriaTrayectoria, tramoEntre, tirasTramo2, longitudDeArco, type GeometriaTrayectoria, type PuntoPantalla } from "@/juego/mira/trayectoriaPantalla";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
@@ -931,7 +931,7 @@ export class Partida extends Phaser.Scene {
         this.refrescarRobots();
       }
       seleccionarArma(escenario.arma);
-      fijarApuntadoDirecto(escenario.anguloGrados, escenario.potencia);
+      fijarApuntadoDirecto(escenario.anguloGrados, escenario.potencia, escenario.conservarAyuda === true);
       publicarTurno(turno);
       this.refrescarNaves();
       this.alCambiarTurnoCamara();
@@ -2135,6 +2135,19 @@ export class Partida extends Phaser.Scene {
       objetivos.push({ tipo: "impacto", x: this.impactoCamara.x - m, y: this.impactoCamara.y - m, ancho: m * 2, alto: m * 2 });
     }
     this.camaraCtl.fijarObjetivos(objetivos);
+    this.publicarNavesParaAvisos(objetivos);
+  }
+
+  // La capa de avisos elige su anclaje según dónde se ven las naves ahora. El
+  // almacén ignora las repeticiones, así que hacerlo por frame no repinta React.
+  private publicarNavesParaAvisos(objetivos: readonly ObjetivoEncuadre[]): void {
+    const { f, r } = this.factorLienzo();
+    const v = this.camaraCtl.estado();
+    publicarNavesCss(
+      objetivos
+        .filter((o) => o.tipo === "nave")
+        .map((o) => ({ x: r.left + ((o.x - v.x) * v.zoom) / f, y: r.top + ((o.y - v.y) * v.zoom) / f, ancho: (o.ancho * v.zoom) / f, alto: (o.alto * v.zoom) / f })),
+    );
   }
 
   private alCambiarTurnoCamara(): void {

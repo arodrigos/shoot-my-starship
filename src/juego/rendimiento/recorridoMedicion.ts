@@ -206,12 +206,18 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
         await pausa(150);
         if (!obtenerEstadoControl().propulsoresBloqueados) break;
       }
-      solicitarDisparo();
       // Primero a que el vuelo arranque (el turno sigue siendo del humano justo
       // al pedir el disparo) y solo entonces a que el turno pase al rival: si no,
-      // el tramo acababa en el mismo instante y quedaba sin frames.
-      await esperar(() => !turnoHumano(), 5000);
-      await esperar(() => (window.__debug?.turno ?? 0) === 1, 30_000);
+      // el tramo acababa en el mismo instante y quedaba sin frames. Con la máquina
+      // cargada la petición puede perderse: se repite hasta que el vuelo arranca.
+      for (let intento = 0; intento < 6 && turnoHumano(); intento++) {
+        solicitarDisparo();
+        await esperar(() => !turnoHumano(), 5000);
+      }
+      await esperar(() => (window.__debug?.turno ?? 0) === 1, 60_000);
+      // Un vuelo que se resuelve en pocos frames sigue midiéndose hasta tener muestra.
+      const framesTras = ctx.medidor.instantanea().frames;
+      await esperar(() => ctx.medidor.instantanea().frames - framesTras >= FRAMES_MINIMOS_TRAMO, 10_000);
     });
 
     await medir(

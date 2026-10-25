@@ -201,6 +201,9 @@ export interface EscenarioPrueba {
   readonly anguloGrados: number;
   readonly potencia: number;
   readonly ronda?: number;
+  // avisos-fuera-de-naves: fijar el apuntado cierra la ayuda del primer turno;
+  // con esto se queda a la vista para medir dónde cae respecto a las naves.
+  readonly conservarAyuda?: boolean;
   // ritmo-robot-propulsores: robots ya posados en la superficie (x,y es el
   // punto de reposo), para ver sus saltos sin jugar la partida hasta ahí.
   readonly robots?: readonly { readonly x: number; readonly y: number; readonly dueno: number }[];

@@ -172,3 +172,25 @@ export function tomarMarcaToque(): string | null {
   ultimoToque = null;
   return m;
 }
+
+// Rectángulos CSS de las naves vivas con la vista actual de la cámara: la capa
+// de avisos (React) los lee para elegir un anclaje que no las pise. Solo los
+// publica la escena; aquí no hay estado de juego.
+let navesCss: readonly RectCss[] = [];
+const escuchasNaves = new Set<() => void>();
+
+export function publicarNavesCss(nuevas: readonly RectCss[]): void {
+  const igual = nuevas.length === navesCss.length && nuevas.every((n, i) => Math.round(n.x) === Math.round(navesCss[i].x) && Math.round(n.y) === Math.round(navesCss[i].y) && Math.round(n.ancho) === Math.round(navesCss[i].ancho) && Math.round(n.alto) === Math.round(navesCss[i].alto));
+  if (igual) return;
+  navesCss = nuevas.map((n) => ({ ...n }));
+  for (const escucha of escuchasNaves) escucha();
+}
+
+export function obtenerNavesCss(): readonly RectCss[] {
+  return navesCss;
+}
+
+export function suscribirNaves(escucha: () => void): () => void {
+  escuchasNaves.add(escucha);
+  return () => escuchasNaves.delete(escucha);
+}
