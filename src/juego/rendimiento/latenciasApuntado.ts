@@ -3,7 +3,7 @@
 // (y no un campo de la escena) para que el panel ?rendimiento=1 las lea sin
 // conocer la escena.
 export interface LatenciaInteraccion {
-  readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo" | "gesto-camara" | "ver-todo";
+  readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo" | "gesto-camara" | "ver-todo" | "reencuadre";
   readonly ms: number;
 }
 
@@ -39,6 +39,13 @@ export function registrarLatenciaDisparo(ms: number): void {
 // encuadre, y del toque en «Ver todo» al primer frame que cambia.
 export function registrarLatenciaCamara(nombre: "gesto-camara" | "ver-todo", ms: number): void {
   medidas.push({ nombre, ms });
+  if (medidas.length > CAPACIDAD) medidas.shift();
+}
+
+// zonas-hud-camara: del toque que cambia el HUD (▾, ×, ▴, ⇄, Texto grande, ✕
+// de la ayuda) al primer frame que aplica el encuadre nuevo.
+export function registrarLatenciaReencuadre(ms: number): void {
+  medidas.push({ nombre: "reencuadre", ms });
   if (medidas.length > CAPACIDAD) medidas.shift();
 }
 

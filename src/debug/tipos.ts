@@ -219,7 +219,10 @@ export interface DebugGlobal {
   // apuntado-dedo: últimas medidas del gesto de apuntado (pointermove → primer
   // frame con la flecha), la flecha tal como se pintó y un atajo para fijar
   // ángulo y fuerza sin gesto (lo usan los e2e que apuntan solo como medio).
-  latencias?: () => readonly { readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo" | "gesto-camara" | "ver-todo"; readonly ms: number }[];
+  latencias?: () => readonly { readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo" | "gesto-camara" | "ver-todo" | "reencuadre"; readonly ms: number }[];
+  // zonas-hud-camara: zonas que tapa el HUD, rectángulo libre, lo que tiene que
+  // verse y si la cámara lo cumple (px CSS). Solo lectura: devuelve una copia.
+  zonasCamara?: () => import("@/juego/camara/zonasOcupadas").DepuracionZonasCamara;
   // respuesta-disparo: tareas largas del hilo principal desde el inicio del turno.
   tareasLargas?: { readonly maxMs: number; readonly cuenta: number };
   // respuesta-disparo: retrasa la llegada del cierre del turno (solo pruebas) para ver la píldora «Calculando el turno…».

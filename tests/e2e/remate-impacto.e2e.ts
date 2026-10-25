@@ -52,6 +52,23 @@ async function prepararGolpe(page: Page): Promise<void> {
   await page.evaluate((s) => window.__debug.fijarApuntado!(s!.anguloGrados, s!.potencia), solucion);
 }
 
+// Tras cargarEscenario la cámara reencuadra por su cuenta (las naves cambian de
+// sitio y puede quedar alguna bajo la consola); se espera a que deje de moverse
+// antes de tomar la referencia, para no confundir ese reencuadre con el remate.
+async function esperarCamaraQuieta(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const w = window as unknown as { __camPrev?: string; __camQuietos?: number };
+      const actual = JSON.stringify(window.__debug.camara);
+      w.__camQuietos = actual === w.__camPrev ? (w.__camQuietos ?? 0) + 1 : 0;
+      w.__camPrev = actual;
+      return w.__camQuietos >= 10;
+    },
+    undefined,
+    { timeout: 30000, polling: "raf" },
+  );
+}
+
 interface Muestra {
   activo: boolean;
   puedeDisparar: boolean;
@@ -105,6 +122,7 @@ test(`rem-1, rem-2, rem-4: remate completo con fases en orden, entradas bloquead
   test.setTimeout(240000);
   await empezar(page, ancho, alto);
   await prepararGolpe(page);
+  await esperarCamaraQuieta(page);
   const camaraAntes = await page.evaluate(() => ({ ...window.__debug.camara! }));
   await capturar(page, `remate-impacto-rem-2-antes-${ancho}x${alto}`);
   const turno0 = await page.evaluate(() => window.__debug.turno);
@@ -123,8 +141,14 @@ test(`rem-1, rem-2, rem-4: remate completo con fases en orden, entradas bloquead
   }
   expect(activas.some((m) => m.camara.ancho < camaraAntes.ancho - 1), "la cámara se acerca").toBe(true);
   expect(remate.destellosCamara.length).toBe(1);
-  const camaraDespues = await page.evaluate(() => ({ ...window.__debug.camara! }));
-  for (const k of ["x", "y", "ancho", "alto"] as const) expect(Math.abs(camaraDespues[k] - camaraAntes[k])).toBeLessThanOrEqual(0.5);
+  // El remate devuelve la cámara y, en el mismo fotograma, el turno avanza y el
+  // encuadre preferido se recalcula (la consola se aparta con el turno del rival),
+  // así que ya no tiene que coincidir con el de antes: tiene que ser el automático,
+  // válido y sin el acercamiento del remate.
+  await expect.poll(() => page.evaluate(() => window.__debug.zonasCamara!().zoom), { timeout: 20000 }).toBeLessThanOrEqual(1);
+  const zonas = await page.evaluate(() => window.__debug.zonasCamara!());
+  expect(zonas.modo).toBe("auto");
+  expect(zonas.valido, JSON.stringify(zonas)).toBe(true);
   await capturar(page, `remate-impacto-rem-2-despues-${ancho}x${alto}`);
 });
 }
@@ -134,17 +158,21 @@ test("rem-3: con movimiento reducido el remate es solo un destello", async ({ pa
   await page.emulateMedia({ reducedMotion: "reduce" });
   await empezar(page);
   await prepararGolpe(page);
+  await esperarCamaraQuieta(page);
   const camaraAntes = await page.evaluate(() => ({ ...window.__debug.camara! }));
+  const turnoAntes = await page.evaluate(() => window.__debug.turno);
   const sacudidasAntes = await page.evaluate(() => window.__debug.sacudidasCamara ?? 0);
   const muestras = await dispararYMuestrear(page);
   const remate = await page.evaluate(() => window.__debug.remate!);
   expect(remate.ultimo!.modo).toBe("destello");
   expect(remate.ultimo!.duracionMs).toBeLessThanOrEqual(150);
   expect(remate.destellosCamara.length).toBe(1);
-  for (const m of muestras) {
-    expect(m.camara.ancho).toBe(camaraAntes.ancho);
-    expect(m.sacudidas).toBe(sacudidasAntes);
-  }
+  // Solo cuenta hasta el final del destello: después la cámara recalcula su
+  // encuadre preferido para el turno siguiente (zonas del HUD) y eso no es del remate.
+  const delTurno = muestras.slice(0, muestras.map((m) => m.activo).lastIndexOf(true) + 1).filter((x) => x.turno === turnoAntes);
+  const desviadas = delTurno.map((m, i) => ({ i, a: Math.round(m.camara.ancho), r: m.activo ? 1 : 0, p: m.puedeDisparar ? 1 : 0 })).filter((m) => m.a !== Math.round(camaraAntes.ancho));
+  expect(desviadas.length, `n=${delTurno.length} antes=${Math.round(camaraAntes.ancho)} ${JSON.stringify(desviadas.slice(0, 3))}`).toBe(0);
+  for (const m of delTurno) expect(m.sacudidas).toBe(sacudidasAntes);
   await capturar(page, "remate-impacto-rem-3-reducido-360x640");
 });
 
@@ -153,11 +181,19 @@ test("rem-3: con «Sacudida» apagada el remate es solo un destello", async ({ p
   await empezar(page);
   await pulsarAjuste(page, "toggle-sacudida");
   await prepararGolpe(page);
+  await esperarCamaraQuieta(page);
   const camaraAntes = await page.evaluate(() => ({ ...window.__debug.camara! }));
+  const turnoAntes = await page.evaluate(() => window.__debug.turno);
   const muestras = await dispararYMuestrear(page);
   const remate = await page.evaluate(() => window.__debug.remate!);
   expect(remate.ultimo!.modo).toBe("destello");
-  for (const m of muestras) expect(m.camara.ancho).toBe(camaraAntes.ancho);
+  // Solo cuenta hasta el final del destello: después la cámara recalcula su
+  // encuadre para el turno siguiente, con transición, y eso no es del remate.
+  const hastaRemate = muestras.slice(0, muestras.map((m) => m.activo).lastIndexOf(true) + 1);
+  const desviadas = hastaRemate
+    .map((m, i) => ({ i, a: Math.round(m.camara.ancho), r: m.activo ? 1 : 0, p: m.puedeDisparar ? 1 : 0, t: m.turno }))
+    .filter((m) => m.t === turnoAntes && m.a !== Math.round(camaraAntes.ancho));
+  expect(desviadas.length, `n=${hastaRemate.length} ${JSON.stringify(desviadas.slice(0, 2))}`).toBe(0);
   expect(await page.evaluate(() => window.__debug.sacudidasCamara ?? 0)).toBe(0);
 });
 

@@ -1,6 +1,7 @@
 import type { MedidorFrames } from "@/juego/rendimiento/medidorFrames";
 import type { MedidorRespuesta } from "@/juego/rendimiento/medidorRespuesta";
 import type { LatenciaInteraccion } from "@/juego/rendimiento/latenciasApuntado";
+import { engancharToquesHud, observarZona } from "@/juego/camara/zonasOcupadas";
 import { fijarCopiaMedicion, guardarResolutorCopia, iniciarPartidaMedicion, obtenerMedicion, type EstadoMedicion } from "@/juego/control/medicionStore";
 
 export const LIMITE_RESPUESTA_MS = 200;
@@ -49,6 +50,9 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
   });
   contenedor.append(caja, boton);
   document.body.appendChild(contenedor);
+  // El recuadro es una zona más para la cámara: ninguna nave debe quedar bajo él.
+  engancharToquesHud();
+  const quitarZona = observarZona("rendimiento", contenedor, () => true);
   const pintar = (): void => {
     const i = medidor.instantanea();
     const r = respuesta.instantanea();
@@ -63,6 +67,7 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
     const ultimoDisparo = todas.findLast((l) => l.nombre === "disparo");
     const ultimoGestoCamara = todas.findLast((l) => l.nombre === "gesto-camara");
     const ultimoVerTodo = todas.findLast((l) => l.nombre === "ver-todo");
+    const ultimoReencuadre = todas.findLast((l) => l.nombre === "reencuadre");
     caja.style.color = dentro ? "#9f9" : "#f88";
     caja.textContent =
       `p95 ${i.p95.toFixed(1)} ms\nmax ${i.max.toFixed(1)} ms\nlargos ${i.framesLargos}\n` +
@@ -73,6 +78,7 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
       `disparo: ${ultimoDisparo === undefined ? "–" : `${ultimoDisparo.ms.toFixed(0)} ms`}\n` +
       `gesto-camara: ${ultimoGestoCamara === undefined ? "–" : `${ultimoGestoCamara.ms.toFixed(0)} ms`}\n` +
       `ver-todo: ${ultimoVerTodo === undefined ? "–" : `${ultimoVerTodo.ms.toFixed(0)} ms`}\n` +
+      `reencuadre: ${ultimoReencuadre === undefined ? "–" : `${ultimoReencuadre.ms.toFixed(0)} ms`}\n` +
       (dentro ? "Respuesta ≤ 200 ms" : `Supera 200 ms (${peor.toFixed(0)} ms)`);
     contenedor.dataset.veredicto = dentro ? "verde" : "rojo";
   };
@@ -80,6 +86,7 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
   const id = window.setInterval(pintar, 500);
   return () => {
     window.clearInterval(id);
+    quitarZona();
     contenedor.remove();
   };
 }
