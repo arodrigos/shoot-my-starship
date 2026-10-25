@@ -2872,34 +2872,38 @@ export class Partida extends Phaser.Scene {
   // texto. El rectángulo se publica en __debug porque el texto vive en el
   // lienzo y ningún selector de DOM lo ve.
   private mostrarAvisoPerdido(salida: { borde: string; x: number; y: number }, movimientoReducido: boolean): void {
-    // El texto se coloca contra los bordes de la vista completa: el tiro salió
-    // del mundo, así que se vuelve a ella.
+    // El texto se coloca contra los bordes de lo que la cámara enseña tras el
+    // cambio de turno, no contra los del mundo: con la vista alejada (zoom < 1)
+    // o desplazada por una zona del HUD, el mundo entero ya no coincide con la
+    // pantalla.
     this.alCambiarTurnoCamara();
-    const { ancho, alto } = this.estado.mundo;
-    // displayScale.x son unidades de mundo por px CSS: se multiplica para
-    // pasar de px CSS a mundo (dividir dejaba el texto 8 veces más pequeño).
-    const escala = this.scale.displayScale.x;
+    const vista = this.camaraCtl.estado();
+    // Unidades de mundo por px CSS en pantalla: el zoom de la cámara encoge el
+    // texto, así que se compensa para que se lea igual (22 px CSS).
+    const escala = this.scale.displayScale.x / vista.zoom;
     this.retirarAvisoPerdido();
     const texto = this.add
       .text(0, 0, "¡Perdido!", { fontFamily: "sans-serif", fontSize: `${Math.round(22 * escala)}px`, fontStyle: "bold", color: "#ffd166", stroke: "#000000", strokeThickness: Math.round(4 * escala) })
       .setDepth(2000);
     // El lienzo puede asomar unos px CSS fuera del viewport: el margen se
-    // cuenta desde la parte visible, no desde el 0 del mundo.
+    // cuenta desde la parte visible, no desde el borde de la vista.
     const rect = this.game.canvas.getBoundingClientRect();
-    const visibleArriba = Math.max(0, -rect.top) * escala;
-    const visibleAbajo = alto - Math.max(0, rect.bottom - window.innerHeight) * escala;
+    const visibleArriba = vista.y + Math.max(0, -rect.top) * escala;
+    const visibleAbajo = vista.y + vista.alto - Math.max(0, rect.bottom - window.innerHeight) * escala;
     const margen = 12 * escala;
     // Franja de botones fijos de arriba (histórico, música, voz) y consola
     // de abajo: el aviso queda en el hueco entre ambas.
     // Si hay un aviso PWA arriba («Hay una versión nueva»), el «¡Perdido!» baja
     // por debajo de él en vez de quedar tapado.
-    const bajoAvisoPwa = (this.finAvisoPwaPx() + 6 - rect.top) * escala;
+    const bajoAvisoPwa = vista.y + (this.finAvisoPwaPx() + 6 - rect.top) * escala;
     const minY = Math.max(visibleArriba + 64 * escala, bajoAvisoPwa);
-    const maxY = Math.min(visibleAbajo - texto.height - margen, 440 * escala - texto.height);
-    const x = Math.min(ancho - texto.width - margen, Math.max(margen, salida.x - texto.width / 2));
+    const maxY = Math.min(visibleAbajo - texto.height - margen, vista.y + 440 * escala - texto.height);
+    const izquierda = vista.x + margen;
+    const derecha = vista.x + vista.ancho - texto.width - margen;
+    const x = Math.min(derecha, Math.max(izquierda, salida.x - texto.width / 2));
     const yLibre = Math.min(maxY, Math.max(minY, salida.y - texto.height / 2));
     const yBorde = salida.borde === "arriba" ? minY : salida.borde === "abajo" ? Math.max(minY, maxY) : yLibre;
-    texto.setPosition(salida.borde === "derecha" ? ancho - texto.width - margen : salida.borde === "izquierda" ? margen : x, yBorde);
+    texto.setPosition(salida.borde === "derecha" ? derecha : salida.borde === "izquierda" ? izquierda : x, yBorde);
     const aCss = 1 / escala;
     window.__debug!.avisoPerdido = {
       borde: salida.borde,
@@ -2907,7 +2911,7 @@ export class Partida extends Phaser.Scene {
       y: texto.y,
       ancho: texto.width,
       alto: texto.height,
-      css: { x: rect.left + texto.x * aCss, y: rect.top + texto.y * aCss, ancho: texto.width * aCss, alto: texto.height * aCss },
+      css: { x: rect.left + (texto.x - vista.x) * aCss, y: rect.top + (texto.y - vista.y) * aCss, ancho: texto.width * aCss, alto: texto.height * aCss },
     };
     if (!movimientoReducido) {
       this.cameras.main.flash(120, 255, 209, 102, false);
