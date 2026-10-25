@@ -632,6 +632,9 @@ export interface DebugGlobal {
   // proy-5: posición de mundo y arma del proyectil REAL en vuelo (null fuera
   // de vuelo) -- para comprobar visibilidad/solapo con el HUD sin leer
   // píxeles de pantalla.
+  // Solo lectura, devuelve una copia. Lo instala el guion de la partida de
+  // medición (recorridoMedicion.ts): antes de «Medir» no existe.
+  medicion?: () => import("@/juego/control/medicionStore").EstadoMedicion;
   proyectilEnVuelo?: { x: number; y: number; armaId: string } | null;
   // racimo-perdigones: perdigones dibujados ahora (1 el portador entero, 3 el
   // Racimo en los últimos 40 u; 0 sin vuelo) y el máximo del último vuelo.

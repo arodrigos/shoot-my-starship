@@ -84,8 +84,8 @@ for (const caso of CASOS) {
 // par-4: el HUD de ?rendimiento=1 enseña p95 y max con números.
 test("par-4: ?rendimiento=1 muestra el HUD con p95 y max numéricos", async ({ page }) => {
   await empezar(page, 360, 640, "&rendimiento=1");
-  const hud = page.getByTestId("hud-rendimiento");
-  await expect(hud).toBeVisible();
+  await expect(page.getByTestId("hud-rendimiento")).toBeVisible();
+  const hud = page.getByTestId("hud-rendimiento-texto");
   await expect(hud).toHaveText(/p95 \d+(\.\d+)? ms\s+max \d+(\.\d+)? ms/);
 });
 

@@ -154,6 +154,24 @@ export class MedidorRespuesta {
     };
   }
 
+  // Script de la app y render de Phaser dentro de una ventana (medición en el
+  // dispositivo). Sin LoAF el script es null: solo se cronometra el render.
+  trabajoEnVentana(ventana: Intervalo): { readonly scriptMs: number | null; readonly renderPhaserMs: number } {
+    this.absorberLoaf();
+    const renderPhaserMs = calcularRenderLienzo(ventana, this.renders);
+    if (!this.hayLoaf) return { scriptMs: null, renderPhaserMs };
+    return { scriptMs: calcularTrabajoApp(ventana, this.fotogramas, this.renders, calcularBaseMaquetacion(this.fotogramas, [])), renderPhaserMs };
+  }
+
+  hayLongAnimationFrames(): boolean {
+    return this.hayLoaf;
+  }
+
+  hayEventTiming(): boolean {
+    const soportado = typeof PerformanceObserver === "undefined" ? undefined : (PerformanceObserver as unknown as { supportedEntryTypes?: readonly string[] }).supportedEntryTypes;
+    return soportado?.includes("event") === true;
+  }
+
   // Escucha en captura sobre la ventana: es el primer manejador que corre, así
   // que `inicio` es el retraso de entrada real y no el de un manejador ajeno.
   observar(ventana: Window = window): () => void {
