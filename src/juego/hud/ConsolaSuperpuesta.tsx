@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { ControlHUD } from "@/juego/hud/ControlHUD";
 import { obtenerEstadoControl, suscribirControl } from "@/juego/control/store";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/juego/hud/estadoConsola";
 import "@/debug/tipos";
 import { tamTexto } from "@/juego/hud/legibilidad";
+import { useZonaOcupada } from "@/juego/hud/useZonaOcupada";
 
 // consola-compacta: el 40 % del ancho con un mínimo de 320 px (que cabe en el
 // móvil más estrecho) y, como mucho, el viewport menos 8 px por lado.
@@ -58,6 +59,7 @@ export function ConsolaSuperpuesta({ children }: Props) {
     sanearEstadoConsola(leerAlmacenado(CLAVE_ESTADO_CONSOLA), leerAlmacenado(CLAVE_PLEGADA_ANTIGUA)),
   );
   const [anclaje, setAnclaje] = useState<AnclajeConsola>(() => sanearAnclajeConsola(leerAlmacenado(CLAVE_ANCLAJE_CONSOLA)));
+  const raiz = useRef<HTMLDivElement>(null);
   const puedeDisparar = useSyncExternalStore(suscribirControl, () => obtenerEstadoControl().puedeDisparar, () => false);
 
   useEffect(() => {
@@ -82,6 +84,9 @@ export function ConsolaSuperpuesta({ children }: Props) {
   // trayectoria. Se hace con opacidad y sin eventos, no desmontando: el estado
   // del HUD sigue en el DOM y vuelve exactamente igual al terminar el turno.
   const apartada = !puedeDisparar;
+  // La cámara esquiva el rectángulo completo de la consola (también en mínima y,
+  // oculta, el de la pestaña); mientras está apartada deja de contar como tapa.
+  useZonaOcupada("consola", raiz, !(apartada && !oculta));
 
   const base: CSSProperties = {
     position: "absolute",
@@ -111,6 +116,8 @@ export function ConsolaSuperpuesta({ children }: Props) {
 
   return (
     <div
+      ref={raiz}
+      data-zona-hud=""
       data-testid="consola"
       data-estado={estado}
       data-anclaje={anclaje}

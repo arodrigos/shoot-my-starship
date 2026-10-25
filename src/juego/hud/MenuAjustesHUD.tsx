@@ -16,6 +16,7 @@ import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import { obtenerDatosPwa, suscribirPwa, TEXTO_ESTADO_PWA, versionApp } from "@/juego/pwa/estadoPwa";
 import "@/debug/tipos";
 import { tamTexto } from "@/juego/hud/legibilidad";
+import { useZonaOcupada } from "@/juego/hud/useZonaOcupada";
 
 const LADO_BOTON_PX = 48;
 const ALTO_MINIMO_INTERRUPTOR_PX = 44;
@@ -51,6 +52,7 @@ export function MenuAjustesHUD() {
   const [abierto, setAbierto] = useState(false);
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
   const boton = useRef<HTMLButtonElement>(null);
+  useZonaOcupada("ajustes", boton, true);
   const idPanel = "panel-ajustes";
   const idBase = useId();
   // El botón Histórico se desmonta al abrir la hoja, así que el foco que la
@@ -160,6 +162,7 @@ export function MenuAjustesHUD() {
         ref={boton}
         type="button"
         data-testid="boton-ajustes"
+        data-zona-hud=""
         aria-label="Ajustes"
         aria-expanded={abierto}
         aria-controls={idPanel}
@@ -186,6 +189,7 @@ export function MenuAjustesHUD() {
         <div
           id={idPanel}
           data-testid="panel-ajustes"
+          data-zona-hud=""
           role="group"
           aria-label="Ajustes"
           style={{

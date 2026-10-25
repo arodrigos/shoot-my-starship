@@ -56,7 +56,7 @@ import { ClienteSim } from "@/juego/motor/clienteSim";
 import { crearTrabajadorSim } from "@/juego/motor/crearTrabajador";
 import { mostrarApuntandoIA, ocultarApuntandoIA } from "@/juego/hud/indicadorApuntandoIA";
 import { montarHudRendimiento } from "@/juego/rendimiento/hudRendimiento";
-import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaCamara, registrarLatenciaDisparo, registrarLatenciaRastro, registrarLatenciaRelojTurno, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
+import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaCamara, registrarLatenciaDisparo, registrarLatenciaRastro, registrarLatenciaReencuadre, registrarLatenciaRelojTurno, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
 import { observarTareasLargas, reiniciarTareasLargas, tareasLargasActuales } from "@/juego/rendimiento/tareasLargas";
 import { mostrarCalculandoTurno, ocultarCalculandoTurno } from "@/juego/hud/indicadorCalculandoTurno";
 import {
@@ -80,7 +80,8 @@ import {
 import { avanzarGestoPolar, iniciarGestoPolar, type GestoPolar } from "@/juego/control/apuntado";
 import { mundoAPantallaCss, pantallaCssAMundo, vistaVisibleMundo } from "@/juego/camara/conversion";
 import { colocarEtiqueta, type Rect } from "@/juego/efectos/colocacionEtiquetas";
-import { ControladorCamara, type InstantaneaCamara } from "@/juego/camara/controladorCamara";
+import { ControladorCamara, type InstantaneaCamara, type ObjetivoEncuadre, type Rect as RectLienzo } from "@/juego/camara/controladorCamara";
+import { engancharToquesHud, exponerDepuracionZonas, type DepuracionZonasCamara, obtenerZonas, suscribirZonas, tomarMarcaToque, type ZonaOcupada } from "@/juego/camara/zonasOcupadas";
 import { cerrarAyudaCamara, publicarCamaraManual, registrarManejadorVerTodo, reiniciarCamaraHud } from "@/juego/control/camaraStore";
 import { cortarPorLongitudPantalla, geometriaTrayectoria, tramoEntre, tirasTramo2, longitudDeArco, type GeometriaTrayectoria, type PuntoPantalla } from "@/juego/mira/trayectoriaPantalla";
 import { limpiarReaccion, publicarReaccion, registrarManejadorRepeticion } from "@/juego/control/reaccion";
@@ -230,6 +231,9 @@ const INTENSIDAD_SACUDIDA = 0.012;
 // y la máquina la nave 1 -- válido mientras solo haya un humano por partida
 // (brief); el multijugador remoto, si llega, es decisión de otro bloque.
 const ID_JUGADOR: IdNave = 0;
+// Alto que ocupan la barra de vida y la etiqueta sobre la nave, para que la
+// cámara no deje esa parte bajo el HUD.
+const ALTO_BARRA_VIDA_PX = 70;
 // multi-setup-partida: el objetivo de un humano. Con 2 naves es "la otra",
 // como siempre; con más hay que elegir y el diseño no define un control de
 // "tocar para apuntar", así que se usa el rival vivo más cercano (distancia
@@ -449,6 +453,11 @@ export class Partida extends Phaser.Scene {
   private marcaCamaraPendiente: { marca: string; nombre: "gesto-camara" | "ver-todo" } | null = null;
   private contadorMarcasCamara = 0;
   private cancelarCamara: (() => void) | null = null;
+  // zonas-hud-camara: firma de las zonas nominales para distinguir un cambio de
+  // HUD (reencuadra) de la consola que solo se aparta (no mueve nada).
+  private firmaZonas = "";
+  private marcaReencuadre: string | null = null;
+  private impactoCamara: { x: number; y: number } | null = null;
   // arma-mina-adherente (min-2): cuenta atrás anclada al mundo del vuelo
   // REAL en curso -- nunca el de repetición, mismo criterio que la estela y
   // que actualizarCuentaAtrasMecha.
@@ -919,9 +928,9 @@ export class Partida extends Phaser.Scene {
       }
       seleccionarArma(escenario.arma);
       fijarApuntadoDirecto(escenario.anguloGrados, escenario.potencia);
-      this.camaraCtl.alCambiarTurno();
       publicarTurno(turno);
       this.refrescarNaves();
+      this.alCambiarTurnoCamara();
     };
     window.__debug.fijarObjetos = (objetos) => {
       const universo = this.estado.universo;
@@ -1326,12 +1335,14 @@ export class Partida extends Phaser.Scene {
     // esa sacudida, no solo una vez en create() (ver el comentario allí sobre
     // por qué el primer fotograma no sirve).
     // camara-gestos: el controlador mueve la cámara antes de leer su vista.
+    this.actualizarObjetivos();
     this.camaraCtl.avanzar(delta);
     this.camaraCtl.seguir(this.animador.obtenerPosicion(), delta);
     const estadoCamara = this.camaraCtl.estado();
     window.__debug!.camara = { x: estadoCamara.x, y: estadoCamara.y, ancho: estadoCamara.ancho, alto: estadoCamara.alto, zoom: estadoCamara.zoom, modo: estadoCamara.modo };
     publicarCamaraManual(this.camaraCtl.manual);
     this.cerrarMedidaCamara();
+    this.cerrarMedidaReencuadre();
     window.__debug!.sacudiendoCamara = this.cameras.main.shakeEffect.isRunning;
 
     // realce-impacto (rlc-1): mismo delta que mueve animador/animadorRepeticion
@@ -2030,9 +2041,89 @@ export class Partida extends Phaser.Scene {
       this.marcaCamaraPendiente = { marca, nombre: "ver-todo" };
       this.camaraCtl.verTodo();
     });
+    engancharToquesHud();
+    const quitarZonas = suscribirZonas(this.sincronizarZonas);
+    const quitarDepuracion = exponerDepuracionZonas(() => this.depuracionZonas());
+    // El lienzo FIT cambia de rectángulo al girar o redimensionar sin que cambien
+    // las zonas, y las zonas se pasan a px de lienzo con ese rectángulo.
+    this.scale.on("resize", this.sincronizarZonas);
+    this.actualizarObjetivos();
+    this.sincronizarZonas();
     this.cancelarCamara = () => {
       canvas.removeEventListener("wheel", this.manejarRueda);
       quitarVerTodo();
+      quitarZonas();
+      quitarDepuracion();
+      this.scale.off("resize", this.sincronizarZonas);
+    };
+  }
+
+  // Factor px de lienzo por px CSS: con Scale.FIT el lienzo no mide lo mismo que
+  // el juego.
+  private factorLienzo(): { f: number; r: DOMRect } {
+    const r = this.game.canvas.getBoundingClientRect();
+    return { f: r.width > 0 ? this.scale.width / r.width : 1, r };
+  }
+
+  private zonaALienzo(z: ZonaOcupada): RectLienzo {
+    const { f, r } = this.factorLienzo();
+    return { x: (z.x - r.left) * f, y: (z.y - r.top) * f, ancho: z.ancho * f, alto: z.alto * f };
+  }
+
+  private readonly sincronizarZonas = (): void => {
+    if (!this.camaraCtl) return;
+    const todas = obtenerZonas();
+    const nominales = todas.map((z) => this.zonaALienzo(z));
+    const visibles = todas.filter((z) => z.visible).map((z) => this.zonaALienzo(z));
+    const firma = nominales.map((r) => `${r.x.toFixed(1)},${r.y.toFixed(1)},${r.ancho.toFixed(1)},${r.alto.toFixed(1)}`).join("|");
+    const motivo = firma === this.firmaZonas ? "apartado" : "usuario";
+    this.firmaZonas = firma;
+    this.camaraCtl.recogerMovimientoPorUsuario();
+    this.camaraCtl.fijarZonas(visibles, motivo, nominales);
+    if (this.camaraCtl.recogerMovimientoPorUsuario()) this.marcaReencuadre = tomarMarcaToque();
+  };
+
+  // Lo que tiene que verse, en coordenadas de mundo: las naves vivas con su
+  // barra y 12 px CSS de margen, y el punto del último impacto.
+  private actualizarObjetivos(): void {
+    const { f } = this.factorLienzo();
+    const margen = 12 * f;
+    const objetivos: ObjetivoEncuadre[] = [];
+    this.estado.naves.forEach((nave) => {
+      if (nave.integridad <= 0) return;
+      const y = alturaRenderNave(nave.y, alturaSuperficie(this.estado.mascara, nave.x) ?? MUNDO_ALTO - 1);
+      const radio = RADIO_ENVOLVENTE_NAVE_PX + margen;
+      const arriba = SEMIALTO_MAXIMO_NAVE_PX * 2 + ALTO_BARRA_VIDA_PX + margen;
+      objetivos.push({ tipo: "nave", x: nave.x - radio, y: y - arriba, ancho: radio * 2, alto: arriba + margen });
+    });
+    if (this.impactoCamara !== null) {
+      const m = 24 + margen;
+      objetivos.push({ tipo: "impacto", x: this.impactoCamara.x - m, y: this.impactoCamara.y - m, ancho: m * 2, alto: m * 2 });
+    }
+    this.camaraCtl.fijarObjetivos(objetivos);
+  }
+
+  private alCambiarTurnoCamara(): void {
+    this.impactoCamara = null;
+    this.actualizarObjetivos();
+    this.camaraCtl.alCambiarTurno();
+  }
+
+  private depuracionZonas(): DepuracionZonasCamara {
+    const { f, r } = this.factorLienzo();
+    const d = this.camaraCtl.depuracion();
+    const aCss = (x: RectLienzo): { x: number; y: number; ancho: number; alto: number } => ({ x: r.left + x.x / f, y: r.top + x.y / f, ancho: x.ancho / f, alto: x.alto / f });
+    const vista = this.camaraCtl.estado();
+    const enLienzo = (o: RectLienzo): RectLienzo => ({ x: (o.x - vista.x) * vista.zoom, y: (o.y - vista.y) * vista.zoom, ancho: o.ancho * vista.zoom, alto: o.alto * vista.zoom });
+    return {
+      zonas: obtenerZonas().map((z) => ({ ...z })),
+      libre: aCss(d.libre),
+      objetivos: d.objetivos.map((o) => ({ tipo: o.tipo, css: aCss(enLienzo(o)) })),
+      valido: d.valido,
+      zoom: d.zoom,
+      modo: d.modo,
+      motivo: d.motivo,
+      reencuadres: d.reencuadres,
     };
   }
 
@@ -2042,6 +2133,17 @@ export class Partida extends Phaser.Scene {
     if (pendiente === null) return;
     this.marcaCamaraPendiente = null;
     registrarLatenciaCamara(pendiente.nombre, performance.measure(`${pendiente.marca}-frame`, pendiente.marca).duration);
+  }
+
+  // Del toque en el HUD al primer frame con el encuadre nuevo aplicado.
+  private cerrarMedidaReencuadre(): void {
+    const marca = this.marcaReencuadre;
+    if (marca === null) return;
+    this.marcaReencuadre = null;
+    const entrada = performance.getEntriesByName(marca, "mark")[0];
+    if (entrada === undefined) return;
+    registrarLatenciaReencuadre(performance.measure(`${marca}-frame`, marca).duration);
+    performance.clearMarks(marca);
   }
 
   private soltarApuntado(): void {
@@ -2343,6 +2445,7 @@ export class Partida extends Phaser.Scene {
         // animación arranque) -- se guarda aparte para que la repetición se
         // compare contra lo que de verdad se vio, no contra el valor teórico.
         window.__debug!.ultimoDisparo = { ...window.__debug!.ultimoDisparo!, impactoReal: { x: final.x, y: final.y } };
+        this.impactoCamara = { x: final.x, y: final.y };
         // arma-mosca (mos-3): la trayectoria animada de ESTE vuelo, expuesta
         // tras terminar -- el e2e la compara paso a paso contra
         // ResultadoVuelo.trayectoria del mismo disparo, resuelto de nuevo en
@@ -2558,7 +2661,7 @@ export class Partida extends Phaser.Scene {
       0,
     );
     // cam-4: la vista completa antes de que el relevo enseñe nada.
-    this.camaraCtl.alCambiarTurno();
+    this.alCambiarTurnoCamara();
     this.relevoPendiente = true;
     obtenerLocutor().callar();
     publicarJugable(false);
@@ -2754,7 +2857,7 @@ export class Partida extends Phaser.Scene {
   private mostrarAvisoPerdido(salida: { borde: string; x: number; y: number }, movimientoReducido: boolean): void {
     // El texto se coloca contra los bordes de la vista completa: el tiro salió
     // del mundo, así que se vuelve a ella.
-    this.camaraCtl.alCambiarTurno();
+    this.alCambiarTurnoCamara();
     const { ancho, alto } = this.estado.mundo;
     // displayScale.x son unidades de mundo por px CSS: se multiplica para
     // pasar de px CSS a mundo (dividir dejaba el texto 8 veces más pequeño).
@@ -3123,7 +3226,7 @@ export class Partida extends Phaser.Scene {
       window.__debug!.turno = this.estado.turno;
       window.__debug!.numeroTurno = this.estado.numeroTurno;
       // cam-4: el turno nuevo siempre empieza en la vista completa.
-      this.camaraCtl.alCambiarTurno();
+      this.alCambiarTurnoCamara();
       publicarTurno(this.estado.turno);
       publicarJugable(this.puedeJugarAhora());
       // Turno cerrado y aún sin vuelo ni relevo: el único momento en que el
