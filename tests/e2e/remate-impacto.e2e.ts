@@ -154,13 +154,16 @@ test("rem-3: con movimiento reducido el remate es solo un destello", async ({ pa
   await prepararGolpe(page);
   await esperarCamaraQuieta(page);
   const camaraAntes = await page.evaluate(() => ({ ...window.__debug.camara! }));
+  const turnoAntes = await page.evaluate(() => window.__debug.turno);
   const sacudidasAntes = await page.evaluate(() => window.__debug.sacudidasCamara ?? 0);
   const muestras = await dispararYMuestrear(page);
   const remate = await page.evaluate(() => window.__debug.remate!);
   expect(remate.ultimo!.modo).toBe("destello");
   expect(remate.ultimo!.duracionMs).toBeLessThanOrEqual(150);
   expect(remate.destellosCamara.length).toBe(1);
-  for (const m of muestras) {
+  // Al cambiar de turno la cámara recalcula su encuadre preferido (zonas del HUD),
+  // así que solo cuentan las muestras del turno del disparo.
+  for (const m of muestras.filter((x) => x.turno === turnoAntes)) {
     expect(m.camara.ancho).toBe(camaraAntes.ancho);
     expect(m.sacudidas).toBe(sacudidasAntes);
   }
@@ -174,10 +177,11 @@ test("rem-3: con «Sacudida» apagada el remate es solo un destello", async ({ p
   await prepararGolpe(page);
   await esperarCamaraQuieta(page);
   const camaraAntes = await page.evaluate(() => ({ ...window.__debug.camara! }));
+  const turnoAntes = await page.evaluate(() => window.__debug.turno);
   const muestras = await dispararYMuestrear(page);
   const remate = await page.evaluate(() => window.__debug.remate!);
   expect(remate.ultimo!.modo).toBe("destello");
-  for (const m of muestras) expect(m.camara.ancho).toBe(camaraAntes.ancho);
+  for (const m of muestras.filter((x) => x.turno === turnoAntes)) expect(m.camara.ancho).toBe(camaraAntes.ancho);
   expect(await page.evaluate(() => window.__debug.sacudidasCamara ?? 0)).toBe(0);
 });
 
