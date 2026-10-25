@@ -52,6 +52,23 @@ async function prepararGolpe(page: Page): Promise<void> {
   await page.evaluate((s) => window.__debug.fijarApuntado!(s!.anguloGrados, s!.potencia), solucion);
 }
 
+// Tras cargarEscenario la cámara reencuadra por su cuenta (las naves cambian de
+// sitio y puede quedar alguna bajo la consola); se espera a que deje de moverse
+// antes de tomar la referencia, para no confundir ese reencuadre con el remate.
+async function esperarCamaraQuieta(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const w = window as unknown as { __camPrev?: string; __camQuietos?: number };
+      const actual = JSON.stringify(window.__debug.camara);
+      w.__camQuietos = actual === w.__camPrev ? (w.__camQuietos ?? 0) + 1 : 0;
+      w.__camPrev = actual;
+      return w.__camQuietos >= 10;
+    },
+    undefined,
+    { timeout: 30000, polling: "raf" },
+  );
+}
+
 interface Muestra {
   activo: boolean;
   puedeDisparar: boolean;
@@ -105,6 +122,7 @@ test(`rem-1, rem-2, rem-4: remate completo con fases en orden, entradas bloquead
   test.setTimeout(240000);
   await empezar(page, ancho, alto);
   await prepararGolpe(page);
+  await esperarCamaraQuieta(page);
   const camaraAntes = await page.evaluate(() => ({ ...window.__debug.camara! }));
   await capturar(page, `remate-impacto-rem-2-antes-${ancho}x${alto}`);
   const turno0 = await page.evaluate(() => window.__debug.turno);
@@ -134,6 +152,7 @@ test("rem-3: con movimiento reducido el remate es solo un destello", async ({ pa
   await page.emulateMedia({ reducedMotion: "reduce" });
   await empezar(page);
   await prepararGolpe(page);
+  await esperarCamaraQuieta(page);
   const camaraAntes = await page.evaluate(() => ({ ...window.__debug.camara! }));
   const sacudidasAntes = await page.evaluate(() => window.__debug.sacudidasCamara ?? 0);
   const muestras = await dispararYMuestrear(page);
@@ -153,6 +172,7 @@ test("rem-3: con «Sacudida» apagada el remate es solo un destello", async ({ p
   await empezar(page);
   await pulsarAjuste(page, "toggle-sacudida");
   await prepararGolpe(page);
+  await esperarCamaraQuieta(page);
   const camaraAntes = await page.evaluate(() => ({ ...window.__debug.camara! }));
   const muestras = await dispararYMuestrear(page);
   const remate = await page.evaluate(() => window.__debug.remate!);

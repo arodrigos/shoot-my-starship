@@ -46,10 +46,19 @@ for (const viewport of VIEWPORTS) {
 
     const camara = await page.evaluate(() => window.__debug.camara!);
     const EPSILON = 1;
-    expect(camara.x).toBeLessThanOrEqual(EPSILON);
-    expect(camara.y).toBeLessThanOrEqual(EPSILON);
-    expect(camara.x + camara.ancho).toBeGreaterThanOrEqual(MUNDO_ANCHO - EPSILON);
-    expect(camara.y + camara.alto).toBeGreaterThanOrEqual(MUNDO_ALTO - EPSILON);
+    const veMundoEntero =
+      camara.x <= EPSILON &&
+      camara.y <= EPSILON &&
+      camara.x + camara.ancho >= MUNDO_ANCHO - EPSILON &&
+      camara.y + camara.alto >= MUNDO_ALTO - EPSILON;
+    if (!veMundoEntero) {
+      // zonas-hud-camara: si la consola tapa una nave en la vista completa, la
+      // cámara encuadra el grupo en el hueco libre; lo que se exige entonces es
+      // que lo importante quede a la vista y fuera de toda zona del HUD.
+      const zonas = await page.evaluate(() => window.__debug.zonasCamara!());
+      expect(zonas.valido, "sin la vista completa, el encuadre deja las naves libres de zonas").toBe(true);
+      expect(zonas.zoom).toBeLessThanOrEqual(1);
+    }
 
     const naves = await page.evaluate(() => window.__debug.naves!);
     for (const nave of naves) {
