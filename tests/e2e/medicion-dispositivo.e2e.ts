@@ -94,9 +94,10 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   // El tirador del registro es el turno en curso al detonar, que ya puede ser el
   // del rival: se identifica cada disparo por su arma.
   const registro = await page.evaluate(() => window.__debug.registroDetonaciones ?? []);
-  expect(registro.some((r) => /^pepinazo/.test(r.armaId)), JSON.stringify(registro)).toBe(true);
-  expect(registro.some((r) => /^racimo/.test(r.armaId)), JSON.stringify(registro)).toBe(true);
-  expect(registro.some((r) => /^pelota-de-chatarra/.test(r.armaId)), JSON.stringify(registro)).toBe(true);
+  const detalle = JSON.stringify({ registro, impactos: medicion.impactos, texto });
+  expect(registro.some((r) => /^pepinazo/.test(r.armaId)), detalle).toBe(true);
+  expect(registro.some((r) => /^racimo/.test(r.armaId)), detalle).toBe(true);
+  expect(registro.some((r) => /^pelota-de-chatarra/.test(r.armaId)), detalle).toBe(true);
   expect((await page.evaluate(() => window.__debug.recorridoEmpuje ?? [])).length).toBeGreaterThan(0);
   expect(texto).toContain("Medición de rendimiento");
   expect(texto).toContain("INP de tus toques (no del recorrido)");
