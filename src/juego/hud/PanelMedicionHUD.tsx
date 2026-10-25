@@ -29,7 +29,7 @@ export function PanelMedicionHUD() {
     );
   }
 
-  const titulo = medicion.estado === "cancelada" ? "Medición cancelada" : medicion.estado === "incompleta" ? "Medición incompleta (tiempo agotado)" : "Resumen de la medición";
+  const titulo = medicion.estado === "cancelada" ? "Medición cancelada" : medicion.estado === "incompleta" ? (medicion.texto?.includes("sin frames") ? "Medición incompleta (sin frames)" : "Medición incompleta (tiempo agotado)") : "Resumen de la medición";
   const estadoCopia =
     medicion.copia === "copiada" ? "Copiado al portapapeles" : medicion.copia === "pendiente" ? "Copiando…" : "No se pudo copiar solo: pulsa Copiar o selecciona el texto";
   const texto = medicion.texto ?? "";

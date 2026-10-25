@@ -31,7 +31,10 @@ anterior:
 5. **Turno de la IA**: el turno completo del rival.
 
 Una franja arriba enseña «Midiendo · tramo N de 5» y «Cancelar». Tope total:
-90 s (si se agota, el resultado queda INCOMPLETO con «tiempo agotado»).
+150 s desde que la partida pinta sus primeros frames (el arranque no cuenta). Si se
+agota, el resultado queda INCOMPLETO con «tiempo agotado»; si la partida no llega a
+pintar (pestaña en segundo plano, equipo muy lento), INCOMPLETO con «sin frames».
+Los tramos ya medidos salen en el resumen. Un INP de 0 se enseña como «no disponible».
 
 Al terminar sale «Resumen de la medición» con un texto seleccionable que ya se
 ha copiado al portapapeles en el mismo toque («Copiado al portapapeles»); si el
