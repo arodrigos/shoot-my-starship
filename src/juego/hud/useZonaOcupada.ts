@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import { engancharToquesHud, observarZona, publicarZona, type IdZona } from "@/juego/camara/zonasOcupadas";
+import { engancharToquesHud, medirZona, observarZona, publicarZona, type IdZona } from "@/juego/camara/zonasOcupadas";
 
 // Publica la zona que ocupa un elemento del HUD. Un ResizeObserver no avisa si
 // el elemento solo cambia de sitio (la consola pasa de un anclaje a otro con el
@@ -24,7 +24,6 @@ export function useZonaOcupada(id: IdZona, ref: RefObject<HTMLElement | null>, v
   useEffect(() => {
     const elemento = ref.current;
     if (elemento === null) return;
-    const r = elemento.getBoundingClientRect();
-    publicarZona(id, { x: r.left, y: r.top, ancho: r.width, alto: r.height, visible });
+    publicarZona(id, { ...medirZona(elemento), visible });
   });
 }

@@ -3,7 +3,7 @@ import { MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { generarMascara } from "@/sim/terreno/generador";
 import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
 import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPhaser";
-import { crearFondoEspacial, rehornearFondoEspacial } from "@/juego/fondo/FondoEspacial";
+import { crearFondoEspacial, crearFondoExterior, rehornearFondoEspacial } from "@/juego/fondo/FondoEspacial";
 import { firmaDeHalos } from "@/juego/fondo/PozosGravedad";
 import { aceleracionPozo } from "@/sim/gravedad/halos";
 import { masaPlaneta, type RegistroPlanetas } from "@/sim/gravedad/planetas";
@@ -860,6 +860,7 @@ export class Partida extends Phaser.Scene {
       // la gravedad real, nunca una copia.
       sistema.planetas.forEach((planeta) => this.masasReferencia.set(planeta.id, masaPlaneta(planeta)));
       const fondo = crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", sistema.planetas, this.masasReferencia);
+      crearFondoExterior(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO);
       this.semillaFondo = semillaSistema;
       this.firmaHalos = firmaDeHalos(sistema.planetas);
       window.__debug.fondoEspacial = { bakes: 1 };

@@ -45,6 +45,32 @@ export function crearFondoEspacial(
   return { imagen, halos };
 }
 
+const LADO_MOSAICO_EXTERIOR = 512;
+const MARGEN_EXTERIOR_FACTOR = 2;
+
+// Con la cámara alejada se ve más allá del mundo y ahí solo había el negro del
+// renderer (franjas lisas con borde recto). Un mosaico pequeño de estrellas,
+// aparte de la textura del mundo y por debajo de ella, lo rellena sin tocar el
+// bake único del fondo (esp-3).
+export function crearFondoExterior(escena: Phaser.Scene, semilla: number, ancho: number, alto: number): Phaser.GameObjects.TileSprite {
+  const clave = "fondo-exterior";
+  if (!escena.textures.exists(clave)) {
+    const aleatorio = crearGeneradorAleatorio(semilla ^ 0x5bd1e995);
+    const lienzo = escena.make.graphics({ x: 0, y: 0 });
+    lienzo.fillStyle(0x05060c, 1);
+    lienzo.fillRect(0, 0, LADO_MOSAICO_EXTERIOR, LADO_MOSAICO_EXTERIOR);
+    for (let i = 0; i < 70; i++) {
+      lienzo.fillStyle(0xffffff, 0.35 + aleatorio() * 0.55);
+      lienzo.fillCircle(aleatorio() * LADO_MOSAICO_EXTERIOR, aleatorio() * LADO_MOSAICO_EXTERIOR, 0.6 + aleatorio() * 1.2);
+    }
+    lienzo.generateTexture(clave, LADO_MOSAICO_EXTERIOR, LADO_MOSAICO_EXTERIOR);
+    lienzo.destroy();
+  }
+  const margenX = ancho * MARGEN_EXTERIOR_FACTOR;
+  const margenY = alto * MARGEN_EXTERIOR_FACTOR;
+  return escena.add.tileSprite(-margenX, -margenY, ancho + 2 * margenX, alto + 2 * margenY, clave).setOrigin(0, 0).setDepth(-2);
+}
+
 // Vuelve a pintar el fondo sobre la MISMA textura (Phaser dibuja encima del
 // canvas existente y el fondo es opaco): los halos de gravedad cambian con los
 // efectos del universo, y sin esto se quedarían como al crear la escena. Se
