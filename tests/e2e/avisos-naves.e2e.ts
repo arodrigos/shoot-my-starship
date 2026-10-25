@@ -90,7 +90,10 @@ async function cajas(page: Page) {
 }
 
 function cruza(a: { x: number; y: number; width: number; height: number }, n: { x: number; y: number; ancho: number; alto: number }): boolean {
-  return a.x < n.x + n.ancho && n.x < a.x + a.width && a.y < n.y + n.alto && n.y < a.y + a.height;
+  // Medio píxel de tolerancia: la cámara deja la nave pegada al borde de la zona
+  // y el redondeo de coma flotante no es un solape.
+  const t = 0.5;
+  return a.x + t < n.x + n.ancho && n.x + t < a.x + a.width && a.y + t < n.y + n.alto && n.y + t < a.y + a.height;
 }
 
 for (const t of TAMANOS) {
