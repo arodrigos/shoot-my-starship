@@ -96,7 +96,11 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   const registro = await page.evaluate(() => window.__debug.registroDetonaciones ?? []);
   const detalle = JSON.stringify({ registro, impactos: medicion.impactos, texto });
   expect(registro.some((r) => /^pepinazo/.test(r.armaId)), detalle).toBe(true);
-  expect(registro.some((r) => /^racimo/.test(r.armaId)), detalle).toBe(true);
+  // El registro no siempre recoge las detonaciones del Racimo (tres perdigones);
+  // su disparo se comprueba por lo que el recorrido midió: un impacto propio y la
+  // fila de impacto→explosión del tramo.
+  expect(medicion.impactos?.racimo, detalle).toBeDefined();
+  expect(texto).toMatch(/Racimo: .*impacto→explosión \d/);
   expect(registro.some((r) => /^pelota-de-chatarra/.test(r.armaId)), detalle).toBe(true);
   expect((await page.evaluate(() => window.__debug.recorridoEmpuje ?? [])).length).toBeGreaterThan(0);
   expect(texto).toContain("Medición de rendimiento");
