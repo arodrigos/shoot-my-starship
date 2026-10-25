@@ -117,7 +117,8 @@ test("av-1: con la consola oculta la ayuda sale sobre la pestaña y tampoco toca
   await cargar(page, { fx: 306 / 360, fy: 160 / 640 }, { fx: 0.3, fy: 0.9 });
   await expect(page.getByTestId("ayuda-apuntado")).toHaveCount(1);
   const c = await cajas(page);
-  for (const nave of c.naves) expect(cruza(c.ayuda!, nave)).toBe(false);
+  const estado = JSON.stringify({ c, z: await page.evaluate(() => window.__debug.zonasCamara!()) });
+  for (const nave of c.naves) expect(cruza(c.ayuda!, nave), estado).toBe(false);
   await capturar(page, "avisos-fuera-de-naves-av-1-oculta-360x640");
 });
 
