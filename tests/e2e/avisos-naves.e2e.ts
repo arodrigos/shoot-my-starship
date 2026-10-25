@@ -71,7 +71,10 @@ async function colocar(page: Page, f0: { fx: number; fy: number }, f1: { fx: num
 }
 
 async function esperarQuieta(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 40000 });
+  // El estado completo en el mensaje de fallo: sin él un timeout no dice por qué.
+  await expect
+    .poll(async () => JSON.stringify(await page.evaluate(() => window.__debug.zonasCamara!())), { timeout: 40000, intervals: [500] })
+    .toContain('"valido":true');
   let previa = "";
   await expect
     .poll(
