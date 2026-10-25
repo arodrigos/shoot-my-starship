@@ -50,9 +50,11 @@ for (const t of TAMANOS) {
       const e = window.__debug.efectosVisibles!.find((x) => x.origen === "robot")!;
       const lienzo = document.querySelector<HTMLCanvasElement>("#game-container canvas")!;
       const caja = lienzo.getBoundingClientRect();
-      const mundo = window.__debug.mundo!;
-      const cx = (e.x / mundo.ancho) * lienzo.width;
-      const cy = (e.y / mundo.alto) * lienzo.height;
+      // La cámara ya no encuadra siempre el mundo entero: el punto se lleva al
+      // lienzo con la vista real (x, y, ancho, alto de mundo).
+      const v = window.__debug.camara!;
+      const cx = ((e.x - v.x) / v.ancho) * lienzo.width;
+      const cy = ((e.y - v.y) / v.alto) * lienzo.height;
       const porCss = lienzo.width / caja.width;
       const radio = Math.round(20 * porCss);
       const copia = document.createElement("canvas");

@@ -141,6 +141,9 @@ test(`rem-1, rem-2, rem-4: remate completo con fases en orden, entradas bloquead
   }
   expect(activas.some((m) => m.camara.ancho < camaraAntes.ancho - 1), "la cámara se acerca").toBe(true);
   expect(remate.destellosCamara.length).toBe(1);
+  // El destello (k = 0) no mueve la cámara: parte del encuadre real de antes, no
+  // de un zoom 1 absoluto con el desplazamiento de la consola aplicado dos veces.
+  for (const k of ["x", "y", "ancho", "alto"] as const) expect(Math.abs(activas[0].camara[k] - camaraAntes[k]), `primer fotograma del remate, ${k}`).toBeLessThanOrEqual(0.5);
   // El remate devuelve la cámara y, en el mismo fotograma, el turno avanza y el
   // encuadre preferido se recalcula (la consola se aparta con el turno del rival),
   // así que ya no tiene que coincidir con el de antes: tiene que ser el automático,

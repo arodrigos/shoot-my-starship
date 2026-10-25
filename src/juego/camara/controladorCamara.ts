@@ -425,15 +425,26 @@ export class ControladorCamara {
   }
 
   // Encuadre del remate: pasa por aquí para que nadie más toque la cámara.
-  fijarExterno(e: Encuadre): void {
+  // `antes` es el encuadre real previo al remate y `destino` el del acercamiento
+  // (centrado en el impacto, con el desplazamiento del rectángulo libre); `k` va
+  // de 0 (exactamente `antes`) a 1 (`destino`). Partir de zoom 1 y del centro
+  // real aplicaba el desplazamiento del libre dos veces y dejaba la cámara a
+  // cientos de unidades del encuadre de antes durante toda la vuelta.
+  fijarExterno(antes: Encuadre, destino: Encuadre, k: number): void {
     this.externo = true;
     this.vuelta = null;
     // El impacto va al centro de lo que se ve, no al del lienzo entero.
     const libre = this.libre();
+    const meta: Encuadre = {
+      zoom: destino.zoom,
+      cx: destino.cx - (libre.x + libre.ancho / 2 - this.dim.ancho / 2) / destino.zoom,
+      cy: destino.cy - (libre.y + libre.alto / 2 - this.dim.alto / 2) / destino.zoom,
+    };
+    const t = Math.min(1, Math.max(0, k));
     this.encuadre = {
-      zoom: e.zoom,
-      cx: e.cx - (libre.x + libre.ancho / 2 - this.dim.ancho / 2) / e.zoom,
-      cy: e.cy - (libre.y + libre.alto / 2 - this.dim.alto / 2) / e.zoom,
+      zoom: antes.zoom * (1 - t) + meta.zoom * t,
+      cx: antes.cx * (1 - t) + meta.cx * t,
+      cy: antes.cy * (1 - t) + meta.cy * t,
     };
     this.aplicar();
   }
