@@ -346,6 +346,7 @@ function callarVoz(): void {
 export class Partida extends Phaser.Scene {
   private estado!: EstadoPartida;
   private semillaFondo: number | undefined;
+  private fondoExterior: Phaser.GameObjects.TileSprite | undefined;
   private firmaHalos = "";
   // Masa de nacimiento de cada pozo (multiplicador 1, planeta entero): ancla
   // de a_sup para que los halos crezcan con la gravedad y mengüen con los cráteres.
@@ -860,7 +861,8 @@ export class Partida extends Phaser.Scene {
       // la gravedad real, nunca una copia.
       sistema.planetas.forEach((planeta) => this.masasReferencia.set(planeta.id, masaPlaneta(planeta)));
       const fondo = crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", sistema.planetas, this.masasReferencia);
-      crearFondoExterior(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO);
+      this.fondoExterior?.destroy();
+      this.fondoExterior = crearFondoExterior(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO);
       this.semillaFondo = semillaSistema;
       this.firmaHalos = firmaDeHalos(sistema.planetas);
       window.__debug.fondoEspacial = { bakes: 1 };
@@ -1341,6 +1343,13 @@ export class Partida extends Phaser.Scene {
     this.camaraCtl.avanzar(delta);
     this.camaraCtl.seguir(this.animador.obtenerPosicion(), delta);
     const estadoCamara = this.camaraCtl.estado();
+    // El mosaico de estrellas solo se dibuja cuando la vista sale del mundo: a
+    // pantalla completa cuesta un relleno extra por frame que el render por
+    // software no aguanta.
+    if (this.fondoExterior) {
+      const { ancho: mundoAncho, alto: mundoAlto } = this.estado.mundo;
+      this.fondoExterior.setVisible(estadoCamara.x < 0 || estadoCamara.y < 0 || estadoCamara.x + estadoCamara.ancho > mundoAncho || estadoCamara.y + estadoCamara.alto > mundoAlto);
+    }
     window.__debug!.camara = { x: estadoCamara.x, y: estadoCamara.y, ancho: estadoCamara.ancho, alto: estadoCamara.alto, zoom: estadoCamara.zoom, modo: estadoCamara.modo };
     publicarCamaraManual(this.camaraCtl.manual);
     this.cerrarMedidaCamara();
