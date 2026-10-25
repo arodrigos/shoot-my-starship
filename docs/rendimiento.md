@@ -15,6 +15,39 @@ y `salida`.
 2. Dispara el Pepinazo de Cortesía y el Racimo de Tuppers contra un planeta.
 3. Mira `max` justo después de la explosión: es el frame más largo reciente.
 
+## Medir en el dispositivo con un toque
+
+Con `?rendimiento=1`, el recuadro lleva un botón **Medir** (aria-label «Medir
+rendimiento»). Al pulsarlo, el juego se juega solo en una partida aparte
+(semilla fija, tú contra la IA normal, sin tocar tu partida guardada) y mide
+cinco tramos, cada uno con 1 s de calentamiento y al menos 30 frames desde el
+anterior:
+
+1. **Reposo**: 3 s sin hacer nada. Da la línea base de rAF.
+2. **Pepinazo**: un disparo del Pepinazo de Cortesía; p95 en vuelo y el frame
+   más largo entre impacto y explosión.
+3. **Racimo**: lo mismo con el Racimo de Tuppers.
+4. **Propulsores**: un salto con propulsores (p95 frente al reposo).
+5. **Turno de la IA**: el turno completo del rival.
+
+Una franja arriba enseña «Midiendo · tramo N de 5» y «Cancelar». Tope total:
+90 s (si se agota, el resultado queda INCOMPLETO con «tiempo agotado»).
+
+Al terminar sale «Resumen de la medición» con un texto seleccionable que ya se
+ha copiado al portapapeles en el mismo toque («Copiado al portapapeles»); si el
+navegador no lo permite, pulsa «Copiar» o selecciona el texto. No lleva URL,
+rutas, el userAgent entero ni nombres de jugadores. El INP que incluye es el de
+tus toques antes de medir, no el del recorrido.
+
+Avisos de validez: **NO VÁLIDA** si la pestaña estuvo oculta o rAF se detuvo
+más de 1 s; «rAF limitado a 30 fps (¿modo de bajo consumo?)» si la mediana del
+reposo está entre 30 y 36 ms; «LoAF: no (sin separación script/render)» e
+«INP: no disponible» cuando el navegador no ofrece esas APIs.
+
+Pega las líneas que empiezan por `| Pepinazo ` y `| Propulsores ` (al final del
+texto) en las tablas de «Antes / Después» y «Respuesta al toque» de este
+fichero. Las filas de una medición no válida llevan «(no válida)»: no se pegan.
+
 ## Qué cambió
 
 - El refresco del terreno tras un impacto hacía `textura.update()`, que lee el

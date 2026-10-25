@@ -38,6 +38,9 @@ export interface DatosEscenaPartida {
   // partida-guardada: instantánea ya validada desde la que se reanuda; manda
   // sobre el resto de campos (que la portada deja vacíos en ese caso).
   readonly reanudar?: DatosPartida;
+  // Partida de medición (?rendimiento=1 → «Medir»): semilla fija, sin guardado y
+  // con el guion de recorridoMedicion.ts al estar lista.
+  readonly medicion?: true;
 }
 
 // FIT + CENTER_BOTH (render-4, sustituye el RESIZE de andamiaje-1): el

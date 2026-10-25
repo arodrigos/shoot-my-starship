@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { JuegoLienzo } from "@/juego/JuegoLienzo";
 import { PantallaInicio } from "@/juego/PantallaInicio";
+import { PanelMedicionHUD } from "@/juego/hud/PanelMedicionHUD";
+import { obtenerMedicion, SEMILLA_MEDICION, suscribirMedicion } from "@/juego/control/medicionStore";
 import { elegirMapaDistinto, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
 import { instalarPantallaEncendida, marcarPartidaEnCurso } from "@/juego/control/pantallaEncendidaStore";
@@ -36,6 +38,8 @@ interface Partida {
   readonly relojTurnoS?: SegundosReloj;
   // partida-guardada: instantánea desde la que se reanuda; solo vale para esta partida.
   readonly reanudar?: DatosPartida;
+  // Partida de medición de ?rendimiento=1: ver medicionStore.ts.
+  readonly medicion?: true;
 }
 
 // Rango del generador con semilla del propio juego (crearGeneradorAleatorio
@@ -127,6 +131,23 @@ export function Aplicacion() {
     });
   }, []);
 
+  // «Medir» (en el recuadro de rendimiento) remonta el lienzo con la partida de
+  // medición: semilla fija, 1 humano contra 1 IA normal, barra libre, sin reloj.
+  useEffect(() => {
+    return suscribirMedicion(() => {
+      if (obtenerMedicion().estado !== "en-curso") return;
+      setFase("jugando");
+      marcarPartidaEnCurso(true);
+      setPartida((actual) => ({
+        clave: actual.clave + 1,
+        semillaSistema: SEMILLA_MEDICION,
+        personalidadId: "la-contable",
+        modo: "barra-libre",
+        medicion: true,
+      }));
+    });
+  }, []);
+
   if (fase === "inicio") {
     return (
       <PantallaInicio
@@ -145,6 +166,8 @@ export function Aplicacion() {
   }
 
   return (
+    <>
+    <PanelMedicionHUD />
     <JuegoLienzo
       key={partida.clave}
       datosEscena={{
@@ -157,7 +180,9 @@ export function Aplicacion() {
         todosVemosTodo: partida.todosVemosTodo,
         relojTurnoS: partida.relojTurnoS,
         reanudar: partida.reanudar,
+        medicion: partida.medicion,
       }}
     />
+    </>
   );
 }

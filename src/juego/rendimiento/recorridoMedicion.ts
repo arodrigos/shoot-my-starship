@@ -1,0 +1,209 @@
+// Guion de la partida de medición: se juega solo, por las mismas acciones del
+// store que usan los botones («Disparar»), nunca con eventos sintéticos. Se
+// carga con import() dinámico solo en esa partida, así que no pesa en el
+// bundle de la partida normal.
+
+import {
+  fijarTramoMedicion,
+  inpAlIniciarMedicion,
+  medicionCancelada,
+  obtenerMedicion,
+  registrarImpactoMedicion,
+  resolverCopia,
+  terminarMedicion,
+  type NombreTramoStore,
+} from "@/juego/control/medicionStore";
+import { fijarApuntadoDirecto, obtenerEstadoControl, seleccionarArma, seleccionarEquipo, solicitarDisparo } from "@/juego/control/store";
+import type { MedidorFrames } from "@/juego/rendimiento/medidorFrames";
+import type { MedidorRespuesta } from "@/juego/rendimiento/medidorRespuesta";
+import {
+  construirResumen,
+  estadisticasTramo,
+  formatearResumen,
+  medianaDe,
+  resumirNavegador,
+  type EntradaResumen,
+  type TramoMedido,
+} from "@/juego/rendimiento/resumenMedicion";
+
+export const CALENTAMIENTO_MS = 1000;
+export const FRAMES_ENTRE_TRAMOS = 30;
+export const TOPE_RECORRIDO_MS = 90_000;
+const DURACION_REPOSO_MS = 3000;
+const VENTANA_TRAS_EXPLOSION_MS = 1000;
+const ESPERA_MAX_TRAMO_MS = 25_000;
+
+export interface ContextoRecorrido {
+  readonly medidor: MedidorFrames;
+  readonly respuesta: MedidorRespuesta;
+  readonly solucionBalistica: () => { anguloGrados: number; potencia: number } | null;
+  readonly impactoReal: () => { x: number; y: number } | null;
+}
+
+class Interrumpido extends Error {
+  constructor(readonly motivo: "cancelada" | "tiempo-agotado") {
+    super(motivo);
+  }
+}
+
+const TRAMOS: readonly NombreTramoStore[] = ["reposo", "pepinazo", "racimo", "propulsores", "turno-ia"];
+
+export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
+  const inicio = performance.now();
+  window.__debug = window.__debug ?? {};
+  window.__debug.medicion = () => structuredClone(obtenerMedicion());
+  let paginaOculta = document.visibilityState === "hidden";
+  const alCambiarVisibilidad = (): void => {
+    if (document.visibilityState === "hidden") paginaOculta = true;
+  };
+  document.addEventListener("visibilitychange", alCambiarVisibilidad);
+
+  const comprobar = (): void => {
+    if (medicionCancelada()) throw new Interrumpido("cancelada");
+    if (performance.now() - inicio > TOPE_RECORRIDO_MS) throw new Interrumpido("tiempo-agotado");
+  };
+  // Polling sobre el estado real, no esperas fijas cruzando los dedos.
+  const esperar = async (condicion: () => boolean, maxMs = ESPERA_MAX_TRAMO_MS): Promise<boolean> => {
+    const limite = performance.now() + maxMs;
+    while (!condicion()) {
+      comprobar();
+      if (performance.now() > limite) return false;
+      await new Promise<void>((r) => setTimeout(r, 40));
+    }
+    return true;
+  };
+  const pausa = async (ms: number): Promise<void> => {
+    const fin = performance.now() + ms;
+    await esperar(() => performance.now() >= fin, ms + 1000);
+  };
+
+  const tramos: TramoMedido[] = [];
+  let medianaReposo: number | null = null;
+  let huecoMax = 0;
+  let interrupcion: EntradaResumen["interrupcion"] = null;
+
+  // Una medida limpia: calentamiento, y al menos 30 frames desde el tramo anterior.
+  const preparar = async (nombre: NombreTramoStore): Promise<void> => {
+    fijarTramoMedicion(TRAMOS.indexOf(nombre) + 1, nombre);
+    await pausa(CALENTAMIENTO_MS);
+    const frames0 = ctx.medidor.instantanea().frames;
+    await esperar(() => ctx.medidor.instantanea().frames - frames0 >= FRAMES_ENTRE_TRAMOS);
+  };
+
+  const medir = async (nombre: NombreTramoStore, cuerpo: (t0: number) => Promise<void>, conArma = false): Promise<void> => {
+    await preparar(nombre);
+    const deltas: { t: number; d: number }[] = [];
+    const baja = ctx.medidor.suscribirFrames((d, t) => deltas.push({ t, d }));
+    const t0 = performance.now();
+    let tImpacto: number | null = null;
+    let tExplosion: number | null = null;
+    const mirar = (): void => {
+      const marcas = ctx.medidor.instantanea().marcas.filter((m) => m.t >= t0);
+      tImpacto = marcas.find((m) => m.nombre === "impacto")?.t ?? null;
+      tExplosion = marcas.find((m) => m.nombre === "explosion")?.t ?? null;
+    };
+    try {
+      await cuerpo(t0);
+    } finally {
+      baja();
+    }
+    const t1 = performance.now();
+    mirar();
+    const todos = deltas.map((x) => x.d);
+    huecoMax = Math.max(huecoMax, ...todos, 0);
+    const trabajo = ctx.respuesta.trabajoEnVentana({ inicio: t0, fin: t1 });
+    let extra: Partial<TramoMedido> = {};
+    if (conArma) {
+      const enVuelo = deltas.filter((x) => tImpacto === null || x.t < tImpacto).map((x) => x.d);
+      const entre = tImpacto !== null && tExplosion !== null ? deltas.filter((x) => x.t >= tImpacto! && x.t <= tExplosion! + VENTANA_TRAS_EXPLOSION_MS).map((x) => x.d) : [];
+      extra = {
+        p95Vuelo: enVuelo.length ? estadisticasTramo(enVuelo).p95 : undefined,
+        maxImpactoExplosion: entre.length ? estadisticasTramo(entre).max : undefined,
+      };
+    }
+    if (nombre === "reposo") medianaReposo = medianaDe(todos);
+    tramos.push({
+      nombre,
+      ...estadisticasTramo(todos),
+      duracionMs: t1 - t0,
+      ...extra,
+      ...(trabajo.scriptMs !== null ? { scriptMs: trabajo.scriptMs } : {}),
+      renderPhaserMs: trabajo.renderPhaserMs,
+    });
+  };
+
+  const turnoHumano = (): boolean => obtenerEstadoControl().puedeDisparar;
+  const disparoDeArma = (armaId: string, nombre: "pepinazo" | "racimo") => async (t0: number): Promise<void> => {
+    seleccionarArma(armaId);
+    // Potencia al 60 % de la que daría al rival: cae corto, sobre el terreno o
+    // un planeta, y no acaba la partida a mitad de recorrido.
+    const solucion = ctx.solucionBalistica();
+    fijarApuntadoDirecto(solucion?.anguloGrados ?? 45, Math.max(10, (solucion?.potencia ?? 60) * 0.6));
+    await pausa(100);
+    solicitarDisparo();
+    // «salida» cubre el tiro que se pierde fuera del mundo: sin explosión no hay
+    // nada más que esperar.
+    await esperar(() => ctx.medidor.instantanea().marcas.some((m) => (m.nombre === "explosion" || m.nombre === "salida") && m.t >= t0));
+    await pausa(VENTANA_TRAS_EXPLOSION_MS);
+    const impacto = ctx.impactoReal();
+    if (impacto) registrarImpactoMedicion(nombre, impacto);
+  };
+
+  try {
+    if (!(await esperar(turnoHumano, 30_000))) throw new Interrumpido("tiempo-agotado");
+    await medir("reposo", () => pausa(DURACION_REPOSO_MS));
+
+    await medir("pepinazo", disparoDeArma("pepinazo-cortesia", "pepinazo"), true);
+    await esperar(turnoHumano, 40_000);
+
+    await medir("racimo", disparoDeArma("racimo-de-tuppers", "racimo"), true);
+    await esperar(turnoHumano, 40_000);
+
+    await medir("propulsores", async () => {
+      seleccionarEquipo("propulsores");
+      // Primer ángulo cuyo vuelo no choque contra la superficie.
+      for (const angulo of [90, 60, 120, 45, 135, 75, 105]) {
+        fijarApuntadoDirecto(angulo, 50);
+        await pausa(150);
+        if (!obtenerEstadoControl().propulsoresBloqueados) break;
+      }
+      solicitarDisparo();
+      // El vuelo acaba cuando el turno pasa al rival.
+      await esperar(() => (window.__debug?.turno ?? 0) === 1, 15_000);
+    });
+
+    await medir("turno-ia", async () => {
+      await esperar(() => (window.__debug?.turno ?? 1) === 1 || turnoHumano(), 5000);
+      await esperar(turnoHumano, 40_000);
+    });
+  } catch (e) {
+    if (e instanceof Interrumpido) interrupcion = e.motivo;
+    else throw e;
+  } finally {
+    document.removeEventListener("visibilitychange", alCambiarVisibilidad);
+  }
+
+  const resumen = construirResumen({
+    tramos,
+    entorno: {
+      navegador: resumirNavegador(navigator.userAgent),
+      ancho: window.innerWidth,
+      alto: window.innerHeight,
+      dpr: window.devicePixelRatio,
+      version: process.env.NEXT_PUBLIC_VERSION_APP ?? "desconocida",
+    },
+    apis: { loaf: ctx.respuesta.hayLongAnimationFrames(), eventTiming: ctx.respuesta.hayEventTiming() },
+    inpToques: inpAlIniciarMedicion(),
+    paginaOculta: paginaOculta || document.visibilityState === "hidden",
+    huecoMaxRafMs: huecoMax,
+    medianaReposoMs: medianaReposo,
+    interrupcion,
+  });
+  const texto = formatearResumen(resumen);
+  terminarMedicion({
+    estado: interrupcion === "cancelada" ? "cancelada" : interrupcion === "tiempo-agotado" ? "incompleta" : "terminada",
+    texto,
+    valida: resumen.validez.valida,
+  });
+  resolverCopia(texto);
+}

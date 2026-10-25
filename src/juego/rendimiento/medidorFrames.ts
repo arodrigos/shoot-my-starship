@@ -44,6 +44,7 @@ export class MedidorFrames {
   private total = 0;
   private largos = 0;
   private readonly marcas: MarcaRegistrada[] = [];
+  private readonly oyentes = new Set<(delta: number, t: number) => void>();
 
   constructor(private readonly ahora: () => number = () => performance.now()) {}
 
@@ -53,9 +54,17 @@ export class MedidorFrames {
       this.buffer.shift();
     }
     this.total++;
+    for (const oyente of this.oyentes) oyente(deltaMs, this.buffer[this.buffer.length - 1].t);
     if (deltaMs > UMBRAL_FRAME_LARGO_MS) {
       this.largos++;
     }
+  }
+
+  // La medición en el dispositivo necesita todos los frames de un tramo, y el
+  // búfer circular solo guarda los últimos 600.
+  suscribirFrames(oyente: (delta: number, t: number) => void): () => void {
+    this.oyentes.add(oyente);
+    return () => this.oyentes.delete(oyente);
   }
 
   marcar(nombre: MarcaRendimiento): void {

@@ -678,7 +678,8 @@ export class Partida extends Phaser.Scene {
     const reanudar = this.datosEscena.reanudar ?? null;
     const parametrosUrl = new URLSearchParams(window.location.search);
     // Al reanudar, la URL (?mapa=) no puede cambiar el mundo guardado.
-    const idMapa = reanudar ? this.datosEscena.mapaId : (parametrosUrl.get("mapa") ?? this.datosEscena.mapaId);
+    // La partida de medición no hace caso de ?mapa=: su mundo es siempre el mismo.
+    const idMapa = reanudar || this.datosEscena.medicion ? this.datosEscena.mapaId : (parametrosUrl.get("mapa") ?? this.datosEscena.mapaId);
     const personalidadBase = this.datosEscena.personalidadId ? buscarPersonalidad(this.datosEscena.personalidadId) : RIVAL_POR_DEFECTO;
     // multi-setup-partida: sin `jugadores` (atajo ?mapa=, tests de bloques
     // anteriores) la partida es la de siempre: un humano contra la IA elegida.
@@ -728,9 +729,9 @@ export class Partida extends Phaser.Scene {
     // ?semilla= -- atajo determinista para los tests e2e, con la última
     // palabra sobre datosEscena.modo. ?saldo= fija el presupuesto de la ronda
     // para que un e2e pueda probar el saldo 0 sin gastarlo eligiendo armas.
-    const modoParam = reanudar ? null : parametrosUrl.get("modo");
+    const modoParam = reanudar || this.datosEscena.medicion ? null : parametrosUrl.get("modo");
     const modo: ModoJuego = modoParam === "presupuesto" ? "presupuesto" : modoParam === "barra-libre" ? "barra-libre" : (this.datosEscena.modo ?? "barra-libre");
-    const saldoParam = reanudar ? null : parametrosUrl.get("saldo");
+    const saldoParam = reanudar || this.datosEscena.medicion ? null : parametrosUrl.get("saldo");
     const saldoInicial = modo === "presupuesto" ? (saldoParam !== null ? Number(saldoParam) : PRESUPUESTO_BASE) : undefined;
     fijarModo(modo, saldoInicial ?? null);
     window.__debug.modo = modo;
@@ -1096,6 +1097,16 @@ export class Partida extends Phaser.Scene {
     const dejarDeObservarTareas = observarTareasLargas();
     const dejarDeMedirRespuesta = this.medidorRespuesta.observar();
     const quitarHud = new URLSearchParams(window.location.search).get("rendimiento") === "1" ? montarHudRendimiento(this.medidorFrames, this.medidorRespuesta, ultimasLatenciasApuntado) : null;
+    if (this.datosEscena.medicion) {
+      void import("@/juego/rendimiento/recorridoMedicion").then(({ ejecutarRecorrido }) =>
+        ejecutarRecorrido({
+          medidor: this.medidorFrames,
+          respuesta: this.medidorRespuesta,
+          solucionBalistica: () => this.calcularSolucionBalistica(this.estado),
+          impactoReal: () => window.__debug?.ultimoDisparo?.impactoReal ?? null,
+        }),
+      );
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       dejarDeObservar();
       dejarDeObservarTareas();
@@ -1289,7 +1300,9 @@ export class Partida extends Phaser.Scene {
     // Una partida nueva no guarda nada hasta cerrar su primer turno: así el
     // aviso de «sin guardado» (una vez por partida) sale cuando se juega, no
     // durante la carga.
-    if (!reanudar) this.guardador.borrar();
+    if (this.datosEscena.medicion) {
+      // Sin borrar ni escribir: la partida interrumpida sigue en su almacén.
+    } else if (!reanudar) this.guardador.borrar();
     else {
       this.guardarTurnoCerrado();
       this.reanudarTurnoGuardado();
@@ -2615,7 +2628,8 @@ export class Partida extends Phaser.Scene {
   // partida-guardada: una partida terminada no se puede continuar, así que su
   // instantánea se borra; el resto se reescribe en cada turno cerrado.
   private guardarTurnoCerrado(): void {
-    if (!guardadoActivado()) return;
+    // La partida de medición no toca nunca la partida guardada del jugador.
+    if (this.datosEscena.medicion || !guardadoActivado()) return;
     if (this.estado.resultado.tipo === "terminada") {
       this.guardador.borrar();
       return;
