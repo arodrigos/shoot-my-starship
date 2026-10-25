@@ -3,7 +3,7 @@ import { MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
 import { generarMascara } from "@/sim/terreno/generador";
 import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
 import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPhaser";
-import { crearFondoEspacial, crearFondoExterior, rehornearFondoEspacial } from "@/juego/fondo/FondoEspacial";
+import { crearFondoEspacial, crearFondoExterior, rehornearFondoEspacial, type FondoExterior } from "@/juego/fondo/FondoEspacial";
 import { firmaDeHalos } from "@/juego/fondo/PozosGravedad";
 import { aceleracionPozo } from "@/sim/gravedad/halos";
 import { masaPlaneta, type RegistroPlanetas } from "@/sim/gravedad/planetas";
@@ -346,7 +346,7 @@ function callarVoz(): void {
 export class Partida extends Phaser.Scene {
   private estado!: EstadoPartida;
   private semillaFondo: number | undefined;
-  private fondoExterior: Phaser.GameObjects.TileSprite | undefined;
+  private fondoExterior: FondoExterior | undefined;
   private firmaHalos = "";
   // Masa de nacimiento de cada pozo (multiplicador 1, planeta entero): ancla
   // de a_sup para que los halos crezcan con la gravedad y mengüen con los cráteres.
@@ -861,7 +861,7 @@ export class Partida extends Phaser.Scene {
       // la gravedad real, nunca una copia.
       sistema.planetas.forEach((planeta) => this.masasReferencia.set(planeta.id, masaPlaneta(planeta)));
       const fondo = crearFondoEspacial(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO, "fondo-espacial", sistema.planetas, this.masasReferencia);
-      this.fondoExterior?.destroy();
+      if (this.fondoExterior) Object.values(this.fondoExterior).forEach((f) => f.destroy());
       this.fondoExterior = crearFondoExterior(this, semillaSistema, MUNDO_ANCHO, MUNDO_ALTO);
       this.semillaFondo = semillaSistema;
       this.firmaHalos = firmaDeHalos(sistema.planetas);
@@ -1343,12 +1343,14 @@ export class Partida extends Phaser.Scene {
     this.camaraCtl.avanzar(delta);
     this.camaraCtl.seguir(this.animador.obtenerPosicion(), delta);
     const estadoCamara = this.camaraCtl.estado();
-    // El mosaico de estrellas solo se dibuja cuando la vista sale del mundo: a
-    // pantalla completa cuesta un relleno extra por frame que el render por
-    // software no aguanta.
+    // Cada franja de estrellas solo se dibuja si la vista asoma por su lado:
+    // dentro del mundo no cuesta nada.
     if (this.fondoExterior) {
       const { ancho: mundoAncho, alto: mundoAlto } = this.estado.mundo;
-      this.fondoExterior.setVisible(estadoCamara.x < 0 || estadoCamara.y < 0 || estadoCamara.x + estadoCamara.ancho > mundoAncho || estadoCamara.y + estadoCamara.alto > mundoAlto);
+      this.fondoExterior.arriba.setVisible(estadoCamara.y < 0);
+      this.fondoExterior.abajo.setVisible(estadoCamara.y + estadoCamara.alto > mundoAlto);
+      this.fondoExterior.izquierda.setVisible(estadoCamara.x < 0);
+      this.fondoExterior.derecha.setVisible(estadoCamara.x + estadoCamara.ancho > mundoAncho);
     }
     window.__debug!.camara = { x: estadoCamara.x, y: estadoCamara.y, ancho: estadoCamara.ancho, alto: estadoCamara.alto, zoom: estadoCamara.zoom, modo: estadoCamara.modo };
     publicarCamaraManual(this.camaraCtl.manual);
