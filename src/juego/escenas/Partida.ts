@@ -931,7 +931,7 @@ export class Partida extends Phaser.Scene {
         this.refrescarRobots();
       }
       seleccionarArma(escenario.arma);
-      fijarApuntadoDirecto(escenario.anguloGrados, escenario.potencia);
+      fijarApuntadoDirecto(escenario.anguloGrados, escenario.potencia, escenario.conservarAyuda === true);
       publicarTurno(turno);
       this.refrescarNaves();
       this.alCambiarTurnoCamara();
