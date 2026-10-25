@@ -135,7 +135,7 @@ import { ExplosionPorCapas, fasesActivasEn } from "@/juego/efectos/ExplosionPorC
 import { reproducirDetonaciones } from "@/juego/efectos/reproductorDetonaciones";
 import type { Detonacion } from "@/sim/partida/detonaciones";
 import { permiteMovimientoCamara } from "@/juego/efectos/movimientoCamara";
-import { ControladorRemate, decidirRemate, type FotogramaRemate, type ModoRemate } from "@/juego/efectos/remate";
+import { ControladorRemate, decidirRemate, ZOOM_REMATE, type FotogramaRemate, type ModoRemate } from "@/juego/efectos/remate";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoAbanico, type AbanicoPrevisualizacion, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
@@ -3412,7 +3412,11 @@ export class Partida extends Phaser.Scene {
       return;
     }
     if (remate.bloquea) {
-      this.camaraCtl.fijarExterno({ zoom: f.zoom, cx: f.centro.x, cy: f.centro.y });
+      // El remate reparte su avance entre el encuadre de antes y el del impacto:
+      // con k = 0 (destello, pausa previa, final de la vuelta) no mueve nada.
+      const antes = this.encuadreGuardadoRemate?.encuadre ?? this.camaraCtl.instantanea().encuadre;
+      const k = (f.zoom - 1) / (ZOOM_REMATE - 1);
+      this.camaraCtl.fijarExterno(antes, { zoom: ZOOM_REMATE, cx: remate.ctl.centroZoom.x, cy: remate.ctl.centroZoom.y }, k);
       // Durante la pausa se retiene en su primer fotograma lo que ya estalló.
       if (f.congelado !== remate.congelado) {
         remate.congelado = f.congelado;

@@ -170,10 +170,21 @@ test("el encuadre externo del remate no se limita ni lo pisa el seguimiento, y r
   const ctl = new ControladorCamara(DIM, camara, () => false);
   ctl.transformar({ fx: 0.5, fy: 0.5 }, { fx: 0.5, fy: 0.5 }, 2);
   const snap = ctl.instantanea();
-  ctl.fijarExterno({ zoom: 4, cx: 100, cy: 100 });
+  ctl.fijarExterno(snap.encuadre, { zoom: 4, cx: 100, cy: 100 }, 1);
   ctl.seguir({ x: 900, y: 500 }, 16);
   assert.equal(camara.zoom, 4);
   ctl.restaurar(snap);
   assert.equal(camara.zoom, 2);
   assert.equal(ctl.estado().modo, "manual");
+});
+
+test("fijarExterno con k=0 deja exactamente el encuadre de antes, aunque haya consola desplegada", () => {
+  const camara = camaraFalsa();
+  const ctl = new ControladorCamara(DIM, camara, () => false);
+  ctl.transformar({ fx: 0.5, fy: 0.5 }, { fx: 0.5, fy: 0.5 }, 1.3);
+  const antes = ctl.instantanea().encuadre;
+  ctl.fijarExterno(antes, { zoom: 1.5, cx: 200, cy: 150 }, 0);
+  assert.deepEqual(ctl.instantanea().encuadre, antes);
+  ctl.fijarExterno(antes, { zoom: 1.5, cx: 200, cy: 150 }, 1);
+  assert.equal(ctl.instantanea().encuadre.zoom, 1.5);
 });
