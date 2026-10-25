@@ -187,10 +187,13 @@ test("rem-3: con «Sacudida» apagada el remate es solo un destello", async ({ p
   const muestras = await dispararYMuestrear(page);
   const remate = await page.evaluate(() => window.__debug.remate!);
   expect(remate.ultimo!.modo).toBe("destello");
-  const desviadas = muestras
+  // Solo cuenta hasta el final del destello: después la cámara recalcula su
+  // encuadre para el turno siguiente, con transición, y eso no es del remate.
+  const hastaRemate = muestras.slice(0, muestras.map((m) => m.activo).lastIndexOf(true) + 1);
+  const desviadas = hastaRemate
     .map((m, i) => ({ i, a: Math.round(m.camara.ancho), r: m.activo ? 1 : 0, p: m.puedeDisparar ? 1 : 0, t: m.turno }))
     .filter((m) => m.t === turnoAntes && m.a !== Math.round(camaraAntes.ancho));
-  expect(desviadas.length, `n=${muestras.length} ${JSON.stringify(desviadas.slice(0, 2))}`).toBe(0);
+  expect(desviadas.length, `n=${hastaRemate.length} ${JSON.stringify(desviadas.slice(0, 2))}`).toBe(0);
   expect(await page.evaluate(() => window.__debug.sacudidasCamara ?? 0)).toBe(0);
 });
 
