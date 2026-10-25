@@ -106,7 +106,12 @@ body {
 }
 
 /* Los avisos pasan por encima de las naves sin recoger toques cuando ningún
-   anclaje de la capa las deja libres (incluido el cierre de la broma). */
-[data-testid="capa-avisos"][data-sin-toques] * {
+   anclaje de la capa las deja libres. El cierre de la broma (✕) se queda con
+   su toque: es el único modo de quitar un panel que tapa, y es un botón
+   pequeño en la esquina del aviso, no el centro de una nave. */
+[data-testid="capa-avisos"][data-sin-toques] *:not([data-testid="broma-descartar"]) {
   pointer-events: none !important;
+}
+[data-testid="capa-avisos"][data-sin-toques] [data-testid="broma-descartar"] {
+  pointer-events: auto !important;
 }
