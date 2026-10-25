@@ -141,7 +141,10 @@ test(`rem-1, rem-2, rem-4: remate completo con fases en orden, entradas bloquead
   }
   expect(activas.some((m) => m.camara.ancho < camaraAntes.ancho - 1), "la cámara se acerca").toBe(true);
   expect(remate.destellosCamara.length).toBe(1);
-  const camaraDespues = await page.evaluate(() => ({ ...window.__debug.camara! }));
+  // Se compara con la cámara al acabar el remate, dentro del turno del disparo: al
+  // cambiar de turno la consola se aparta y el encuadre preferido se recalcula.
+  const ultimaActiva = muestras.map((m) => m.activo).lastIndexOf(true);
+  const camaraDespues = (muestras.slice(ultimaActiva + 1).find((m) => m.turno === turno0) ?? muestras[ultimaActiva]).camara;
   for (const k of ["x", "y", "ancho", "alto"] as const) expect(Math.abs(camaraDespues[k] - camaraAntes[k])).toBeLessThanOrEqual(0.5);
   await capturar(page, `remate-impacto-rem-2-despues-${ancho}x${alto}`);
 });
@@ -163,10 +166,10 @@ test("rem-3: con movimiento reducido el remate es solo un destello", async ({ pa
   expect(remate.destellosCamara.length).toBe(1);
   // Al cambiar de turno la cámara recalcula su encuadre preferido (zonas del HUD),
   // así que solo cuentan las muestras del turno del disparo.
-  for (const m of muestras.filter((x) => x.turno === turnoAntes)) {
-    expect(m.camara.ancho).toBe(camaraAntes.ancho);
-    expect(m.sacudidas).toBe(sacudidasAntes);
-  }
+  const delTurno = muestras.filter((x) => x.turno === turnoAntes);
+  const desviadas = delTurno.map((m, i) => ({ i, a: Math.round(m.camara.ancho), r: m.activo ? 1 : 0, p: m.puedeDisparar ? 1 : 0 })).filter((m) => m.a !== Math.round(camaraAntes.ancho));
+  expect(desviadas.length, `n=${delTurno.length} antes=${Math.round(camaraAntes.ancho)} ${JSON.stringify(desviadas.slice(0, 3))}`).toBe(0);
+  for (const m of delTurno) expect(m.sacudidas).toBe(sacudidasAntes);
   await capturar(page, "remate-impacto-rem-3-reducido-360x640");
 });
 
