@@ -409,7 +409,7 @@ toque en «Rastro», la del reloj de turno (`reloj-turno`, del toque en
 «Soy ...» a la píldora pintada), la del último gesto de cámara
 (`gesto-camara`) y la de «Ver todo» (`ver-todo`), y un veredicto («Respuesta ≤ 200 ms» o «Supera 200 ms»).
 El botón «Medir» del recuadro juega una partida de medición sin intervención
-(cinco tramos, máximo 90 s) y copia al portapapeles un resumen listo para pegar
+(cinco tramos, máximo 150 s desde que pinta) y copia al portapapeles un resumen listo para pegar
 en un issue. Detalle en `docs/rendimiento.md`.
 
 La trayectoria de apuntado (la línea y su abanico)
