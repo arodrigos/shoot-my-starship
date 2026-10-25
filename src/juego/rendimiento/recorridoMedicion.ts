@@ -52,7 +52,11 @@ export interface ContextoRecorrido {
   readonly respuesta: MedidorRespuesta;
   readonly solucionBalistica: () => { anguloGrados: number; potencia: number } | null;
   readonly impactoReal: () => { x: number; y: number } | null;
+  // Se activa al apagarse la escena: un guion huérfano sale sin escribir nada.
+  readonly senal?: AbortSignal;
 }
+
+class Huerfano extends Error {}
 
 class Interrumpido extends Error {
   constructor(readonly motivo: "cancelada" | "tiempo-agotado" | "sin-frames") {
@@ -76,6 +80,7 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
 
   let arrancado = false;
   const comprobar = (): void => {
+    if (ctx.senal?.aborted) throw new Huerfano();
     if (medicionCancelada()) throw new Interrumpido("cancelada");
     if (!arrancado && performance.now() > limiteArranque) throw new Interrumpido("sin-frames");
     if (arrancado && performance.now() - inicio > tope) throw new Interrumpido("tiempo-agotado");
@@ -90,11 +95,18 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
     }
     return true;
   };
+  // Esperar al turno del humano sin cortar en silencio: si el rival tarda más
+  // de lo previsto (render por software), seguir con el tramo siguiente sin su
+  // turno lo dejaba sin frames y la causa real quedaba escondida.
+  const esperarTurnoHumano = async (): Promise<void> => {
+    if (!(await esperar(turnoHumano, 120_000))) throw new Interrumpido("tiempo-agotado");
+  };
   const pausa = async (ms: number): Promise<void> => {
     const fin = performance.now() + ms;
     await esperar(() => performance.now() >= fin, ms + 1000);
   };
 
+  const turnoHumano = (): boolean => obtenerEstadoControl().puedeDisparar;
   const tramos: TramoMedido[] = [];
   let medianaReposo: number | null = null;
   let huecoMax = 0;
@@ -108,8 +120,11 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
     await esperar(() => ctx.medidor.instantanea().frames - frames0 >= FRAMES_ENTRE_TRAMOS);
   };
 
-  const medir = async (nombre: NombreTramoStore, cuerpo: (t0: number) => Promise<void>, conArma = false): Promise<void> => {
-    await preparar(nombre);
+  const medir = async (nombre: NombreTramoStore, cuerpo: (t0: number) => Promise<void>, conArma = false, calentar = true): Promise<void> => {
+    // El turno de la IA arranca en cuanto acaba el tramo anterior: calentar antes
+    // dejaba pasar ese turno entero y el tramo salía sin frames.
+    if (calentar) await preparar(nombre);
+    else fijarTramoMedicion(TRAMOS.indexOf(nombre) + 1, nombre);
     const deltas: { t: number; d: number }[] = [];
     const baja = ctx.medidor.suscribirFrames((d, t) => deltas.push({ t, d }));
     const t0 = performance.now();
@@ -153,7 +168,6 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
     });
   };
 
-  const turnoHumano = (): boolean => obtenerEstadoControl().puedeDisparar;
   const disparoDeArma = (armaId: string, nombre: "pepinazo" | "racimo") => async (t0: number): Promise<void> => {
     seleccionarArma(armaId);
     // Potencia al 60 % de la que daría al rival: cae corto, sobre el terreno o
@@ -179,10 +193,10 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
     await medir("reposo", () => pausa(DURACION_REPOSO_MS));
 
     await medir("pepinazo", disparoDeArma("pepinazo-cortesia", "pepinazo"), true);
-    await esperar(turnoHumano, 40_000);
+    await esperarTurnoHumano();
 
     await medir("racimo", disparoDeArma("racimo-de-tuppers", "racimo"), true);
-    await esperar(turnoHumano, 40_000);
+    await esperarTurnoHumano();
 
     await medir("propulsores", async () => {
       seleccionarEquipo("propulsores");
@@ -193,20 +207,33 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
         if (!obtenerEstadoControl().propulsoresBloqueados) break;
       }
       solicitarDisparo();
-      // El vuelo acaba cuando el turno pasa al rival.
-      await esperar(() => (window.__debug?.turno ?? 0) === 1, 15_000);
+      // Primero a que el vuelo arranque (el turno sigue siendo del humano justo
+      // al pedir el disparo) y solo entonces a que el turno pase al rival: si no,
+      // el tramo acababa en el mismo instante y quedaba sin frames.
+      await esperar(() => !turnoHumano(), 5000);
+      await esperar(() => (window.__debug?.turno ?? 0) === 1, 30_000);
     });
 
-    await medir("turno-ia", async () => {
-      await esperar(() => (window.__debug?.turno ?? 1) === 1 || turnoHumano(), 5000);
-      await esperar(turnoHumano, 40_000);
-    });
+    await medir(
+      "turno-ia",
+      async () => {
+        await esperar(() => (window.__debug?.turno ?? 1) === 1 || turnoHumano(), 5000);
+        await esperarTurnoHumano();
+        // Si el turno de la IA se resuelve en pocos frames, se sigue midiendo la
+        // vuelta al humano hasta tener una muestra con la que calcular algo.
+        await pausa(VENTANA_TRAS_EXPLOSION_MS * 2);
+      },
+      false,
+      false,
+    );
   } catch (e) {
+    if (e instanceof Huerfano) return;
     if (e instanceof Interrumpido) interrupcion = e.motivo;
     else throw e;
   } finally {
     document.removeEventListener("visibilitychange", alCambiarVisibilidad);
   }
+  if (ctx.senal?.aborted) return;
 
   const resumen = construirResumen({
     tramos,

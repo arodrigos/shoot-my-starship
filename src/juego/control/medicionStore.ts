@@ -48,6 +48,18 @@ export function iniciarPartidaMedicion(inpToques: number | null = null, copia: E
   for (const escucha of escuchas) escucha();
 }
 
+// Solo avisa al arrancar una medición, no en cada cambio del store: quien remonta
+// el lienzo con esto se destruiría a sí mismo cuando el guion fija un tramo.
+export function suscribirInicioMedicion(fn: () => void): () => void {
+  let antes = actual.estado;
+  return suscribirMedicion(() => {
+    const ahora = actual.estado;
+    const arranca = ahora === "en-curso" && antes !== "en-curso";
+    antes = ahora;
+    if (arranca) fn();
+  });
+}
+
 export function inpAlIniciarMedicion(): number | null {
   return inpAlIniciar;
 }
