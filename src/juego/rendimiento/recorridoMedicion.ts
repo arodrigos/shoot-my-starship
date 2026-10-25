@@ -113,8 +113,11 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
     await esperar(() => ctx.medidor.instantanea().frames - frames0 >= FRAMES_ENTRE_TRAMOS);
   };
 
-  const medir = async (nombre: NombreTramoStore, cuerpo: (t0: number) => Promise<void>, conArma = false): Promise<void> => {
-    await preparar(nombre);
+  const medir = async (nombre: NombreTramoStore, cuerpo: (t0: number) => Promise<void>, conArma = false, calentar = true): Promise<void> => {
+    // El turno de la IA arranca en cuanto acaba el tramo anterior: calentar antes
+    // dejaba pasar ese turno entero y el tramo salía sin frames.
+    if (calentar) await preparar(nombre);
+    else fijarTramoMedicion(TRAMOS.indexOf(nombre) + 1, nombre);
     const deltas: { t: number; d: number }[] = [];
     const baja = ctx.medidor.suscribirFrames((d, t) => deltas.push({ t, d }));
     const t0 = performance.now();
@@ -205,10 +208,18 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
       await esperar(() => (window.__debug?.turno ?? 0) === 1, 30_000);
     });
 
-    await medir("turno-ia", async () => {
-      await esperar(() => (window.__debug?.turno ?? 1) === 1 || turnoHumano(), 5000);
-      await esperar(turnoHumano, 40_000);
-    });
+    await medir(
+      "turno-ia",
+      async () => {
+        await esperar(() => (window.__debug?.turno ?? 1) === 1 || turnoHumano(), 5000);
+        await esperar(turnoHumano, 40_000);
+        // Si el turno de la IA se resuelve en pocos frames, se sigue midiendo la
+        // vuelta al humano hasta tener una muestra con la que calcular algo.
+        await pausa(VENTANA_TRAS_EXPLOSION_MS * 2);
+      },
+      false,
+      false,
+    );
   } catch (e) {
     if (e instanceof Huerfano) return;
     if (e instanceof Interrumpido) interrupcion = e.motivo;
