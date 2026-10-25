@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { cancelarMedicion, fijarCopiaMedicion, obtenerMedicion, reiniciarMedicion, suscribirMedicion } from "@/juego/control/medicionStore";
+import { tamTexto } from "@/juego/hud/legibilidad";
 import { NOMBRES_TRAMO } from "@/juego/rendimiento/resumenMedicion";
 
 const Z = 2147483100;
@@ -18,7 +19,7 @@ export function PanelMedicionHUD() {
     return (
       <div
         data-testid="franja-medicion"
-        style={{ position: "fixed", top: 290, left: 4, zIndex: Z, display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderRadius: 6, background: "rgba(0,0,0,.8)", color: "#9f9", font: "13px/1.3 monospace" }}
+        style={{ position: "fixed", top: 290, left: 4, zIndex: Z, display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderRadius: 6, background: "rgba(0,0,0,.8)", color: "#9f9", font: `${tamTexto(13)}/1.3 monospace` }}
       >
         <span>{tramo ? `Midiendo · tramo ${tramo.indice} de ${tramo.total} (${NOMBRES_TRAMO[tramo.nombre]})` : "Midiendo…"}</span>
         <button type="button" data-testid="cancelar-medicion" onClick={cancelarMedicion} style={{ minWidth: 44, minHeight: 44, padding: "0 10px", font: "inherit", color: "#fff", background: "#512", border: "1px solid #f88", borderRadius: 6 }}>
@@ -58,23 +59,23 @@ export function PanelMedicionHUD() {
       style={{ position: "fixed", inset: 0, zIndex: Z, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.6)", padding: 8 }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "min(100%, 560px)", maxHeight: "100%", padding: 12, borderRadius: 8, background: "#0b1224", color: "#e8eefc", border: "1px solid #3a4a7a" }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{titulo}</h2>
+        <h2 style={{ margin: 0, fontSize: tamTexto(16) }}>{titulo}</h2>
         <textarea
           readOnly
           data-testid="texto-medicion"
           aria-label="Texto de la medición"
           value={texto}
           onFocus={(e) => e.currentTarget.select()}
-          style={{ flex: "1 1 auto", minHeight: 160, height: "min(46vh, 340px)", width: "100%", boxSizing: "border-box", font: "11px/1.35 monospace", background: "#050912", color: "#cfe", border: "1px solid #3a4a7a", borderRadius: 4, resize: "none" }}
+          style={{ flex: "1 1 auto", minHeight: 160, height: "min(46vh, 340px)", width: "100%", boxSizing: "border-box", font: `${tamTexto(11)}/1.35 monospace`, background: "#050912", color: "#cfe", border: "1px solid #3a4a7a", borderRadius: 4, resize: "none" }}
         />
-        <div data-testid="estado-copia" role="status" style={{ fontSize: 13 }}>
+        <div data-testid="estado-copia" role="status" style={{ fontSize: tamTexto(13) }}>
           {estadoCopia}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" data-testid="copiar-medicion" onClick={copiar} style={{ minWidth: 44, minHeight: 44, padding: "0 14px", font: "600 14px sans-serif" }}>
+          <button type="button" data-testid="copiar-medicion" onClick={copiar} style={{ minWidth: 44, minHeight: 44, padding: "0 14px", font: `600 ${tamTexto(14)} sans-serif` }}>
             Copiar
           </button>
-          <button type="button" data-testid="cerrar-medicion" onClick={cerrar} style={{ minWidth: 44, minHeight: 44, padding: "0 14px", font: "600 14px sans-serif" }}>
+          <button type="button" data-testid="cerrar-medicion" onClick={cerrar} style={{ minWidth: 44, minHeight: 44, padding: "0 14px", font: `600 ${tamTexto(14)} sans-serif` }}>
             Cerrar
           </button>
         </div>

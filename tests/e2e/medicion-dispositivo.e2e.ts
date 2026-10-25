@@ -51,7 +51,13 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   // La partida guardada se compara byte a byte antes y después (md-6).
   const guardadoAntes = await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()));
   page.on("request", (r) => {
-    if (!r.url().startsWith("data:") && !r.url().startsWith("blob:")) peticiones.push(r.url());
+    const url = r.url();
+    if (url.startsWith("data:") || url.startsWith("blob:")) return;
+    // El remonte del lienzo vuelve a pedir al propio servidor sus chunks y workers
+    // (en el dispositivo salen de caché); lo que md-7 prohíbe es que algo salga
+    // hacia otro origen o que se envíe nada (POST, etc.).
+    const propio = new URL(url).origin === new URL(page.url()).origin;
+    if (!propio || r.method() !== "GET") peticiones.push(`${r.method()} ${url}`);
   });
   await page.getByTestId("medir-rendimiento").click();
   await expect(page.getByTestId("franja-medicion")).toContainText(/Midiendo · tramo \d de 5/, { timeout: 60000 });
