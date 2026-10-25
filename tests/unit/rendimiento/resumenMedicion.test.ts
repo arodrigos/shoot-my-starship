@@ -47,7 +47,7 @@ const entradaArb: fc.Arbitrary<EntradaResumen> = fc.record({
   paginaOculta: fc.boolean(),
   huecoMaxRafMs: cifraRara,
   medianaReposoMs: fc.option(cifraRara, { nil: null }),
-  interrupcion: fc.constantFrom(null, "cancelada" as const, "tiempo-agotado" as const),
+  interrupcion: fc.constantFrom(null, "cancelada" as const, "tiempo-agotado" as const, "sin-frames" as const),
 });
 
 const base: EntradaResumen = {
@@ -164,4 +164,11 @@ test("md-3: un resumen válido trae una línea por tramo y las filas para docs/r
   assert.ok(texto.includes("LoAF: sí") && texto.includes("Event Timing: sí"));
   assert.ok(texto.split("\n").some((l) => l.startsWith("| Pepinazo ")));
   assert.ok(texto.split("\n").some((l) => l.startsWith("| Propulsores ")));
+});
+
+test("md-3: un INP de 0 no se enseña como cifra y 'sin frames' invalida la medición", () => {
+  assert.ok(formatearResumen(construirResumen({ ...base, inpToques: 0 })).includes("INP de tus toques (no del recorrido): no disponible"));
+  const r = construirResumen({ ...base, interrupcion: "sin-frames" });
+  assert.equal(r.validez.valida, false);
+  assert.ok(formatearResumen(r).includes("sin frames"));
 });

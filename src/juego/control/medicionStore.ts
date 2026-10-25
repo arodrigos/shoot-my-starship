@@ -79,9 +79,26 @@ export function guardarResolutorCopia(resolver: (texto: string) => void, rechaza
 }
 let resolutorCopia: { resolver: (texto: string) => void; rechazar: (e: unknown) => void } | null = null;
 
+// Si el navegador no resuelve ni rechaza la escritura del portapapeles (sin
+// foco, o un gesto ya caducado), la copia se quedaba en «pendiente» para
+// siempre aunque el texto ya estuviera copiado. Pasado este plazo se reintenta
+// con writeText y el estado refleja el resultado de verdad.
+const PLAZO_COPIA_MS = 2000;
+
 export function resolverCopia(texto: string): void {
   resolutorCopia?.resolver(texto);
   resolutorCopia = null;
+  setTimeout(() => {
+    if (actual.copia !== "pendiente") return;
+    if (typeof navigator === "undefined" || typeof navigator.clipboard?.writeText !== "function") {
+      fijar({ copia: "no-soportada" });
+      return;
+    }
+    navigator.clipboard.writeText(texto).then(
+      () => fijar({ copia: "copiada" }),
+      () => fijar({ copia: "fallida" }),
+    );
+  }, PLAZO_COPIA_MS);
 }
 
 export function rechazarCopia(e: unknown): void {
