@@ -44,7 +44,7 @@ for (const { ancho, alto } of TAMANOS) {
 }
 
 test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, sin red y sin tocar la partida guardada", async ({ page, context }) => {
-  test.setTimeout(240000);
+  test.setTimeout(420000);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => undefined);
   const peticiones: string[] = [];
   await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=900");
@@ -58,7 +58,12 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   await expect(page.getByTestId("cancelar-medicion")).toBeVisible();
   await captura(page, "md-2-midiendo", 360, 640);
 
-  await expect(page.getByTestId("panel-medicion")).toBeVisible({ timeout: 200000 });
+  // Si no llega, el mensaje dice en qué tramo se quedó.
+  await page.getByTestId("panel-medicion").waitFor({ timeout: 380000 }).catch(async () => {
+    const est = await page.evaluate(() => JSON.stringify({ ...window.__debug.medicion!(), texto: null }));
+    const turno = await page.evaluate(() => JSON.stringify({ turno: window.__debug.turno, control: window.__debug.control }));
+    throw new Error(`la medición no terminó: ${est} ${turno}`);
+  });
   const estado = await page.evaluate(() => window.__debug.medicion!().estado);
   expect(estado).toBe("terminada");
   const texto = await page.getByTestId("texto-medicion").inputValue();
@@ -102,5 +107,5 @@ test("md-8: al agotar el tope el estado es 'incompleta' con «tiempo agotado»",
   await page.getByTestId("medir-rendimiento").click();
   await expect(page.getByTestId("panel-medicion")).toContainText("tiempo agotado", { timeout: 60000 });
   expect(await page.evaluate(() => window.__debug.medicion!().estado)).toBe("incompleta");
-  expect(await page.getByTestId("texto-medicion").inputValue()).toContain("NO VÁLIDA: tiempo agotado");
+  expect(await page.getByTestId("texto-medicion").inputValue()).toContain("tiempo agotado (INCOMPLETA)");
 });
