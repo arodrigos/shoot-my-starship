@@ -52,7 +52,11 @@ export interface ContextoRecorrido {
   readonly respuesta: MedidorRespuesta;
   readonly solucionBalistica: () => { anguloGrados: number; potencia: number } | null;
   readonly impactoReal: () => { x: number; y: number } | null;
+  // Se activa al apagarse la escena: un guion huérfano sale sin escribir nada.
+  readonly senal?: AbortSignal;
 }
+
+class Huerfano extends Error {}
 
 class Interrumpido extends Error {
   constructor(readonly motivo: "cancelada" | "tiempo-agotado" | "sin-frames") {
@@ -76,6 +80,7 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
 
   let arrancado = false;
   const comprobar = (): void => {
+    if (ctx.senal?.aborted) throw new Huerfano();
     if (medicionCancelada()) throw new Interrumpido("cancelada");
     if (!arrancado && performance.now() > limiteArranque) throw new Interrumpido("sin-frames");
     if (arrancado && performance.now() - inicio > tope) throw new Interrumpido("tiempo-agotado");
@@ -202,11 +207,13 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
       await esperar(turnoHumano, 40_000);
     });
   } catch (e) {
+    if (e instanceof Huerfano) return;
     if (e instanceof Interrumpido) interrupcion = e.motivo;
     else throw e;
   } finally {
     document.removeEventListener("visibilitychange", alCambiarVisibilidad);
   }
+  if (ctx.senal?.aborted) return;
 
   const resumen = construirResumen({
     tramos,

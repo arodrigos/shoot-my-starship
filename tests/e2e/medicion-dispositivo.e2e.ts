@@ -44,9 +44,17 @@ for (const { ancho, alto } of TAMANOS) {
 }
 
 test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, sin red y sin tocar la partida guardada", async ({ page, context }) => {
-  test.setTimeout(340000);
+  test.setTimeout(400000);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => undefined);
   const peticiones: string[] = [];
+  // Cada lienzo nuevo es un remonte de la partida: el guion corre dentro de ella.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __lienzosNuevos: number };
+    w.__lienzosNuevos = 0;
+    new MutationObserver((muts) => {
+      for (const m of muts) for (const n of m.addedNodes) if (n instanceof HTMLElement && (n.tagName === "CANVAS" || n.querySelector?.("canvas"))) w.__lienzosNuevos++;
+    }).observe(document, { childList: true, subtree: true });
+  });
   await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=150");
   // La partida guardada se compara byte a byte antes y después (md-6).
   // Solo las claves de la partida guardada: otras (la ayuda vista) se escriben
@@ -63,27 +71,33 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
     const propio = new URL(url).origin === new URL(page.url()).origin;
     if (!propio || r.method() !== "GET") peticiones.push(`${r.method()} ${url}`);
   });
+  await page.evaluate(() => { (window as unknown as { __lienzosNuevos: number }).__lienzosNuevos = 0; });
   await page.getByTestId("medir-rendimiento").click();
   await expect(page.getByTestId("franja-medicion")).toContainText(/Midiendo · tramo \d de 5/, { timeout: 60000 });
   await expect(page.getByTestId("cancelar-medicion")).toBeVisible();
   await captura(page, "md-2-midiendo", 360, 640);
 
   // Si no llega, el mensaje dice en qué tramo se quedó.
-  await page.getByTestId("panel-medicion").waitFor({ timeout: 250000 }).catch(async () => {
+  await page.getByTestId("panel-medicion").waitFor({ timeout: 300000 }).catch(async () => {
     const est = await page.evaluate(() => JSON.stringify({ ...window.__debug.medicion!(), texto: null }));
     const turno = await page.evaluate(() => JSON.stringify({ turno: window.__debug.turno, control: window.__debug.control }));
     throw new Error(`la medición no terminó: ${est} ${turno}`);
   });
-  const estado = await page.evaluate(() => window.__debug.medicion!().estado);
-  // El WebGL por software de CI puede no llegar al final; el texto va en el mensaje.
-  expect(["terminada", "incompleta"], await page.getByTestId("texto-medicion").inputValue()).toContain(estado);
+  const medicion = await page.evaluate(() => window.__debug.medicion!());
   const texto = await page.getByTestId("texto-medicion").inputValue();
+  // «incompleta» ya no vale como pase: era justo el fallo que escondía el remonte en bucle.
+  expect(medicion.estado, texto).toBe("terminada");
+  expect(await page.evaluate(() => (window as unknown as { __lienzosNuevos: number }).__lienzosNuevos)).toBe(1);
+  expect(texto).toMatch(/Reposo:/);
+  expect(texto).toMatch(/\| Pepinazo /);
+  expect(texto).toMatch(/\| Propulsores /);
+  const registro = await page.evaluate(() => window.__debug.registroDetonaciones ?? []);
+  expect(registro.some((r) => r.tirador === 0 && /pepinazo/.test(r.armaId))).toBe(true);
+  expect(registro.some((r) => r.tirador === 0 && /racimo/.test(r.armaId))).toBe(true);
+  expect(registro.some((r) => r.tirador === 1)).toBe(true);
+  expect((await page.evaluate(() => window.__debug.recorridoEmpuje ?? [])).length).toBeGreaterThan(0);
   expect(texto).toContain("Medición de rendimiento");
   expect(texto).toContain("INP de tus toques (no del recorrido)");
-  // Con el shard cargado el tope puede cortar antes del primer tramo; entonces el
-  // resumen lo dice y es el único caso en que no hay línea de reposo.
-  if (estado === "terminada") expect(texto).toMatch(/Reposo:/);
-  else expect(texto).toMatch(/tiempo agotado|sin frames/);
   expect(texto).not.toMatch(/NaN|undefined|Infinity|http|\/home/);
   await expect(page.getByTestId("texto-medicion")).toHaveAttribute("readonly", "");
   // md-3: cabe en 360x640

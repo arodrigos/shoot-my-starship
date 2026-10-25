@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { JuegoLienzo } from "@/juego/JuegoLienzo";
 import { PantallaInicio } from "@/juego/PantallaInicio";
 import { PanelMedicionHUD } from "@/juego/hud/PanelMedicionHUD";
-import { obtenerMedicion, SEMILLA_MEDICION, suscribirMedicion } from "@/juego/control/medicionStore";
+import { SEMILLA_MEDICION, suscribirInicioMedicion } from "@/juego/control/medicionStore";
 import { elegirMapaDistinto, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
 import { instalarPantallaEncendida, marcarPartidaEnCurso } from "@/juego/control/pantallaEncendidaStore";
@@ -134,8 +134,7 @@ export function Aplicacion() {
   // «Medir» (en el recuadro de rendimiento) remonta el lienzo con la partida de
   // medición: semilla fija, 1 humano contra 1 IA normal, barra libre, sin reloj.
   useEffect(() => {
-    return suscribirMedicion(() => {
-      if (obtenerMedicion().estado !== "en-curso") return;
+    return suscribirInicioMedicion(() => {
       setFase("jugando");
       marcarPartidaEnCurso(true);
       setPartida((actual) => ({

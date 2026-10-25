@@ -1110,6 +1110,7 @@ export class Partida extends Phaser.Scene {
     const dejarDeObservarTareas = observarTareasLargas();
     const dejarDeMedirRespuesta = this.medidorRespuesta.observar();
     const quitarHud = new URLSearchParams(window.location.search).get("rendimiento") === "1" ? montarHudRendimiento(this.medidorFrames, this.medidorRespuesta, ultimasLatenciasApuntado) : null;
+    const guion = new AbortController();
     if (this.datosEscena.medicion) {
       void import("@/juego/rendimiento/recorridoMedicion").then(({ ejecutarRecorrido }) =>
         ejecutarRecorrido({
@@ -1117,10 +1118,12 @@ export class Partida extends Phaser.Scene {
           respuesta: this.medidorRespuesta,
           solucionBalistica: () => this.calcularSolucionBalistica(this.estado),
           impactoReal: () => window.__debug?.ultimoDisparo?.impactoReal ?? null,
+          senal: guion.signal,
         }),
       );
     }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      guion.abort();
       dejarDeObservar();
       dejarDeObservarTareas();
       if (this.temporizadorCalculando !== null) clearTimeout(this.temporizadorCalculando);
