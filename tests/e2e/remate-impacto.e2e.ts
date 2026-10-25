@@ -167,9 +167,9 @@ test("rem-3: con movimiento reducido el remate es solo un destello", async ({ pa
   expect(remate.ultimo!.modo).toBe("destello");
   expect(remate.ultimo!.duracionMs).toBeLessThanOrEqual(150);
   expect(remate.destellosCamara.length).toBe(1);
-  // Al cambiar de turno la cámara recalcula su encuadre preferido (zonas del HUD),
-  // así que solo cuentan las muestras del turno del disparo.
-  const delTurno = muestras.filter((x) => x.turno === turnoAntes);
+  // Solo cuenta hasta el final del destello: después la cámara recalcula su
+  // encuadre preferido para el turno siguiente (zonas del HUD) y eso no es del remate.
+  const delTurno = muestras.slice(0, muestras.map((m) => m.activo).lastIndexOf(true) + 1).filter((x) => x.turno === turnoAntes);
   const desviadas = delTurno.map((m, i) => ({ i, a: Math.round(m.camara.ancho), r: m.activo ? 1 : 0, p: m.puedeDisparar ? 1 : 0 })).filter((m) => m.a !== Math.round(camaraAntes.ancho));
   expect(desviadas.length, `n=${delTurno.length} antes=${Math.round(camaraAntes.ancho)} ${JSON.stringify(desviadas.slice(0, 3))}`).toBe(0);
   for (const m of delTurno) expect(m.sacudidas).toBe(sacudidasAntes);
