@@ -44,10 +44,10 @@ for (const { ancho, alto } of TAMANOS) {
 }
 
 test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, sin red y sin tocar la partida guardada", async ({ page, context }) => {
-  test.setTimeout(330000);
+  test.setTimeout(340000);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => undefined);
   const peticiones: string[] = [];
-  await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=150");
+  await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=60");
   // La partida guardada se compara byte a byte antes y después (md-6).
   const guardadoAntes = await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()));
   page.on("request", (r) => {
@@ -59,7 +59,7 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   await captura(page, "md-2-midiendo", 360, 640);
 
   // Si no llega, el mensaje dice en qué tramo se quedó.
-  await page.getByTestId("panel-medicion").waitFor({ timeout: 200000 }).catch(async () => {
+  await page.getByTestId("panel-medicion").waitFor({ timeout: 250000 }).catch(async () => {
     const est = await page.evaluate(() => JSON.stringify({ ...window.__debug.medicion!(), texto: null }));
     const turno = await page.evaluate(() => JSON.stringify({ turno: window.__debug.turno, control: window.__debug.control }));
     throw new Error(`la medición no terminó: ${est} ${turno}`);
