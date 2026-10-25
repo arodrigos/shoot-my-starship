@@ -456,6 +456,7 @@ export class Partida extends Phaser.Scene {
   // zonas-hud-camara: firma de las zonas nominales para distinguir un cambio de
   // HUD (reencuadra) de la consola que solo se aparta (no mueve nada).
   private firmaZonas = "";
+  private readonly ultimaZonaVisible = new Map<ZonaOcupada["id"], ZonaOcupada>();
   private marcaReencuadre: string | null = null;
   private impactoCamara: { x: number; y: number } | null = null;
   // arma-mina-adherente (min-2): cuenta atrás anclada al mundo del vuelo
@@ -2078,7 +2079,15 @@ export class Partida extends Phaser.Scene {
 
   private readonly sincronizarZonas = (): void => {
     if (!this.camaraCtl) return;
-    const todas = obtenerZonas();
+    // Al apartarse, la consola se desliza unos px: su sitio nominal es el último
+    // que tuvo visible, para que apartarse no cuente como un cambio del HUD.
+    const todas = obtenerZonas().map((z) => {
+      if (z.visible) {
+        this.ultimaZonaVisible.set(z.id, z);
+        return z;
+      }
+      return { ...(this.ultimaZonaVisible.get(z.id) ?? z), visible: false };
+    });
     const nominales = todas.map((z) => this.zonaALienzo(z));
     const visibles = todas.filter((z) => z.visible).map((z) => this.zonaALienzo(z));
     const { r: lienzo } = this.factorLienzo();

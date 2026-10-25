@@ -364,9 +364,15 @@ export class ControladorCamara {
   }
 
   // Cambio de turno o relevo: sin animación, el encuadre preferido ya.
+  // El estado del turno siguiente llega antes de que se vea el tiro: si la
+  // vista de ahora sigue siendo válida y no hay vista completa que recuperar,
+  // se queda donde está, para que las naves no se muevan al disparar.
   alCambiarTurno(): void {
     if (this.externo) return;
-    this.irA(this.preferido(), "turno", false);
+    const meta = this.preferido();
+    const completa = encuadreCompleto(this.dim);
+    if (this.modo === "auto" && this.vuelta === null && !cercanos(meta, completa) && encuadreValido(this.encuadre, this.dim, this.visibles, this.objetivos)) return;
+    this.irA(meta, "turno", false);
   }
 
   seguir(proyectil: SeguimientoProyectil | null, deltaMs: number): void {

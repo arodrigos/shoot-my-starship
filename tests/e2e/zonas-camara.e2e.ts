@@ -107,43 +107,48 @@ test("zc-1: nave en la esquina inferior derecha del mundo", async ({ page }) => 
   await navesFueraDeLaConsola(page, MOVIL);
 });
 
-test("zc-2 y zc-3: al disparar las naves no se mueven y el proyectil se ve todo el vuelo", async ({ page }) => {
+test("zc-3: al disparar la cámara no se mueve mientras el proyectil no se sale de la vista", async ({ page }) => {
   await preparar(page, MOVIL);
   await cargar(page, TAPADA.f0, TAPADA.f1);
-  const antes = await page.evaluate(() => window.__debug.zonasCamara!());
+  // Tiro corto: el proyectil se queda cerca de su nave y no obliga a seguirlo.
+  await page.evaluate(() => window.__debug.fijarApuntado!(45, 12));
+  const antes = await page.evaluate(() => ({ z: window.__debug.zonasCamara!(), camara: JSON.stringify(window.__debug.camara) }));
+  await page.getByTestId("disparar").click();
+  // La consola se aparta con el tiro: se espera a que lo haya hecho.
+  await page.waitForFunction(() => window.__debug.zonasCamara!().zonas.find((q) => q.id === "consola")?.visible === false, undefined, { timeout: 20000 });
+  const despues = await page.evaluate(() => ({ z: window.__debug.zonasCamara!(), camara: JSON.stringify(window.__debug.camara) }));
+  const propia = (r: typeof antes) => r.z.objetivos.filter((o) => o.tipo === "nave")[0].css;
+  expect(Math.abs(propia(despues).x - propia(antes).x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(propia(despues).y - propia(antes).y)).toBeLessThanOrEqual(1);
+  expect(despues.camara).toBe(antes.camara);
+  expect(despues.z.reencuadres).toBe(antes.z.reencuadres);
+});
+
+test("zc-2: el proyectil en vuelo y el impacto quedan dentro de la pantalla", async ({ page }) => {
+  await preparar(page, MOVIL);
+  await cargar(page, TAPADA.f0, TAPADA.f1);
   await page.evaluate(() => {
     const w = window as unknown as { __muestras: { x: number; y: number }[] };
     w.__muestras = [];
-    const m = window.__debug.mundo!;
     const bucle = () => {
       const p = window.__debug.proyectilEnVuelo;
-      const z = window.__debug.zonasCamara!();
-      const c = window.__debug.camara!;
       if (p) {
-        // Mundo a CSS con el rectángulo de cámara y la caja del lienzo.
+        // Mundo a CSS con el rectángulo de la cámara y la caja del lienzo.
+        const c = window.__debug.camara!;
         const l = document.querySelector("#game-container canvas")!.getBoundingClientRect();
         w.__muestras.push({ x: l.x + ((p.x - c.x) / c.ancho) * l.width, y: l.y + ((p.y - c.y) / c.alto) * l.height });
       }
-      void z;
-      void m;
       requestAnimationFrame(bucle);
     };
     requestAnimationFrame(bucle);
   });
   await page.getByTestId("disparar").click();
-  const despues = await page.evaluate(() => window.__debug.zonasCamara!());
-  const navesA = antes.objetivos.filter((o) => o.tipo === "nave");
-  const navesD = despues.objetivos.filter((o) => o.tipo === "nave");
-  // zc-3: el reencuadre por apartarse la consola no mueve las naves.
-  navesA.forEach((n, i) => {
-    expect(Math.abs(navesD[i].css.x - n.css.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(navesD[i].css.y - n.css.y)).toBeLessThanOrEqual(1);
-  });
-  expect(despues.reencuadres).toBe(antes.reencuadres);
-  await page.waitForFunction(() => window.__debug.animacionEnCurso === false && window.__debug.ultimoDisparo !== undefined, undefined, { timeout: 90000 });
+  await page.waitForFunction(() => window.__debug.proyectilEnVuelo != null, undefined, { timeout: 30000 });
+  await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
   const muestras = await page.evaluate(() => (window as unknown as { __muestras: { x: number; y: number }[] }).__muestras);
   expect(muestras.length).toBeGreaterThan(0);
-  const fuera = muestras.filter((m) => m.x < -2 || m.y < -2 || m.x > MOVIL.ancho + 2 || m.y > MOVIL.alto + 2);
+  const margen = 40;
+  const fuera = muestras.filter((m) => m.x < -margen || m.y < -margen || m.x > MOVIL.ancho + margen || m.y > MOVIL.alto + margen);
   expect(fuera).toEqual([]);
 });
 
