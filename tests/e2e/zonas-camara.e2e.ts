@@ -113,6 +113,7 @@ test("zc-3: al disparar la cámara no se mueve mientras el proyectil no se sale 
   // Tiro corto: el proyectil se queda cerca de su nave y no obliga a seguirlo.
   await page.evaluate(() => window.__debug.fijarApuntado!(45, 12));
   const antes = await page.evaluate(() => ({ z: window.__debug.zonasCamara!(), camara: JSON.stringify(window.__debug.camara) }));
+  await page.screenshot({ path: "test-results/zonas-camara/zc-3-antes.png" });
   await page.getByTestId("disparar").click();
   // La consola se aparta con el tiro: se espera a que lo haya hecho.
   await page.waitForFunction(() => window.__debug.zonasCamara!().zonas.find((q) => q.id === "consola")?.visible === false, undefined, { timeout: 20000 });
@@ -120,6 +121,7 @@ test("zc-3: al disparar la cámara no se mueve mientras el proyectil no se sale 
   const propia = (r: typeof antes) => r.z.objetivos.filter((o) => o.tipo === "nave")[0].css;
   expect(Math.abs(propia(despues).x - propia(antes).x)).toBeLessThanOrEqual(1);
   expect(Math.abs(propia(despues).y - propia(antes).y)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: "test-results/zonas-camara/zc-3-despues.png" });
   expect(despues.camara).toBe(antes.camara);
   expect(despues.z.reencuadres).toBe(antes.z.reencuadres);
 });
@@ -145,6 +147,7 @@ test("zc-2: el proyectil en vuelo y el impacto quedan dentro de la pantalla", as
   await page.getByTestId("disparar").click();
   await page.waitForFunction(() => window.__debug.proyectilEnVuelo != null, undefined, { timeout: 30000 });
   await page.waitForFunction(() => window.__debug.animacionEnCurso === false, undefined, { timeout: 120000 });
+  await page.screenshot({ path: "test-results/zonas-camara/zc-2-impacto.png" });
   const muestras = await page.evaluate(() => (window as unknown as { __muestras: { x: number; y: number }[] }).__muestras);
   expect(muestras.length).toBeGreaterThan(0);
   const margen = 40;
@@ -205,6 +208,7 @@ test("zc-6: en manual plegar no mueve la cámara y «Ver todo» vuelve a auto", 
   expect(await page.evaluate(() => JSON.stringify(window.__debug.camara))).toBe(antes);
   await page.getByTestId("ver-todo").click();
   await esperarValido(page);
+  await page.screenshot({ path: "test-results/zonas-camara/zc-6-ver-todo.png" });
   expect((await page.evaluate(() => window.__debug.camara!)).modo).toBe("auto");
   const lat = await page.evaluate(() => window.__debug.latencias!().filter((l) => l.nombre === "ver-todo").map((l) => l.ms));
   expect(lat[lat.length - 1]).toBeLessThanOrEqual(200);
@@ -216,6 +220,7 @@ test("zc-7: girar el dispositivo y «Texto grande» mantienen las naves fuera de
   await page.setViewportSize({ width: HORIZONTAL.ancho, height: HORIZONTAL.alto });
   await esperarValido(page);
   await navesFueraDeLaConsola(page, HORIZONTAL);
+  await page.screenshot({ path: "test-results/zonas-camara/zc-7-horizontal.png" });
   await page.setViewportSize({ width: MOVIL.ancho, height: MOVIL.alto });
   await esperarValido(page);
   await page.getByTestId("boton-ajustes").click();
@@ -223,6 +228,7 @@ test("zc-7: girar el dispositivo y «Texto grande» mantienen las naves fuera de
   await page.getByTestId("cerrar-ajustes").click();
   await esperarValido(page);
   await navesFueraDeLaConsola(page, MOVIL);
+  await page.screenshot({ path: "test-results/zonas-camara/zc-7-texto-grande.png" });
 });
 
 test("zc-7: el recuadro de ?rendimiento=1 es una zona más", async ({ page }) => {
