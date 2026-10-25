@@ -2115,7 +2115,6 @@ export class Partida extends Phaser.Scene {
     this.camaraCtl.recogerMovimientoPorUsuario();
     this.camaraCtl.fijarZonas(visibles, motivo, nominales);
     if (this.camaraCtl.recogerMovimientoPorUsuario()) this.marcaReencuadre = tomarMarcaToque();
-    this.publicarNavesParaAvisos();
   };
 
   // Lo que tiene que verse, en coordenadas de mundo: las naves vivas con su
@@ -2136,19 +2135,19 @@ export class Partida extends Phaser.Scene {
       objetivos.push({ tipo: "impacto", x: this.impactoCamara.x - m, y: this.impactoCamara.y - m, ancho: m * 2, alto: m * 2 });
     }
     this.camaraCtl.fijarObjetivos(objetivos);
-    this.publicarNavesParaAvisos();
+    this.publicarNavesParaAvisos(objetivos);
   }
 
-  // La capa de avisos elige su anclaje según dónde se ven las naves. La vista
-  // tarda 300 ms en asentarse, así que se vuelve a publicar justo después.
-  private publicarNavesParaAvisos(): void {
-    const poner = (): void => {
-      if (!this.camaraCtl) return;
-      const d = this.depuracionZonas();
-      publicarNavesCss(d.objetivos.filter((o) => o.tipo === "nave").map((o) => o.css));
-    };
-    poner();
-    this.time.delayedCall(350, poner);
+  // La capa de avisos elige su anclaje según dónde se ven las naves ahora. El
+  // almacén ignora las repeticiones, así que hacerlo por frame no repinta React.
+  private publicarNavesParaAvisos(objetivos: readonly ObjetivoEncuadre[]): void {
+    const { f, r } = this.factorLienzo();
+    const v = this.camaraCtl.estado();
+    publicarNavesCss(
+      objetivos
+        .filter((o) => o.tipo === "nave")
+        .map((o) => ({ x: r.left + ((o.x - v.x) * v.zoom) / f, y: r.top + ((o.y - v.y) * v.zoom) / f, ancho: (o.ancho * v.zoom) / f, alto: (o.alto * v.zoom) / f })),
+    );
   }
 
   private alCambiarTurnoCamara(): void {

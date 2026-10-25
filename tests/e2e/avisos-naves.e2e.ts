@@ -56,6 +56,20 @@ async function cargar(page: Page, f0: { fx: number; fy: number }, f1: { fx: numb
   await esperarQuieta(page);
 }
 
+// Coloca las naves sin tocar el apuntado: cargarEscenario fija ángulo y
+// potencia, y eso retira la ayuda que estos casos necesitan ver.
+async function colocar(page: Page, f0: { fx: number; fy: number }, f1: { fx: number; fy: number }): Promise<void> {
+  await page.evaluate(
+    ({ a, b }) => {
+      const m = window.__debug.mundo!;
+      window.__debug.forzarPosicionNave!(0, m.ancho * a.fx, m.alto * a.fy);
+      window.__debug.forzarPosicionNave!(1, m.ancho * b.fx, m.alto * b.fy);
+    },
+    { a: f0, b: f1 },
+  );
+  await esperarQuieta(page);
+}
+
 async function esperarQuieta(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 40000 });
   let previa = "";
@@ -93,7 +107,7 @@ for (const t of TAMANOS) {
   test(`av-1: la ayuda y su ✕ no tocan ninguna nave a ${t.nombre}`, async ({ page }) => {
     await preparar(page, t);
     // Nave propia donde el refutador encontró el ✕ (306,160 a 360x640), escalado.
-    await cargar(page, { fx: 306 / 360, fy: 160 / 640 }, { fx: 0.3, fy: 0.3 });
+    await colocar(page, { fx: 306 / 360, fy: 160 / 640 }, { fx: 0.3, fy: 0.3 });
     const c = await cajas(page);
     expect(c.ayuda, "la ayuda sigue visible").toBeDefined();
     expect(c.cerrar!.width).toBeGreaterThanOrEqual(44);
@@ -110,7 +124,7 @@ test("av-1: con la consola oculta la ayuda sale sobre la pestaña y tampoco toca
   await preparar(page, TAMANOS[0]);
   await page.getByTestId("boton-ocultar-consola").click();
   await expect(page.getByTestId("pestana-consola")).toBeVisible();
-  await cargar(page, { fx: 306 / 360, fy: 160 / 640 }, { fx: 0.3, fy: 0.9 });
+  await colocar(page, { fx: 306 / 360, fy: 160 / 640 }, { fx: 0.3, fy: 0.9 });
   await expect(page.getByTestId("ayuda-apuntado")).toHaveCount(1);
   const c = await cajas(page);
   for (const nave of c.naves) expect(cruza(c.ayuda!, nave)).toBe(false);
@@ -119,7 +133,7 @@ test("av-1: con la consola oculta la ayuda sale sobre la pestaña y tampoco toca
 
 test("av-2: con la ayuda visible, el toque sobre la nave llega al lienzo y cambia el apuntado", async ({ page }) => {
   await preparar(page, TAMANOS[0]);
-  await cargar(page, { fx: 306 / 360, fy: 160 / 640 }, { fx: 0.3, fy: 0.3 });
+  await colocar(page, { fx: 306 / 360, fy: 160 / 640 }, { fx: 0.3, fy: 0.3 });
   const c = await cajas(page);
   for (const nave of c.naves) {
     const tag = await page.evaluate((n) => document.elementFromPoint(n.x + n.ancho / 2, n.y + n.alto / 2)?.tagName, nave);
@@ -141,7 +155,7 @@ test("av-2: con la ayuda visible, el toque sobre la nave llega al lienzo y cambi
 
 test("av-3: ✕ cierra la ayuda, la consola encoge y la cámara reevalúa en 200 ms o menos", async ({ page }) => {
   await preparar(page, TAMANOS[0]);
-  await cargar(page, { fx: 0.3, fy: 0.2 }, { fx: 0.7, fy: 0.9 });
+  await colocar(page, { fx: 0.3, fy: 0.2 }, { fx: 0.7, fy: 0.9 });
   const antes = await cajas(page);
   await capturar(page, "avisos-fuera-de-naves-av-3-antes-360x640");
   await page.getByTestId("ayuda-apuntado-cerrar").click();
