@@ -92,9 +92,9 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   expect(texto).toMatch(/\| Pepinazo /);
   expect(texto).toMatch(/\| Propulsores /);
   const registro = await page.evaluate(() => window.__debug.registroDetonaciones ?? []);
-  expect(registro.some((r) => r.tirador === 0 && /pepinazo/.test(r.armaId))).toBe(true);
-  expect(registro.some((r) => r.tirador === 0 && /racimo/.test(r.armaId))).toBe(true);
-  expect(registro.some((r) => r.tirador === 1)).toBe(true);
+  expect(registro.some((r) => r.tirador === 0 && /pepinazo/.test(r.armaId)), JSON.stringify(registro)).toBe(true);
+  expect(registro.some((r) => r.tirador === 0 && /racimo/.test(r.armaId)), JSON.stringify(registro)).toBe(true);
+  expect(registro.some((r) => r.tirador === 1), JSON.stringify(registro)).toBe(true);
   expect((await page.evaluate(() => window.__debug.recorridoEmpuje ?? [])).length).toBeGreaterThan(0);
   expect(texto).toContain("Medición de rendimiento");
   expect(texto).toContain("INP de tus toques (no del recorrido)");
