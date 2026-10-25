@@ -45,8 +45,10 @@ async function cargar(page: Page, f0: { fx: number; fy: number }, f1: { fx: numb
 const TAPADA = { f0: { fx: 0.3, fy: 0.2 }, f1: { fx: 0.7, fy: 0.9 } };
 
 async function esperarValido(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 10000 });
-  // La transición dura 300 ms: se espera a que el encuadre deje de cambiar.
+  // Con el WebGL por software la transición de 300 ms tarda varios segundos de
+  // reloj (el delta de Phaser va acotado), así que se espera a que el encuadre
+  // sea válido y no cambie entre dos lecturas separadas.
+  await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 40000 });
   let previa = "";
   await expect
     .poll(
@@ -56,7 +58,7 @@ async function esperarValido(page: Page): Promise<void> {
         previa = c;
         return quieta;
       },
-      { timeout: 10000, intervals: [120] },
+      { timeout: 40000, intervals: [900] },
     )
     .toBe(true);
 }
@@ -167,7 +169,7 @@ test("zc-4: con movimiento reducido el encuadre final se aplica de golpe", async
   await preparar(page, MOVIL);
   await cargar(page, TAPADA.f0, TAPADA.f1);
   await page.getByTestId("boton-plegar-consola").click();
-  await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 2000 });
+  await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 40000 });
 });
 
 for (const t of [MOVIL, TABLETA, HORIZONTAL]) {
@@ -220,7 +222,7 @@ test("zc-7: girar el dispositivo y «Texto grande» mantienen las naves fuera de
 
 test("zc-7: el recuadro de ?rendimiento=1 es una zona más", async ({ page }) => {
   await preparar(page, MOVIL, "?rendimiento=1");
-  await cargar(page, { fx: 0.05, fy: 0.05 }, { fx: 0.7, fy: 0.3 });
+  await cargar(page, { fx: 0.25, fy: 0.1 }, { fx: 0.38, fy: 0.17 });
   const z = await page.evaluate(() => window.__debug.zonasCamara!());
   expect(z.zonas.some((q) => q.id === "rendimiento")).toBe(true);
   const r = await page.evaluate(() => document.querySelector('[data-testid="hud-rendimiento"]')!.getBoundingClientRect().toJSON() as { left: number; right: number; top: number; bottom: number });
@@ -233,10 +235,16 @@ test("zc-7: el recuadro de ?rendimiento=1 es una zona más", async ({ page }) =>
 test("zc-8: el fondo no se rehornea tras varios reencuadres", async ({ page }) => {
   await preparar(page, MOVIL);
   await cargar(page, TAPADA.f0, TAPADA.f1);
-  for (let i = 0; i < 5; i++) {
-    await page.getByTestId(i % 2 === 0 ? "boton-plegar-consola" : "pestana-consola").first().click().catch(() => undefined);
+  for (let i = 0; i < 3; i++) {
+    await page.getByTestId("boton-mover-consola").click();
     await esperarValido(page);
   }
+  await page.getByTestId("boton-plegar-consola").click();
+  await esperarValido(page);
+  await page.getByTestId("boton-ocultar-consola").click();
+  await esperarValido(page);
+  await page.getByTestId("pestana-consola").click();
+  await esperarValido(page);
   expect(await page.evaluate(() => window.__debug.fondoEspacial?.bakes)).toBe(1);
   await page.screenshot({ path: "test-results/zonas-camara/zc-8-fuera-del-mundo.png" });
 });

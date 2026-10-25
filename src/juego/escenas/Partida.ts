@@ -2047,6 +2047,11 @@ export class Partida extends Phaser.Scene {
     // El lienzo FIT cambia de rectángulo al girar o redimensionar sin que cambien
     // las zonas, y las zonas se pasan a px de lienzo con ese rectángulo.
     this.scale.on("resize", this.sincronizarZonas);
+    // Phaser recoloca el lienzo (FIT) después del evento de la ventana y sin
+    // emitir «resize» si el mundo no cambia de tamaño: el rectángulo del lienzo
+    // se observa aparte para que las zonas se conviertan con el factor nuevo.
+    const observadorLienzo = new ResizeObserver(() => this.sincronizarZonas());
+    observadorLienzo.observe(canvas);
     this.actualizarObjetivos();
     this.sincronizarZonas();
     this.cancelarCamara = () => {
@@ -2055,6 +2060,7 @@ export class Partida extends Phaser.Scene {
       quitarZonas();
       quitarDepuracion();
       this.scale.off("resize", this.sincronizarZonas);
+      observadorLienzo.disconnect();
     };
   }
 
@@ -2075,7 +2081,8 @@ export class Partida extends Phaser.Scene {
     const todas = obtenerZonas();
     const nominales = todas.map((z) => this.zonaALienzo(z));
     const visibles = todas.filter((z) => z.visible).map((z) => this.zonaALienzo(z));
-    const firma = nominales.map((r) => `${r.x.toFixed(1)},${r.y.toFixed(1)},${r.ancho.toFixed(1)},${r.alto.toFixed(1)}`).join("|");
+    const { r: lienzo } = this.factorLienzo();
+    const firma = `${lienzo.left.toFixed(1)},${lienzo.top.toFixed(1)},${lienzo.width.toFixed(1)}#` + nominales.map((r) => `${r.x.toFixed(1)},${r.y.toFixed(1)},${r.ancho.toFixed(1)},${r.alto.toFixed(1)}`).join("|");
     const motivo = firma === this.firmaZonas ? "apartado" : "usuario";
     this.firmaZonas = firma;
     this.camaraCtl.recogerMovimientoPorUsuario();
