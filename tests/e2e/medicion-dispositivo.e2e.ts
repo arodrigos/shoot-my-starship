@@ -55,7 +55,7 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
       for (const m of muts) for (const n of m.addedNodes) if (n instanceof HTMLElement && (n.tagName === "CANVAS" || n.querySelector?.("canvas"))) w.__lienzosNuevos++;
     }).observe(document, { childList: true, subtree: true });
   });
-  await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=150");
+  await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=300");
   // La partida guardada se compara byte a byte antes y después (md-6).
   // Solo las claves de la partida guardada: otras (la ayuda vista) se escriben
   // cuando la ayuda aparece, y con el shard cargado eso puede ser después.
