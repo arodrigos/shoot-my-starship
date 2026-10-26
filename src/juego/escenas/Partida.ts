@@ -1096,7 +1096,7 @@ export class Partida extends Phaser.Scene {
       const publicacion = guionResumenPrueba(id);
       const numeroTurno = (window.__debug!.historialBromas?.length ?? 0) + 1;
       publicarFantasmas([{ nave: 0, texto: publicacion.rotulo }]);
-      publicarResumen(numeroTurno, publicacion.resumen, 1);
+      publicarResumen(numeroTurno, publicacion.resumen, 1, true);
       window.__debug!.historialBromas = [
         ...(window.__debug!.historialBromas ?? []),
         { numeroTurno, tirador: 1, voz: vozDeNave(1, publicacion.personalidadId), categoria: undefined, resumen: publicacion.resumen, eventos: [] },

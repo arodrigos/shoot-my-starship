@@ -23,9 +23,10 @@ export function BromaHUD() {
   const [claveOculta, setClaveOculta] = useState<number | null>(null);
 
   useEffect(() => {
+    if (estado.persistente) return;
     const temporizador = setTimeout(() => setClaveOculta(estado.clave), duracionResumenMs(estado.impacto ?? ""));
     return () => clearTimeout(temporizador);
-  }, [estado.clave, estado.impacto]);
+  }, [estado.clave, estado.impacto, estado.persistente]);
 
   if (!estado.impacto) return null;
   if (claveOculta === estado.clave) return null;

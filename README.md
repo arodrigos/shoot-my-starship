@@ -77,7 +77,7 @@ borde. La primera vez de cada partida sale la ayuda «Pellizca con dos dedos
 para acercar; «Ver todo» para volver», que se va al primer toque. Un único
 controlador mueve la cámara (`src/juego/camara/controladorCamara.ts`).
 
-La consola ocupa como mucho el 40 % del alto, anclada abajo (centro,
+La consola ocupa como mucho el 40 % del alto (con «Texto grande», todo el alto menos 64 px, para que Disparar, Repetir y el selector de arma sigan dentro de la pantalla), anclada abajo (centro,
 izquierda o derecha) y respetando la zona segura de la pantalla. Tiene tres
 estados: desplegada, mínima y oculta; oculta solo deja una pestaña de 48 × 48
 «Mostrar controles». El estado y el anclaje se recuerdan (`consola:estado` y
