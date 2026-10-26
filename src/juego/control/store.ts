@@ -332,7 +332,10 @@ function fijarAjuste(cambios: Partial<EstadoAjuste>): void {
     ayudaDispersionYaMostrada = true;
   }
   apuntadoPorAsiento.set(estado.turno, { anguloGrados: ajuste.anguloGrados, potencia: ajuste.potencia });
-  fijar({ ajuste, ...(cruzaUmbralDispersion ? { ayudaDispersionVisible: true } : {}) });
+  // El aviso habla de «tanta potencia»: al bajar del umbral ya no aplica y se
+  // retira solo, sin esperar a que el jugador lo toque o dispare.
+  const sigueSiendoPotenciaAlta = ajuste.potencia >= UMBRAL_POTENCIA_DISPERSION_VISIBLE;
+  fijar({ ajuste, ...(cruzaUmbralDispersion ? { ayudaDispersionVisible: true } : !sigueSiendoPotenciaAlta && estado.ayudaDispersionVisible ? { ayudaDispersionVisible: false } : {}) });
   guardarAjuste(ajuste);
 }
 
