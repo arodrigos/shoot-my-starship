@@ -1,5 +1,5 @@
 import { test } from "@playwright/test";
-for (const [w, h] of [[820, 1180], [1180, 820]]) {
+for (const [w, h] of [[1180, 820]]) {
 test(`sonda ${w}`, async ({ page }) => {
   test.setTimeout(200000);
   await page.setViewportSize({ width: w, height: h });
@@ -15,7 +15,6 @@ test(`sonda ${w}`, async ({ page }) => {
     window.__debug.cargarEscenario!({ naves: [{ x: m.ancho * 0.3, y: m.alto * 0.1, integridad: 150 }, { x: m.ancho * 0.7, y: m.alto * 0.1, integridad: 150 }], arma: "pepinazo-cortesia", anguloGrados: 45, potencia: 50, conservarAyuda: true });
   });
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
-  await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 60000 });
   await page.waitForTimeout(3000);
   await page.evaluate(() => window.__debug.publicarResumenPrueba!("desplazado-por-bisagra"));
   const medir = () => page.evaluate(() => {
@@ -24,9 +23,9 @@ test(`sonda ${w}`, async ({ page }) => {
     const capa = q("capa-avisos")!;
     return { capa: f(capa), anclaje: capa.getAttribute("data-anclaje"), sin: capa.hasAttribute("data-sin-toques"), hijos: Array.from(capa.children).map((c) => [c.getAttribute("data-testid"), f(c)]), consola: f(q("consola")), est: q("consola")?.getAttribute("data-estado"), oc: q("consola")?.getAttribute("data-oculta"), naves: window.__debug.zonasCamara!().objetivos.map((o) => [Math.round(o.css.x), Math.round(o.css.y), Math.round(o.css.x + o.css.ancho), Math.round(o.css.y + o.css.alto)]) };
   });
-  const a = await medir();
+  const a = await medir(); const zc = JSON.stringify(await page.evaluate(() => window.__debug.zonasCamara!()));
   await page.waitForTimeout(1500);
   const b = await medir();
-  throw new Error("SONDA " + w + " " + JSON.stringify([a, b]));
+  throw new Error("SONDA " + w + " " + JSON.stringify([a, b]) + " ZC " + zc.slice(0, 1500));
 });
 }
