@@ -231,7 +231,7 @@ for (const t of TAMANOS) {
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
     await expect(page.getByTestId("ayuda-camara")).toBeVisible();
     await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 30000 }).catch(async () => {
-      throw new Error("SONDA " + JSON.stringify(await page.evaluate(() => ({ z: window.__debug.zonasCamara!(), fila: document.querySelector('[data-testid="fila-avisos"]')?.getBoundingClientRect(), cam: document.querySelector('[data-testid="ayuda-camara"]')?.getBoundingClientRect() }))));
+      throw new Error("SONDA " + JSON.stringify(await page.evaluate(() => ({ v: window.__debug.zonasCamara!().valido, l: window.__debug.zonasCamara!().libre, o: window.__debug.zonasCamara!().objetivos.map((o) => [o.tipo, Math.round(o.css.x), Math.round(o.css.y), Math.round(o.css.ancho), Math.round(o.css.alto)]), fila: document.querySelector('[data-testid="fila-avisos"]')?.getBoundingClientRect(), cam: document.querySelector('[data-testid="ayuda-camara"]')?.getBoundingClientRect() }))));
     });
     const m = await page.evaluate(() => {
       const caja = (e: Element) => e.getBoundingClientRect().toJSON() as { x: number; y: number; width: number; height: number };
