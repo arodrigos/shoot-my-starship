@@ -183,3 +183,29 @@ test("av-4/av-5: el aviso de paso se coloca donde no pisa naves y no recoge toqu
   }
   await capturar(page, "avisos-fuera-de-naves-av-4-naves-arriba-360x640");
 });
+
+// av-broma: el bocadillo del resumen se ve a los tres tamaños y sigue ahí pasado
+// el plazo de los resúmenes normales (el gancho lo publica persistente), sin pisar
+// ninguna nave.
+for (const t of TAMANOS) {
+  test(`av-broma: el bocadillo del resumen sigue a la vista y no pisa naves a ${t.nombre}`, async ({ page }) => {
+    await preparar(page, t);
+    await page.getByTestId("ayuda-apuntado-cerrar").click();
+    await cargar(page, { fx: 0.3, fy: 0.3 }, { fx: 0.7, fy: 0.3 });
+    await page.evaluate(() => window.__debug.publicarResumenPrueba!("desplazado-por-bisagra"));
+    await expect(page.getByTestId("resumen-texto")).toBeVisible();
+    // Más que MS_MINIMOS_RESUMEN: un resumen normal ya habría caducado.
+    await page.waitForTimeout(7000);
+    await expect(page.getByTestId("resumen-texto")).toBeVisible();
+    const c = await page.evaluate(() => {
+      const r = document.querySelector('[data-testid="panel-bromas"]')!.getBoundingClientRect().toJSON() as { x: number; y: number; width: number; height: number };
+      return { r, naves: window.__debug.zonasCamara!().objetivos.filter((o) => o.tipo === "nave").map((o) => o.css), ancho: innerWidth, alto: innerHeight };
+    });
+    expect(c.r.x).toBeGreaterThanOrEqual(0);
+    expect(c.r.y).toBeGreaterThanOrEqual(0);
+    expect(c.r.x + c.r.width).toBeLessThanOrEqual(c.ancho);
+    expect(c.r.y + c.r.height).toBeLessThanOrEqual(c.alto);
+    for (const nave of c.naves) expect(cruza(c.r, nave), "el bocadillo pisa una nave").toBe(false);
+    await capturar(page, `avisos-fuera-de-naves-av-broma-${t.nombre}`);
+  });
+}

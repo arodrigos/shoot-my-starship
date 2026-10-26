@@ -8,6 +8,9 @@ export interface EstadoBromas {
   readonly impacto: string | null;
   readonly categoriaImpacto: "resumen" | null;
   readonly clave: number;
+  // El resumen publicado por el gancho de pruebas no se desvanece solo: el
+  // UAT lo captura segundos después y en una máquina lenta ya habría caducado.
+  readonly persistente: boolean;
   // hud-canales-3: histórico consultable, una entrada por resumen.
   readonly historico: readonly EntradaHistoricoBroma[];
 }
@@ -21,7 +24,7 @@ export interface EntradaHistoricoBroma {
   readonly categoriaImpacto: "resumen" | "evento";
 }
 
-let estado: EstadoBromas = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0, historico: [] };
+let estado: EstadoBromas = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0, persistente: false, historico: [] };
 const escuchas = new Set<() => void>();
 
 function fijar(parcial: Partial<EstadoBromas>): void {
@@ -40,9 +43,9 @@ export function suscribirBromas(escucha: () => void): () => void {
 
 // voz-resumenes: sustituye a las bromas por disparo. El texto va en `impacto`
 // (el bocadillo y el histórico ya lo pintan) con categoría "resumen".
-export function publicarResumen(numeroTurno: number, texto: string, emisor: number): void {
+export function publicarResumen(numeroTurno: number, texto: string, emisor: number, persistente = false): void {
   const entrada: EntradaHistoricoBroma = { numeroTurno, emisor, disparo: null, impacto: texto, categoriaImpacto: "resumen" };
-  fijar({ disparo: null, impacto: texto, categoriaImpacto: "resumen", historico: [...estado.historico, entrada] });
+  fijar({ disparo: null, impacto: texto, categoriaImpacto: "resumen", persistente, historico: [...estado.historico, entrada] });
 }
 
 // anu-1: el anuncio de un evento queda en el histórico sin tocar el bocadillo
@@ -53,7 +56,7 @@ export function publicarAnuncioHistorico(numeroTurno: number, texto: string, emi
 }
 
 export function reiniciarBromas(): void {
-  estado = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0, historico: [] };
+  estado = { disparo: null, impacto: null, categoriaImpacto: null, clave: 0, persistente: false, historico: [] };
   for (const escucha of escuchas) escucha();
 }
 
