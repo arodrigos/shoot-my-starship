@@ -86,7 +86,8 @@ pastilla con fondo opaco, para que se lean con cualquier planeta detrás.
 
 Las ayudas del apuntado y de la cámara viven dentro de la zona de la consola
 (encima de sus controles, o de la pestaña si está oculta), así que la cámara las aparta de las
-naves y el ✕ de la del apuntado nunca cae sobre una. El resto de avisos (cartel de evento, broma,
+naves y el ✕ de la del apuntado nunca cae sobre una. Con «Texto grande» la de
+la cámara espera a que se cierre la del apuntado: juntas no dejan franja para encuadrar las naves. El resto de avisos (cartel de evento, broma,
 reacción) van en una capa propia, aparte de la consola, y se ven aunque esté
 oculta. Esa capa elige entre empezar a 130 px del borde superior, por debajo
 del rótulo de la deriva, o ir justo encima de la consola: el sitio que no

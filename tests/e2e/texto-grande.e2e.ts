@@ -172,24 +172,28 @@ test("tg-3: dos avisos a la vez no se pisan entre sí ni con el botón ⚙ a 360
   await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined);
   if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
   await expect(page.getByTestId("ayuda-apuntado")).toBeVisible();
+  // Con texto grande las dos juntas no dejan franja para encuadrar las naves:
+  // la de la cámara sale al cerrar la del apuntado (av-camara, avisos-naves).
+  await expect(page.getByTestId("ayuda-camara")).toHaveCount(0);
+  const medirAyuda = (id: string) =>
+    page.evaluate((testid) => {
+      const caja = (t: string) => document.querySelector(`[data-testid="${t}"]`)!.getBoundingClientRect();
+      const cruza = (a: DOMRect, c: DOMRect) => a.left < c.right && c.left < a.right && a.top < c.bottom && c.top < a.bottom;
+      const ayuda = caja(testid);
+      const textos = Array.from(document.querySelectorAll(`[data-testid="${testid}"], [data-testid="${testid}"] *`)).filter((e) => e.scrollWidth > e.clientWidth + 1).length;
+      return {
+        conAjustes: cruza(ayuda, caja("boton-ajustes")),
+        textosCortados: textos,
+        dentro: ayuda.left >= 0 && ayuda.right <= innerWidth,
+        fontSize: parseFloat(getComputedStyle(document.querySelector(`[data-testid="${testid}"]`)!).fontSize),
+      };
+    }, id);
+  expect(await medirAyuda("ayuda-apuntado")).toMatchObject({ conAjustes: false, textosCortados: 0, dentro: true });
+  await page.screenshot({ path: "capturas/texto-grande-3-dos-avisos-apuntado-360x640.png" });
+  await page.getByTestId("ayuda-apuntado-cerrar").click();
   await expect(page.getByTestId("ayuda-camara")).toBeVisible();
-  const m = await page.evaluate(() => {
-    const caja = (id: string) => document.querySelector(`[data-testid="${id}"]`)!.getBoundingClientRect();
-    const cruza = (a: DOMRect, c: DOMRect) => a.left < c.right && c.left < a.right && a.top < c.bottom && c.top < a.bottom;
-    const ayuda = caja("ayuda-apuntado");
-    const tiempo = caja("ayuda-camara");
-    const ajustes = caja("boton-ajustes");
-    const textos = Array.from(document.querySelectorAll('[data-testid="capa-avisos"] *, [data-testid="ayuda-camara"], [data-testid="ayuda-camara"] *')).filter((e) => e.scrollWidth > e.clientWidth + 1).length;
-    return {
-      entreSi: cruza(ayuda, tiempo),
-      ayudaConAjustes: cruza(ayuda, ajustes),
-      tiempoConAjustes: cruza(tiempo, ajustes),
-      textosCortados: textos,
-      dentro: ayuda.left >= 0 && tiempo.right <= innerWidth,
-      fontSize: parseFloat(getComputedStyle(document.querySelector('[data-testid="ayuda-camara"]')!).fontSize),
-    };
-  });
-  expect(m).toMatchObject({ entreSi: false, ayudaConAjustes: false, tiempoConAjustes: false, textosCortados: 0, dentro: true });
+  const m = await medirAyuda("ayuda-camara");
+  expect(m).toMatchObject({ conAjustes: false, textosCortados: 0, dentro: true });
   expect(m.fontSize).toBeGreaterThanOrEqual(18);
   expect(await palabrasPartidas(page, '[data-testid="capa-avisos"]'), "palabras partidas a mitad").toEqual([]);
   // La ayuda de la cámara vive ahora en la fila de avisos de la consola.

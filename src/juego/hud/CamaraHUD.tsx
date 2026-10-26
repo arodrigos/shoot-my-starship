@@ -51,7 +51,14 @@ function suscribirAyudaCamara(escucha: () => void): () => void {
 export function AyudaCamaraHUD() {
   const visible = useSyncExternalStore(
     suscribirAyudaCamara,
-    () => obtenerCamaraHud().ayudaVisible && obtenerEstadoControl().puedeDisparar && !obtenerEstadoControl().ayudaVisible,
+    () => {
+      const control = obtenerEstadoControl();
+      // Con «Texto grande» las dos ayudas juntas ocupan tanto que la franja que
+      // queda sobre la consola no cabe dos naves (la cámara no encuadra): sale
+      // cuando se cierra la del apuntado.
+      const esperaApuntado = control.textoGrande && control.ayudaApuntadoVisible;
+      return obtenerCamaraHud().ayudaVisible && control.puedeDisparar && !control.ayudaVisible && !esperaApuntado;
+    },
     () => false,
   );
   useEffect(() => {

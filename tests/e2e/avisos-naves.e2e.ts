@@ -229,10 +229,11 @@ for (const t of TAMANOS) {
     );
     if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
+    // Con «Texto grande» la ayuda de la cámara espera a que se cierre la del apuntado.
+    await expect(page.getByTestId("ayuda-camara")).toHaveCount(0);
+    await page.getByTestId("ayuda-apuntado-cerrar").click();
     await expect(page.getByTestId("ayuda-camara")).toBeVisible();
-    await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 30000 }).catch(async () => {
-      throw new Error("SONDA " + JSON.stringify(await page.evaluate(() => ({ v: window.__debug.zonasCamara!().valido, l: window.__debug.zonasCamara!().libre, o: window.__debug.zonasCamara!().objetivos.map((o) => [o.tipo, Math.round(o.css.x), Math.round(o.css.y), Math.round(o.css.ancho), Math.round(o.css.alto)]), fila: document.querySelector('[data-testid="fila-avisos"]')?.getBoundingClientRect(), cam: document.querySelector('[data-testid="ayuda-camara"]')?.getBoundingClientRect() }))));
-    });
+    await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 30000 });
     const m = await page.evaluate(() => {
       const caja = (e: Element) => e.getBoundingClientRect().toJSON() as { x: number; y: number; width: number; height: number };
       const sel = '[data-testid="ayuda-camara"], [data-testid="capa-avisos"] > *, [data-testid="fila-avisos"] > *';
