@@ -596,34 +596,6 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
         </button>
       </div>
 
-      {/* potencia-dispersion (pot-6): aparece UNA vez por partida, la
-          primera vez que la potencia cruza el umbral donde la dispersión
-          empieza a notarse (ver store.ts) -- nunca más en los turnos
-          siguientes de esta misma partida. */}
-      {estado.ayudaDispersionVisible && (
-        <div
-          role="status"
-          data-testid="ayuda-dispersion"
-          onClick={cerrarAyudaDispersion}
-          style={{
-            width: "100%",
-            flexShrink: 0,
-            background: "var(--color-aviso-fondo)",
-            border: "1px solid var(--color-aviso-borde)",
-            borderRadius: 8,
-            padding: "4px 8px",
-            color: "var(--color-aviso-texto)",
-            font: `${tamTexto(14)} system-ui, sans-serif`,
-            textAlign: "center",
-            wordBreak: "break-word",
-            overflowWrap: "anywhere",
-            boxSizing: "border-box",
-          }}
-        >
-          A tanta potencia el disparo pierde precisión: más alcance y menos curva, pero menos puntería.
-        </div>
-      )}
-
       {/* Los interruptores (Histórico, Sacudida, Sonido, Música, Voz) viven en
           MenuAjustesHUD, fuera de esta consola: aquí desaparecían con la
           consola mínima u oculta y durante el vuelo. */}
@@ -690,6 +662,34 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
         <ObjetosHUD />
         <MuerteSubitaHUD />
         <PronosticoHUD />
+        {/* potencia-dispersion (pot-6): una vez por partida, al cruzar el umbral
+            donde la dispersión se nota, y se va al bajar de él (store.ts). Vive
+            en la fila flotante y no en el flujo de la consola: en flujo empujaba
+            el selector de arma y «Disparar» fuera de la pantalla (#753). */}
+        {estado.ayudaDispersionVisible && (
+          <div
+            role="status"
+            data-testid="ayuda-dispersion"
+            onClick={cerrarAyudaDispersion}
+            style={{
+              width: "100%",
+              flexShrink: 0,
+              pointerEvents: "auto",
+              background: "var(--color-aviso-fondo)",
+              border: "1px solid var(--color-aviso-borde)",
+              borderRadius: 8,
+              padding: "4px 8px",
+              color: "var(--color-aviso-texto)",
+              font: `${tamTexto(14)} system-ui, sans-serif`,
+              textAlign: "center",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+              boxSizing: "border-box",
+            }}
+          >
+            A tanta potencia el disparo pierde precisión: más alcance y menos curva, pero menos puntería.
+          </div>
+        )}
         {avisoVisible && (
           <div
             role="status"
