@@ -56,7 +56,10 @@ async function comprobarAvisoVisible(page: Page, reducido: boolean): Promise<voi
   expect(medida.rect.x + medida.rect.w).toBeLessThanOrEqual(medida.viewport.w);
   expect(medida.rect.y + medida.rect.h).toBeLessThanOrEqual(medida.viewport.h);
   expect(medida.encima, "nada del DOM tapa el aviso").toBe("CANVAS");
-  expect(medida.dorados, "píxeles #ffd166 del texto en el lienzo").toBeGreaterThan(20);
+  // El texto a 22 px CSS deja miles de píxeles dorados (medido: ~6000 y ~4500
+  // con movimiento reducido); bajo 150 el aviso no se lee, p. ej. si el zoom
+  // de la cámara dejara de compensarse.
+  expect(medida.dorados, "píxeles #ffd166 del texto en el lienzo").toBeGreaterThan(150);
 }
 
 async function dispararHaciaArriba(page: Page, reducido: boolean): Promise<number> {
