@@ -39,6 +39,7 @@ import { ObjetosHUD } from "@/juego/hud/ObjetosHUD";
 import { RobotsHUD } from "@/juego/hud/RobotsHUD";
 import { MuerteSubitaHUD, PronosticoHUD } from "@/juego/hud/UniversoHUD";
 import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
+import { AyudaCamaraHUD } from "@/juego/hud/CamaraHUD";
 import "@/debug/tipos";
 import { tamTexto } from "@/juego/hud/legibilidad";
 
@@ -649,13 +650,16 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
           left: 0,
           right: 0,
           bottom: `calc(100% + ${TAMANO_BOTON_PLEGAR_PX + 8}px)`,
-          maxHeight: 150,
+          // 220: con «Texto grande» las dos ayudas (cámara y apuntado) juntas
+          // pasan de 150 y el scroll las dejaba cortadas.
+          maxHeight: 220,
           overflowY: "auto",
           pointerEvents: "none",
         }}
       >
         {/* La ayuda del apuntado vive aquí, en la zona de la consola: la cámara
             ya aparta las naves de este rectángulo y su ✕ nunca cae sobre una. */}
+        {conAyudaApuntado && <AyudaCamaraHUD />}
         {conAyudaApuntado && <AyudaApuntadoHUD />}
         <FantasmasHUD />
         <RobotsHUD />

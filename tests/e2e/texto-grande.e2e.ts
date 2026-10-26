@@ -179,7 +179,7 @@ test("tg-3: dos avisos a la vez no se pisan entre sí ni con el botón ⚙ a 360
     const ayuda = caja("ayuda-apuntado");
     const tiempo = caja("ayuda-camara");
     const ajustes = caja("boton-ajustes");
-    const textos = Array.from(document.querySelectorAll('[data-testid="capa-avisos"] *')).filter((e) => e.scrollWidth > e.clientWidth + 1).length;
+    const textos = Array.from(document.querySelectorAll('[data-testid="capa-avisos"] *, [data-testid="ayuda-camara"], [data-testid="ayuda-camara"] *')).filter((e) => e.scrollWidth > e.clientWidth + 1).length;
     return {
       entreSi: cruza(ayuda, tiempo),
       ayudaConAjustes: cruza(ayuda, ajustes),
@@ -192,6 +192,8 @@ test("tg-3: dos avisos a la vez no se pisan entre sí ni con el botón ⚙ a 360
   expect(m).toMatchObject({ entreSi: false, ayudaConAjustes: false, tiempoConAjustes: false, textosCortados: 0, dentro: true });
   expect(m.fontSize).toBeGreaterThanOrEqual(18);
   expect(await palabrasPartidas(page, '[data-testid="capa-avisos"]'), "palabras partidas a mitad").toEqual([]);
+  // La ayuda de la cámara vive ahora en la fila de avisos de la consola.
+  expect(await palabrasPartidas(page, '[data-testid="ayuda-camara"]'), "palabras partidas a mitad (cámara)").toEqual([]);
   await page.screenshot({ path: "capturas/texto-grande-3-dos-avisos-360x640.png" });
 });
 

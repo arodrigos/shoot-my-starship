@@ -209,3 +209,41 @@ for (const t of TAMANOS) {
     await capturar(page, `avisos-fuera-de-naves-av-broma-${t.nombre}`);
   });
 }
+
+// Partida normal (sin escenarios, que cierran las ayudas) con «Texto grande»: la
+// ayuda de la cámara es persistente y no puede tapar ninguna nave. Se compara
+// con getBoundingClientRect porque la ayuda no recoge punteros.
+for (const t of TAMANOS) {
+  test(`av-camara: con «Texto grande» ninguna ayuda ni aviso tapa una nave a ${t.nombre}`, async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("legibilidad:texto-grande", "1"));
+    await page.setViewportSize({ width: t.ancho, height: t.alto });
+    await page.goto("/?mapa=calma-de-los-restos");
+    await page.getByTestId("humanos-1").click();
+    await page.getByTestId("ias-1").click();
+    await page.getByTestId("boton-jugar").click();
+    await page.waitForSelector("#game-container canvas");
+    await page.waitForFunction(
+      () => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.zonasCamara !== undefined,
+      undefined,
+      { timeout: 60000 },
+    );
+    if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
+    await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
+    await expect(page.getByTestId("ayuda-camara")).toBeVisible();
+    await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 30000 });
+    const m = await page.evaluate(() => {
+      const caja = (e: Element) => e.getBoundingClientRect().toJSON() as { x: number; y: number; width: number; height: number };
+      const sel = '[data-testid="ayuda-camara"], [data-testid="capa-avisos"] > *, [data-testid="fila-avisos"] > *';
+      const filaAvisos = document.querySelector('[data-testid="fila-avisos"]');
+      return {
+        cajas: Array.from(document.querySelectorAll(sel)).map((e) => ({ id: e.getAttribute("data-testid") ?? e.tagName, ...caja(e) })),
+        recortada: filaAvisos !== null && filaAvisos.scrollHeight > filaAvisos.clientHeight + 1,
+        naves: window.__debug.zonasCamara!().objetivos.filter((o) => o.tipo === "nave").map((o) => o.css),
+      };
+    });
+    expect(m.cajas.some((c) => c.id === "ayuda-camara"), "la ayuda de la cámara está medida").toBe(true);
+    expect(m.recortada, "la fila de avisos no recorta la ayuda con scroll").toBe(false);
+    for (const c of m.cajas) for (const nave of m.naves) expect(cruza(c, nave), `${c.id} sobre una nave: ${JSON.stringify({ c, nave })}`).toBe(false);
+    await capturar(page, `avisos-fuera-de-naves-av-camara-texto-grande-${t.nombre}`);
+  });
+}

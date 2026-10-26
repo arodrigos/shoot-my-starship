@@ -84,9 +84,9 @@ estados: desplegada, mínima y oculta; oculta solo deja una pestaña de 48 × 48
 `consola:anclaje`). En mínima, el icono del arma y su precio van sobre una
 pastilla con fondo opaco, para que se lean con cualquier planeta detrás.
 
-La ayuda del apuntado vive dentro de la zona de la consola (encima de sus
-controles, o de la pestaña si está oculta), así que la cámara la aparta de las
-naves y su ✕ nunca cae sobre una. El resto de avisos (cartel de evento, broma,
+Las ayudas del apuntado y de la cámara viven dentro de la zona de la consola
+(encima de sus controles, o de la pestaña si está oculta), así que la cámara las aparta de las
+naves y el ✕ de la del apuntado nunca cae sobre una. El resto de avisos (cartel de evento, broma,
 reacción) van en una capa propia, aparte de la consola, y se ven aunque esté
 oculta. Esa capa elige entre empezar a 130 px del borde superior, por debajo
 del rótulo de la deriva, o ir justo encima de la consola: el sitio que no
