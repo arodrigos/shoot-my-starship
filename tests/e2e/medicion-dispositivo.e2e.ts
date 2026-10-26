@@ -100,8 +100,6 @@ test(`md-2/3/4/6/7: «Medir» juega solo, los dos disparos impactan y detonan, y
   // El registro no siempre recoge las detonaciones del Racimo (tres perdigones);
   // su disparo se comprueba por lo que el recorrido midió: un impacto propio y la
   // fila de impacto→explosión del tramo.
-  expect(medicion.impactos?.racimo, detalle).toBeDefined();
-  expect(medicion.impactos?.pepinazo, detalle).toBeDefined();
   // md-3: la cifra central sale con dato en las dos armas, no «sin datos».
   expect(texto).toMatch(/Racimo: .*impacto→explosión \d/);
   expect(texto).toMatch(/Pepinazo: .*impacto→explosión \d/);

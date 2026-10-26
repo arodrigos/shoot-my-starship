@@ -55,7 +55,7 @@ export interface EntradaResumen {
   readonly huecoMaxRafMs: number;
   readonly medianaReposoMs: number | null;
   // Por qué no llegó al final, si no llegó.
-  readonly interrupcion: "cancelada" | "tiempo-agotado" | "sin-frames" | "sin-impacto" | null;
+  readonly interrupcion: "cancelada" | "tiempo-agotado" | "sin-frames" | "sin-impacto" | "sin-tiro" | null;
 }
 
 export const HUECO_RAF_INVALIDO_MS = 1000;
@@ -114,6 +114,7 @@ export function construirResumen(entrada: EntradaResumen): Resumen {
   if (entrada.interrupcion === "tiempo-agotado") motivos.push("tiempo agotado (INCOMPLETA)");
   if (entrada.interrupcion === "sin-frames") motivos.push("sin frames: la partida no llegó a pintar (¿pestaña en segundo plano o equipo muy lento?) (INCOMPLETA)");
   if (entrada.interrupcion === "sin-impacto") motivos.push("un disparo de la medición no impactó, así que falta la cifra impacto→explosión (INCOMPLETA)");
+  if (entrada.interrupcion === "sin-tiro") motivos.push("el simulador no encontró un tiro que impacte sin acabar la partida (INCOMPLETA)");
   const m = entrada.medianaReposoMs;
   if (m !== null && Number.isFinite(m) && m >= REPOSO_30FPS_MIN_MS && m <= REPOSO_30FPS_MAX_MS) {
     avisos.push("rAF limitado a 30 fps (¿modo de bajo consumo?)");

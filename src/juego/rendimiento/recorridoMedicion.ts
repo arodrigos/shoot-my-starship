@@ -60,7 +60,7 @@ export interface ContextoRecorrido {
 class Huerfano extends Error {}
 
 class Interrumpido extends Error {
-  constructor(readonly motivo: "cancelada" | "tiempo-agotado" | "sin-frames" | "sin-impacto") {
+  constructor(readonly motivo: "cancelada" | "tiempo-agotado" | "sin-frames" | "sin-impacto" | "sin-tiro") {
     super(motivo);
   }
 }
@@ -176,7 +176,9 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
     solicitarDisparo();
     // «salida» cubre el tiro que se pierde fuera del mundo: sin explosión no hay
     // nada más que esperar.
-    await esperar(() => ctx.medidor.instantanea().marcas.some((m) => (m.nombre === "explosion" || m.nombre === "salida") && m.t >= t0));
+    // Con el render por software la animación del impacto puede tardar: se espera
+    // con holgura y, si de verdad no llega, se dice (no se sigue con un tramo sin cifra).
+    if (!(await esperar(() => ctx.medidor.instantanea().marcas.some((m) => (m.nombre === "explosion" || m.nombre === "salida") && m.t >= t0), 90_000))) throw new Interrumpido("tiempo-agotado");
     await pausa(VENTANA_TRAS_EXPLOSION_MS);
     // Sin impacto no hay cifra central: el tramo no se da por bueno.
     if (!ctx.medidor.instantanea().marcas.some((m) => m.nombre === "impacto" && m.t >= t0)) throw new Interrumpido("sin-impacto");
@@ -188,7 +190,7 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
   // la búsqueda cuesta cientos de ms y no debe contar como frame largo medido.
   const tiroPara = (armaId: string): { anguloGrados: number; potencia: number } => {
     const tiro = ctx.tiroDeMedicion(armaId);
-    if (tiro === null) throw new Interrumpido("sin-impacto");
+    if (tiro === null) throw new Interrumpido("sin-tiro");
     return tiro;
   };
 
