@@ -230,7 +230,9 @@ for (const t of TAMANOS) {
     if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
     await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
     await expect(page.getByTestId("ayuda-camara")).toBeVisible();
-    await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 30000 });
+    await page.waitForFunction(() => window.__debug.zonasCamara!().valido === true, undefined, { timeout: 30000 }).catch(async () => {
+      throw new Error("SONDA " + JSON.stringify(await page.evaluate(() => ({ z: window.__debug.zonasCamara!(), fila: document.querySelector('[data-testid="fila-avisos"]')?.getBoundingClientRect(), cam: document.querySelector('[data-testid="ayuda-camara"]')?.getBoundingClientRect() }))));
+    });
     const m = await page.evaluate(() => {
       const caja = (e: Element) => e.getBoundingClientRect().toJSON() as { x: number; y: number; width: number; height: number };
       const sel = '[data-testid="ayuda-camara"], [data-testid="capa-avisos"] > *, [data-testid="fila-avisos"] > *';
