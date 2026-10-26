@@ -9,10 +9,14 @@
    src/juego/hud/legibilidad.ts). La portada y el lienzo no lo leen. */
 :root {
   --escala-texto: 1;
+  --alto-max-consola: 40%;
 }
 
 :root[data-texto-grande="1"] {
   --escala-texto: 1.3;
+  /* Deja sitio arriba para la fila de botones de la consola, que flota sobre
+     su borde. */
+  --alto-max-consola: calc(100% - 64px);
 }
 
 :root {

@@ -21,7 +21,10 @@ import { useZonaOcupada } from "@/juego/hud/useZonaOcupada";
 // consola-compacta: el 40 % del ancho con un mínimo de 320 px (que cabe en el
 // móvil más estrecho) y, como mucho, el viewport menos 8 px por lado.
 const ANCHO_CONSOLA = "clamp(320px, 40vw, calc(100vw - 16px))";
-const ALTO_MAXIMO_DESPLEGADA = "40%";
+// El tope vive en CSS (--alto-max-consola, globals.css): con «Texto grande» el
+// contenido de la consola mide ~378 px a 360x640 y un 40 % (256 px) lo dejaba
+// desbordado por debajo del viewport, con Disparar y el selector fuera.
+const ALTO_MAXIMO_DESPLEGADA = "var(--alto-max-consola)";
 const ALTO_MINIMA_PX = 64;
 const LADO_PESTANA_PX = 48;
 const MARGEN_LATERAL_PX = 8;
