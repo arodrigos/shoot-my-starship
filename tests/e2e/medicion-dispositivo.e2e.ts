@@ -43,7 +43,8 @@ for (const { ancho, alto } of TAMANOS) {
   });
 }
 
-test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, sin red y sin tocar la partida guardada", async ({ page, context }) => {
+for (const { ancho, alto } of [TAMANOS[0], TAMANOS[2]]) {
+test(`md-2/3/4/6/7: «Medir» juega solo, los dos disparos impactan y detonan, y entrega el resumen sin red ni tocar la partida (${ancho}x${alto})`, async ({ page, context }) => {
   test.setTimeout(400000);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => undefined);
   const peticiones: string[] = [];
@@ -55,7 +56,7 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
       for (const m of muts) for (const n of m.addedNodes) if (n instanceof HTMLElement && (n.tagName === "CANVAS" || n.querySelector?.("canvas"))) w.__lienzosNuevos++;
     }).observe(document, { childList: true, subtree: true });
   });
-  await abrir(page, 360, 640, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=300");
+  await abrir(page, ancho, alto, "mapa=calma-de-los-restos&rendimiento=1&tope-medicion=300");
   // La partida guardada se compara byte a byte antes y después (md-6).
   // Solo las claves de la partida guardada: otras (la ayuda vista) se escriben
   // cuando la ayuda aparece, y con el shard cargado eso puede ser después.
@@ -72,10 +73,14 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
     if (!propio || r.method() !== "GET") peticiones.push(`${r.method()} ${url}`);
   });
   await page.evaluate(() => { (window as unknown as { __lienzosNuevos: number }).__lienzosNuevos = 0; });
+  const empujeVisto = page.waitForFunction(() => (window.__debug.recorridoEmpuje ?? []).length > 0, undefined, { timeout: 380000, polling: 250 }).then(
+    () => true,
+    () => false,
+  );
   await page.getByTestId("medir-rendimiento").click();
   await expect(page.getByTestId("franja-medicion")).toContainText(/Midiendo · tramo \d de 5/, { timeout: 60000 });
   await expect(page.getByTestId("cancelar-medicion")).toBeVisible();
-  await captura(page, "md-2-midiendo", 360, 640);
+  await captura(page, "md-2-midiendo", ancho, alto);
 
   // Si no llega, el mensaje dice en qué tramo se quedó.
   await page.getByTestId("panel-medicion").waitFor({ timeout: 300000 }).catch(async () => {
@@ -99,10 +104,17 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   // El registro no siempre recoge las detonaciones del Racimo (tres perdigones);
   // su disparo se comprueba por lo que el recorrido midió: un impacto propio y la
   // fila de impacto→explosión del tramo.
-  expect(medicion.impactos?.racimo, detalle).toBeDefined();
+  // md-3: la cifra central sale con dato en las dos armas, no «sin datos».
   expect(texto).toMatch(/Racimo: .*impacto→explosión \d/);
-  expect(registro.some((r) => /^pelota-de-chatarra/.test(r.armaId)), detalle).toBe(true);
-  expect((await page.evaluate(() => window.__debug.recorridoEmpuje ?? [])).length).toBeGreaterThan(0);
+  expect(texto).toMatch(/Pepinazo: .*impacto→explosión \d/);
+  expect(texto).not.toMatch(/impacto→explosión sin datos/);
+  // Ningún disparo del humano salió del mundo.
+  const marcas = await page.evaluate(() => window.__debug.rendimiento!.marcas.map((m) => m.nombre));
+  expect(marcas.filter((n) => n === "impacto").length, detalle).toBeGreaterThanOrEqual(2);
+  // La IA juega al menos un turno (su arma depende de la partida, no del guion).
+  expect(registro.some((r) => r.tirador === 1), detalle).toBe(true);
+  // recorridoEmpuje se reescribe en cada turno (vacío si nadie se mueve): se vigiló durante el recorrido.
+  expect(await Promise.race([empujeVisto, new Promise<boolean>((r) => setTimeout(() => r(false), 1000))]), detalle).toBe(true);
   expect(texto).toContain("Medición de rendimiento");
   expect(texto).toContain("INP de tus toques (no del recorrido)");
   expect(texto).not.toMatch(/NaN|undefined|Infinity|http|\/home/);
@@ -110,14 +122,14 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   // md-3: cabe en 360x640
   const caja = (await page.getByTestId("panel-medicion").boundingBox())!;
   expect(caja.x).toBeGreaterThanOrEqual(0);
-  expect(caja.x + caja.width).toBeLessThanOrEqual(360);
-  expect(caja.y + caja.height).toBeLessThanOrEqual(640);
-  await captura(page, "md-3-resumen", 360, 640);
+  expect(caja.x + caja.width).toBeLessThanOrEqual(ancho);
+  expect(caja.y + caja.height).toBeLessThanOrEqual(alto);
+  await captura(page, "md-3-resumen", ancho, alto);
   // md-4: copia automática o aviso de que hay que pulsar «Copiar»
   await expect(page.getByTestId("estado-copia")).toContainText(/Copiado al portapapeles|No se pudo copiar solo: pulsa Copiar o selecciona el texto/);
   // La copia nunca se queda en «pendiente» con el recorrido ya acabado.
   await expect.poll(() => page.evaluate(() => window.__debug.medicion!().copia), { timeout: 15000 }).not.toBe("pendiente");
-  await captura(page, "md-4-copia", 360, 640);
+  await captura(page, "md-4-copia", ancho, alto);
   // md-7: ninguna petición de red durante la medición
   expect(peticiones).toEqual([]);
   // md-6: el guardado no cambia y «Cerrar» vuelve a la portada
@@ -125,6 +137,7 @@ test("md-2/3/4/6/7: «Medir» juega solo, entrega el resumen sin segundo toque, 
   await page.getByTestId("cerrar-medicion").click();
   await expect(page.getByTestId("boton-jugar")).toBeVisible({ timeout: 30000 });
 });
+}
 
 test("md-8: «Cancelar» deja el panel «Medición cancelada» con el estado 'cancelada'", async ({ page }) => {
   test.setTimeout(120000);

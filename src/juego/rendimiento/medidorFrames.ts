@@ -67,6 +67,30 @@ export class MedidorFrames {
     return () => this.oyentes.delete(oyente);
   }
 
+  // Intervalo real entre dos frames, con la marca de tiempo del propio rAF. El
+  // delta que Phaser pasa a update() está suavizado y esconde un frame largo
+  // (16,7 ms de máximo con 166 ms de script en el mismo tramo).
+  suscribirIntervalosRaf(
+    oyente: (intervaloMs: number, t: number) => void,
+    pedirFrame: (cb: (t: number) => void) => number = (cb) => requestAnimationFrame(cb),
+    cancelarFrame: (id: number) => void = (id) => cancelAnimationFrame(id),
+  ): () => void {
+    let previo: number | null = null;
+    let id = 0;
+    let activo = true;
+    const paso = (t: number): void => {
+      if (!activo) return;
+      if (previo !== null) oyente(t - previo, t);
+      previo = t;
+      id = pedirFrame(paso);
+    };
+    id = pedirFrame(paso);
+    return () => {
+      activo = false;
+      cancelarFrame(id);
+    };
+  }
+
   marcar(nombre: MarcaRendimiento): void {
     this.marcas.push({ nombre, t: this.ahora(), frame: this.total });
     if (this.marcas.length > 200) {

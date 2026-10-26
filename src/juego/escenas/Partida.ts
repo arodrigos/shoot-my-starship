@@ -51,6 +51,7 @@ import type { Personalidad } from "@/sim/ia/tipos";
 import { UMBRAL_FALLO_PX, UMBRAL_DANIO_SUFICIENTE_POR_TURNO } from "@/sim/ia/decidir";
 import { exponerDepuracionDeTerreno } from "@/juego/depuracion/exponerTerreno";
 import { MedidorFrames } from "@/juego/rendimiento/medidorFrames";
+import { elegirTiroMedicion } from "@/juego/rendimiento/tiroMedicion";
 import { MedidorRespuesta } from "@/juego/rendimiento/medidorRespuesta";
 import { ClienteSim } from "@/juego/motor/clienteSim";
 import { crearTrabajadorSim } from "@/juego/motor/crearTrabajador";
@@ -1116,7 +1117,7 @@ export class Partida extends Phaser.Scene {
         ejecutarRecorrido({
           medidor: this.medidorFrames,
           respuesta: this.medidorRespuesta,
-          solucionBalistica: () => this.calcularSolucionBalistica(this.estado),
+          tiroDeMedicion: (armaId) => this.calcularTiroDeMedicion(armaId),
           impactoReal: () => window.__debug?.ultimoDisparo?.impactoReal ?? null,
           senal: guion.signal,
         }),
@@ -4263,6 +4264,48 @@ export class Partida extends Phaser.Scene {
       rangoAngulos: RANGO_ANGULOS_ORACULO,
     });
     return candidatos[0] ?? null;
+  }
+
+  // Medición en el dispositivo: busca, con el mismo resolutor que el disparo
+  // real y su dispersión, un tiro que detone sin matar al rival. Lo llama el
+  // guion en el turno humano, con el estado que tendrá el disparo.
+  private calcularTiroDeMedicion(armaId: string): { anguloGrados: number; potencia: number } | null {
+    const estado = this.estado;
+    const tirador = estado.turno;
+    const objetivoId = this.objetivoDe(tirador);
+    const naves = this.navesParaOraculo(estado);
+    const tiradorPos = naves.find((nave) => nave.id === tirador)!;
+    const objetivoPos = naves.find((nave) => nave.id === objetivoId)!;
+    const arma = buscarArma(armaId);
+    return elegirTiroMedicion((anguloGrados, potencia) => {
+      const r = resolverDisparo({
+        mascara: estado.mascara,
+        gravedad: estado.mundo.gravedad,
+        deriva: estado.mundo.deriva,
+        aleatorio: estado.aleatorio,
+        arma,
+        origenX: tiradorPos.x,
+        origenY: tiradorPos.y,
+        anguloGrados,
+        potencia,
+        objetivoX: objetivoPos.x,
+        objetivoY: objetivoPos.y,
+        ancho: estado.mundo.ancho,
+        alto: estado.mundo.alto,
+        planetas: estado.planetas,
+        naves,
+        tiradorId: tirador,
+        incluirDispersionPotencia: true,
+      });
+      return {
+        proyectilPerdido: r.proyectilPerdido || (r.salida ?? null) !== null,
+        fallo: r.fallo,
+        detonaciones: r.puntosDeImpacto.length,
+        danioObjetivo: r.danioObjetivo,
+        danioPropio: r.danioPropio,
+        autoimpacto: r.impactoPropio !== null,
+      };
+    }, estado.naves[objetivoId].integridad);
   }
 
   // imp-11 (solo para tests e2e): disparo de comprobación con daño exacto

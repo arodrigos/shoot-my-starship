@@ -50,7 +50,8 @@ const ESPERA_MAX_TRAMO_MS = 25_000;
 export interface ContextoRecorrido {
   readonly medidor: MedidorFrames;
   readonly respuesta: MedidorRespuesta;
-  readonly solucionBalistica: () => { anguloGrados: number; potencia: number } | null;
+  // Tiro que el simulador real resuelve con detonación y sin matar al rival.
+  readonly tiroDeMedicion: (armaId: string) => { anguloGrados: number; potencia: number } | null;
   readonly impactoReal: () => { x: number; y: number } | null;
   // Se activa al apagarse la escena: un guion huérfano sale sin escribir nada.
   readonly senal?: AbortSignal;
@@ -59,7 +60,7 @@ export interface ContextoRecorrido {
 class Huerfano extends Error {}
 
 class Interrumpido extends Error {
-  constructor(readonly motivo: "cancelada" | "tiempo-agotado" | "sin-frames") {
+  constructor(readonly motivo: "cancelada" | "tiempo-agotado" | "sin-frames" | "sin-impacto" | "sin-tiro") {
     super(motivo);
   }
 }
@@ -126,7 +127,7 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
     if (calentar) await preparar(nombre);
     else fijarTramoMedicion(TRAMOS.indexOf(nombre) + 1, nombre);
     const deltas: { t: number; d: number }[] = [];
-    const baja = ctx.medidor.suscribirFrames((d, t) => deltas.push({ t, d }));
+    const baja = ctx.medidor.suscribirIntervalosRaf((d, t) => deltas.push({ t, d }));
     const t0 = performance.now();
     let tImpacto: number | null = null;
     let tExplosion: number | null = null;
@@ -168,20 +169,29 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
     });
   };
 
-  const disparoDeArma = (armaId: string, nombre: "pepinazo" | "racimo") => async (t0: number): Promise<void> => {
+  const disparoDeArma = (armaId: string, nombre: "pepinazo" | "racimo", tiro: { anguloGrados: number; potencia: number }) => async (t0: number): Promise<void> => {
     seleccionarArma(armaId);
-    // Potencia al 60 % de la que daría al rival: cae corto, sobre el terreno o
-    // un planeta, y no acaba la partida a mitad de recorrido.
-    const solucion = ctx.solucionBalistica();
-    fijarApuntadoDirecto(solucion?.anguloGrados ?? 45, Math.max(10, (solucion?.potencia ?? 60) * 0.6));
+    fijarApuntadoDirecto(tiro.anguloGrados, tiro.potencia);
     await pausa(100);
     solicitarDisparo();
     // «salida» cubre el tiro que se pierde fuera del mundo: sin explosión no hay
     // nada más que esperar.
-    await esperar(() => ctx.medidor.instantanea().marcas.some((m) => (m.nombre === "explosion" || m.nombre === "salida") && m.t >= t0));
+    // Con el render por software la animación del impacto puede tardar: se espera
+    // con holgura y, si de verdad no llega, se dice (no se sigue con un tramo sin cifra).
+    if (!(await esperar(() => ctx.medidor.instantanea().marcas.some((m) => (m.nombre === "explosion" || m.nombre === "salida") && m.t >= t0), 90_000))) throw new Interrumpido("tiempo-agotado");
     await pausa(VENTANA_TRAS_EXPLOSION_MS);
+    // Sin impacto no hay cifra central: el tramo no se da por bueno.
+    if (!ctx.medidor.instantanea().marcas.some((m) => m.nombre === "impacto" && m.t >= t0)) throw new Interrumpido("sin-impacto");
     const impacto = ctx.impactoReal();
     if (impacto) registrarImpactoMedicion(nombre, impacto);
+  };
+
+  // El tiro se calcula con el estado del turno humano, antes de abrir el tramo:
+  // la búsqueda cuesta cientos de ms y no debe contar como frame largo medido.
+  const tiroPara = (armaId: string): { anguloGrados: number; potencia: number } => {
+    const tiro = ctx.tiroDeMedicion(armaId);
+    if (tiro === null) throw new Interrumpido("sin-tiro");
+    return tiro;
   };
 
   try {
@@ -192,10 +202,12 @@ export async function ejecutarRecorrido(ctx: ContextoRecorrido): Promise<void> {
     inicio = performance.now();
     await medir("reposo", () => pausa(DURACION_REPOSO_MS));
 
-    await medir("pepinazo", disparoDeArma("pepinazo-cortesia", "pepinazo"), true);
+    const tiroPepinazo = tiroPara("pepinazo-cortesia");
+    await medir("pepinazo", disparoDeArma("pepinazo-cortesia", "pepinazo", tiroPepinazo), true);
     await esperarTurnoHumano();
 
-    await medir("racimo", disparoDeArma("racimo-de-tuppers", "racimo"), true);
+    const tiroRacimo = tiroPara("racimo-de-tuppers");
+    await medir("racimo", disparoDeArma("racimo-de-tuppers", "racimo", tiroRacimo), true);
     await esperarTurnoHumano();
 
     await medir("propulsores", async () => {
