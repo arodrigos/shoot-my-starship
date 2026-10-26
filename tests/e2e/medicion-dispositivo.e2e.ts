@@ -73,6 +73,10 @@ test(`md-2/3/4/6/7: «Medir» juega solo, los dos disparos impactan y detonan, y
     if (!propio || r.method() !== "GET") peticiones.push(`${r.method()} ${url}`);
   });
   await page.evaluate(() => { (window as unknown as { __lienzosNuevos: number }).__lienzosNuevos = 0; });
+  const empujeVisto = page.waitForFunction(() => (window.__debug.recorridoEmpuje ?? []).length > 0, undefined, { timeout: 380000, polling: 250 }).then(
+    () => true,
+    () => false,
+  );
   await page.getByTestId("medir-rendimiento").click();
   await expect(page.getByTestId("franja-medicion")).toContainText(/Midiendo · tramo \d de 5/, { timeout: 60000 });
   await expect(page.getByTestId("cancelar-medicion")).toBeVisible();
@@ -107,8 +111,10 @@ test(`md-2/3/4/6/7: «Medir» juega solo, los dos disparos impactan y detonan, y
   // Ningún disparo del humano salió del mundo.
   const marcas = await page.evaluate(() => window.__debug.rendimiento!.marcas.map((m) => m.nombre));
   expect(marcas.filter((n) => n === "impacto").length, detalle).toBeGreaterThanOrEqual(2);
-  expect(registro.some((r) => /^pelota-de-chatarra/.test(r.armaId)), detalle).toBe(true);
-  expect((await page.evaluate(() => window.__debug.recorridoEmpuje ?? [])).length).toBeGreaterThan(0);
+  // La IA juega al menos un turno (su arma depende de la partida, no del guion).
+  expect(registro.some((r) => r.tirador === 1), detalle).toBe(true);
+  // recorridoEmpuje se reescribe en cada turno (vacío si nadie se mueve): se vigiló durante el recorrido.
+  expect(await Promise.race([empujeVisto, new Promise<boolean>((r) => setTimeout(() => r(false), 1000))]), detalle).toBe(true);
   expect(texto).toContain("Medición de rendimiento");
   expect(texto).toContain("INP de tus toques (no del recorrido)");
   expect(texto).not.toMatch(/NaN|undefined|Infinity|http|\/home/);
