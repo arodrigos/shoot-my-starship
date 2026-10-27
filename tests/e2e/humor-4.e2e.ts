@@ -49,11 +49,11 @@ test("humor-4: el audio no arranca hasta el primer gesto real, y entonces arranc
   await expect(page.getByTestId("pantalla-inicio")).toBeVisible();
   // Solo los ganchos de la PWA (pwa y mostrarAvisoPwa) y el de pantalla encendida
   // (se instala al montar para poder leerlo en la portada, donde debe estar
-  // inactivo) existen en la pantalla de inicio; el resto de __debug lo publica
+  // inactivo) y el de vibración (por lo mismo) existen en la pantalla de inicio; el resto de __debug lo publica
   // la partida, que aún no ha empezado.
   expect(
     await page.evaluate(() =>
-      Object.keys(window.__debug ?? {}).filter((clave) => clave !== "pwa" && clave !== "mostrarAvisoPwa" && clave !== "pantallaEncendida"),
+      Object.keys(window.__debug ?? {}).filter((clave) => clave !== "pwa" && clave !== "mostrarAvisoPwa" && clave !== "pantallaEncendida" && clave !== "vibracion"),
     ),
   ).toEqual([]);
 

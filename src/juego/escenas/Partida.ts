@@ -137,6 +137,7 @@ import { reproducirDetonaciones } from "@/juego/efectos/reproductorDetonaciones"
 import type { Detonacion } from "@/sim/partida/detonaciones";
 import { permiteMovimientoCamara } from "@/juego/efectos/movimientoCamara";
 import { ControladorRemate, decidirRemate, ZOOM_REMATE, type FotogramaRemate, type ModoRemate } from "@/juego/efectos/remate";
+import { vibrar } from "@/juego/control/vibracionStore";
 import { amplitudSacudida, DURACION_SACUDIDA_IMPACTO_MS, intensidadDestelloDanio } from "@/juego/efectos/realceImpacto";
 import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } from "@/sim/fisica/comportamientoExtendido";
 import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoAbanico, type AbanicoPrevisualizacion, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
@@ -3056,8 +3057,11 @@ export class Partida extends Phaser.Scene {
     tirador: number = this.estado.turno,
     // remate-impacto: en el golpe decisivo el remate sustituye a la sacudida.
     sinSacudida = false,
+    // Hay una nave destruida en este turno: su golpe vibra como remate.
+    hayDestruidas = false,
   ): number {
     let esperaSacudidaMs = 0;
+    let yaVibro = false;
     const movimientoReducido = prefiereMovimientoReducido();
     window.__debug!.detonaciones = detonaciones;
     if (detonaciones.length > 0) {
@@ -3117,6 +3121,12 @@ export class Partida extends Phaser.Scene {
         // Solo cuando el punto de impacto ha tocado la silueta (impactoNave),
         // nunca en una detonación normal contra el terreno.
         if (evento.impactoNave !== undefined) {
+          // Una sola llamada por impacto resuelto, y con «Sacudida» apagada
+          // también: son interruptores independientes.
+          if (evento.danio > 0 && !yaVibro) {
+            yaVibro = true;
+            vibrar(hayDestruidas ? "remate" : "impacto");
+          }
 
           // realce-impacto (rlc-1, rlc-2): solo en el impacto que de verdad
           // hizo daño -- un impacto a cero daño se queda con el destello de
@@ -3238,7 +3248,7 @@ export class Partida extends Phaser.Scene {
           permiteMovimiento: permiteMovimientoCamara(obtenerEstadoControl().sacudidaActiva, prefiereMovimientoReducido()),
         })
       : "ninguno";
-    const esperaSacudidaMs = this.manejarEventosVisuales(eventos, opciones?.detonaciones ?? [], tirador, modoRemate === "completo");
+    const esperaSacudidaMs = this.manejarEventosVisuales(eventos, opciones?.detonaciones ?? [], tirador, modoRemate === "completo", destruidas.length > 0);
     // mrb-1: el robot que detona se retira en el mismo instante que su
     // explosión; si esperara a avanzarTurno (retrasado por la sacudida), se
     // vería el robot vivo junto a su propia explosión.

@@ -250,6 +250,16 @@ export interface DebugGlobal {
     readonly sentinelasVivas: number;
     readonly rechazosSeguidos: number;
   };
+  // vibracion: espejo de solo lectura; no expone cómo hacer vibrar.
+  vibracion?: () => {
+    readonly soportada: boolean;
+    readonly preferencia: boolean;
+    readonly movimientoReducido: boolean;
+    readonly activa: boolean;
+    readonly motivoApagada: "no-soportada" | "movimiento-reducido" | "preferencia" | null;
+    readonly llamadas: readonly { readonly tipo: "disparo" | "impacto" | "remate" | "prueba"; readonly patron: readonly number[]; readonly t: number; readonly aceptada: boolean }[];
+    readonly descartadas: number;
+  };
   // anuncios-accesibles: lo anunciado por la región aria-live, como mucho 20, solo en memoria.
   anuncios?: () => readonly { readonly texto: string; readonly enMs: number }[];
   flechaApuntado?: {
