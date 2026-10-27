@@ -44,6 +44,16 @@ test("vib-2: un impacto con daño sobre una nave vibra una vez; dos seguidos (ra
   expect(llamadas[0].patron).toEqual([25, 40, 25]);
 });
 
+test("vib-2: una detonación junto a la nave (daño sin tocar la silueta) también vibra", async ({ page }) => {
+  test.setTimeout(120000);
+  await instalarVibracionFalsa(page, "con-api");
+  await entrar(page);
+  await page.evaluate(() => window.__debug.dispararEventoImpactoReal!(1, 200, 300, 17, false));
+  const llamadas = (await instantanea(page)).llamadas;
+  expect(llamadas.map((l) => l.tipo)).toEqual(["impacto"]);
+  expect(llamadas[0].patron).toEqual([25, 40, 25]);
+});
+
 test("vib-2: un impacto sin daño no vibra", async ({ page }) => {
   test.setTimeout(120000);
   await instalarVibracionFalsa(page, "con-api");

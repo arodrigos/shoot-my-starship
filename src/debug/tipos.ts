@@ -490,7 +490,9 @@ export interface DebugGlobal {
   // comportamiento que con-2/con-3 ya probaban) -- un e2e que quiera un
   // impacto CON daño real para ejercer la sacudida/destello nuevos lo pasa
   // explícito, sin tocar los tests existentes que llaman con 3 argumentos.
-  dispararEventoImpactoReal?: (nave: IdNave, x: number, y: number, danio?: number) => void;
+  // tocaSilueta=false emula la detonación junto a la nave: hace daño y no
+  // trae impactoNave (vibración, vib-2).
+  dispararEventoImpactoReal?: (nave: IdNave, x: number, y: number, danio?: number, tocaSilueta?: boolean) => void;
   // partida-1: la huella determinista del mundo actual -- la semilla de
   // terreno determina el relieve de forma unívoca (generarMascara), así que
   // comparar esta tupla entre dos partidas equivale a comparar el hash del
