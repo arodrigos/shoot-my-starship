@@ -103,7 +103,8 @@ aviso de versión nueva, el «¡Perdido!» baja para quedar debajo de él.
 
 Arriba a la derecha hay un único botón ⚙, fuera de la consola, así que está
 al alcance aunque la consola esté mínima, oculta o apartada durante el vuelo.
-Abre un panel con:
+Abre un panel (en dos columnas en pantallas anchas y bajas, como una tableta
+apaisada, para que se vea entero con «Cerrar» dentro) con:
 - **Histórico**: los mensajes de la partida.
 - **Sacudida**, **Vibración** (solo donde el dispositivo vibra; ver
   «Vibración»), **Rastro**, **Sonido**, **Música** y **Voz**, cada uno con

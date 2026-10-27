@@ -20,6 +20,25 @@ import { tamTexto } from "@/juego/hud/legibilidad";
 import { useZonaOcupada } from "@/juego/hud/useZonaOcupada";
 
 const LADO_BOTON_PX = 48;
+// Tableta apaisada y pantallas bajas: en una columna el contenido (733 px sin
+// la fila de vibración) no cabe en los 678 px que deja un alto de 820, y el
+// panel hace scroll por dentro dejando «Cerrar» escondido. Con dos columnas
+// mide ~520 px.
+const CONSULTA_PANEL_ANCHO_BAJO = "(min-width: 600px) and (max-height: 900px)";
+
+function usePanelDosColumnas(): boolean {
+  const [dos, setDos] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia(CONSULTA_PANEL_ANCHO_BAJO);
+    const alCambiar = () => setDos(mq.matches);
+    alCambiar();
+    mq.addEventListener("change", alCambiar);
+    return () => mq.removeEventListener("change", alCambiar);
+  }, []);
+  return dos;
+}
+const DOS_COLUMNAS: CSSProperties = { gridColumn: "1 / -1" };
 const ALTO_MINIMO_INTERRUPTOR_PX = 44;
 
 const ESTILO_INTERRUPTOR: CSSProperties = {
@@ -51,6 +70,7 @@ export function MenuAjustesHUD() {
   const pwa = useSyncExternalStore(suscribirPwa, obtenerDatosPwa, obtenerDatosPwa);
   const bromas = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
   const vibracion = useSyncExternalStore(suscribirVibracion, obtenerVibracion, obtenerVibracion);
+  const dosColumnas = usePanelDosColumnas();
   const [abierto, setAbierto] = useState(false);
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
   const boton = useRef<HTMLButtonElement>(null);
@@ -221,7 +241,7 @@ export function MenuAjustesHUD() {
             right: "calc(8px + env(safe-area-inset-right, 0px))",
             zIndex: 50,
             boxSizing: "border-box",
-            width: "min(280px, calc(100vw - 16px))",
+            width: dosColumnas ? "min(560px, calc(100vw - 16px))" : "min(280px, calc(100vw - 16px))",
             maxHeight: "calc(100dvh - 140px)",
             overflowY: "auto",
             padding: 10,
@@ -229,12 +249,12 @@ export function MenuAjustesHUD() {
             background: "rgb(10,12,20)",
             border: "1px solid rgba(255,255,255,0.25)",
             color: "#e8eaf0",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
+            ...(dosColumnas
+              ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignContent: "start", gap: 8 }
+              : { display: "flex", flexDirection: "column", gap: 8 }),
           }}
         >
-          <h2 style={{ margin: 0, font: `600 ${tamTexto(16)} system-ui, sans-serif` }}>Ajustes</h2>
+          <h2 style={{ margin: 0, ...(dosColumnas ? DOS_COLUMNAS : {}), font: `600 ${tamTexto(16)} system-ui, sans-serif` }}>Ajustes</h2>
 
           <div>
             <button
@@ -295,7 +315,7 @@ export function MenuAjustesHUD() {
             </div>
           ))}
 
-          <div style={{ ...ESTILO_AYUDA, margin: "0 4px" }}>
+          <div style={{ ...ESTILO_AYUDA, margin: "0 4px", ...(dosColumnas ? DOS_COLUMNAS : {}) }}>
             <div data-testid="estado-sin-conexion">{TEXTO_ESTADO_PWA[pwa.estado]}</div>
             <div data-testid="version-app">Versión {versionApp()}</div>
           </div>
@@ -307,7 +327,7 @@ export function MenuAjustesHUD() {
               setAbierto(false);
               boton.current?.focus();
             }}
-            style={{ ...ESTILO_INTERRUPTOR, textAlign: "center" }}
+            style={{ ...ESTILO_INTERRUPTOR, textAlign: "center", ...(dosColumnas ? DOS_COLUMNAS : {}) }}
           >
             Cerrar
           </button>
