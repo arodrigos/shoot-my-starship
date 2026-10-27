@@ -429,6 +429,25 @@ movimiento del dedo; se vuelve a pedir una sola vez pasados 1,5 s
 (`REINTENTO_MIRA_OCULTA_MS`, `src/juego/mira/miraOculta.ts`) o al cambiar de
 turno.
 
+## Vibración
+
+En el móvil, el juego vibra un instante al pulsar «Disparar» con un arma (y
+cuando el reloj de turno dispara por ti) y cuando un tiro hace daño a una
+nave, sea quien sea el que dispara. Cada suceso tiene su patrón
+(`PATRONES_VIBRACION`, `src/juego/control/vibracion.ts`): un pulso corto al
+disparar, un doble pulso al alcanzar una nave y uno más largo al destruirla.
+Ninguno pasa de 200 ms, los impactos seguidos se limitan a uno cada 250 ms (un
+Racimo de Tuppers da una sola vibración) y no vibra con la pestaña oculta ni
+durante la partida automática de «Medir».
+
+Se apaga sola si el sistema pide reducir el movimiento
+(`prefers-reduced-motion`), y no hace nada donde el dispositivo no la admite:
+sin `navigator.vibrate` o sin pantalla táctil no hay nada que cambie. La
+preferencia se guarda en `localStorage` (`vibracion:activa`; solo el valor
+`0` la apaga). Para las pruebas, `window.__debug.vibracion()` devuelve una
+instantánea de solo lectura con las últimas llamadas; el doble de
+`navigator.vibrate` para Playwright está en `tests/utils/vibracionFalsa.ts`.
+
 ## Pantalla encendida durante la partida
 
 Mientras hay una partida en curso, el juego pide al navegador que no apague ni

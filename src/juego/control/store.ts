@@ -1,5 +1,6 @@
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { elegirEntradaDisparoAutomatico } from "@/juego/control/disparoAutomatico";
+import { vibrar } from "@/juego/control/vibracionStore";
 import { costeArma } from "@/sim/partida/economia";
 import { buscarEquipo, type IdEquipo } from "@/sim/equipo/catalogo";
 import type { EntradaDeTurno, IdNave, ModoJuego } from "@/sim/partida/tipos";
@@ -616,6 +617,8 @@ export function solicitarDisparo(): void {
     manejadorDisparo({ accion: equipoId, arma: equipoId, anguloGrados: estado.ajuste.anguloGrados, potencia: estado.ajuste.potencia, objetivoId: 1 });
     return;
   }
+  // Dentro del mismo manejador del clic: navigator.vibrate exige activación.
+  vibrar("disparo");
   manejadorDisparo({
     arma: estado.ajuste.armaId,
     anguloGrados: estado.ajuste.anguloGrados,
@@ -641,6 +644,8 @@ export function solicitarDisparoAutomatico(): void {
     (armaId) => !armaEstaAgotada(armaId) && armaFaltaSaldo(armaId) === 0,
   );
   if (estado.ayudaDispersionVisible) fijar({ ayudaDispersionVisible: false });
+  // El reloj nunca ejecuta escudo ni propulsores: siempre es un arma.
+  vibrar("disparo");
   manejadorDisparo({ ...elegida, objetivoId: 1 });
 }
 

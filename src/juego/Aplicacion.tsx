@@ -7,6 +7,7 @@ import { PanelMedicionHUD } from "@/juego/hud/PanelMedicionHUD";
 import { SEMILLA_MEDICION, suscribirInicioMedicion } from "@/juego/control/medicionStore";
 import { elegirMapaDistinto, SEMILLA_SISTEMA_POR_DEFECTO } from "@/juego/mundos/mapas";
 import { suscribirOtraPartida } from "@/juego/control/parteDeGuerraStore";
+import { instalarVibracion } from "@/juego/control/vibracionStore";
 import { instalarPantallaEncendida, marcarPartidaEnCurso } from "@/juego/control/pantallaEncendidaStore";
 import type { ModoJuego } from "@/sim/partida/tipos";
 import type { JugadorConfig } from "@/juego/jugadores";
@@ -105,6 +106,7 @@ export function Aplicacion() {
       marcarPartidaEnCurso(false);
     };
   }, []);
+  useEffect(() => instalarVibracion(), []);
   useEffect(() => {
     if (fase !== "jugando") marcarPartidaEnCurso(false);
   }, [fase]);
