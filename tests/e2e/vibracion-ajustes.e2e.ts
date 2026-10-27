@@ -168,6 +168,19 @@ test.describe("capturas del panel con vibración en tableta", () => {
         const panel = (await page.getByTestId("panel-ajustes").boundingBox())!;
         expect(panel.x + panel.width).toBeLessThanOrEqual(ancho);
         expect(panel.y + panel.height).toBeLessThanOrEqual(alto);
+        // El panel tiene scroll propio: la caja siempre cabe, así que se mide
+        // que el CONTENIDO quepa en ella y que «Cerrar» se vea sin desplazar.
+        const medidas = await page.getByTestId("panel-ajustes").evaluate((el) => ({ sh: el.scrollHeight, ch: el.clientHeight }));
+        expect(medidas.sh).toBeLessThanOrEqual(medidas.ch + 1);
+        const cerrar = (await page.getByTestId("cerrar-ajustes").boundingBox())!;
+        expect(cerrar.y).toBeGreaterThanOrEqual(panel.y);
+        expect(cerrar.y + cerrar.height).toBeLessThanOrEqual(panel.y + panel.height);
+        expect(cerrar.y + cerrar.height).toBeLessThanOrEqual(alto);
+        const centro = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.getAttribute("data-testid") ?? null, {
+          x: cerrar.x + cerrar.width / 2,
+          y: cerrar.y + cerrar.height / 2,
+        });
+        expect(centro).toBe("cerrar-ajustes");
       });
     });
   }
