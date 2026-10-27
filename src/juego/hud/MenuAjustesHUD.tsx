@@ -11,6 +11,7 @@ import {
   obtenerEstadoControl,
   suscribirControl,
 } from "@/juego/control/store";
+import { fijarVibracionActiva, obtenerVibracion, suscribirVibracion } from "@/juego/control/vibracionStore";
 import { contarMensajes, obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import { obtenerDatosPwa, suscribirPwa, TEXTO_ESTADO_PWA, versionApp } from "@/juego/pwa/estadoPwa";
@@ -49,6 +50,7 @@ export function MenuAjustesHUD() {
   const estado = useSyncExternalStore(suscribirControl, obtenerEstadoControl, obtenerEstadoControl);
   const pwa = useSyncExternalStore(suscribirPwa, obtenerDatosPwa, obtenerDatosPwa);
   const bromas = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
+  const vibracion = useSyncExternalStore(suscribirVibracion, obtenerVibracion, obtenerVibracion);
   const [abierto, setAbierto] = useState(false);
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
   const boton = useRef<HTMLButtonElement>(null);
@@ -107,6 +109,27 @@ export function MenuAjustesHUD() {
       title: estado.sacudidaActiva ? "Desactivar sacudida de impacto" : "Activar sacudida de impacto",
       alPulsar: () => fijarSacudidaActiva(!estado.sacudidaActiva),
     },
+    // Sin API o sin pantalla táctil la fila no existe: el panel queda como antes.
+    ...(vibracion.soportada
+      ? [
+          {
+            testId: "toggle-vibracion",
+            etiqueta: `Vibración: ${vibracion.activa ? "On" : "Off"}`,
+            ayuda: vibracion.movimientoReducido
+              ? "Apagada: tu sistema pide reducir el movimiento"
+              : "Vibra al disparar y cuando un tiro alcanza una nave",
+            pulsado: vibracion.activa,
+            title: vibracion.movimientoReducido
+              ? "Apagada: tu sistema pide reducir el movimiento"
+              : vibracion.preferencia
+                ? "Desactivar la vibración"
+                : "Activar la vibración",
+            // El propio toque que enciende da el pulso de prueba (activación de usuario).
+            alPulsar: () => fijarVibracionActiva(!vibracion.preferencia),
+            deshabilitado: vibracion.movimientoReducido,
+          },
+        ]
+      : []),
     {
       testId: "toggle-rastro",
       etiqueta: `Rastro: ${estado.rastroActivo ? "On" : "Off"}`,
