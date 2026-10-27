@@ -6,7 +6,7 @@
 (`src/juego/rendimiento/medidorFrames.ts`): `frames`, `framesLargos` (> 50 ms,
 con Long Animation Frames donde el navegador lo ofrece), `p95`, `max`, los
 últimos 600 deltas de rAF con su instante y las marcas `impacto`, `explosion`
-y `salida`.
+y `salida`. Los deltas salen del intervalo real entre callbacks de `requestAnimationFrame` (rAF), no del delta que da Phaser.
 
 ## Repetir la medición en tu dispositivo
 
@@ -29,6 +29,13 @@ anterior:
 3. **Racimo**: lo mismo con el Racimo de Tuppers.
 4. **Propulsores**: un salto con propulsores (p95 frente al reposo).
 5. **Turno de la IA**: el turno completo del rival.
+
+El disparo del humano en cada tramo de arma no se apunta a ojo: lo elige el
+simulador con el mismo `resolverDisparo` que el disparo real
+(`src/juego/rendimiento/tiroMedicion.ts`), entre los tiros que detonan, no se
+pierden, no hacen autodaño y dejan vivo al rival. Cada tramo de arma exige su
+marca de impacto: si falta, la medición acaba INCOMPLETA con «sin impacto» (el
+disparo no impactó) o «sin tiro» (el simulador no encontró un tiro válido).
 
 Una franja arriba enseña «Midiendo · tramo N de 5» y «Cancelar». Tope total:
 150 s desde que la partida pinta sus primeros frames (el arranque no cuenta). Si se
