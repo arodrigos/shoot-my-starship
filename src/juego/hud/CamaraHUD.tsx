@@ -48,10 +48,20 @@ function suscribirAyudaCamara(escucha: () => void): () => void {
   return () => bajas.forEach((baja) => baja());
 }
 
-export function AyudaCamaraHUD() {
+// `enConsola` elige el sitio: con «Texto grande» vive en la zona de la consola
+// (la cámara ya la aparta de las naves); con texto normal sigue en la capa de
+// avisos, porque meterla en la consola cambia el encuadre al disparar.
+export function AyudaCamaraHUD({ enConsola = false }: { enConsola?: boolean }) {
   const visible = useSyncExternalStore(
     suscribirAyudaCamara,
-    () => obtenerCamaraHud().ayudaVisible && obtenerEstadoControl().puedeDisparar && !obtenerEstadoControl().ayudaVisible,
+    () => {
+      const control = obtenerEstadoControl();
+      // Con «Texto grande» las dos ayudas juntas ocupan tanto que la franja que
+      // queda sobre la consola no cabe dos naves (la cámara no encuadra): sale
+      // cuando se cierra la del apuntado.
+      const esperaApuntado = control.textoGrande && control.ayudaApuntadoVisible;
+      return control.textoGrande === enConsola && obtenerCamaraHud().ayudaVisible && control.puedeDisparar && !control.ayudaVisible && !esperaApuntado;
+    },
     () => false,
   );
   useEffect(() => {

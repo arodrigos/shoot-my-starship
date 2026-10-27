@@ -16,6 +16,7 @@ import {
 import "@/debug/tipos";
 import { tamTexto } from "@/juego/hud/legibilidad";
 import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
+import { AyudaCamaraHUD } from "@/juego/hud/CamaraHUD";
 import { useZonaOcupada } from "@/juego/hud/useZonaOcupada";
 
 // consola-compacta: el 40 % del ancho con un mínimo de 320 px (que cabe en el
@@ -172,6 +173,7 @@ export function ConsolaSuperpuesta({ children }: Props) {
             ...(oculta ? ladoAyudaOculta(anclaje) : { left: 0 }),
           }}
         >
+          <AyudaCamaraHUD enConsola />
           <AyudaApuntadoHUD />
         </div>
       )}
