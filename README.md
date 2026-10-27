@@ -77,7 +77,7 @@ borde. La primera vez de cada partida sale la ayuda «Pellizca con dos dedos
 para acercar; «Ver todo» para volver», que se va al primer toque. Un único
 controlador mueve la cámara (`src/juego/camara/controladorCamara.ts`).
 
-La consola ocupa como mucho el 40 % del alto (con «Texto grande», todo el alto menos 64 px, para que Disparar, Repetir y el selector de arma sigan dentro de la pantalla), anclada abajo (centro,
+La consola ocupa como mucho el 40 % del alto (con «Texto grande», todo el alto menos 64 px, para que Disparar, Repetir y el selector de arma sigan dentro de la pantalla). Ese tope es la variable CSS `--alto-max-consola`, definida en `src/app/globals.css` y vigilada por `tests/e2e/consola-texto-grande.e2e.ts`. Va anclada abajo (centro,
 izquierda o derecha) y respetando la zona segura de la pantalla. Tiene tres
 estados: desplegada, mínima y oculta; oculta solo deja una pestaña de 48 × 48
 «Mostrar controles». El estado y el anclaje se recuerdan (`consola:estado` y
@@ -418,7 +418,7 @@ El botón «Medir» del recuadro juega una partida de medición sin intervenció
 (cinco tramos, máximo 150 s desde que pinta; los disparos del humano los elige el
 simulador para que detonen sin matar al rival, y los frames se miden con el
 intervalo real del rAF) y copia al portapapeles un resumen listo para pegar
-en un issue. Detalle en `docs/rendimiento.md`.
+en un issue. Si un tramo no impacta o el simulador no encuentra tiro, la medición acaba INCOMPLETA con su motivo («sin impacto» o «sin tiro»). Detalle en `docs/rendimiento.md`.
 
 La trayectoria de apuntado (la línea y su abanico)
 tiene un presupuesto de cómputo de 32 ms
