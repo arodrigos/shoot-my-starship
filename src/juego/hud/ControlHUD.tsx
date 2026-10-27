@@ -103,6 +103,7 @@ function crearManejadoresEje(fijarDesdeFraccion: (fraccion: number) => void) {
 // distancia entre el descenso y la propia posición del click supera el
 // umbral de un toque real.
 const UMBRAL_ARRASTRE_PX = 8;
+const SELECTOR_FILAS_AJUSTE = '[data-testid="control-angulo"], [data-testid="control-potencia"]';
 let descensoBotonPaso: { x: number; y: number } | null = null;
 
 function alBajarBotonPaso(evento: React.PointerEvent<HTMLButtonElement>): void {
@@ -213,6 +214,15 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
   const fraccionPotencia = (estado.ajuste.potencia - POTENCIA_MINIMA) / (POTENCIA_MAXIMA - POTENCIA_MINIMA);
 
   function alPuntoDeArrastre(evento: React.PointerEvent<HTMLDivElement>): void {
+    // Bug 11: un gesto que arranca dentro de la fila del ángulo o de la
+    // potencia (borde de la barra, hueco entre botón y barra, botón de paso)
+    // no es del arrastre combinado, cuyo eje horizontal es la potencia: el
+    // dedo "en el ángulo" movía la potencia. Se descarta cualquier sesión
+    // vieja para que sus moves tampoco lleguen a aplicarse.
+    if ((evento.target as HTMLElement).closest(SELECTOR_FILAS_AJUSTE)) {
+      terminarArrastre();
+      return;
+    }
     // layout-dos-zonas: la consola entera (ya separada del lienzo, ver
     // PhaserGame) es la superficie de apuntado -- ya no hace falta el filtro
     // por mitad de pantalla que existía cuando el HUD flotaba sobre el juego.
@@ -490,7 +500,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
           absoluto (ctl-1/ctl-2), su paso fino de botón y su lectura de valor
           en texto (ctl-5). El retículo conserva su rotación como referencia
           visual del ángulo, ahora dentro de la propia barra. */}
-      <div data-testid="control-angulo" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 4 }}>
+      <div data-testid="control-angulo" style={{ display: "flex", flexDirection: "row", alignItems: "stretch", gap: 4 }}>
         <button type="button" data-testid="paso-angulo-menos" onPointerDown={alBajarBotonPaso} onClick={crearClicConToleranciaDeArrastre(() => ajustarAnguloFino(-1))} style={botonEstilo}>
           -0.1°
         </button>
@@ -506,7 +516,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
             position: "relative",
             flex: "1 1 auto",
             minWidth: 0,
-            height: TAMANO_MINIMO_BOTON_PX,
+            minHeight: TAMANO_MINIMO_BOTON_PX,
             background: "var(--color-cromado-fondo)",
             borderRadius: 8,
             touchAction: "none",
@@ -549,7 +559,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
         </button>
       </div>
 
-      <div data-testid="control-potencia" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 4 }}>
+      <div data-testid="control-potencia" style={{ display: "flex", flexDirection: "row", alignItems: "stretch", gap: 4 }}>
         <button type="button" data-testid="paso-potencia-menos" onPointerDown={alBajarBotonPaso} onClick={crearClicConToleranciaDeArrastre(() => ajustarPotenciaFino(-1))} style={botonEstilo}>
           -1%
         </button>
@@ -565,7 +575,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
             position: "relative",
             flex: "1 1 auto",
             minWidth: 0,
-            height: TAMANO_MINIMO_BOTON_PX,
+            minHeight: TAMANO_MINIMO_BOTON_PX,
             background: "var(--color-cromado-fondo)",
             borderRadius: 8,
             touchAction: "none",
