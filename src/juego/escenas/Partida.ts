@@ -1248,8 +1248,8 @@ export class Partida extends Phaser.Scene {
     window.__debug.forzarFusibleAdherenciaPasos = (pasos) => {
       this.fusibleAdherenciaForzadoPasos = pasos;
     };
-    window.__debug.dispararEventoImpactoReal = (nave, x, y, danio = 0) => {
-      this.manejarEventosVisuales([{ tipo: "impacto", x, y, objetivo: nave, danio, impactoNave: nave }], []);
+    window.__debug.dispararEventoImpactoReal = (nave, x, y, danio = 0, tocaSilueta = true) => {
+      this.manejarEventosVisuales([{ tipo: "impacto", x, y, objetivo: nave, danio, ...(tocaSilueta ? { impactoNave: nave } : {}) }], []);
     };
     // nve-1, nve-3: fuerza la integridad de una nave sin jugar el turno real
     // que la produciría -- aterrizar a mano en los tres tramos de daño no es
@@ -3118,16 +3118,17 @@ export class Partida extends Phaser.Scene {
           }
           window.__debug!.ultimoTipoExplosion = "sin-danio";
         }
+        // La vibración sigue al daño, no a que el punto toque la silueta: una
+        // detonación junto a la nave también le hace daño y no trae
+        // impactoNave. Una sola llamada por impacto resuelto, y con
+        // «Sacudida» apagada también: son interruptores independientes.
+        if (evento.danio > 0 && !yaVibro) {
+          yaVibro = true;
+          vibrar(hayDestruidas ? "remate" : "impacto");
+        }
         // Solo cuando el punto de impacto ha tocado la silueta (impactoNave),
         // nunca en una detonación normal contra el terreno.
         if (evento.impactoNave !== undefined) {
-          // Una sola llamada por impacto resuelto, y con «Sacudida» apagada
-          // también: son interruptores independientes.
-          if (evento.danio > 0 && !yaVibro) {
-            yaVibro = true;
-            vibrar(hayDestruidas ? "remate" : "impacto");
-          }
-
           // realce-impacto (rlc-1, rlc-2): solo en el impacto que de verdad
           // hizo daño -- un impacto a cero daño se queda con el destello de
           // contacto honesto de arriba, sin sacudida ni destello rojo, igual
