@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CATALOGO_ARMAS } from "@/sim/armas/catalogo";
+import { puntoLibreDeArrastre } from "./utilesApuntado";
 
 // layout-dos-zonas: el HUD deja de superponerse al lienzo -- la pantalla se
 // parte en zona de juego (arriba, "zona-juego"/#game-container) y consola
@@ -231,11 +232,10 @@ test("lay-6: estado vacío inicial y aviso de potencia a 0 nombran la causa", as
   // window.innerWidth, no el propio recuadro de la superficie de arrastre:
   // mismo criterio ya probado en control-1.e2e.ts), con margen sobre el
   // -0.334 que ya bastaría para llegar a 0.
-  const surco = page.getByTestId("superficie-arrastre");
-  const caja = (await surco.boundingBox())!;
   const deltaHorizontal = -(POTENCIA_INICIAL / GANANCIA_POTENCIA) - 0.1;
-  const inicioX = caja.x + caja.width * 0.9;
-  const y = caja.y + caja.height * 0.5;
+  const libre = await puntoLibreDeArrastre(page);
+  const inicioX = libre.x;
+  const y = libre.y;
   await page.mouse.move(inicioX, y);
   await page.mouse.down();
   await page.mouse.move(inicioX + deltaHorizontal * VIEWPORT_MOVIL.width, y, { steps: 5 });

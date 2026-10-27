@@ -56,6 +56,9 @@ export async function puntoLibreDeArrastre(page: Page): Promise<{ x: number; y: 
           const elemento = document.elementFromPoint(x, y);
           if (elemento === null || !superficie.contains(elemento)) continue;
           if (elemento.closest('button, [role="slider"], input, select, a') !== null) continue;
+          // Las filas de ángulo y potencia no arrancan el arrastre combinado
+          // (bug 11): un punto dentro de ellas no sirve para apuntar.
+          if (elemento.closest('[data-testid="control-angulo"], [data-testid="control-potencia"]') !== null) continue;
           return { x, y };
         }
       }
