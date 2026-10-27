@@ -173,7 +173,7 @@ export function ConsolaSuperpuesta({ children }: Props) {
             ...(oculta ? ladoAyudaOculta(anclaje) : { left: 0 }),
           }}
         >
-          <AyudaCamaraHUD />
+          <AyudaCamaraHUD enConsola />
           <AyudaApuntadoHUD />
         </div>
       )}

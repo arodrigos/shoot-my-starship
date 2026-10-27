@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { obtenerNavesCss, obtenerZonas, suscribirNaves, suscribirZonas } from "@/juego/camara/zonasOcupadas";
+import { AyudaCamaraHUD } from "@/juego/hud/CamaraHUD";
 import { AvisoSinGuardadoHUD } from "@/juego/hud/AvisoSinGuardadoHUD";
 import { BromaHUD } from "@/juego/hud/BromaHUD";
 import { AvisoTiempoAgotadoHUD } from "@/juego/hud/RelojTurnoHUD";
@@ -66,6 +67,7 @@ export function CapaAvisosHUD() {
         zIndex: 40,
       }}
     >
+      <AyudaCamaraHUD />
       <CartelEventoHUD />
       <BromaHUD />
       <AvisoTiempoAgotadoHUD />

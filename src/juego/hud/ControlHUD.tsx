@@ -659,7 +659,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
       >
         {/* La ayuda del apuntado vive aquí, en la zona de la consola: la cámara
             ya aparta las naves de este rectángulo y su ✕ nunca cae sobre una. */}
-        {conAyudaApuntado && <AyudaCamaraHUD />}
+        {conAyudaApuntado && <AyudaCamaraHUD enConsola />}
         {conAyudaApuntado && <AyudaApuntadoHUD />}
         <FantasmasHUD />
         <RobotsHUD />
