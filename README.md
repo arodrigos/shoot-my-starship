@@ -105,7 +105,8 @@ Arriba a la derecha hay un único botón ⚙, fuera de la consola, así que est�
 al alcance aunque la consola esté mínima, oculta o apartada durante el vuelo.
 Abre un panel con:
 - **Histórico**: los mensajes de la partida.
-- **Sacudida**, **Rastro**, **Sonido**, **Música** y **Voz**, cada uno con
+- **Sacudida**, **Vibración** (solo donde el dispositivo vibra; ver
+  «Vibración»), **Rastro**, **Sonido**, **Música** y **Voz**, cada uno con
   una línea que explica qué hace. Si el dispositivo no tiene voz local en
   castellano, el aviso sale debajo de «Voz».
 - **Texto grande**: agranda un 30 % los textos HTML del HUD (consola, menú,
@@ -447,6 +448,24 @@ preferencia se guarda en `localStorage` (`vibracion:activa`; solo el valor
 `0` la apaga). Para las pruebas, `window.__debug.vibracion()` devuelve una
 instantánea de solo lectura con las últimas llamadas; el doble de
 `navigator.vibrate` para Playwright está en `tests/utils/vibracionFalsa.ts`.
+
+El interruptor «Vibración» está en Ajustes (⚙), justo debajo de «Sacudida». Se
+aplica al momento y, al pasar a On, el mismo toque da un pulso de prueba. Con
+«reducir movimiento» activado sale deshabilitado, en Off y con el motivo; la
+preferencia guardada no se toca.
+
+### Qué se nota en cada dispositivo
+
+- **Android con Chrome, Edge o Samsung Internet**: vibra, y el interruptor
+  aparece en Ajustes.
+- **Android con Firefox**: el interruptor aparece, pero el navegador no vibra;
+  el pulso de prueba al pasar a On lo delata.
+- **iPhone e iPad, con cualquier navegador** (también instalado como app): no
+  vibra y no hay interruptor, porque iOS no ofrece la API.
+- **Ordenador**: no hay interruptor.
+- **Con «reducir movimiento» activado** en el sistema: queda apagada.
+- **Android en silencio o con la vibración del sistema apagada**: puede no
+  vibrar aunque esté en On.
 
 ## Pantalla encendida durante la partida
 
