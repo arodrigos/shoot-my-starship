@@ -54,6 +54,13 @@ for (const textoGrande of [false, true]) {
     const antes = await ajuste(page);
     const b = await caja(page, "barra-angulo");
     const y = b.y + b.height / 2;
+    const sufijoCaptura = textoGrande ? "texto-grande" : "normal";
+    const recorteFila = async (id: string): Promise<Buffer> => {
+      const c = await caja(page, id);
+      return page.screenshot({ clip: c });
+    };
+    const potenciaAntesImg = await recorteFila("control-potencia");
+    await page.screenshot({ path: `capturas/barra-angulo-tactil-2-ang-5-antes-${sufijoCaptura}.png` });
     await toque(cdp, "touchStart", b.x + b.width * 0.1, y);
     for (let i = 1; i <= 10; i++) {
       await toque(cdp, "touchMove", b.x + b.width * (0.1 + 0.065 * i), y);
@@ -64,6 +71,9 @@ for (const textoGrande of [false, true]) {
     expect(cercaDe(despues.angulo, objetivoAngulo)).toBe(true);
     expect(despues.potencia).toBe(antes.potencia);
     await expect(page.getByTestId("valor-potencia")).toHaveText("50%");
+    // ang-5: la barra de potencia queda idéntica píxel a píxel y la de ángulo cambia.
+    await page.screenshot({ path: `capturas/barra-angulo-tactil-2-ang-5-despues-${sufijoCaptura}.png` });
+    expect((await recorteFila("control-potencia")).equals(potenciaAntesImg)).toBe(true);
   });
 
   test(`ang-1b${sufijo}: de derecha a izquierda y en diagonal saliendo de la barra`, async ({ page }) => {
