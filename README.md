@@ -29,6 +29,21 @@ alrededor de la propia nave (`src/juego/control/apuntado.ts`):
 - **Flecha:** sale de la nave, crece con la fuerza y lleva en la punta la
   etiqueta «grados · fuerza». Se aparta si el dedo la taparía.
 
+Con la consola desplegada también se puede ajustar cada valor por separado
+(`src/juego/hud/ControlHUD.tsx`):
+- **Barra «Ángulo»** (0° a 360°, con el valor en décimas) y **barra
+  «Potencia»** (0 % a 100 %): tocar o deslizar el dedo dentro de una barra
+  fija su valor según dónde esté el dedo en ella (borde izquierdo, mínimo;
+  derecho, máximo) y no toca el otro.
+- **Pasos finos**: los botones `-0.1°`/`+0.1°` y `-1%`/`+1%` a los lados de
+  cada barra.
+- **Resto de la consola**: arrastrar desde un punto libre mueve los dos a la
+  vez (en vertical el ángulo, en horizontal la potencia). Un gesto que empieza
+  en cualquier punto de la fila del ángulo o de la potencia (barra, borde,
+  hueco o botones de paso) nunca arranca ese arrastre doble, y las barras
+  ocupan todo el alto de su fila, así que ajustar el ángulo con el dedo ya no
+  mueve la potencia.
+
 Se dispara con "Disparar". El proyectil vuela de verdad, curvado por la
 gravedad de los planetas, cuyos halos marcan cada pozo. Mientras se apunta se
 ve una trayectoria corta (`src/juego/mira/trayectoriaPantalla.ts`), medida en
@@ -437,7 +452,9 @@ En el móvil, el juego vibra un instante al pulsar «Disparar» con un arma (y
 cuando el reloj de turno dispara por ti) y cuando un tiro hace daño a una
 nave, sea quien sea el que dispara. Cada suceso tiene su patrón
 (`PATRONES_VIBRACION`, `src/juego/control/vibracion.ts`): un pulso corto al
-disparar, un doble pulso al alcanzar una nave y uno más largo al destruirla.
+disparar, un doble pulso al hacer daño a una nave y uno más largo al
+destruirla. Cuenta el daño, no el contacto: una detonación junto a la nave que
+le quita vida sin tocar su silueta también vibra, y un impacto sin daño no.
 Ninguno pasa de 200 ms, los impactos seguidos se limitan a uno cada 250 ms (un
 Racimo de Tuppers da una sola vibración) y no vibra con la pestaña oculta ni
 durante la partida automática de «Medir».
@@ -726,3 +743,10 @@ CI.
   con 1000 semillas; el origen local de los tests sale de `BASE_URL` en un
   único sitio; los guardias de `scripts/` comprueban su caso negativo sin
   escribir en `src/`.
+- **Barras de ángulo y potencia con el dedo** (#373): un gesto que empieza en
+  la fila del ángulo o de la potencia ya no arranca el arrastre doble de la
+  consola, así que ajustar el ángulo no mueve la potencia; las barras ocupan
+  todo el alto de su fila.
+- **Vibración por daño** (#376): la vibración de impacto sigue al daño, así que
+  una detonación junto a la nave que le hace daño sin tocar su silueta también
+  vibra.
