@@ -743,10 +743,56 @@ CI.
   con 1000 semillas; el origen local de los tests sale de `BASE_URL` en un
   único sitio; los guardias de `scripts/` comprueban su caso negativo sin
   escribir en `src/`.
+- **Documentación al día** (#325, #326, #372): el README cuenta el aviso de
+  vuelo corto, el origen local de los tests y `npm run smoke:traspaso`;
+  `DISTANCIA_MINIMA_PROPULSORES` pierde el sufijo `_PX` porque mide unidades
+  del mundo; `tests/unit/readme-rutas.test.ts` falla si el README cita una
+  ruta de `src/`, `tests/`, `docs/` o `scripts/` que ya no existe.
+- **Pantalla encendida** (#327): durante la partida se pide al navegador que
+  no apague ni atenúe la pantalla (Screen Wake Lock); se suelta al salir el
+  parte de guerra, y donde no se admite el juego sigue igual, sin avisos.
+- **Anuncios para lectores de pantalla** (#328): una región `aria-live`
+  invisible anuncia el cambio de turno, «¡Tiempo! Disparo automático» y el
+  ganador.
+- **Contraste y tamaño mínimo** (#329, #331, #333): todo texto HTML del HUD
+  mide 14 px o más y sus colores llegan a 4,5:1 (WCAG AA). El parte de guerra
+  va sobre panel opaco y por encima del resto del HUD, con las cifras de cada
+  asiento en filas en vez de una tabla cortada, y se quita en el mismo clic de
+  «Otra partida»; la marca del asiento va junto al nombre en todas las
+  pestañas.
+- **Texto grande** (#330, #332, #334, #339, #356): interruptor en Ajustes que
+  agranda un 30 % los textos HTML del HUD, al momento y recordado entre
+  visitas. Con él, las pestañas de vida no cortan el nombre (dos columnas con
+  tres o cuatro naves, fila propia en el 1 contra 1), la píldora del reloj no
+  pisa el nombre, la ayuda inicial se desplaza si no cabe y la consola puede
+  ocupar todo el alto menos 64 px para que «Disparar» siga en pantalla.
+- **Medir en el dispositivo** (#346, #349, #350, #354): con `?rendimiento=1`,
+  el botón «Medir» juega solo una partida aparte de cinco tramos y copia al
+  portapapeles un resumen para pegar en un issue. El tope de 150 s cuenta
+  desde que la partida pinta, los disparos los elige el simulador para que
+  detonen y los frames se miden con el intervalo real de rAF.
+- **Cámara que esquiva el HUD** (#347, #348, #351): si la consola u otro
+  elemento del HUD taparía una nave, el proyectil o el impacto, la cámara
+  encuadra ese grupo en el hueco libre; con la vista alejada, lo de fuera del
+  mundo se ve con estrellas, y el remate vuelve al encuadre de antes.
+  `__debug.zonasCamara()` da las zonas y el rectángulo libre.
+- **Avisos fuera de las naves** (#352, #353, #355, #357): la ayuda del
+  apuntado (y con «Texto grande» también la de la cámara) vive en la zona de
+  la consola, y el resto de avisos va arriba o encima de la consola, donde no
+  pise ninguna nave. El aviso de precisión ya no empuja «Disparar» fuera de la
+  pantalla y se retira al bajar la potencia; un test exige que «¡Perdido!» se
+  lea.
 - **Barras de ángulo y potencia con el dedo** (#373): un gesto que empieza en
   la fila del ángulo o de la potencia ya no arranca el arrastre doble de la
   consola, así que ajustar el ángulo no mueve la potencia; las barras ocupan
   todo el alto de su fila.
+- **Vibración** (#374, #375): en el móvil, un pulso corto al disparar, uno
+  doble al alcanzar una nave y uno más largo al destruirla; se apaga sola con
+  «reducir movimiento». Interruptor «Vibración» en Ajustes, solo si el
+  dispositivo táctil tiene la API de vibración, con un pulso de prueba al
+  pasar a On.
 - **Vibración por daño** (#376): la vibración de impacto sigue al daño, así que
   una detonación junto a la nave que le hace daño sin tocar su silueta también
   vibra.
+- **Ajustes en tableta apaisada** (#377): en pantallas anchas y bajas el panel
+  de Ajustes va en dos columnas y se ve entero, con «Cerrar» dentro.
