@@ -18,10 +18,21 @@ for (const titulo of TITULOS) {
   });
 }
 
-test("ms-4: el README no nombra la infraestructura", async () => {
+test("el README no menciona la infraestructura (patrones del secret de la guarda)", async (t) => {
+  // S-04 (auditoría 2026-10): los términos ya no viven en este fichero. Salen
+  // del mismo secret que scripts/comprobar-publico.mjs, COMPROBAR_PUBLICO_PATRONES,
+  // en JSON: [["nombre", "regex"], ...]. En Actions llega siempre; sin él, el
+  // criterio no se puede comprobar y el test falla. En local se salta.
+  const crudo = process.env.COMPROBAR_PUBLICO_PATRONES;
+  if (!crudo || !crudo.trim()) {
+    if (process.env.CI) assert.fail("falta COMPROBAR_PUBLICO_PATRONES: sin los patrones privados no se puede comprobar ms-4");
+    t.skip("sin COMPROBAR_PUBLICO_PATRONES (solo llega en Actions)");
+    return;
+  }
+  const pares = JSON.parse(crudo) as unknown;
+  assert.ok(Array.isArray(pares) && pares.length > 0, "COMPROBAR_PUBLICO_PATRONES no es una lista de pares");
   const readme = await leerReadme();
-  // Los términos se parten para que este fichero no dispare la guarda de
-  // repo público que busca esas mismas cadenas.
-  const prohibidos = ["VP" + "S[12]", "claude" + "-fleet", "/home/" + "claude-user", "tail" + "scale", "[0-9]{8}-[0-9]{6}-[0-9a-f]{4}"];
-  assert.doesNotMatch(readme, new RegExp(prohibidos.join("|"), "i"));
+  for (const par of pares as [string, string][]) {
+    assert.doesNotMatch(readme, new RegExp(par[1], "i"), `el README menciona «${par[0]}»`);
+  }
 });

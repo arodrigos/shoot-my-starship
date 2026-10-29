@@ -7,7 +7,9 @@ Deriva: naves varadas disparándose en mundos de chatarra con terreno
 destructible. **100% cliente**: Next.js (App Router, TypeScript estricto) +
 Phaser 4, sin base de datos, sin Auth, sin ninguna llamada a un servicio
 propio. Se despliega en Vercel a través de su integración con GitHub: el
-repo no tiene ningún secret de Actions y el CI no despliega nada. El repo
+repo tiene un único secret de Actions, `COMPROBAR_PUBLICO_PATRONES` (los
+patrones privados de la guarda de repo público, que usan
+`scripts/comprobar-publico.mjs` y el test de ms-4), y el CI no despliega nada. El repo
 es público, así que nada de lo que se escriba aquí (código, commits, issues
 o PRs) puede llevar secretos ni referencias internas de la infraestructura.
 
