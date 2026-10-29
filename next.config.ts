@@ -19,8 +19,21 @@ const revision = calcularRevision(
 
 const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_VERSION_APP: revision.slice(0, 7) },
+  poweredByHeader: false,
   async headers() {
     return [
+      {
+        // Endurecimiento sin efecto visible: el juego no usa cámara,
+        // micrófono ni ubicación, así que ningún script (propio o colado)
+        // debe poder pedirlos. screen-wake-lock y el portapapeles quedan
+        // fuera a propósito: la pantalla encendida y la medición los usan.
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
       {
         // El navegador revisa el script del worker en cada carga; con caché
         // HTTP una versión vieja del propio worker se quedaría pegada. El
