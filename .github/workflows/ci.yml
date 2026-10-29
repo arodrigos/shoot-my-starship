@@ -101,6 +101,9 @@ jobs:
       # solo bajaba un nivel, así que los tests sueltos en tests/unit/ no se
       # ejecutaban nunca.
       - run: node --import tsx --test --test-concurrency=1 --test-shard=${{ matrix.shard }}/3 tests/unit/*.test.ts tests/unit/**/*.test.ts
+        env:
+          # ms-4 comprueba el README con los mismos patrones privados que hig-1 (S-04).
+          COMPROBAR_PUBLICO_PATRONES: ${{ secrets.COMPROBAR_PUBLICO_PATRONES }}
 
   # Un único check-run «test-unit», como «e2e»: decidir-e2e lo busca en la
   # cabeza del PR para saltarse el push del merge.
