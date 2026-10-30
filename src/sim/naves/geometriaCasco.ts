@@ -81,11 +81,6 @@ export function puntosCascoVariante(variante: VarianteNave, dir: 1 | -1): readon
   return [{ x: MORRO_X[variante] * ANCHO_CASCO * dir, y: 0 }, ...superior, ...inferior];
 }
 
-// Atajo de la variante 0: es la silueta que usan los tests heredados.
-export function puntosCasco(dir: 1 | -1): readonly PuntoCasco[] {
-  return puntosCascoVariante(0, dir);
-}
-
 // Caja delimitadora de la silueta dibujada, sin deterioro (las abolladuras
 // solo la meten hacia dentro). Lo usa el tamaño del proyectil.
 export function cajaPuntos(puntos: readonly PuntoCasco[]): { readonly ancho: number; readonly alto: number } {

@@ -556,6 +556,35 @@ npm run build
 npm run start
 ```
 
+### Estructura del código
+
+La regla que lo ordena todo: `src/sim` es el núcleo de la simulación, puro y
+determinista, y no puede importar Phaser, React ni Next ni tocar `window`,
+`document` o `performance` (lo vigila `scripts/comprobar-frontera-nucleo.mjs`).
+Así un test de Node sobre el núcleo prueba lo mismo que ve el jugador, y el
+mismo código corre en el hilo principal y en el Worker de simulación. Todo
+el azar del núcleo sale de la semilla que vive en el estado
+(`src/sim/aleatorio.ts`), nunca de `Math.random`.
+
+| Carpeta | Qué hay |
+| --- | --- |
+| `src/app` | rutas de Next (App Router): la página del juego, el manifiesto, el service worker (`sw.ts`, `serwist/`) y las páginas de prueba bajo `pruebas/` que usan los e2e |
+| `src/sim/partida` | el motor de turnos: `avanzar()` toma estado + entrada y devuelve el estado siguiente y sus eventos |
+| `src/sim/{armas,balistica,fisica,gravedad}` | catálogo de armas (datos, sin ramas por arma), resolución del disparo, vuelo del proyectil y gravedad de N cuerpos |
+| `src/sim/{terreno,sistema,naves,universo}` | máscara de terreno destructible, generación del sistema planetario, colocación y daño de naves, eventos del universo |
+| `src/sim/{ia,economia,equipo}` | rivales de IA (solo proponen una entrada de turno; ver `scripts/comprobar-frontera-ia.mjs`), precios y saldo, escudos y propulsores |
+| `src/juego/motor` | el Worker de simulación y su protocolo de mensajes (solo datos planos) |
+| `src/juego/escenas` | la escena de Phaser de la partida real (`Partida.ts`) |
+| `src/juego/scenes` | escenas de andamiaje para las páginas de prueba (`Sandbox`, `Siluetas`), no la partida |
+| `src/juego/control` | stores que conectan la escena de Phaser con el HUD de React |
+| `src/juego/hud` | componentes React superpuestos al lienzo |
+| `src/juego/*` (resto) | render, cámara, audio, efectos, PWA, partida guardada y medición de rendimiento |
+| `src/contenido` | textos del juego: bromas, reacciones, voces, resúmenes, y el lector de `no-copiar.md` con el que los tests comprueban que ningún texto copia nombres ajenos |
+| `src/debug/tipos.ts` | el tipo de `window.__debug`, los ganchos que usan los e2e |
+| `tests/unit`, `tests/e2e`, `tests/smoke`, `tests/utils` | `node:test` sobre el núcleo, Playwright contra el build de producción, smoke de traspaso y utilidades compartidas |
+| `scripts/` | guardas de arquitectura (`comprobar-*.mjs`) y mediciones (`medir-*.ts`, `calibrar-economia.ts`) |
+| `docs/` | catálogo de armas, calibración de la economía, rendimiento e informes |
+
 ### Variables de entorno
 
 El juego no necesita ninguna para arrancar. Las que el código lee hoy:
@@ -588,6 +617,16 @@ npm run smoke:traspaso                # smoke de tests/smoke/traspaso.spec.ts, e
 npm run calibrar:economia             # recalibra precios y saldo, regenera docs/calibracion-economia.md
 npm run medir:eventos                 # calendario de eventos sobre muchas semillas
 ```
+
+Además, el CI pasa las guardas de arquitectura de `scripts/comprobar-*.mjs`.
+Son búsquedas mecánicas sobre el código, sin navegador, y se pueden lanzar
+en local una a una (`node scripts/comprobar-frontera-nucleo.mjs`). Cada script
+explica en su cabecera qué regla protege y por qué; entre ellas: el núcleo no
+toca el navegador ni `Math.random`, la IA no escribe terreno, la gravedad solo
+tira de los proyectiles, el resolver no ramifica por id de arma y ningún
+efecto visual nace sin su techo en `registroEfectos.ts`.
+`comprobar-publico.mjs` necesita `COMPROBAR_PUBLICO_PATRONES` y sin ella
+falla.
 
 `culori` es solo una dependencia de desarrollo: la usa el test de la paleta
 de asientos para simular el daltonismo y medir el contraste, y no llega al

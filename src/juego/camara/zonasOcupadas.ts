@@ -69,11 +69,6 @@ export function suscribirZonas(escucha: () => void): () => void {
   return () => escuchas.delete(escucha);
 }
 
-export function limpiarZonas(): void {
-  zonas.clear();
-  avisar();
-}
-
 // Rectángulo del elemento más el de sus descendientes marcados con
 // data-zona-extra: la fila ⇄ ▾ ✕ y la fila de avisos («Próximo evento…», muerte
 // súbita, vuelo corto…) flotan fuera de la caja (position:absolute) y, si no se

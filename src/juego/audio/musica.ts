@@ -28,7 +28,6 @@ export const COMPAS_S = CORCHEA_S * CORCHEAS_POR_COMPAS;
 // 24 compases ≈ 64 s: el fragmento más corto que se repite exactamente tiene
 // que durar más de 60 s para que la música no se haga pesada enseguida.
 export const COMPASES_POR_CICLO = 24;
-export const CICLO_S = COMPAS_S * COMPASES_POR_CICLO;
 
 // Pentatónica menor de La: no tiene semitonos, así que cualquier combinación
 // de notas suena consonante y el azar no puede producir una disonancia fea.
