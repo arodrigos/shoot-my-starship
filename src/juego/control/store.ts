@@ -23,6 +23,7 @@ import { CLAVE_TEXTO_GRANDE, leerTextoGrandeGuardado } from "@/juego/hud/legibil
 import { alternarMusica, alternarSonido, musicaActivada, sonidoSilenciado } from "@/juego/audio/motor";
 import { obtenerLocutor } from "@/juego/audio/voz";
 import type { ClaseVueloPropulsores } from "@/juego/control/vueloPropulsores";
+import { escribirAlmacen, leerAlmacen } from "@/juego/almacenLocal";
 
 // Puente entre React (ControlHUD, fuera del lienzo) y la escena de Phaser
 // (que sí sabe de terreno y física): un módulo-singleton con
@@ -121,19 +122,11 @@ const CLAVE_AYUDA_VISTA = "control-apuntado:ayuda-vista";
 const CLAVE_AYUDA_APUNTADO_VISTA = "apuntado-dedo:ayuda-vista";
 
 function ayudaApuntadoYaVista(): boolean {
-  try {
-    return window.localStorage.getItem(CLAVE_AYUDA_APUNTADO_VISTA) === "1";
-  } catch {
-    return false;
-  }
+  return leerAlmacen(() => window.localStorage.getItem(CLAVE_AYUDA_APUNTADO_VISTA) === "1", false);
 }
 
 function marcarAyudaApuntadoVista(): void {
-  try {
-    window.localStorage.setItem(CLAVE_AYUDA_APUNTADO_VISTA, "1");
-  } catch {
-    // Sin almacenamiento la ayuda vuelve a salir: fallo visible y sin consecuencias.
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_AYUDA_APUNTADO_VISTA, "1"));
 }
 
 // Se lee al montar la partida, no en cada cierre: la ayuda sigue siendo de
@@ -142,21 +135,11 @@ function marcarAyudaApuntadoVista(): void {
 let ayudaApuntadoVistaAlArrancar = false;
 
 function ayudaYaVista(): boolean {
-  try {
-    return window.localStorage.getItem(CLAVE_AYUDA_VISTA) === "1";
-  } catch {
-    return false;
-  }
+  return leerAlmacen(() => window.localStorage.getItem(CLAVE_AYUDA_VISTA) === "1", false);
 }
 
 function marcarAyudaVista(): void {
-  try {
-    window.localStorage.setItem(CLAVE_AYUDA_VISTA, "1");
-  } catch {
-    // Almacenamiento no disponible (navegación privada, cuota agotada...):
-    // la ayuda volverá a aparecer la próxima vez, que es un fallo visible y
-    // sin consecuencias, no una excepción sin capturar.
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_AYUDA_VISTA, "1"));
 }
 
 // ctl-6: el ajuste sobrevive a recargar la página (localStorage), no solo al
@@ -166,8 +149,10 @@ function marcarAyudaVista(): void {
 // el único de los dos módulos que lo conoce).
 const CLAVE_AJUSTE_GUARDADO = "control-apuntado:ajuste";
 
+// El JSON.parse va dentro de la lectura a propósito: un valor corrupto cae
+// al mismo null que un almacenamiento inaccesible.
 function leerAjusteGuardado(): EstadoAjuste | null {
-  try {
+  return leerAlmacen((): EstadoAjuste | null => {
     const bruto = window.localStorage.getItem(CLAVE_AJUSTE_GUARDADO);
     if (!bruto) return null;
     const datos: unknown = JSON.parse(bruto);
@@ -179,19 +164,11 @@ function leerAjusteGuardado(): EstadoAjuste | null {
         ? armaIdBruto
         : CATALOGO_ARMAS[0].id;
     return { ...numerico, armaId };
-  } catch {
-    return null;
-  }
+  }, null);
 }
 
 function guardarAjuste(ajuste: EstadoAjuste): void {
-  try {
-    window.localStorage.setItem(CLAVE_AJUSTE_GUARDADO, JSON.stringify(ajuste));
-  } catch {
-    // Cuota agotada o almacenamiento no disponible: el ajuste no persiste
-    // entre turnos, un fallo visible y sin consecuencias, no una excepción
-    // sin capturar.
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_AJUSTE_GUARDADO, JSON.stringify(ajuste)));
 }
 
 // realce-impacto (rlc-3): "no marea ni estorba" -- por defecto activada
@@ -201,49 +178,29 @@ function guardarAjuste(ajuste: EstadoAjuste): void {
 const CLAVE_SACUDIDA_ACTIVA = "realce-impacto:sacudida-activa";
 
 function leerSacudidaActivaGuardada(): boolean {
-  try {
+  return leerAlmacen(() => {
     const bruto = window.localStorage.getItem(CLAVE_SACUDIDA_ACTIVA);
     return bruto === null ? true : bruto === "1";
-  } catch {
-    return true;
-  }
+  }, true);
 }
 
 function guardarSacudidaActiva(valor: boolean): void {
-  try {
-    window.localStorage.setItem(CLAVE_SACUDIDA_ACTIVA, valor ? "1" : "0");
-  } catch {
-    // Cuota agotada o almacenamiento no disponible: el ajuste no persiste
-    // entre partidas, un fallo visible y sin consecuencias, no una
-    // excepción sin capturar.
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_SACUDIDA_ACTIVA, valor ? "1" : "0"));
 }
 
 const CLAVE_RASTRO_ACTIVO = "rastro-ultimo-disparo:activo";
 
 // Solo "0" lo apaga: un valor corrupto o ausente deja el rastro encendido.
 function leerRastroActivoGuardado(): boolean {
-  try {
-    return window.localStorage.getItem(CLAVE_RASTRO_ACTIVO) !== "0";
-  } catch {
-    return true;
-  }
+  return leerAlmacen(() => window.localStorage.getItem(CLAVE_RASTRO_ACTIVO) !== "0", true);
 }
 
 function guardarRastroActivo(valor: boolean): void {
-  try {
-    window.localStorage.setItem(CLAVE_RASTRO_ACTIVO, valor ? "1" : "0");
-  } catch {
-    // Sin almacenamiento el ajuste no persiste, pero el interruptor funciona.
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_RASTRO_ACTIVO, valor ? "1" : "0"));
 }
 
 function guardarTextoGrande(valor: boolean): void {
-  try {
-    window.localStorage.setItem(CLAVE_TEXTO_GRANDE, valor ? "1" : "0");
-  } catch {
-    // Sin almacenamiento el ajuste no persiste, pero el interruptor funciona.
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_TEXTO_GRANDE, valor ? "1" : "0"));
 }
 
 // El atributo se pone al crear el store, antes de que el HUD pinte, para que
@@ -254,15 +211,7 @@ function aplicarTextoGrande(valor: boolean): void {
   else delete document.documentElement.dataset.textoGrande;
 }
 
-const textoGrandeInicial = leerTextoGrandeGuardado(
-  (() => {
-    try {
-      return window.localStorage;
-    } catch {
-      return undefined;
-    }
-  })(),
-);
+const textoGrandeInicial = leerTextoGrandeGuardado(leerAlmacen((): Storage | undefined => window.localStorage, undefined));
 aplicarTextoGrande(textoGrandeInicial);
 
 let estado: EstadoControl = {

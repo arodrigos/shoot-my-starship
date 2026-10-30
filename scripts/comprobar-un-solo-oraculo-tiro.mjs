@@ -1,13 +1,18 @@
 #!/usr/bin/env node
-// impacto-naves (imp-8): UN SOLO ORÁCULO DE TIRO. src/sim/balistica/busqueda.ts
-// tenía su propia condición de parada privada (paraba a 60px 2D del objetivo,
-// sin comprobar daño real) -- se borró en este bloque. Este guardia impide que
-// vuelva a aparecer disfrazada: ningún fichero de src/sim/balistica puede
-// importar el módulo de vuelo ni el integrador de pasos directamente, porque
-// eso es exactamente lo que hace falta para construirse una condición de
-// parada propia. El único camino permitido hacia un vuelo real es
-// resolverDisparo (src/sim/armas/resolver.ts), que barridoRejilla/
-// existeTiroViable ya usan.
+// impacto-naves (imp-8): UN SOLO ORÁCULO DE TIRO. Ningún fichero de
+// src/sim/balistica puede importar el módulo de vuelo (@/sim/fisica/vuelo) ni
+// el integrador de pasos (integrarPasoProyectil) directamente, porque eso es
+// exactamente lo que hace falta para construirse una condición de parada de
+// vuelo propia. El único camino permitido hacia un vuelo real es
+// resolverDisparo (src/sim/armas/resolver.ts), que es el que usan
+// barridoRejilla y existeTiroViable (rejilla.ts): así el apuntado de la IA y
+// la existencia de un tiro viable se deciden con el mismo vuelo y el mismo
+// daño que el disparo de verdad.
+//
+// Historia: el guardia nació cuando se borró src/sim/balistica/busqueda.ts,
+// que tenía su propia condición de parada privada (paraba a 60px 2D del
+// objetivo, sin comprobar daño real). Ese fichero ya no existe; el guardia
+// impide que algo equivalente vuelva a aparecer disfrazado.
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 

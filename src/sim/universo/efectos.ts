@@ -71,7 +71,7 @@ function contextoDe(estado: EstadoSinUniverso & { muerteSubita?: boolean }): Con
   return {
     modo: estado.modo,
     fase: estado.muerteSubita === true ? "muerte-subita" : "normal",
-    vivas: idsNavesVivas(estado as EstadoPartida),
+    vivas: idsNavesVivas(estado),
   };
 }
 

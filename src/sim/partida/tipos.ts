@@ -147,7 +147,7 @@ export interface EntradaDeTurno {
 // nucleo-n-naves: ids (en el orden de `ordenTurno`) de las naves con
 // integridad > 0. Vive aquí, no en avanzar(), porque fuente.ts (la IA)
 // necesita la misma lista para elegir entre varios rivales.
-export function idsNavesVivas(estado: EstadoPartida): readonly IdNave[] {
+export function idsNavesVivas(estado: Pick<EstadoPartida, "ordenTurno" | "naves">): readonly IdNave[] {
   return estado.ordenTurno.filter((id) => estado.naves[id].integridad > 0);
 }
 
