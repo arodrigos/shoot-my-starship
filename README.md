@@ -599,7 +599,7 @@ El juego no necesita ninguna para arrancar. Las que el código lee hoy:
 | `SEMILLAS_EVT_1` | `tests/unit/universo-eventos.test.ts` | semillas del test de propiedades del calendario (evt-1); sin ella, las del CI |
 | `PRUEBA_LARGA` | tests y scripts | con `1`, muestra completa en los tests estadísticos y en `medir:eventos` / `calibrar:economia` |
 | `CAPTURAS_DIR`, `RUTA_CAPTURA` | e2e | carpeta o fichero donde guardar capturas; sin ellas no se guardan |
-| `COMPROBAR_PUBLICO_PATRONES` | `scripts/comprobar-publico.mjs` | patrones que esa comprobación busca; llega del CI y sin ella el script falla |
+| `COMPROBAR_PUBLICO_PATRONES` | `scripts/comprobar-publico.mjs`, `tests/unit/documentacion/ms-4.test.ts` | patrones privados que buscan esa comprobación y el test de ms-4 sobre el README; llega del CI (secret de Actions). Sin ella el script falla; el test falla con `CI` puesta y, en local, se salta |
 
 ## Comprobaciones
 
@@ -626,7 +626,10 @@ toca el navegador ni `Math.random`, la IA no escribe terreno, la gravedad solo
 tira de los proyectiles, el resolver no ramifica por id de arma y ningún
 efecto visual nace sin su techo en `registroEfectos.ts`.
 `comprobar-publico.mjs` necesita `COMPROBAR_PUBLICO_PATRONES` y sin ella
-falla.
+falla. El test de ms-4 lee esos mismos patrones para comprobar que el README
+no menciona la infraestructura: en el CI le llegan a los shards de
+`test-unit` y, sin ellos, falla; en local, sin la variable, `npm run
+test:unit` lo da por saltado.
 
 `culori` es solo una dependencia de desarrollo: la usa el test de la paleta
 de asientos para simular el daltonismo y medir el contraste, y no llega al
@@ -835,3 +838,13 @@ CI.
   vibra.
 - **Ajustes en tableta apaisada** (#377): en pantallas anchas y bajas el panel
   de Ajustes va en dos columnas y se ve entero, con «Cerrar» dentro.
+- **Patrones de ms-4 fuera del repo** (#381): el test de ms-4 ya no lleva en
+  claro los términos que el README no puede mencionar; los lee de
+  `COMPROBAR_PUBLICO_PATRONES`, el mismo secret que `scripts/comprobar-publico.mjs`,
+  que el CI pasa ahora también a `test-unit`.
+- **Píxeles destruidos de todo el mundo** (#383): el recuento de píxeles
+  arrancados (`contarPixelesDestruidos`, `src/sim/terreno/estadisticas.ts`)
+  cuenta toda celda con material que queda en aire, no solo las de valor
+  `SOLIDO`: vaciar cualquier planeta o un anillo de escombro suma ya al premio
+  «Topo Espacial» y al «Mérito Geológico» del parte de guerra. Tapar un
+  material con otro (Vertedero Portátil) no cuenta.
