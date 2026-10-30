@@ -15,6 +15,7 @@ import {
 } from "@/juego/hud/estadoConsola";
 import "@/debug/tipos";
 import { tamTexto } from "@/juego/hud/legibilidad";
+import { escribirAlmacen, leerAlmacen } from "@/juego/almacenLocal";
 import { AyudaApuntadoHUD } from "@/juego/hud/AyudaApuntadoHUD";
 import { AyudaCamaraHUD } from "@/juego/hud/CamaraHUD";
 import { useZonaOcupada } from "@/juego/hud/useZonaOcupada";
@@ -32,19 +33,12 @@ const MARGEN_LATERAL_PX = 8;
 const FONDO_DESPLEGADA = "rgba(10, 12, 20, 0.55)";
 
 function leerAlmacenado(clave: string): string | null {
-  try {
-    return window.localStorage.getItem(clave);
-  } catch {
-    return null;
-  }
+  return leerAlmacen(() => window.localStorage.getItem(clave), null);
 }
 
 function guardar(clave: string, valor: string): void {
-  try {
-    window.localStorage.setItem(clave, valor);
-  } catch {
-    // Sin almacenamiento (modo privado) el valor vale solo para esta partida.
-  }
+  // Sin almacenamiento (modo privado) el valor vale solo para esta partida.
+  escribirAlmacen(() => window.localStorage.setItem(clave, valor));
 }
 
 // Sin transform: ControlHUD lleva elementos position:fixed (histórico, ayuda)

@@ -8,6 +8,7 @@
 // sin Web Audio, con --mute-audio o con la política de autoplay bloqueando
 // el contexto deja el juego mudo pero nunca roto.
 import { CLAVE_MUSICA, BPM_BASE, crearProgramador, sanearPreferenciaMusica, type CapaTension, type Programador } from "@/juego/audio/musica";
+import { escribirAlmacen, leerAlmacen } from "@/juego/almacenLocal";
 import { HISTERESIS_INICIAL, nivelTension, siguienteHisteresis, type EstadoHisteresis, type NivelTension, type SenalesTension } from "@/juego/audio/tension";
 
 export type EstadoAudio = "sin-inicializar" | "suspendido" | "en-marcha";
@@ -29,22 +30,14 @@ export function estadoAudioActual(): EstadoAudio {
 const CLAVE_SILENCIADO = "sonido-procedimental:silenciado";
 
 function leerSilenciadoGuardado(): boolean {
-  try {
+  return leerAlmacen(() => {
     const bruto = window.localStorage.getItem(CLAVE_SILENCIADO);
     return bruto === null ? true : bruto !== "0";
-  } catch {
-    return true;
-  }
+  }, true);
 }
 
 function guardarSilenciado(valor: boolean): void {
-  try {
-    window.localStorage.setItem(CLAVE_SILENCIADO, valor ? "1" : "0");
-  } catch {
-    // Cuota agotada o almacenamiento no disponible: la preferencia no
-    // persiste entre partidas, un fallo visible y sin consecuencias, no una
-    // excepción sin capturar (mismo patrón que el resto del módulo).
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_SILENCIADO, valor ? "1" : "0"));
 }
 
 let silenciado = leerSilenciadoGuardado();
@@ -53,11 +46,7 @@ let silenciado = leerSilenciadoGuardado();
 // efectos. Viene activada por defecto, pero igual que los efectos no crea el
 // AudioContext hasta un gesto del usuario.
 function leerMusicaGuardada(): boolean {
-  try {
-    return sanearPreferenciaMusica(window.localStorage.getItem(CLAVE_MUSICA));
-  } catch {
-    return true;
-  }
+  return leerAlmacen(() => sanearPreferenciaMusica(window.localStorage.getItem(CLAVE_MUSICA)), true);
 }
 
 let musicaActiva = leerMusicaGuardada();
@@ -181,11 +170,7 @@ export function alternarSonido(): boolean {
 // alternarSonido, pulsarlo es el gesto que desbloquea el AudioContext.
 export function alternarMusica(): boolean {
   musicaActiva = !musicaActiva;
-  try {
-    window.localStorage.setItem(CLAVE_MUSICA, musicaActiva ? "1" : "0");
-  } catch {
-    // Misma política que guardarSilenciado: la preferencia no persiste.
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_MUSICA, musicaActiva ? "1" : "0"));
   if (musicaActiva) {
     desbloquearAudio();
   } else {
