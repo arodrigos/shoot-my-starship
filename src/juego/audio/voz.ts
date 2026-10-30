@@ -5,6 +5,7 @@
 // manda el texto, que puede llevar nombres de jugador, a un servidor ajeno.
 import { TIMBRE_POR_VOZ } from "@/contenido/vocesPersonajes";
 import type { IdVoz } from "@/contenido/bancoBromas";
+import { escribirAlmacen, leerAlmacen } from "@/juego/almacenLocal";
 import { atenuarMusica } from "@/juego/audio/motor";
 
 export const CLAVE_VOZ = "voz:activada";
@@ -290,19 +291,11 @@ function desbloquearSintesis(): void {
 }
 
 function leerPreferencia(): unknown {
-  try {
-    return window.localStorage.getItem(CLAVE_VOZ);
-  } catch {
-    return null;
-  }
+  return leerAlmacen((): unknown => window.localStorage.getItem(CLAVE_VOZ), null);
 }
 
 function guardarPreferencia(activada: boolean): void {
-  try {
-    window.localStorage.setItem(CLAVE_VOZ, activada ? "true" : "false");
-  } catch {
-    // Almacenamiento no disponible: la preferencia no persiste.
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_VOZ, activada ? "true" : "false"));
 }
 
 let locutor: Locutor | null = null;

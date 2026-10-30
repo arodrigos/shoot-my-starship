@@ -1,3 +1,5 @@
+import { leerAlmacen } from "@/juego/almacenLocal";
+
 // Legibilidad del HUD HTML (P2). Todo tamaño de letra del HUD pasa por
 // tamTexto() para que un único multiplicador (--escala-texto) pueda agrandarlo
 // sin tocar el lienzo ni la portada, que no leen la variable.
@@ -15,11 +17,7 @@ export const CLAVE_TEXTO_GRANDE = "legibilidad:texto-grande";
 // Solo "1" lo enciende: ausente, "0", basura o un almacenamiento que lanza lo
 // dejan apagado, para que un valor corrupto nunca agrande el HUD sin pedirlo.
 export function leerTextoGrandeGuardado(almacen: Pick<Storage, "getItem"> | undefined): boolean {
-  try {
-    return almacen?.getItem(CLAVE_TEXTO_GRANDE) === "1";
-  } catch {
-    return false;
-  }
+  return leerAlmacen(() => almacen?.getItem(CLAVE_TEXTO_GRANDE) === "1", false);
 }
 
 export interface ParContraste {

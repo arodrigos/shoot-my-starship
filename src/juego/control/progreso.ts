@@ -1,8 +1,9 @@
+import { escribirAlmacen, leerAlmacen } from "@/juego/almacenLocal";
 import { esNivelIA, type NivelIA } from "@/sim/ia/nivel";
 import type { EstadisticasPartida, ParteDeGuerra } from "@/sim/partida/parteDeGuerra";
 
 // partida-5: degradación con gracia sin almacenamiento -- mismo patrón
-// try/catch de store.ts (CLAVE_AYUDA_VISTA), pero con esquema versionado
+// (almacenLocal.ts) que store.ts (CLAVE_AYUDA_VISTA), pero con esquema versionado
 // (partida-4/5 lo exigen: rival elegido y resumen de la última partida, no
 // un flag suelto) que se descarta en silencio si no valida, en vez de
 // lanzar y romper el arranque.
@@ -55,18 +56,15 @@ function esProgresoValido(valor: unknown): valor is Progreso {
 // navegador -- localStorage puede existir y aun así lanzar (cuota agotada,
 // modo privado estricto en algunos navegadores).
 export function almacenamientoDisponible(): boolean {
-  try {
+  return escribirAlmacen(() => {
     const clave = "partida-completa:sondeo";
     window.localStorage.setItem(clave, "1");
     window.localStorage.removeItem(clave);
-    return true;
-  } catch {
-    return false;
-  }
+  });
 }
 
 export function leerProgreso(): Progreso {
-  try {
+  return leerAlmacen((): Progreso => {
     const bruto = window.localStorage.getItem(CLAVE_PROGRESO);
     if (!bruto) return progresoVacio();
     const datos: unknown = JSON.parse(bruto);
@@ -74,18 +72,13 @@ export function leerProgreso(): Progreso {
     // Un progreso guardado antes de existir el nivel no lo trae; uno
     // manipulado puede traer cualquier cosa: ambos caen a «sin elegir».
     return { ...datos, nivelIA: esNivelIA((datos as { nivelIA?: unknown }).nivelIA) ? (datos as { nivelIA: NivelIA }).nivelIA : null };
-  } catch {
-    return progresoVacio();
-  }
+  }, progresoVacio());
 }
 
+// Sin almacenamiento el juego se juega igual (partida-5): la próxima visita
+// simplemente vuelve a ver el estado vacío.
 function guardar(progreso: Progreso): void {
-  try {
-    window.localStorage.setItem(CLAVE_PROGRESO, JSON.stringify(progreso));
-  } catch {
-    // Sin almacenamiento el juego se juega igual (partida-5): la próxima
-    // visita simplemente vuelve a ver el estado vacío.
-  }
+  escribirAlmacen(() => window.localStorage.setItem(CLAVE_PROGRESO, JSON.stringify(progreso)));
 }
 
 export function guardarRivalElegido(rivalId: string): void {
