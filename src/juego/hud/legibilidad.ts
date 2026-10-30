@@ -3,7 +3,6 @@
 // sin tocar el lienzo ni la portada, que no leen la variable.
 
 export const TAMANO_TEXTO_MINIMO_PX = 14;
-export const FACTOR_TEXTO_GRANDE = 1.3;
 
 // px < 14 solo se admite en un line-height, nunca en un tamaño de letra: la
 // guardia estática (hud-tamanos.test.ts) lo vigila.

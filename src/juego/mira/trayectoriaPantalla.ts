@@ -1,7 +1,6 @@
 // Geometría de la trayectoria estimada que se ve mientras se apunta. Se mide
 // en PANTALLA y no en mundo: con zoom de cámara, una longitud en pasos de
 // simulación cambiaría de tamaño en el dispositivo y dejaría de leerse igual.
-export const LADO_REFERENCIA = "mayor" as const;
 export const SEMIAPERTURA_TRAMO1_GRADOS = 9;
 export const SEMIAPERTURA_TRAMO2_GRADOS = 45;
 // La mosca es la más impredecible: el abanico tiene que dejarlo ver.

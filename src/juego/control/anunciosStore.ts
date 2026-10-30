@@ -20,7 +20,7 @@ export interface EstadoAnuncios {
 
 let estado: EstadoAnuncios = { texto: "", secuencia: 0 };
 let historial: Anuncio[] = [];
-let ahora: () => number = () => performance.now();
+const ahora: () => number = () => performance.now();
 const escuchas = new Set<() => void>();
 
 export function obtenerAnuncio(): EstadoAnuncios {
@@ -48,11 +48,6 @@ export function reiniciarAnuncios(): void {
   historial = [];
   estado = { texto: "", secuencia: estado.secuencia + 1 };
   for (const escucha of escuchas) escucha();
-}
-
-// Solo para pruebas.
-export function inyectarRelojAnuncios(fuente: (() => number) | null): void {
-  ahora = fuente ?? (() => performance.now());
 }
 
 type DatosTurno = Pick<EstadoParticipantes, "participantes" | "rivalesIA" | "humanos"> & { readonly nombreRival: string };

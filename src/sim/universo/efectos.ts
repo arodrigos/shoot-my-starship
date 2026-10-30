@@ -11,7 +11,7 @@ import { buscarEvento } from "@/sim/universo/catalogoEventos";
 import { programarSiguiente, sortearEvento, sortearIndice, type ContextoSorteo } from "@/sim/universo/calendario";
 import { crearObjeto, MAX_OBJETOS_VIVOS } from "@/sim/universo/objetos";
 import { sortearEventoGratis } from "@/sim/universo/disparoGratis";
-import type { EfectoActivo, EstadoUniverso, EventoProgramado, FasePartida, TipoEfecto } from "@/sim/universo/tipos";
+import type { EfectoActivo, EstadoUniverso, EventoProgramado, TipoEfecto } from "@/sim/universo/tipos";
 
 export const TURNOS_EFECTO_NAVE = 3;
 export const FACTOR_VITAMINAS = 2;
@@ -65,10 +65,6 @@ export function entrarEnMuerteSubita(estado: EstadoPartida): { universo: EstadoU
       ...(objetos !== undefined ? { objetos } : {}),
     },
   };
-}
-
-export function faseDe(estado: EstadoPartida): FasePartida {
-  return estado.muerteSubita === true ? "muerte-subita" : "normal";
 }
 
 function contextoDe(estado: EstadoSinUniverso & { muerteSubita?: boolean }): ContextoSorteo {

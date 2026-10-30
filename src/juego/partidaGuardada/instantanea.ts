@@ -1,7 +1,7 @@
 import { codificarRle } from "@/juego/partidaGuardada/codecRle";
 import { versionApp } from "@/juego/pwa/estadoPwa";
 import type { Mascara } from "@/sim/terreno/mascara";
-import { MAX_CARACTERES_INSTANTANEA, VERSION_ESQUEMA, type DatosPartida, type ResultadoLectura, type Rotulo } from "@/juego/partidaGuardada/tipos";
+import { VERSION_ESQUEMA, type DatosPartida, type ResultadoLectura, type Rotulo } from "@/juego/partidaGuardada/tipos";
 import { validarInstantanea } from "@/juego/partidaGuardada/validar";
 
 // Misma fuente que __debug.pwa.version: una constante de build, no depende de
@@ -48,8 +48,4 @@ export function crearInstantanea(datos: DatosPartida, opciones: OpcionesCrear = 
 
 export function leerInstantanea(cadena: string, versionActual: string = VERSION_JUEGO): ResultadoLectura {
   return validarInstantanea(cadena, versionActual);
-}
-
-export function cabeEnAlmacen(cadena: string): boolean {
-  return cadena.length <= MAX_CARACTERES_INSTANTANEA;
 }

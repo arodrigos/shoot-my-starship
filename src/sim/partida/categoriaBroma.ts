@@ -1,4 +1,4 @@
-import { alturaSuperficie, type ResultadoDisparo } from "@/sim/armas/resolver";
+import type { ResultadoDisparo } from "@/sim/armas/resolver";
 import { esMaterialPlaneta, obtenerMaterial, ESCOMBRO, type Mascara } from "@/sim/terreno/mascara";
 import type { IdNave } from "@/sim/partida/tipos";
 
@@ -82,11 +82,4 @@ export function categorizarResultado(entrada: EntradaCategoriaBroma): CategoriaB
     return "impacto-planeta";
   }
   return "fallo-lejano";
-}
-
-// Para el modo de suelo plano de siempre (sin planetas ni y por nave): la
-// altura de apoyo se deriva de la máscara, igual que hace avanzar() para
-// colocar el resto de eventos de ese modo.
-export function alturaObjetivoParaCategoria(mascara: Mascara, x: number, y: number | undefined): number {
-  return y ?? alturaSuperficie(mascara, x) ?? mascara.alto - 1;
 }
