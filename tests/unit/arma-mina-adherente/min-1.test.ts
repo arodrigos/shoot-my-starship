@@ -7,10 +7,7 @@ import { crearMascaraVacia } from "@/sim/terreno/mascara";
 import { buscarArma } from "@/sim/armas/catalogo";
 import { resolverDisparo, ALTURA_CANON_PX } from "@/sim/armas/resolver";
 import { solucionTensa } from "../../utils/solucionTensa";
-import { simularVuelo } from "@/sim/fisica/vuelo";
-import { PRESUPUESTO_VUELO_MULTIPOZO_PASOS } from "@/sim/fisica/vuelo";
 import type { RegistroPlanetas } from "@/sim/gravedad/planetas";
-import type { EstadoProyectil } from "@/sim/fisica/proyectil";
 
 const ANCHO = 1920;
 const ALTO = 1080;

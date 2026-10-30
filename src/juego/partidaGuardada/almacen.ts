@@ -1,3 +1,4 @@
+import { escribirAlmacen, leerAlmacen } from "@/juego/almacenLocal";
 import { MAX_CARACTERES_INSTANTANEA } from "@/juego/partidaGuardada/tipos";
 
 // Mismo prefijo que la clave de progreso (progreso.ts), pero otra clave: el
@@ -16,11 +17,7 @@ export type ResultadoEscritura = { readonly ok: true } | { readonly ok: false; r
 // Se resuelve en cada llamada: localStorage puede no existir (SSR, modo
 // privado estricto) o lanzar solo al accederse.
 function almacenamiento(): Storage | null {
-  try {
-    return typeof window !== "undefined" && window.localStorage ? window.localStorage : null;
-  } catch {
-    return null;
-  }
+  return leerAlmacen(() => (typeof window !== "undefined" && window.localStorage ? window.localStorage : null), null);
 }
 
 // A diferencia de progreso.ts, que calla, aquí el resultado dice por qué no se
@@ -30,35 +27,19 @@ export function escribirPartidaGuardada(cadena: string): ResultadoEscritura {
   if (cadena.length > MAX_CARACTERES_INSTANTANEA) return { ok: false, motivo: "demasiado-grande" };
   const almacen = almacenamiento();
   if (!almacen) return { ok: false, motivo: "sin-almacenamiento" };
-  try {
-    almacen.setItem(CLAVE_PARTIDA_GUARDADA, cadena);
-    return { ok: true };
-  } catch {
-    return { ok: false, motivo: "sin-espacio" };
-  }
+  return escribirAlmacen(() => almacen.setItem(CLAVE_PARTIDA_GUARDADA, cadena)) ? { ok: true } : { ok: false, motivo: "sin-espacio" };
 }
 
 export function leerPartidaGuardada(): string | null {
-  try {
-    return almacenamiento()?.getItem(CLAVE_PARTIDA_GUARDADA) ?? null;
-  } catch {
-    return null;
-  }
+  return leerAlmacen(() => almacenamiento()?.getItem(CLAVE_PARTIDA_GUARDADA) ?? null, null);
 }
 
+// Sin almacenamiento no hay nada que borrar, y eso cuenta como éxito; solo un
+// removeItem que lanza devuelve false.
 export function borrarPartidaGuardada(): boolean {
-  try {
-    almacenamiento()?.removeItem(CLAVE_PARTIDA_GUARDADA);
-    return true;
-  } catch {
-    return false;
-  }
+  return escribirAlmacen(() => almacenamiento()?.removeItem(CLAVE_PARTIDA_GUARDADA));
 }
 
 export function guardadoActivado(): boolean {
-  try {
-    return almacenamiento()?.getItem(CLAVE_GUARDADO_ACTIVADO) !== "0";
-  } catch {
-    return true;
-  }
+  return leerAlmacen(() => almacenamiento()?.getItem(CLAVE_GUARDADO_ACTIVADO) !== "0", true);
 }
