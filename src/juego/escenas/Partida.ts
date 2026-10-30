@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { MUNDO_ALTO, MUNDO_ANCHO } from "@/juego/constantes";
+import { leerAlmacen } from "@/juego/almacenLocal";
 import { generarMascara } from "@/sim/terreno/generador";
 import { crearTerrenoPhaser } from "@/juego/terreno/crearTerrenoPhaser";
 import { crearTerrenoEspacioPhaser } from "@/juego/terreno/crearTerrenoEspacioPhaser";
@@ -3996,22 +3997,14 @@ export class Partida extends Phaser.Scene {
     const parametro = parametrosUrl.get("muerte");
     if (parametro === "1") return true;
     if (parametro === "0") return false;
-    try {
-      return window.localStorage.getItem("muerte-subita:activada") !== "0";
-    } catch {
-      return true;
-    }
+    return leerAlmacen(() => window.localStorage.getItem("muerte-subita:activada") !== "0", true);
   }
 
   private eventosActivados(parametrosUrl: URLSearchParams): boolean {
     const parametro = parametrosUrl.get("eventos");
     if (parametro === "1") return true;
     if (parametro === "0") return false;
-    try {
-      return window.localStorage.getItem("universo:eventos") !== "0";
-    } catch {
-      return true;
-    }
+    return leerAlmacen(() => window.localStorage.getItem("universo:eventos") !== "0", true);
   }
 
   // musica-tension: las señales salen del estado que la escena ya tiene; un

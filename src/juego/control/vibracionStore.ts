@@ -1,5 +1,6 @@
 import { decidirVibracion, motivoApagada, type MotivoApagada, type TipoVibracion } from "@/juego/control/vibracion";
 import { obtenerMedicion } from "@/juego/control/medicionStore";
+import { escribirAlmacen, leerAlmacen } from "@/juego/almacenLocal";
 
 export interface ProveedorVibracion {
   vibrate(patron: number | readonly number[]): boolean;
@@ -40,11 +41,7 @@ const escuchas = new Set<() => void>();
 // Solo el valor exacto "0" apaga; basura, vacío o un almacenamiento que lanza
 // dejan la vibración encendida, como las demás preferencias del juego.
 export function leerPreferenciaVibracion(leer: () => string | null): boolean {
-  try {
-    return leer() !== "0";
-  } catch {
-    return true;
-  }
+  return leerAlmacen(() => leer() !== "0", true);
 }
 
 function proveedor(): ProveedorVibracion | null {
@@ -147,11 +144,8 @@ export function vibrar(tipo: TipoVibracion): boolean {
 export function fijarVibracionActiva(valor: boolean): void {
   const cambia = preferenciaActual() !== valor;
   preferencia = valor;
-  try {
-    localStorage.setItem(CLAVE, valor ? "1" : "0");
-  } catch {
-    // almacenamiento bloqueado: la elección vale solo en esta sesión
-  }
+  // Con el almacenamiento bloqueado la elección vale solo en esta sesión.
+  escribirAlmacen(() => localStorage.setItem(CLAVE, valor ? "1" : "0"));
   avisar();
   // El toque que enciende es una activación de usuario: el pulso deja al
   // jugador comprobar que su dispositivo vibra de verdad.
