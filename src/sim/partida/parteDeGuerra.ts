@@ -15,12 +15,12 @@ export function estadisticasIniciales(): EstadisticasPartida {
   return { disparos: 0, fallos: 0, autoimpactos: 0, danioHechoAlEnemigo: 0, pixelesDestruidos: 0 };
 }
 
-// Mínimo de píxeles destruidos para el Mérito Geológico. Desde que #383 cuenta
-// como mundo también el escombro y el material de cada planeta, casi todo
-// ganador destruye más píxeles que daño hace, y la medalla dejaba de ser
-// rara: este suelo la devuelve a la frecuencia que tenía antes (medida con
-// `npm run medir:premios`).
-export const PIXELES_MINIMOS_MERITO_GEOLOGICO = 0;
+// Mínimo de píxeles destruidos para el Mérito Geológico. Desde #383 los
+// píxeles cuentan todo material (planetas y escombro), no solo SOLIDO, y la
+// condición «más píxeles que daño» sola pasó de cumplirse en el 21,5 % de las
+// partidas al 35,5 % (`npm run medir:premios`, 200 partidas). Con este suelo
+// vuelve al 22 %: la medalla premia cavar mucho, no solo fallar.
+export const PIXELES_MINIMOS_MERITO_GEOLOGICO = 4000;
 
 export interface ParteDeGuerra {
   readonly medalla: string;

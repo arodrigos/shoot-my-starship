@@ -14,7 +14,7 @@ const RUTA_NO_COPIAR = path.join(process.cwd(), "no-copiar.md");
 const PERFILES: readonly EstadisticasPartida[] = [
   { disparos: 5, fallos: 1, autoimpactos: 1, danioHechoAlEnemigo: 40, pixelesDestruidos: 10 },
   { disparos: 4, fallos: 0, autoimpactos: 0, danioHechoAlEnemigo: 100, pixelesDestruidos: 10 },
-  { disparos: 5, fallos: 1, autoimpactos: 0, danioHechoAlEnemigo: 40, pixelesDestruidos: 3000 },
+  { disparos: 5, fallos: 1, autoimpactos: 0, danioHechoAlEnemigo: 40, pixelesDestruidos: 6000 },
   { disparos: 5, fallos: 2, autoimpactos: 0, danioHechoAlEnemigo: 100, pixelesDestruidos: 10 },
 ];
 
