@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generarParteDeGuerra, type EstadisticasPartida } from "@/sim/partida/parteDeGuerra";
+import { generarParteDeGuerra, PIXELES_MINIMOS_MERITO_GEOLOGICO, type EstadisticasPartida } from "@/sim/partida/parteDeGuerra";
 
 // Los tres perfiles del criterio, literalmente: destruir más mundo que daño
 // hecho, ganar tras un autoimpacto, ganar sin fallar ni un tiro.
@@ -9,7 +9,7 @@ const PERFIL_GEOLOGICO: EstadisticasPartida = {
   fallos: 1,
   autoimpactos: 0,
   danioHechoAlEnemigo: 40,
-  pixelesDestruidos: 3000,
+  pixelesDestruidos: 6000,
 };
 
 const PERFIL_FUEGO_AMIGO: EstadisticasPartida = {
@@ -57,4 +57,16 @@ test("humor-7: sin ninguno de los tres perfiles, cae en la medalla genérica der
   assert.equal(parte.medalla, "Medalla al Mérito de Combate");
   assert.equal(parte.texto.includes(String(generico.disparos)), true);
   assert.equal(parte.texto.includes(String(generico.danioHechoAlEnemigo)), true);
+});
+
+test("humor-7: el Mérito Geológico pide un mínimo de píxeles además de superar el daño hecho", () => {
+  const base: EstadisticasPartida = { disparos: 5, fallos: 1, autoimpactos: 0, danioHechoAlEnemigo: 40, pixelesDestruidos: 0 };
+  const justo = generarParteDeGuerra({ ...base, pixelesDestruidos: PIXELES_MINIMOS_MERITO_GEOLOGICO });
+  const casi = generarParteDeGuerra({ ...base, pixelesDestruidos: PIXELES_MINIMOS_MERITO_GEOLOGICO - 1 });
+  assert.equal(justo.medalla, "Mérito Geológico");
+  assert.equal(casi.medalla, "Medalla al Mérito de Combate");
+  // El mínimo no sustituye a la comparación con el daño: cavar mucho no basta
+  // si se hizo todavía más daño.
+  const masDanio = generarParteDeGuerra({ ...base, danioHechoAlEnemigo: PIXELES_MINIMOS_MERITO_GEOLOGICO + 1, pixelesDestruidos: PIXELES_MINIMOS_MERITO_GEOLOGICO });
+  assert.equal(masDanio.medalla, "Medalla al Mérito de Combate");
 });

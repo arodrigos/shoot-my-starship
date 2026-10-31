@@ -73,7 +73,9 @@ export const BANCO_MERITO: readonly DefinicionPremio[] = [
     id: "pixeles",
     nombre: "Topo Espacial",
     valor: (e) => e.pixelesDestruidos,
-    umbral: 300,
+    // Desde #383 los píxeles cuentan todo material, no solo SOLIDO: con 300
+    // salía en el 100 % de las partidas. 5500 lo devuelve a ~76 % (medir:premios).
+    umbral: 5500,
     texto: (_e, c) => `Arrancó ${c} píxeles de mundo`,
   },
   {
