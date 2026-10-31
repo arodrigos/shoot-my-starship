@@ -3,7 +3,9 @@
 // completa se reparte con --desde. Imprime en cuántas
 // partidas de 4 IAs sale cada premio y sale con código 1 si algún premio de
 // mérito queda fuera de [3 %, 80 %]. La consolación no cuenta: existe para
-// salir cuando nada más sale.
+// salir cuando nada más sale. El Mérito Geológico es una medalla del parte de
+// guerra, no un premio por asiento: se imprime aparte y tampoco cuenta para la
+// banda, que se pensó para el banco de premios.
 import { BANCO_MERITO } from "@/juego/premios/premios";
 import { medirPremios } from "../tests/utils/medirPremios";
 
@@ -22,4 +24,6 @@ for (const [id, frecuencia] of informe.frecuencias) {
   if (!ok) fuera += 1;
   console.log(`  ${id.padEnd(14)} ${(frecuencia * 100).toFixed(1).padStart(5)} %  ${esMerito ? (ok ? "OK" : "FUERA DE [3 %, 80 %]") : "consolación"}`);
 }
+console.log(`\nMedalla del parte de guerra (partidas en las que sale)`);
+console.log(`  ${"geologico".padEnd(14)} ${(informe.meritoGeologico * 100).toFixed(1).padStart(5)} %  medalla`);
 process.exit(fuera === 0 ? 0 : 1);

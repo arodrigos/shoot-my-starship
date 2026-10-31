@@ -15,6 +15,13 @@ export function estadisticasIniciales(): EstadisticasPartida {
   return { disparos: 0, fallos: 0, autoimpactos: 0, danioHechoAlEnemigo: 0, pixelesDestruidos: 0 };
 }
 
+// Mínimo de píxeles destruidos para el Mérito Geológico. Desde que #383 cuenta
+// como mundo también el escombro y el material de cada planeta, casi todo
+// ganador destruye más píxeles que daño hace, y la medalla dejaba de ser
+// rara: este suelo la devuelve a la frecuencia que tenía antes (medida con
+// `npm run medir:premios`).
+export const PIXELES_MINIMOS_MERITO_GEOLOGICO = 0;
+
 export interface ParteDeGuerra {
   readonly medalla: string;
   readonly texto: string;
@@ -40,7 +47,10 @@ export function generarParteDeGuerra(estadisticas: EstadisticasPartida): ParteDe
       texto: `Concedida por acertar los ${estadisticas.disparos} disparos de la partida sin fallar ni uno.`,
     };
   }
-  if (estadisticas.pixelesDestruidos > estadisticas.danioHechoAlEnemigo) {
+  if (
+    estadisticas.pixelesDestruidos >= PIXELES_MINIMOS_MERITO_GEOLOGICO &&
+    estadisticas.pixelesDestruidos > estadisticas.danioHechoAlEnemigo
+  ) {
     return {
       medalla: "Mérito Geológico",
       texto: `Concedida por destruir ${estadisticas.pixelesDestruidos} píxeles de mundo, más que los ${estadisticas.danioHechoAlEnemigo} puntos de daño hechos al enemigo.`,
