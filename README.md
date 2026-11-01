@@ -616,6 +616,7 @@ npm run test:e2e                      # Playwright; levanta npm run start, así 
 npm run smoke:traspaso                # smoke de tests/smoke/traspaso.spec.ts, en local o contra URL_OBJETIVO
 npm run calibrar:economia             # recalibra precios y saldo, regenera docs/calibracion-economia.md
 npm run medir:eventos                 # calendario de eventos sobre muchas semillas
+npm run medir:premios                 # frecuencia de cada premio y de la medalla Mérito Geológico en partidas de 4 IAs
 ```
 
 Además, el CI pasa las guardas de arquitectura de `scripts/comprobar-*.mjs`.
@@ -848,3 +849,17 @@ CI.
   `SOLIDO`: vaciar cualquier planeta o un anillo de escombro suma ya al premio
   «Topo Espacial» y al «Mérito Geológico» del parte de guerra. Tapar un
   material con otro (Vertedero Portátil) no cuenta.
+- **localStorage en un solo sitio** (#386, #387, #388): las lecturas y
+  escrituras de ajustes, progreso y partida guardada pasan por `leerAlmacen` y
+  `escribirAlmacen` (`src/juego/almacenLocal.ts`). El comportamiento no cambia:
+  si el navegador bloquea el almacenamiento, cada ajuste vuelve a su valor por
+  defecto y lo que se escribe simplemente no persiste, sin tumbar el juego.
+- **Diagnóstico de la batería de tests** (#390): un informe en
+  `docs/informes/` mide lo que tarda cada job del CI y propone cómo acortarlo;
+  no cambia tests ni workflows.
+- **Premios de píxeles recalibrados** (#396): tras #383, «Topo Espacial» pide
+  5500 píxeles arrancados (antes 300) y el «Mérito Geológico» exige además un
+  mínimo de 4000 (`PIXELES_MINIMOS_MERITO_GEOLOGICO`,
+  `src/sim/partida/parteDeGuerra.ts`), para que vuelvan a salir con la
+  frecuencia de antes. `npm run medir:premios` imprime también en cuántas
+  partidas sale esa medalla, aparte de la banda del 3 % al 80 % de los premios.
