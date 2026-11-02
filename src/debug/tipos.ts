@@ -442,7 +442,7 @@ export interface DebugGlobal {
   // ControlHUD -- el historial de efectos se escribe desde Partida.ts
   // (Phaser), fuera del ciclo de React, así que una instantánea fijada en un
   // efecto quedaría obsoleta entre disparos.
-  audio?: () => { silenciado: boolean; historial: readonly { id: IdEfectoSonoro; enMs: number }[] };
+  audio?: () => { silenciado: boolean; historial: readonly { id: IdEfectoSonoro; variante?: string; enMs: number }[]; precalculos: number };
   // banda-sonora (mus-1): estado en vivo de la música, para verificar sin oír.
   musica?: () => {
     estado: "esperando-gesto" | "sonando" | "parada" | "sin-audio";

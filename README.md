@@ -393,6 +393,12 @@ dos crea el audio hasta un gesto tuyo: pulsar «Jugar» o el propio control.
 La música es un bucle sobre una escala pentatónica que tarda más de 60 s en
 repetirse y suena por debajo de los efectos.
 
+Los efectos usan un sintetizador ZzFX 1.4.0 (MIT) vendorizado en
+`src/juego/audio/zzfx.ts`: cada arma suena distinto al disparar y cada impacto
+según lo que golpea (planeta, nave, escudo o rebote). Los timbres son arrays de
+parámetros en `src/juego/audio/sonidosArmas.ts`; pasan por un bus con
+compresor que baja a 0,35 mientras habla la voz.
+
 ## Voz y resúmenes
 
 Cada tres turnos resueltos, un resumen gracioso de cómo va la partida (quién gana,

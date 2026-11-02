@@ -6,7 +6,7 @@
 import { TIMBRE_POR_VOZ } from "@/contenido/vocesPersonajes";
 import type { IdVoz } from "@/contenido/bancoBromas";
 import { escribirAlmacen, leerAlmacen } from "@/juego/almacenLocal";
-import { atenuarMusica } from "@/juego/audio/motor";
+import { atenuarEfectos, atenuarMusica } from "@/juego/audio/motor";
 
 export const CLAVE_VOZ = "voz:activada";
 export const FACTOR_MUSICA_HABLANDO = 0.35;
@@ -305,7 +305,11 @@ export function obtenerLocutor(): Locutor {
   if (!locutor) {
     locutor = crearLocutor({
       motor: crearMotorEasySpeech(),
-      atenuarMusica,
+      // Los efectos bajan con la voz igual que la música.
+      atenuarMusica: (factor) => {
+        atenuarMusica(factor);
+        atenuarEfectos(factor);
+      },
       leerPreferencia,
       guardarPreferencia,
       desbloquear: desbloquearSintesis,
