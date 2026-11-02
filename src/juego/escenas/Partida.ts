@@ -125,6 +125,7 @@ import { publicarIntegridad, reiniciarIntegridad } from "@/juego/control/integri
 import { guardarUltimaPartida } from "@/juego/control/progreso";
 import { crearSelectorFrases, type SelectorFrases } from "@/contenido/selectorFrases";
 import { obtenerLocutor } from "@/juego/audio/voz";
+import { superficieDeImpacto } from "@/juego/audio/sonidosArmas";
 import { actualizarTension, desbloquearAudio, estadoAudioActual, reiniciarTension, pausarAudio, reanudarAudio, reproducirEfecto, reproducirTono } from "@/juego/audio/motor";
 import { indiceTic } from "@/juego/audio/cadenciaTicTac";
 import type { DatosEscenaPartida } from "@/juego/main";
@@ -2309,7 +2310,7 @@ export class Partida extends Phaser.Scene {
     // que dispara un turno real (jugador o IA) -- nunca en los guiones de
     // prueba (jugarTurnosGuionizados, forzarFinDePartida), igual que la
     // estela de proy-4/proy-5.
-    reproducirEfecto("disparo");
+    reproducirEfecto("disparo", entrada.arma);
     if (esJugador) performance.mark("disparo-toque");
 
     const tirador: IdNave = estadoAntes.turno;
@@ -3101,7 +3102,7 @@ export class Partida extends Phaser.Scene {
         // también al oído, sin importar si el impacto hizo daño o no (eso lo
         // sigue distinguiendo el propio timbre de "impacto" frente al "roce",
         // no una tercera variante).
-        reproducirEfecto("impacto");
+        reproducirEfecto("impacto", superficieDeImpacto({ impactoNave: evento.impactoNave, detonacion: true }, evento.impactoNave !== undefined ? (this.estado.naves[evento.impactoNave]?.escudoTurnosRestantes ?? 0) : 0));
         // Con movimiento reducido no se emite ninguna partícula: el anillo y
         // el destello de ExplosionPorCapas ya informan del impacto.
         if (evento.danio > 0) {
@@ -3200,7 +3201,7 @@ export class Partida extends Phaser.Scene {
         this.sacudirCamara(DURACION_SACUDIDA_IMPACTO_MS, amplitud);
       }
     }
-    reproducirEfecto("impacto");
+    reproducirEfecto("impacto", evento.danio > 0 ? "nave" : "planeta");
   }
 
   private aplicarResultadoTurno(

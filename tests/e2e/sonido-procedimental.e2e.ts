@@ -111,3 +111,35 @@ test("snd-2: la mina suena con su tic-tac", async ({ page }) => {
     )
     .toBe(true);
 });
+
+// snd3-1 / snd3-2 / snd3-6: con los efectos activados (gesto real del
+// silenciador), cada disparo registra la variante del arma elegida, el
+// impacto registra su superficie y las muestras se precalculan una sola vez.
+test("snd3-1: el disparo registra el id del arma como variante y el audio se precalcula una vez", async ({ page }) => {
+  test.setTimeout(120000);
+  await entrarAPartida(page);
+  await pulsarAjuste(page, "toggle-silenciado");
+  await expect
+    .poll(async () => page.evaluate(() => window.__debug.estadoAudio!()), { timeout: 5000, intervals: [20, 50] })
+    .toBe("en-marcha");
+
+  await page.getByTestId("selector-arma-abrir").click();
+  await page.getByTestId("arma-racimo-de-tuppers").click();
+  await page.waitForFunction(() => window.__debug.control!.ajuste.armaId === "racimo-de-tuppers");
+  const solucion = await page.evaluate(() => window.__debug.solucionBalisticaJugador!());
+  expect(solucion).not.toBeNull();
+  await apuntar(page, solucion!.anguloGrados, solucion!.potencia);
+  await page.getByTestId("disparar").click();
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          const h = window.__debug.audio!().historial;
+          return { disparo: h.find((e) => e.id === "disparo")?.variante, impacto: h.find((e) => e.id === "impacto")?.variante };
+        }),
+      { timeout: 30000, intervals: [100, 250] },
+    )
+    .toMatchObject({ disparo: "racimo-de-tuppers", impacto: expect.stringMatching(/^(planeta|nave|escudo|rebote)$/) });
+  expect(await page.evaluate(() => window.__debug.audio!().precalculos)).toBe(1);
+});
