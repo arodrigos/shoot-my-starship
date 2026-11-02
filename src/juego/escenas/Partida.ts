@@ -2142,7 +2142,11 @@ export class Partida extends Phaser.Scene {
       }
       return { ...(this.ultimaZonaVisible.get(z.id) ?? z), visible: false };
     });
-    const nominales = todas.map((z) => this.zonaALienzo(z));
+    // El botón de acelerar aparece y desaparece con cada vuelo: es transitorio
+    // como la consola apartada. Solo cuenta como zona visible (si tapa algo la
+    // cámara lo repara); fuera del sitio nominal, aparecer no es un cambio del
+    // HUD ni reencuadra.
+    const nominales = todas.filter((z) => z.id !== "acelerar").map((z) => this.zonaALienzo(z));
     const visibles = todas.filter((z) => z.visible).map((z) => this.zonaALienzo(z));
     const { r: lienzo } = this.factorLienzo();
     const firma = `${lienzo.left.toFixed(1)},${lienzo.top.toFixed(1)},${lienzo.width.toFixed(1)}#` + nominales.map((r) => `${r.x.toFixed(1)},${r.y.toFixed(1)},${r.ancho.toFixed(1)},${r.alto.toFixed(1)}`).join("|");
