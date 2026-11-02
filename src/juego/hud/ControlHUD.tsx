@@ -28,7 +28,7 @@ import {
   suscribirControl,
   terminarArrastre,
 } from "@/juego/control/store";
-import { estadoMusica, obtenerHistorialEfectos, sonidoSilenciado } from "@/juego/audio/motor";
+import { contadorPrecalculos, estadoMusica, obtenerHistorialEfectos, sonidoSilenciado } from "@/juego/audio/motor";
 import { obtenerLocutor } from "@/juego/audio/voz";
 import { ANGULO_MAXIMO_GRADOS, ANGULO_MINIMO_GRADOS, POTENCIA_MAXIMA, POTENCIA_MINIMA } from "@/juego/control/apuntado";
 import { obtenerResultadoTurno, suscribirResultadoTurno } from "@/juego/control/resultadoTurnoStore";
@@ -183,7 +183,7 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
     // los efectos de sonido se registran desde Partida.ts (Phaser) entre dos
     // renders de React, así que un valor fijado aquí quedaría obsoleto
     // (mismo motivo que estadoAudio, ver src/debug/tipos.ts).
-    window.__debug.audio = () => ({ silenciado: sonidoSilenciado(), historial: obtenerHistorialEfectos() });
+    window.__debug.audio = () => ({ silenciado: sonidoSilenciado(), historial: obtenerHistorialEfectos(), precalculos: contadorPrecalculos() });
     // banda-sonora: en vivo por la misma razón que audio (las notas se
     // programan fuera del ciclo de React).
     window.__debug.musica = () => estadoMusica();

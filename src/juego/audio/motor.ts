@@ -8,6 +8,9 @@
 // sin Web Audio, con --mute-audio o con la política de autoplay bloqueando
 // el contexto deja el juego mudo pero nunca roto.
 import { CLAVE_MUSICA, BPM_BASE, crearProgramador, sanearPreferenciaMusica, type CapaTension, type Programador } from "@/juego/audio/musica";
+import { FACTOR_ATENUACION_VOZ, crearBusEfectos, type BusEfectos } from "@/juego/audio/busEfectos";
+import { SONIDO_DISPARO_POR_ARMA, SONIDO_IMPACTO_POR_SUPERFICIE, precalcularMuestras, type SuperficieImpacto } from "@/juego/audio/sonidosArmas";
+import { FRECUENCIA_MUESTREO_ZZFX } from "@/juego/audio/zzfx";
 import { escribirAlmacen, leerAlmacen } from "@/juego/almacenLocal";
 import { HISTERESIS_INICIAL, nivelTension, siguienteHisteresis, type EstadoHisteresis, type NivelTension, type SenalesTension } from "@/juego/audio/tension";
 
@@ -146,6 +149,12 @@ export function desbloquearAudio(): void {
     audioNoDisponible = true;
     return;
   }
+  // Un fallo al preparar los efectos deja los efectos mudos, no la música.
+  try {
+    prepararEfectos(contexto);
+  } catch {
+    // ver arriba.
+  }
   arrancarMusica();
 }
 
@@ -257,22 +266,14 @@ export function reproducirTono(tipo: TonoReaccion): void {
   }
 }
 
-// sonido-procedimental (snd-2): un timbre por efecto de combate, distinto de
-// los TonoReaccion de humor-sistemico (esos narran la reacción cómica del
-// turno completo, estos marcan el instante del disparo/impacto/roce/cuenta
-// atrás). "impacto" y "roce" deben sonar de forma claramente distinta para
-// reforzar con el oído la misma distinción que ya hace contacto-honesto a
-// nivel visual, y las dos cuentas atrás (mecha/mina) deben distinguirse
-// entre sí para que un jugador que lleve las dos armas a la vez sepa cuál
-// está a punto de explotar sin mirar la pantalla.
+// sonido-zzfx: los efectos de combate son buffers de ZzFX (datos en
+// sonidosArmas.ts) precalculados una sola vez al desbloquear el audio y
+// reproducidos por el bus de efectos. Los ids se conservan: snd-2 los lee del
+// historial. Lo que el historial añade es la variante (id de arma, o la
+// superficie del impacto).
 export type IdEfectoSonoro = "disparo" | "impacto" | "tictac-mecha" | "tictac-mina";
-
-const PERFIL_POR_EFECTO: Readonly<Record<IdEfectoSonoro, PerfilTono>> = {
-  disparo: { frecuenciaHz: 520, duracionS: 0.06, tipo: "square" },
-  impacto: { frecuenciaHz: 130, duracionS: 0.22, tipo: "sawtooth" },
-  "tictac-mecha": { frecuenciaHz: 1100, duracionS: 0.04, tipo: "square" },
-  "tictac-mina": { frecuenciaHz: 700, duracionS: 0.04, tipo: "triangle" },
-};
+export type { SuperficieImpacto };
+export { FACTOR_ATENUACION_VOZ };
 
 // snd-2 se verifica leyendo este historial desde window.__debug, no
 // escuchando audio real: así el test es determinista y no depende de que el
@@ -281,30 +282,70 @@ const PERFIL_POR_EFECTO: Readonly<Record<IdEfectoSonoro, PerfilTono>> = {
 // efecto] aparezca"). Por eso el registro ocurre SIEMPRE, incluso silenciado
 // o sin contexto, y solo la reproducción real queda condicionada a él.
 const TOPE_HISTORIAL_EFECTOS = 20;
-let historialEfectos: Array<{ id: IdEfectoSonoro; enMs: number }> = [];
+export interface EntradaHistorialEfecto {
+  readonly id: IdEfectoSonoro;
+  readonly variante?: string;
+  readonly enMs: number;
+}
+let historialEfectos: EntradaHistorialEfecto[] = [];
 
-export function obtenerHistorialEfectos(): readonly { id: IdEfectoSonoro; enMs: number }[] {
+export function obtenerHistorialEfectos(): readonly EntradaHistorialEfecto[] {
   return historialEfectos;
 }
 
-export function reproducirEfecto(id: IdEfectoSonoro): void {
-  historialEfectos = [...historialEfectos, { id, enMs: Date.now() }].slice(-TOPE_HISTORIAL_EFECTOS);
+let bus: BusEfectos | null = null;
+let buffersEfectos: Map<string, AudioBuffer> | null = null;
+let precalculos = 0;
+let factorEfectos = 1;
+
+export function contadorPrecalculos(): number {
+  return precalculos;
+}
+
+// Dentro del gesto (desbloquearAudio) y una sola vez por sesión.
+function prepararEfectos(ctx: AudioContext): void {
+  if (bus) return;
+  bus = crearBusEfectos(ctx);
+  if (factorEfectos !== 1) bus.atenuar(factorEfectos);
+  const buffers = new Map<string, AudioBuffer>();
+  for (const [clave, muestras] of precalcularMuestras(FRECUENCIA_MUESTREO_ZZFX)) {
+    const buffer = ctx.createBuffer(1, muestras.length, FRECUENCIA_MUESTREO_ZZFX);
+    buffer.copyToChannel(muestras, 0);
+    buffers.set(clave, buffer);
+  }
+  buffersEfectos = buffers;
+  precalculos += 1;
+}
+
+export function atenuarEfectos(factor: number): void {
+  factorEfectos = factor;
+  try {
+    bus?.atenuar(factor);
+  } catch {
+    // ver desbloquearAudio.
+  }
+}
+
+function claveEfecto(id: IdEfectoSonoro, variante: string | undefined): string {
+  if (id === "disparo") return variante !== undefined && variante in SONIDO_DISPARO_POR_ARMA ? `disparo:${variante}` : "disparo:";
+  if (id === "impacto") return variante !== undefined && variante in SONIDO_IMPACTO_POR_SUPERFICIE ? `impacto:${variante}` : "impacto:planeta";
+  return `${id}:`;
+}
+
+export function reproducirEfecto(id: IdEfectoSonoro, variante?: string): void {
+  historialEfectos = [...historialEfectos, { id, ...(variante !== undefined ? { variante } : {}), enMs: Date.now() }].slice(-TOPE_HISTORIAL_EFECTOS);
   // El contexto puede estar en marcha solo por la música: los efectos siguen
   // su propio interruptor.
-  if (silenciado || !contexto || contexto.state !== "running") {
+  if (silenciado || !contexto || contexto.state !== "running" || !bus || !buffersEfectos) {
     return;
   }
   try {
-    const perfil = PERFIL_POR_EFECTO[id];
-    const oscilador = contexto.createOscillator();
-    const ganancia = contexto.createGain();
-    oscilador.type = perfil.tipo;
-    oscilador.frequency.value = perfil.frecuenciaHz;
-    ganancia.gain.setValueAtTime(GANANCIA_INICIAL, contexto.currentTime);
-    ganancia.gain.exponentialRampToValueAtTime(GANANCIA_MINIMA, contexto.currentTime + perfil.duracionS);
-    oscilador.connect(ganancia).connect(contexto.destination);
-    oscilador.start();
-    oscilador.stop(contexto.currentTime + perfil.duracionS);
+    const buffer = buffersEfectos.get(claveEfecto(id, variante));
+    if (!buffer) return;
+    const fuente = contexto.createBufferSource();
+    fuente.buffer = buffer;
+    fuente.connect(bus.entrada);
+    fuente.start();
   } catch {
     // ver desbloquearAudio.
   }
