@@ -4,7 +4,7 @@
 // en vez de que cada aviso se coloque a mano alrededor de las naves.
 import "@/debug/tipos";
 
-export type IdZona = "consola" | "ajustes" | "rendimiento";
+export type IdZona = "consola" | "ajustes" | "rendimiento" | "acelerar";
 
 export interface ZonaOcupada {
   readonly id: IdZona;
