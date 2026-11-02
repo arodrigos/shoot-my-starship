@@ -43,8 +43,8 @@ const segundos = fc.constantFrom<SegundosReloj>(30, 45, 60);
 
 function aplicar(e: Evento): void {
   if (e.tipo === "arrancar") arrancarRelojTurno();
-  else if (e.tipo === "pausar") pausarRelojTurno();
-  else if (e.tipo === "reanudar") reanudarRelojTurno();
+  else if (e.tipo === "pausar") pausarRelojTurno("ajustes");
+  else if (e.tipo === "reanudar") reanudarRelojTurno("ajustes");
   else if (e.tipo === "parar") pararRelojTurno();
   else {
     t += e.ms;
@@ -82,10 +82,10 @@ test("rel-9: el tiempo en pausa nunca descuenta (restante = total − tiempo en 
           if (obtenerRelojTurno().estado !== "corriendo") break;
           t += corriendo;
           corrido += corriendo;
-          pausarRelojTurno();
+          pausarRelojTurno("ajustes");
           if (obtenerRelojTurno().estado !== "pausado") break;
           t += pausado;
-          reanudarRelojTurno();
+          reanudarRelojTurno("ajustes");
         }
         tickRelojTurno();
         assert.equal(obtenerRelojTurno().restanteMs, Math.max(0, s * 1000 - corrido));
@@ -124,8 +124,8 @@ test("rel-9: 'agotado' ocurre como mucho una vez por turno aunque sigan los tick
       for (const ms of saltos) {
         t += ms;
         tickRelojTurno();
-        pausarRelojTurno();
-        reanudarRelojTurno();
+        pausarRelojTurno("ajustes");
+        reanudarRelojTurno("ajustes");
       }
       const total = saltos.reduce((a, b) => a + b, 0);
       assert.equal(agotados, total >= s * 1000 ? 1 : 0);

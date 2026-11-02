@@ -11,6 +11,7 @@ import {
   obtenerEstadoControl,
   suscribirControl,
 } from "@/juego/control/store";
+import { obtenerRelojTurno, pausarRelojTurno, reanudarRelojTurno, suscribirRelojTurno } from "@/juego/control/relojTurnoStore";
 import { fijarVibracionActiva, obtenerVibracion, suscribirVibracion } from "@/juego/control/vibracionStore";
 import { contarMensajes, obtenerBromas, suscribirBromas } from "@/juego/control/broma";
 import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
@@ -20,6 +21,11 @@ import { tamTexto } from "@/juego/hud/legibilidad";
 import { useZonaOcupada } from "@/juego/hud/useZonaOcupada";
 
 const LADO_BOTON_PX = 48;
+
+function formatearRestante(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
 // Tableta apaisada y pantallas bajas: en una columna el contenido (733 px sin
 // la fila de vibración) no cabe en los 678 px que deja un alto de 820, y el
 // panel hace scroll por dentro dejando «Cerrar» escondido. Con dos columnas
@@ -70,6 +76,7 @@ export function MenuAjustesHUD() {
   const pwa = useSyncExternalStore(suscribirPwa, obtenerDatosPwa, obtenerDatosPwa);
   const bromas = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
   const vibracion = useSyncExternalStore(suscribirVibracion, obtenerVibracion, obtenerVibracion);
+  const reloj = useSyncExternalStore(suscribirRelojTurno, obtenerRelojTurno, obtenerRelojTurno);
   const dosColumnas = usePanelDosColumnas();
   const [abierto, setAbierto] = useState(false);
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
@@ -99,6 +106,15 @@ export function MenuAjustesHUD() {
       previo = actual;
     });
   }, []);
+
+  // El reloj del humano se detiene mientras haya un panel abierto: si se
+  // agotara con ⚙ abierto, el disparo automático cerraría el panel sin aviso.
+  const pausaReloj = abierto || historicoAbierto;
+  useEffect(() => {
+    if (!pausaReloj) return;
+    pausarRelojTurno("ajustes");
+    return () => reanudarRelojTurno("ajustes");
+  }, [pausaReloj]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -255,6 +271,12 @@ export function MenuAjustesHUD() {
           }}
         >
           <h2 style={{ margin: 0, ...(dosColumnas ? DOS_COLUMNAS : {}), font: `600 ${tamTexto(16)} system-ui, sans-serif` }}>Ajustes</h2>
+
+          {reloj.estado === "pausado" && (
+            <div data-testid="reloj-en-pausa" role="status" style={{ ...ESTILO_AYUDA, margin: "0 4px", ...(dosColumnas ? DOS_COLUMNAS : {}) }}>
+              Reloj en pausa · {formatearRestante(reloj.restanteMs)}
+            </div>
+          )}
 
           <div>
             <button

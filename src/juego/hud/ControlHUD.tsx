@@ -938,7 +938,10 @@ export function ControlHUD({ plegada, alAlternarPlegado, alOcultar, alMover, con
             color: "var(--color-cromado-texto)",
             font: `${tamTexto(14)} system-ui, sans-serif`,
             textAlign: "center",
-            padding: 24,
+            // Arriba queda libre la franja del ⚙ (8 + 48 px) y del aviso «Listo
+            // para jugar sin conexión», que van por encima: con «Texto grande» la
+            // primera línea llegaba a quedar debajo de ellos.
+            padding: "calc(64px + env(safe-area-inset-top, 0px)) 24px 24px",
             boxSizing: "border-box",
             // Con «Texto grande» a 360x640 la ayuda es más alta que la pantalla: el
             // margin auto centra cuando cabe y, a diferencia de align-items:center,
