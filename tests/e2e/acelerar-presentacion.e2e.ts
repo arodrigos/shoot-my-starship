@@ -64,6 +64,7 @@ for (const t of TAMANOS) {
     const ajusteAntes = await page.evaluate(() => window.__debug.control!.ajuste);
     await boton.click();
     await expect(boton).toHaveText("×3");
+    expect(await page.evaluate(() => window.__debug.control!.ajuste)).toEqual(ajusteAntes);
     const tras = await page.evaluate(() => window.__debug.velocidadPresentacion!());
     expect(tras.factor).toBe(3);
     expect(tras.origen).toBe("toque");
@@ -75,7 +76,6 @@ for (const t of TAMANOS) {
     await page.waitForFunction(() => window.__debug.velocidadPresentacion!().fase !== "vuelo", undefined, { timeout: 60000, polling: "raf" });
     const fin = await page.evaluate(() => window.__debug.velocidadPresentacion!());
     expect(fin.factor).toBe(1);
-    expect(await page.evaluate(() => window.__debug.control!.ajuste)).toEqual(ajusteAntes);
     if (fin.fase === "post-impacto") await expect(boton).toHaveCount(0);
   });
 }
@@ -110,17 +110,34 @@ async function disparoEscenario(page: Page, acelerar: boolean) {
     });
   });
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true);
+  // La respuesta de la IA encadena sin un fotograma de por medio y pisa
+  // trayectoriaAnimadaUltimoVuelo: se guarda la primera escritura, la del
+  // disparo humano (misma trampa que mos-3).
+  await page.evaluate(() => {
+    const debug = window.__debug as unknown as { _tray?: unknown };
+    let capturado = false;
+    Object.defineProperty(window.__debug, "trayectoriaAnimadaUltimoVuelo", {
+      configurable: true,
+      get: () => debug._tray,
+      set(v) {
+        debug._tray = v;
+        if (capturado) return;
+        capturado = true;
+        (window as unknown as { __vel2: unknown }).__vel2 = {
+          trayectoria: (v as { x: number; y: number }[]).map((p) => ({ x: p.x, y: p.y })),
+          impacto: window.__debug.ultimoDisparo!.impactoReal,
+        };
+      },
+    });
+  });
   await page.getByTestId("disparar").click();
   if (acelerar) {
     await esperarFase(page, "vuelo");
     await page.getByTestId("boton-acelerar").click();
     expect(await page.evaluate(() => window.__debug.velocidadPresentacion!().factor)).toBe(3);
   }
-  await page.waitForFunction(() => (window.__debug.trayectoriaAnimadaUltimoVuelo?.length ?? 0) > 0, undefined, { timeout: 60000, polling: "raf" });
-  const vuelo = await page.evaluate(() => ({
-    trayectoria: window.__debug.trayectoriaAnimadaUltimoVuelo!.map((p) => ({ x: p.x, y: p.y })),
-    impacto: window.__debug.ultimoDisparo!.impactoReal,
-  }));
+  await page.waitForFunction(() => (window as unknown as { __vel2?: unknown }).__vel2 !== undefined, undefined, { timeout: 60000, polling: "raf" });
+  const vuelo = await page.evaluate(() => (window as unknown as { __vel2: { trayectoria: { x: number; y: number }[]; impacto: { x: number; y: number } } }).__vel2);
   // Integridades al volver el turno al humano: incluyen el cierre y la respuesta de la IA.
   await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 120000 });
   const integridades = await page.evaluate(() => window.__debug.naves!.map((n) => n.integridad));
@@ -142,20 +159,81 @@ test("vel-2: el mismo disparo a ×1 y a ×3 da la misma trayectoria, impacto e i
   expect(rapido.integridades).toEqual(lento.integridades);
 });
 
-test("vel-3: con el ajuste activo el remate dura lo mismo y el botón no aparece", async ({ page }) => {
-  test.setTimeout(240000);
-  const duraciones: number[] = [];
-  for (const rapidas of ["0", "1"]) {
-    await empezar(page, TAMANOS[0], { rapidas });
-    await page.evaluate(() => window.__debug.forzarFinDePartida!());
-    await esperarFase(page, "remate");
-    const durante = await page.evaluate(() => window.__debug.velocidadPresentacion!());
-    expect(durante.factor).toBe(1);
-    expect(durante.botonVisible).toBe(false);
-    await expect(page.getByTestId("boton-acelerar")).toHaveCount(0);
-    duraciones.push(await page.evaluate(() => window.__debug.remate!.ultimo!.duracionMs));
+// Golpe decisivo real (barra libre, 3 naves, rival a 5 de integridad): el
+// remate solo existe en el camino de disparo de verdad.
+async function prepararGolpe(page: Page): Promise<void> {
+  const colocaciones = [
+    { xj: 0.2, yj: 0.5, xd: 0.8, yd: 0.3, xo: 0.8, yo: 0.7 },
+    { xj: 0.15, yj: 0.7, xd: 0.7, yd: 0.2, xo: 0.85, yo: 0.8 },
+    { xj: 0.25, yj: 0.3, xd: 0.75, yd: 0.6, xo: 0.9, yo: 0.2 },
+    { xj: 0.1, yj: 0.5, xd: 0.5, yd: 0.15, xo: 0.9, yo: 0.85 },
+    { xj: 0.3, yj: 0.8, xd: 0.6, yd: 0.5, xo: 0.9, yo: 0.5 },
+  ];
+  let solucion: { anguloGrados: number; potencia: number } | null = null;
+  for (const c of colocaciones) {
+    await page.evaluate((c) => {
+      const mundo = window.__debug.mundo!;
+      window.__debug.cargarEscenario!({
+        naves: [
+          { x: mundo.ancho * c.xj, y: mundo.alto * c.yj, integridad: 150 },
+          { x: mundo.ancho * c.xd, y: mundo.alto * c.yd, integridad: 5 },
+          { x: mundo.ancho * c.xo, y: mundo.alto * c.yo, integridad: 150 },
+        ],
+        arma: "pepinazo-cortesia",
+        anguloGrados: 45,
+        potencia: 60,
+      });
+    }, c);
+    solucion = await page.evaluate(() => window.__debug.solucionMultipozoJugador!());
+    if (solucion) break;
   }
-  expect(Math.abs(duraciones[0] - duraciones[1])).toBeLessThanOrEqual(17);
+  expect(solucion, "hay un tiro con daño para el golpe decisivo").not.toBeNull();
+  await page.evaluate((s) => window.__debug.fijarApuntado!(s!.anguloGrados, s!.potencia), solucion);
+}
+
+test("vel-3: con el ajuste activo el remate dura lo que dura su plan y el botón no aparece", async ({ page }) => {
+  test.setTimeout(240000);
+  await page.addInitScript(([clave]) => window.localStorage.setItem(clave, "1"), [CLAVE]);
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.goto("/?modo=barra-libre");
+  await page.getByTestId("ias-2").click();
+  await page.getByTestId("boton-jugar").click();
+  await page.waitForSelector("#game-container canvas");
+  await page.waitForFunction(() => window.__debug.terreno?.listo === true && window.__debug.control !== undefined && window.__debug.cargarEscenario !== undefined);
+  if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
+  await page.waitForFunction(() => window.__debug.control!.puedeDisparar === true, undefined, { timeout: 60000 });
+  await prepararGolpe(page);
+  // Muestreo por fotograma de la fase, el factor y el botón mientras dura el remate.
+  await page.evaluate(() => {
+    const w = window as unknown as { __vel3: { fases: string[]; factores: number[]; botones: boolean[]; inicio: number | null; fin: number | null }; __parar: boolean };
+    w.__vel3 = { fases: [], factores: [], botones: [], inicio: null, fin: null };
+    const tick = (): void => {
+      const r = window.__debug.remate!;
+      const v = window.__debug.velocidadPresentacion!();
+      if (r.activo) {
+        w.__vel3.inicio ??= performance.now();
+        w.__vel3.fases.push(v.fase);
+        w.__vel3.factores.push(v.factor);
+        w.__vel3.botones.push(v.botonVisible);
+      } else if (w.__vel3.inicio !== null && w.__vel3.fin === null) w.__vel3.fin = performance.now();
+      if (w.__vel3.fin === null) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await page.getByTestId("disparar").click();
+  await esperarFase(page, "vuelo");
+  expect((await page.evaluate(() => window.__debug.velocidadPresentacion!())).factor).toBe(3);
+  await page.waitForFunction(() => (window as unknown as { __vel3: { fin: number | null } }).__vel3.fin !== null, undefined, { timeout: 120000, polling: "raf" });
+  const m = await page.evaluate(() => ({
+    ...(window as unknown as { __vel3: { fases: string[]; factores: number[]; botones: boolean[]; inicio: number; fin: number } }).__vel3,
+    plan: window.__debug.remate!.ultimo!.duracionMs,
+  }));
+  expect(m.fases.length).toBeGreaterThan(0);
+  expect(new Set(m.fases)).toEqual(new Set(["remate"]));
+  expect(new Set(m.factores)).toEqual(new Set([1]));
+  expect(new Set(m.botones)).toEqual(new Set([false]));
+  // Un delta triplicado habría acabado el plan en un tercio de su duración.
+  expect(m.fin - m.inicio).toBeGreaterThanOrEqual(m.plan * 0.9);
 });
 
 test("vel-4: «Animaciones rápidas» en ⚙ se guarda, el vuelo parte a ×3 y un valor corrupto cuenta como desactivado", async ({ page }) => {
@@ -171,14 +249,8 @@ test("vel-4: «Animaciones rápidas» en ⚙ se guarda, el vuelo parte a ×3 y u
   await page.getByTestId("cerrar-ajustes").click();
   expect(await page.evaluate((c) => window.localStorage.getItem(c), CLAVE)).toBe("1");
 
-  await page.reload();
-  await page.waitForSelector("#game-container canvas");
-  // Tras recargar vuelve la portada: se empieza otra partida con el ajuste ya guardado.
-  await page.getByTestId("humanos-1").click();
-  await page.getByTestId("ias-1").click();
-  await page.getByTestId("boton-jugar").click();
-  await page.waitForFunction(() => window.__debug.control?.puedeDisparar === true, undefined, { timeout: 60000 });
-  if (await page.getByTestId("ayuda-cerrar").isVisible()) await page.getByTestId("ayuda-cerrar").click();
+  // Otra carga de la página: el ajuste tiene que venir de localStorage.
+  await empezar(page, TAMANOS[0]);
   await page.getByTestId("boton-ajustes").click();
   await expect(page.getByTestId("toggle-animaciones-rapidas")).toContainText("Animaciones rápidas: Sí");
   await page.getByTestId("cerrar-ajustes").click();
