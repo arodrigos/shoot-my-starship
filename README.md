@@ -228,10 +228,12 @@ atrás en una píldora sobre la pestaña del jugador activo, que se pone ámbar
 y late en los últimos 10 s (sin latido con movimiento reducido). Si se acaba
 el tiempo, sale «¡Tiempo! Disparo automático» y se dispara solo lo que haya
 en la mira, con el arma gratis si la elegida no se puede usar; el escudo y
-los propulsores nunca se activan solos. El reloj solo corre mientras el
+los propulsores nunca se activan solos. El aviso se queda hasta que aterriza
+ese tiro (3 s como mínimo, 10 s como máximo). El reloj solo corre mientras el
 turno se puede jugar: arranca tras «Soy ...» (o al habilitarse «Disparar» si
 no hay relevo), se para durante el disparo, el relevo y los turnos de la IA,
-y se pausa si sales de la app.
+y se pausa si sales de la app o abres ⚙ (el panel muestra «Reloj en pausa ·
+m:ss»; las dos pausas se componen y el reloj reanuda al quitarse ambas).
 
 ### El catálogo: doce armas, cada una con su papel
 

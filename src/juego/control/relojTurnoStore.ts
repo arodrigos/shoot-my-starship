@@ -13,16 +13,28 @@ export interface EstadoRelojTurno {
   readonly estado: EstadoReloj;
   readonly plazoMs: number;
   readonly restanteMs: number;
-  // «¡Tiempo! Disparo automático»: visible AVISO_TIEMPO_MS tras agotarse.
+  // «¡Tiempo! Disparo automático»: visible hasta que aterriza el tiro
+  // automático, entre AVISO_TIEMPO_MINIMO_MS y AVISO_TIEMPO_TOPE_MS.
   readonly aviso: boolean;
 }
 
-export const AVISO_TIEMPO_MS = 1500;
+// Mínimo para poder leerlo desde el sofá aunque el tiro aterrice enseguida; el
+// tope evita que se quede para siempre si el vuelo se pierde en órbita.
+export const AVISO_TIEMPO_MINIMO_MS = 3000;
+export const AVISO_TIEMPO_TOPE_MS = 10000;
+
+// ⚙ abierto y pestaña oculta son pausas independientes: el reloj solo corre
+// cuando no queda ninguna, así que cerrar ⚙ con la pestaña oculta no lo reanuda.
+export type MotivoPausaReloj = "pestana-oculta" | "ajustes";
 
 const INICIAL: EstadoRelojTurno = { configuradoS: null, estado: "parado", plazoMs: 0, restanteMs: 0, aviso: false };
 
 let estado: EstadoRelojTurno = INICIAL;
-let temporizadorAviso: ReturnType<typeof setTimeout> | null = null;
+const motivosPausa = new Set<MotivoPausaReloj>();
+let temporizadorMinimoAviso: ReturnType<typeof setTimeout> | null = null;
+let temporizadorTopeAviso: ReturnType<typeof setTimeout> | null = null;
+let avisoMinimoCumplido = false;
+let avisoAterrizado = false;
 let ahora: () => number = () => performance.now();
 let alAgotarse: (() => void) | null = null;
 const escuchas = new Set<() => void>();
@@ -66,6 +78,11 @@ export function configurarRelojTurno(segundos: SegundosReloj | null): void {
 
 export function arrancarRelojTurno(): void {
   if (estado.configuradoS === null) return;
+  // Con ⚙ abierto (o la pestaña oculta) al empezar el turno, nace pausado.
+  if (motivosPausa.size > 0) {
+    fijar({ estado: "pausado", plazoMs: 0, restanteMs: totalMs() });
+    return;
+  }
   fijar({ estado: "corriendo", plazoMs: ahora() + totalMs(), restanteMs: totalMs() });
 }
 
@@ -82,15 +99,19 @@ export function tickRelojTurno(): void {
   alAgotarse?.();
 }
 
-export function pausarRelojTurno(): void {
+// Los motivos se anotan aunque el reloj no corra (turno de la IA): así un ⚙
+// abierto al empezar el turno humano lo deja pausado desde el primer instante.
+export function pausarRelojTurno(motivo: MotivoPausaReloj): void {
+  motivosPausa.add(motivo);
   if (estado.estado !== "corriendo") return;
   tickRelojTurno();
   // El tick pudo agotarlo: entonces ya no hay nada que pausar.
   if (estado.estado === "corriendo") fijar({ estado: "pausado" });
 }
 
-export function reanudarRelojTurno(): void {
-  if (estado.estado !== "pausado") return;
+export function reanudarRelojTurno(motivo: MotivoPausaReloj): void {
+  motivosPausa.delete(motivo);
+  if (estado.estado !== "pausado" || motivosPausa.size > 0) return;
   fijar({ estado: "corriendo", plazoMs: ahora() + estado.restanteMs });
 }
 
@@ -101,13 +122,37 @@ export function pararRelojTurno(): void {
   fijar({ estado: "parado", plazoMs: 0, restanteMs: totalMs() });
 }
 
+function limpiarTemporizadoresAviso(): void {
+  if (temporizadorMinimoAviso !== null) clearTimeout(temporizadorMinimoAviso);
+  if (temporizadorTopeAviso !== null) clearTimeout(temporizadorTopeAviso);
+  temporizadorMinimoAviso = null;
+  temporizadorTopeAviso = null;
+}
+
+function ocultarAviso(): void {
+  limpiarTemporizadoresAviso();
+  if (estado.aviso) fijar({ aviso: false });
+}
+
 export function mostrarAvisoTiempo(): void {
-  if (temporizadorAviso !== null) clearTimeout(temporizadorAviso);
+  limpiarTemporizadoresAviso();
+  avisoMinimoCumplido = false;
+  avisoAterrizado = false;
   fijar({ aviso: true });
-  temporizadorAviso = setTimeout(() => {
-    temporizadorAviso = null;
-    fijar({ aviso: false });
-  }, AVISO_TIEMPO_MS);
+  temporizadorMinimoAviso = setTimeout(() => {
+    temporizadorMinimoAviso = null;
+    avisoMinimoCumplido = true;
+    if (avisoAterrizado) ocultarAviso();
+  }, AVISO_TIEMPO_MINIMO_MS);
+  temporizadorTopeAviso = setTimeout(ocultarAviso, AVISO_TIEMPO_TOPE_MS);
+}
+
+// La escena lo llama cuando termina el vuelo del tiro automático. Sin aviso
+// visible no hace nada: un aterrizaje normal no debe marcar el siguiente aviso.
+export function cerrarAvisoTiempoAlAterrizar(): void {
+  if (!estado.aviso) return;
+  avisoAterrizado = true;
+  if (avisoMinimoCumplido) ocultarAviso();
 }
 
 // Solo para e2e: descuenta tiempo por la misma ruta que el paso del tiempo.
@@ -121,7 +166,6 @@ export function adelantarRelojTurno(ms: number): void {
 // conserva lo elegido en la portada.
 export function reiniciarRelojTurno(): void {
   alAgotarse = null;
-  if (temporizadorAviso !== null) clearTimeout(temporizadorAviso);
-  temporizadorAviso = null;
+  limpiarTemporizadoresAviso();
   fijar({ estado: "parado", plazoMs: 0, restanteMs: totalMs(), aviso: false });
 }

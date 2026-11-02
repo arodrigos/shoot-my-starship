@@ -148,6 +148,7 @@ import {
   adelantarRelojTurno,
   arrancarRelojTurno,
   configurarRelojTurno,
+  cerrarAvisoTiempoAlAterrizar,
   mostrarAvisoTiempo,
   obtenerRelojTurno,
   pararRelojTurno,
@@ -384,7 +385,6 @@ export class Partida extends Phaser.Scene {
   private turnoSinTiempo: IdNave | null = null;
   private temporizadorReloj: number | null = null;
   private cancelarAlAgotarseReloj: (() => void) | null = null;
-  private pausadaPorOculta = false;
   // sonido-procedimental (snd-2): último índice de indiceTic() publicado por
   // cada cuenta atrás -- null mientras no hay ninguna activa. Comparar el
   // índice nuevo contra este valor (en vez de disparar el tic cada fotograma)
@@ -681,7 +681,6 @@ export class Partida extends Phaser.Scene {
     configurarRelojTurno(this.datosEscena.relojTurnoS ?? null);
     this.claveTurnoReloj = null;
     this.turnoSinTiempo = null;
-    this.pausadaPorOculta = false;
     this.relevoPendiente = false;
     this.ultimoHumano = null;
     window.__debug.eliminadas = [];
@@ -2515,6 +2514,7 @@ export class Partida extends Phaser.Scene {
         // disparo) evita que el "0" se quede pegado en pantalla durante el
         // resto del turno mientras se resuelve el impacto.
         limpiarCuentaAtras();
+        cerrarAvisoTiempoAlAterrizar();
         window.__debug!.cuentaAtrasMecha = null;
         // arma-mina-adherente (min-2, min-3): mismo motivo que la granada --
         // el contador de mundo no debe quedarse pegado en pantalla mientras
@@ -2759,13 +2759,9 @@ export class Partida extends Phaser.Scene {
   private readonly alCambiarVisibilidad = (): void => {
     if (document.visibilityState === "hidden") {
       this.guardador.reescribirSiPendiente();
-      if (obtenerRelojTurno().estado === "corriendo") {
-        pausarRelojTurno();
-        this.pausadaPorOculta = obtenerRelojTurno().estado === "pausado";
-      }
-    } else if (this.pausadaPorOculta) {
-      this.pausadaPorOculta = false;
-      reanudarRelojTurno();
+      pausarRelojTurno("pestana-oculta");
+    } else {
+      reanudarRelojTurno("pestana-oculta");
     }
   };
 
