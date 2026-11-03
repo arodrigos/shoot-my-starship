@@ -6,7 +6,7 @@ Regenerado por `npm run calibrar:economia`. No a mano: los números salen de
 
 ## Parámetros
 
-- Mediana de los precios de las armas de pago con daño (M): **62.5 cr**
+- Mediana de los precios de las armas de pago con daño (M): **65 cr**
 - `PRESUPUESTO_BASE` fijo, sin arrastre entre partidas: **600 cr**
 - `PREMIO_LOTERIA` fijo: **150 cr**
 - Equipo (sin cambios por la calibración): Escudo 90 cr, Propulsores 60 cr
@@ -19,14 +19,15 @@ sana es [0.6; 1.6].
 
 | Arma | Coste | Daño máx. | Facilidad | Curva | Desviación | Valor |
 | --- | --- | --- | --- | --- | --- | --- |
-| Pepinazo de Cortesía | 35 | 18 | 2.6 % | 35 | 0 % | 0.83 |
+| Pepinazo de Cortesía | 35 | 18 | 2.6 % | 35 | 0 % | 0.84 |
 | Racimo de Tuppers | 40 | 20 | 2.5 % | 40 | 0 % | 0.78 |
-| Despedida | 80 | 55 | 3.3 % | 80 | 0 % | 1.41 |
-| Barrena Planetaria | 65 | 44 | 2.5 % | 65 | 0 % | 1.05 |
-| Rayo Láser | 75 | 46 | 0.8 % | 55 | 36 % | 0.30 |
+| Despedida | 80 | 55 | 3.3 % | 80 | 0 % | 1.42 |
+| Barrena Planetaria | 65 | 44 | 2.5 % | 65 | 0 % | 1.06 |
+| Rayo Láser | 75 | 46 | 0.8 % | 55 | 36 % | 0.31 |
 | Mosca Cojonera | 50 | 28 | 2.9 % | 50 | 0 % | 1.01 |
-| Gancho Pegajoso | 75 | 24 | 6.9 % | 75 | 0 % | 1.37 |
-| Minirobot Saltaplanetas | 60 | 40 | 2.4 % | 60 | 0 % | 0.99 |
+| Gancho Pegajoso | 75 | 24 | 6.9 % | 75 | 0 % | 1.38 |
+| Minirobot Saltaplanetas | 60 | 40 | 2.4 % | 60 | 0 % | 1.00 |
+| Hipo Triple | 75 | 14 | 8.3 % | 75 | 0 % | 0.97 |
 
 ### Desviaciones declaradas
 
