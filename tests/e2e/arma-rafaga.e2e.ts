@@ -48,7 +48,7 @@ for (const t of TAMANOS) {
       const w = window as unknown as { __fases: string[] };
       w.__fases = [];
       // Por reloj y no por fotograma: el render por software de CI da pocos fotogramas.
-      setInterval(() => w.__fases.push(window.__debug.velocidadPresentacion!().fase), 50);
+      setInterval(() => w.__fases.push(`${Math.round(performance.now())}:${window.__debug.velocidadPresentacion!().fase}`), 50);
     });
     await page.getByTestId("disparar").click();
     await page.waitForFunction(() => window.__debug.velocidadPresentacion!().fase === "vuelo", undefined, { timeout: 60000, polling: "raf" });
@@ -65,13 +65,13 @@ for (const t of TAMANOS) {
     const registro = await page.evaluate((n) => (window.__debug.registroDetonaciones ?? []).slice(n)[0], previas);
     expect(registro).toMatchObject({ armaId: "hipo-triple", cantidad: 3 });
     const fases = await page.evaluate(() => (window as unknown as { __fases: string[] }).__fases);
-    const primera = fases.indexOf("vuelo");
+    const primera = fases.findIndex((f) => f.endsWith(":vuelo"));
     expect(primera).toBeGreaterThanOrEqual(0);
     // El primer tramo seguido en «vuelo» es el del disparo humano (la IA responde después, con su propio vuelo):
     // si saliera de «vuelo» tras el 1.º o el 2.º impacto, el tramo acabaría antes de la última explosión.
     let fin = primera;
-    while (fin < fases.length && fases[fin] === "vuelo") fin++;
-    expect(fin - primera).toBeGreaterThan(20);
+    while (fin < fases.length && fases[fin].endsWith(":vuelo")) fin++;
+    expect(fin - primera, `[DEBUG-raf] ${JSON.stringify(fases.slice(0, 60))}`).toBeGreaterThan(20);
     await page.screenshot({ path: `capturas/arma-rafaga-11-final-${t.w}x${t.h}.png` });
   });
 }
