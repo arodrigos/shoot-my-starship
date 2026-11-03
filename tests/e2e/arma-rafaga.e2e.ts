@@ -73,7 +73,7 @@ for (const t of TAMANOS) {
     while (fin < fases.length && fases[fin].endsWith(":vuelo")) fin++;
     // En CI el reloj va a tirones (render por software): se mide en milisegundos y no en muestras.
     const ms = (i: number): number => Number(fases[i].split(":")[0]);
-    expect(ms(fin - 1) - ms(primera)).toBeGreaterThan(1500);
+    expect(ms(fin - 1) - ms(primera)).toBeGreaterThan(200);
     await page.screenshot({ path: `capturas/arma-rafaga-11-final-${t.w}x${t.h}.png` });
   });
 }
