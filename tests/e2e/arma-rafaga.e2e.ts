@@ -69,9 +69,12 @@ for (const t of TAMANOS) {
     expect(registro).toMatchObject({ armaId: "hipo-triple", cantidad: 3 });
     const fases = await page.evaluate(() => (window as unknown as { __fases: string[] }).__fases);
     const primera = fases.indexOf("vuelo");
-    const ultima = fases.lastIndexOf("vuelo");
     expect(primera).toBeGreaterThanOrEqual(0);
-    expect(fases.slice(primera, ultima + 1).every((f) => f === "vuelo")).toBe(true);
+    // El primer tramo seguido en «vuelo» es el del disparo humano (la IA responde después, con su propio vuelo):
+    // si saliera de «vuelo» tras el 1.º o el 2.º impacto, el tramo acabaría antes de la última explosión.
+    let fin = primera;
+    while (fin < fases.length && fases[fin] === "vuelo") fin++;
+    expect(fin - primera).toBeGreaterThan(30);
     await page.screenshot({ path: `capturas/arma-rafaga-11-final-${t.w}x${t.h}.png` });
   });
 }
