@@ -38,7 +38,11 @@ export type ComportamientoDeVuelo =
   // se queda posado y avanzar() lo mueve al empezar cada turno de su dueño
   // (src/sim/armas/minirobot.ts). La detonación es una fase del turno, no del
   // vuelo, por eso el resolutor solo sabe "aquí se queda".
-  | { readonly tipo: "minirobot" };
+  | { readonly tipo: "minirobot" }
+  // rafaga (Hipo Triple): un vuelo por factor, mismo ángulo y potencia ×
+  // factor. Cada vuelo sale cuando aterriza el anterior y cruza el terreno
+  // que este dejó, a diferencia de disparosSimultaneos (abanico a la vez).
+  | { readonly tipo: "rafaga"; readonly factoresPotencia: readonly number[] };
 
 // Eje 2 (huella en el terreno): la forma que deja en la máscara. "circular"
 // cubre cráter y relleno según el signo; "capsula" es la excavación alargada
