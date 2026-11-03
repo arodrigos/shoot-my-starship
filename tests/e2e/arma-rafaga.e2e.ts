@@ -71,7 +71,9 @@ for (const t of TAMANOS) {
     // si saliera de «vuelo» tras el 1.º o el 2.º impacto, el tramo acabaría antes de la última explosión.
     let fin = primera;
     while (fin < fases.length && fases[fin].endsWith(":vuelo")) fin++;
-    expect(fin - primera, `[DEBUG-raf] ${JSON.stringify(fases.slice(0, 60))}`).toBeGreaterThan(20);
+    // En CI el reloj va a tirones (render por software): se mide en milisegundos y no en muestras.
+    const ms = (i: number): number => Number(fases[i].split(":")[0]);
+    expect(ms(fin - 1) - ms(primera)).toBeGreaterThan(1500);
     await page.screenshot({ path: `capturas/arma-rafaga-11-final-${t.w}x${t.h}.png` });
   });
 }
