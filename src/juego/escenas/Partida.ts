@@ -58,7 +58,7 @@ import { ClienteSim } from "@/juego/motor/clienteSim";
 import { crearTrabajadorSim } from "@/juego/motor/crearTrabajador";
 import { mostrarApuntandoIA, ocultarApuntandoIA } from "@/juego/hud/indicadorApuntandoIA";
 import { montarHudRendimiento } from "@/juego/rendimiento/hudRendimiento";
-import { limpiarLatenciasApuntado, registrarLatenciaApuntado, registrarLatenciaCamara, registrarLatenciaDisparo, registrarLatenciaRastro, registrarLatenciaReencuadre, registrarLatenciaRelojTurno, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
+import { limpiarLatenciasApuntado, registrarLatenciaAcelerar, registrarLatenciaApuntado, registrarLatenciaCamara, registrarLatenciaDisparo, registrarLatenciaRastro, registrarLatenciaReencuadre, registrarLatenciaRelojTurno, ultimasLatenciasApuntado } from "@/juego/rendimiento/latenciasApuntado";
 import { observarTareasLargas, reiniciarTareasLargas, tareasLargasActuales } from "@/juego/rendimiento/tareasLargas";
 import { mostrarCalculandoTurno, ocultarCalculandoTurno } from "@/juego/hud/indicadorCalculandoTurno";
 import {
@@ -145,6 +145,7 @@ import { esComportamientoAdherente, insumoPerturbacionErratica, pasosDeMecha } f
 import { PRESUPUESTO_COMPUTO_PREVISUALIZACION_MS, superaPresupuestoAbanico, type AbanicoPrevisualizacion, type BandaPrevisualizacion } from "@/sim/armas/previsualizacion";
 import { ocultarMira, tocaReintentarMira, type MiraOculta } from "@/juego/mira/miraOculta";
 import { limpiarCuentaAtras, publicarCuentaAtras } from "@/juego/control/cuentaAtrasStore";
+import { acelerarHastaImpacto, fijarFasePresentacion, obtenerEstadoPresentacion, obtenerFactorPresentacion, suscribirVelocidadPresentacion } from "@/juego/vuelo/velocidadPresentacion";
 import {
   adelantarRelojTurno,
   arrancarRelojTurno,
@@ -1077,6 +1078,19 @@ export class Partida extends Phaser.Scene {
     // marcador compartido).
     limpiarLatenciasApuntado();
     window.__debug.latencias = () => ultimasLatenciasApuntado();
+    window.__debug.velocidadPresentacion = () => obtenerEstadoPresentacion();
+    // acelerar-presentacion: la medida se cierra en el primer frame ya pintado
+    // con el factor a ×3 tras el toque; sin marca pendiente (ajuste ya activo,
+    // cambio de fase) no se mide nada.
+    fijarFasePresentacion("apuntado");
+    const quitarEscuchaVelocidad = suscribirVelocidadPresentacion(() => {
+      if (obtenerFactorPresentacion() !== 3 || performance.getEntriesByName("acelerar-toque", "mark").length === 0) return;
+      this.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
+        if (performance.getEntriesByName("acelerar-toque", "mark").length === 0) return;
+        registrarLatenciaAcelerar(performance.measure("acelerar-frame", "acelerar-toque").duration);
+        performance.clearMarks("acelerar-toque");
+      });
+    });
     window.__debug.fijarApuntado = (anguloGrados: number, potencia: number) => fijarApuntadoDirecto(anguloGrados, potencia);
     Object.defineProperty(window.__debug, "relojTurno", {
       configurable: true,
@@ -1137,6 +1151,8 @@ export class Partida extends Phaser.Scene {
       this.motor.terminar();
       ocultarApuntandoIA();
       quitarHud?.();
+      quitarEscuchaVelocidad();
+      fijarFasePresentacion("apuntado");
       this.retirarAvisoPerdido();
     });
 
@@ -1331,11 +1347,15 @@ export class Partida extends Phaser.Scene {
   update(_time: number, delta: number): void {
     this.medidorFrames.registrarFrame(delta);
     this.actualizarRotuloDeriva();
-    this.animador.actualizar(delta);
+    // acelerar-presentacion: solo lo que es presentación usa el delta escalado.
+    // El remate, el relevo, los avisos, la voz, el reloj y las explosiones
+    // posteriores al impacto siguen con el delta real.
+    const deltaPresentacion = delta * obtenerFactorPresentacion();
+    this.animador.actualizar(deltaPresentacion);
     this.animadorRepeticion.actualizar(delta);
     window.__debug!.animacionEnCurso = this.animador.enVuelo();
     window.__debug!.repeticionEnCurso = this.animadorRepeticion.enVuelo();
-    this.actualizarEstelaYDebugProyectil(delta);
+    this.actualizarEstelaYDebugProyectil(deltaPresentacion);
     this.actualizarArmaEnReposo();
     this.actualizarCuentaAtrasMecha();
     this.actualizarCuentaAtrasAdherencia();
@@ -1347,7 +1367,7 @@ export class Partida extends Phaser.Scene {
     // camara-gestos: el controlador mueve la cámara antes de leer su vista.
     this.actualizarObjetivos();
     this.camaraCtl.avanzar(delta);
-    this.camaraCtl.seguir(this.animador.obtenerPosicion(), delta);
+    this.camaraCtl.seguir(this.animador.obtenerPosicion(), deltaPresentacion);
     const estadoCamara = this.camaraCtl.estado();
     // Cada franja de estrellas solo se dibuja si la vista asoma por su lado:
     // dentro del mundo no cuesta nada.
@@ -1381,10 +1401,13 @@ export class Partida extends Phaser.Scene {
     }
 
     this.actualizarRemate(delta);
-    this.avanzarMovimientos(delta);
+    this.avanzarMovimientos(deltaPresentacion);
 
     const jugable = this.puedeJugarAhora();
     publicarJugable(jugable);
+    // Con el turno de nuevo en manos de una persona termina la fase de
+    // presentación anterior (post-impacto o relevo) y no queda toque pendiente.
+    if (jugable) fijarFasePresentacion("apuntado");
     this.sincronizarRelojTurno(jugable);
 
 
@@ -1962,6 +1985,9 @@ export class Partida extends Phaser.Scene {
     // Solo el toque que cae sobre el propio lienzo apunta: los que caen en
     // la consola o en un panel superpuesto siguen su camino normal.
     if (evento.target !== this.game.canvas) return;
+    // acelerar-presentacion: en vuelo o en el turno de la IA un toque en el
+    // lienzo acelera y no apunta (de todos modos no se puede apuntar).
+    if (this.pedirAceleracion()) return;
     this.punterosLienzo.set(evento.pointerId, { x: evento.clientX, y: evento.clientY });
     if (this.punterosLienzo.size >= 2) {
       // cam-2: un segundo dedo cancela el apuntado y deja la mira como estaba
@@ -1979,6 +2005,13 @@ export class Partida extends Phaser.Scene {
       this.ajusteAlApoyar = { anguloGrados, potencia };
       this.gestoApuntado = iniciarGestoPolar(obtenerEstadoControl().ajuste, this.posicionPantallaNaveDelTurno(), this.dedoApuntado);
     }
+  }
+
+  // true si el toque cayó en una fase que admite aceleración.
+  private pedirAceleracion(): boolean {
+    if (!obtenerEstadoPresentacion().botonVisible) return false;
+    acelerarHastaImpacto();
+    return true;
   }
 
   private cancelarApuntadoPorSegundoDedo(): void {
@@ -2109,7 +2142,11 @@ export class Partida extends Phaser.Scene {
       }
       return { ...(this.ultimaZonaVisible.get(z.id) ?? z), visible: false };
     });
-    const nominales = todas.map((z) => this.zonaALienzo(z));
+    // El botón de acelerar aparece y desaparece con cada vuelo: es transitorio
+    // como la consola apartada. Solo cuenta como zona visible (si tapa algo la
+    // cámara lo repara); fuera del sitio nominal, aparecer no es un cambio del
+    // HUD ni reencuadra.
+    const nominales = todas.filter((z) => z.id !== "acelerar").map((z) => this.zonaALienzo(z));
     const visibles = todas.filter((z) => z.visible).map((z) => this.zonaALienzo(z));
     const { r: lienzo } = this.factorLienzo();
     const firma = `${lienzo.left.toFixed(1)},${lienzo.top.toFixed(1)},${lienzo.width.toFixed(1)}#` + nominales.map((r) => `${r.x.toFixed(1)},${r.y.toFixed(1)},${r.ancho.toFixed(1)},${r.alto.toFixed(1)}`).join("|");
@@ -2477,6 +2514,7 @@ export class Partida extends Phaser.Scene {
         pasosHastaDetonarTrasAdherencia,
       };
 
+      fijarFasePresentacion("vuelo");
       this.animador.fijarEncuadre({ ancho: estadoAntes.mundo.ancho, alto: estadoAntes.mundo.alto });
       this.animador.fijarRacimo(
         armaDisparada.comportamiento.tipo === "submuniciones" && eventoImpacto
@@ -2495,6 +2533,7 @@ export class Partida extends Phaser.Scene {
         // animación arranque) -- se guarda aparte para que la repetición se
         // compare contra lo que de verdad se vio, no contra el valor teórico.
         window.__debug!.ultimoDisparo = { ...window.__debug!.ultimoDisparo!, impactoReal: { x: final.x, y: final.y } };
+        fijarFasePresentacion("post-impacto");
         this.impactoCamara = { x: final.x, y: final.y };
         // arma-mosca (mos-3): la trayectoria animada de ESTE vuelo, expuesta
         // tras terminar -- el e2e la compara paso a paso contra
@@ -2673,6 +2712,7 @@ export class Partida extends Phaser.Scene {
     const personalidad = this.controladores[tirador]?.personalidad ?? this.rival;
     this.solicitudEnCurso = true;
     publicarJugable(false);
+    fijarFasePresentacion("turno-ia");
     mostrarApuntandoIA(nombreDeNave(this.controladores, tirador));
     void this.motor
       .decidirIA({
@@ -2714,6 +2754,7 @@ export class Partida extends Phaser.Scene {
     // cam-4: la vista completa antes de que el relevo enseñe nada.
     this.alCambiarTurnoCamara();
     this.relevoPendiente = true;
+    fijarFasePresentacion("relevo");
     obtenerLocutor().callar();
     publicarJugable(false);
     publicarRelevo(
@@ -2830,6 +2871,7 @@ export class Partida extends Phaser.Scene {
     const humanos = this.controladores.filter((controlador) => controlador.tipo === "humano").length;
     if (this.datosEscena.todosVemosTodo || !this.datosEscena.jugadores || humanos < 2) return;
     this.relevoPendiente = true;
+    fijarFasePresentacion("relevo");
     obtenerLocutor().callar();
     publicarJugable(false);
     publicarRelevo(nombreDeNave(this.controladores, turno), null, null);
@@ -3404,6 +3446,7 @@ export class Partida extends Phaser.Scene {
     const ctl = new ControladorRemate(modo, { x: camara.scrollX + ancho / 2, y: camara.scrollY + alto / 2 }, impacto, ancho, alto);
     const bloquea = modo === "completo";
     this.remate = { ctl, bloquea, alTerminar, congelado: false };
+    if (bloquea) fijarFasePresentacion("remate");
     const previo = window.__debug!.remate;
     window.__debug!.remate = {
       activo: true,
@@ -3620,7 +3663,7 @@ export class Partida extends Phaser.Scene {
         const haciaY = alturaRenderNave(evento.y, evento.y);
         const vuelo = eventos.find((otro): otro is Extract<EventoSimulacion, { tipo: "propulsores" }> => otro.tipo === "propulsores" && otro.nave === evento.nave);
         const yaSeDesliza = vuelo !== undefined || eventos.some((otro) => otro.tipo === "desplazamiento" && otro.nave === evento.nave);
-        const esperaMs = vuelo ? duracionPropulsoresMs(longitudDeRuta(vuelo.puntos), false) : DURACION_DESLIZAMIENTO_MS;
+        const esperaMs = vuelo ? duracionPropulsoresMs(longitudDeRuta(vuelo.puntos), false) / obtenerFactorPresentacion() : DURACION_DESLIZAMIENTO_MS;
         const progreso = { t: 0 };
         if (!yaSeDesliza) nave.posicionarEn(evento.desdeX, desdeY);
         this.tweens.add({
@@ -3736,7 +3779,7 @@ export class Partida extends Phaser.Scene {
         this.publicarReproduccion(undefined);
       },
     });
-    window.__debug!.duracionPropulsoresMs = duracionMs;
+    window.__debug!.duracionPropulsoresMs = duracionMs / obtenerFactorPresentacion();
   }
 
   // ritmo-robot-propulsores (rit-2): cada salto es realce (300 ms), arco
@@ -3776,7 +3819,7 @@ export class Partida extends Phaser.Scene {
         window.__debug!.reproduccion = { activa: true, naves: window.__debug!.reproduccion?.naves ?? [], robots: [] };
       },
     });
-    window.__debug!.duracionSaltoRobotMs = duracionMs;
+    window.__debug!.duracionSaltoRobotMs = duracionMs / obtenerFactorPresentacion();
   }
 
   private encolarMovimiento(movimiento: { duracionMs: number; aplicar: (ms: number) => void; terminar: () => void }): void {

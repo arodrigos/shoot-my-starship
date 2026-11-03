@@ -3,7 +3,7 @@
 // (y no un campo de la escena) para que el panel ?rendimiento=1 las lea sin
 // conocer la escena.
 export interface LatenciaInteraccion {
-  readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo" | "gesto-camara" | "ver-todo" | "reencuadre";
+  readonly nombre: "apuntado" | "rastro" | "reloj-turno" | "disparo" | "gesto-camara" | "ver-todo" | "reencuadre" | "acelerar";
   readonly ms: number;
 }
 
@@ -46,6 +46,13 @@ export function registrarLatenciaCamara(nombre: "gesto-camara" | "ver-todo", ms:
 // de la ayuda) al primer frame que aplica el encuadre nuevo.
 export function registrarLatenciaReencuadre(ms: number): void {
   medidas.push({ nombre: "reencuadre", ms });
+  if (medidas.length > CAPACIDAD) medidas.shift();
+}
+
+// acelerar-presentacion: del toque en «⏩» (o en el lienzo) al primer frame con
+// el vuelo ya a ×3.
+export function registrarLatenciaAcelerar(ms: number): void {
+  medidas.push({ nombre: "acelerar", ms });
   if (medidas.length > CAPACIDAD) medidas.shift();
 }
 

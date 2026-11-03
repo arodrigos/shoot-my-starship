@@ -68,6 +68,7 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
     const ultimoGestoCamara = todas.findLast((l) => l.nombre === "gesto-camara");
     const ultimoVerTodo = todas.findLast((l) => l.nombre === "ver-todo");
     const ultimoReencuadre = todas.findLast((l) => l.nombre === "reencuadre");
+    const ultimoAcelerar = todas.findLast((l) => l.nombre === "acelerar");
     caja.style.color = dentro ? "#9f9" : "#f88";
     caja.textContent =
       `p95 ${i.p95.toFixed(1)} ms\nmax ${i.max.toFixed(1)} ms\nlargos ${i.framesLargos}\n` +
@@ -79,6 +80,7 @@ export function montarHudRendimiento(medidor: MedidorFrames, respuesta: MedidorR
       `gesto-camara: ${ultimoGestoCamara === undefined ? "–" : `${ultimoGestoCamara.ms.toFixed(0)} ms`}\n` +
       `ver-todo: ${ultimoVerTodo === undefined ? "–" : `${ultimoVerTodo.ms.toFixed(0)} ms`}\n` +
       `reencuadre: ${ultimoReencuadre === undefined ? "–" : `${ultimoReencuadre.ms.toFixed(0)} ms`}\n` +
+      `acelerar: ${ultimoAcelerar === undefined ? "–" : `${ultimoAcelerar.ms.toFixed(0)} ms`}\n` +
       (dentro ? "Respuesta ≤ 200 ms" : `Supera 200 ms (${peor.toFixed(0)} ms)`);
     contenedor.dataset.veredicto = dentro ? "verde" : "rojo";
   };

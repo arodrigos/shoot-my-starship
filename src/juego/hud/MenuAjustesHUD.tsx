@@ -18,6 +18,7 @@ import { HistoricoBromasHUD } from "@/juego/hud/HistoricoBromasHUD";
 import { obtenerDatosPwa, suscribirPwa, TEXTO_ESTADO_PWA, versionApp } from "@/juego/pwa/estadoPwa";
 import "@/debug/tipos";
 import { tamTexto } from "@/juego/hud/legibilidad";
+import { alternarAnimacionesRapidas, animacionesRapidasActivas, suscribirVelocidadPresentacion } from "@/juego/vuelo/velocidadPresentacion";
 import { useZonaOcupada } from "@/juego/hud/useZonaOcupada";
 
 const LADO_BOTON_PX = 48;
@@ -77,6 +78,7 @@ export function MenuAjustesHUD() {
   const bromas = useSyncExternalStore(suscribirBromas, obtenerBromas, obtenerBromas);
   const vibracion = useSyncExternalStore(suscribirVibracion, obtenerVibracion, obtenerVibracion);
   const reloj = useSyncExternalStore(suscribirRelojTurno, obtenerRelojTurno, obtenerRelojTurno);
+  const rapidas = useSyncExternalStore(suscribirVelocidadPresentacion, animacionesRapidasActivas, () => false);
   const dosColumnas = usePanelDosColumnas();
   const [abierto, setAbierto] = useState(false);
   const [historicoAbierto, setHistoricoAbierto] = useState(false);
@@ -212,6 +214,14 @@ export function MenuAjustesHUD() {
       pulsado: estado.textoGrande,
       title: estado.textoGrande ? "Volver al tamaño normal del texto" : "Agrandar los textos del juego",
       alPulsar: () => fijarTextoGrande(!estado.textoGrande),
+    },
+    {
+      testId: "toggle-animaciones-rapidas",
+      etiqueta: `Animaciones rápidas: ${rapidas ? "Sí" : "No"}`,
+      ayuda: "Los vuelos y el turno de la IA se ven al triple. El resultado no cambia.",
+      pulsado: rapidas,
+      title: rapidas ? "Volver a la velocidad normal" : "Ver los vuelos y el turno de la IA al triple",
+      alPulsar: () => alternarAnimacionesRapidas(),
     },
   ];
 

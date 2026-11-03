@@ -4,7 +4,7 @@ import { comprobarContrasteHud } from "../utils/axeHud";
 import { PATRONES_VIBRACION } from "../../src/juego/control/vibracion";
 import { abrirAjustes } from "./utilesControl";
 
-const ORDEN_SIN_VIBRACION = ["toggle-sacudida", "toggle-rastro", "toggle-silenciado", "toggle-musica", "toggle-voz", "toggle-texto-grande"];
+const ORDEN_SIN_VIBRACION = ["toggle-sacudida", "toggle-rastro", "toggle-silenciado", "toggle-musica", "toggle-voz", "toggle-texto-grande", "toggle-animaciones-rapidas"];
 
 // Solo para dejar evidencia visual al gatekeeper; el CI no define la variable.
 async function capturar(page: Page, nombre: string): Promise<void> {

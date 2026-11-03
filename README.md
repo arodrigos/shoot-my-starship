@@ -129,7 +129,18 @@ apaisada, para que se vea entero con «Cerrar» dentro) con:
   avisos, relevo y parte de guerra), no la portada ni los textos pintados en
   el lienzo. Se aplica al momento, sin reiniciar la partida, y se recuerda
   entre visitas.
+- **Animaciones rápidas**: los vuelos, los propulsores, los saltos del
+  Minirobot y el turno de la IA se ven al triple; el resultado no cambia. Se
+  recuerda entre visitas (`localStorage`, clave `presentacion:animaciones-rapidas`).
 - El estado del juego sin conexión y la versión instalada.
+
+**Acelerar un vuelo.** Mientras vuela un proyectil o juega la IA aparece abajo
+a la derecha un botón «⏩» (48×48 px); al tocarlo, o al tocar el lienzo, pasa a
+«×3» hasta el impacto. El remate, el relevo, los avisos, la voz, las explosiones
+posteriores al impacto y el reloj de turno siguen a velocidad normal. La lógica
+vive en `src/juego/vuelo/velocidadPresentacion.ts`; nada de `src/sim` la lee. La
+medida «acelerar» (toque → primer frame a ×3) sale en `__debug.latencias()` y en
+el panel de `?rendimiento=1`.
 
 **Legibilidad.** Todo texto HTML del HUD (consola, menú, avisos, relevo y
 parte de guerra) mide 14 px o más y pasa por `tamTexto()`
