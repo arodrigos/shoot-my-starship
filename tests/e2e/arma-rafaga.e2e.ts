@@ -44,14 +44,11 @@ for (const t of TAMANOS) {
     await empezar(page, t);
     const previas = await page.evaluate(() => window.__debug.registroDetonaciones?.length ?? 0);
     await page.evaluate(() => {
-      // Muestreo por fotograma de la fase: entre el primer y el tercer impacto no puede salir de «vuelo».
+      // Muestreo de la fase cada 50 ms: entre el primer y el tercer impacto no puede salir de «vuelo».
       const w = window as unknown as { __fases: string[] };
       w.__fases = [];
-      const paso = (): void => {
-        w.__fases.push(window.__debug.velocidadPresentacion!().fase);
-        requestAnimationFrame(paso);
-      };
-      requestAnimationFrame(paso);
+      // Por reloj y no por fotograma: el render por software de CI da pocos fotogramas.
+      setInterval(() => w.__fases.push(window.__debug.velocidadPresentacion!().fase), 50);
     });
     await page.getByTestId("disparar").click();
     await page.waitForFunction(() => window.__debug.velocidadPresentacion!().fase === "vuelo", undefined, { timeout: 60000, polling: "raf" });
@@ -74,7 +71,7 @@ for (const t of TAMANOS) {
     // si saliera de «vuelo» tras el 1.º o el 2.º impacto, el tramo acabaría antes de la última explosión.
     let fin = primera;
     while (fin < fases.length && fases[fin] === "vuelo") fin++;
-    expect(fin - primera).toBeGreaterThan(30);
+    expect(fin - primera).toBeGreaterThan(20);
     await page.screenshot({ path: `capturas/arma-rafaga-11-final-${t.w}x${t.h}.png` });
   });
 }
