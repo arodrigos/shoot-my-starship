@@ -28,7 +28,7 @@ aparte que mantener sincronizada con el resolutor.
 | Mosca Cojonera | 28 | 50 | 1.06s | 2.9% | 50 |
 | Gancho Pegajoso | 24 | 38 | 0.93s | 6.9% | 75 |
 | Minirobot Saltaplanetas | 40 | 50 | 1.09s | 2.4% | 60 |
-| Hipo Triple | 14 | 28 | 1.25s | 8.3% | 75 |
+| Hipo Triple | 14 | 18 | 1.25s | 8.3% | 75 |
 
 ## Dominancia
 

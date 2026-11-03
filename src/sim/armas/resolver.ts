@@ -83,7 +83,7 @@ export interface ResultadoDisparo {
 // simulado sea el mismo que el que usa un disparo real (ia-2, ia-4).
 export const ALTURA_CANON_PX = 26;
 
-function clonarMascara(mascara: Mascara): Mascara {
+export function clonarMascara(mascara: Mascara): Mascara {
   return { ancho: mascara.ancho, alto: mascara.alto, datos: new Uint8Array(mascara.datos) };
 }
 

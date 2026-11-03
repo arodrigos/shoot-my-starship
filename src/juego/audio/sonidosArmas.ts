@@ -14,6 +14,8 @@ export const SONIDO_DISPARO_POR_ARMA: Readonly<Record<string, ParametrosZzfx>> =
   "vertedero-portatil": [0.9, 0.1, 90, 0.02, 0.05, 0.15, 4, 1, 1, 0, 0, 0, 0, 1.2, 0, 0, 0, 0.8, 0.05, 0, 400],
   // Chisporrotea: repeticiones rápidas y ruido.
   "racimo-de-tuppers": [0.8, 0.2, 520, 0, 0.02, 0.1, 4, 1, 0, 0, 0, 0, 0.05, 0.3, 0, 0, 0, 1, 0, 0.6, 0],
+  // Hipo Triple: tres blips cortos y agudos (repetición rápida con tono que cae).
+  "hipo-triple": [0.9, 0.1, 700, 0, 0.02, 0.06, 0, 1, -12, 0, 0, 0, 0.05, 0, 0, 0, 0, 0.9, 0.01, 0, 0],
   "pelota-de-chatarra": [0.8, 0.1, 260, 0, 0.015, 0.075, 1, 1, 6, 0, 0, 0, 0, 0.1, 0, 0, 0, 1, 0, 0, 0],
   "graviton-segunda-mano": [0.8, 0, 180, 0.08, 0.075, 0.15, 0, 1, 0, 0.5, 0, 0, 0, 0, 40, 0, 0, 0.9, 0.1, 0, 0],
   despedida: [0.9, 0.05, 330, 0, 0.01, 0.15, 2, 1, -8, 0, 0, 0, 0, 0, 0, 0.2, 0, 1, 0, 0, 0],

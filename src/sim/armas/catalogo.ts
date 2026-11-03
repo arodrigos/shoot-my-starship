@@ -272,7 +272,7 @@ export const CATALOGO_ARMAS: readonly Arma[] = [
     descripcion: "Tres tiros seguidos con el mismo ángulo, cada uno con menos fuerza que el anterior. Cuando el tercero aterriza, ya sabes dónde habrías tenido que apuntar el primero.",
     comportamiento: { tipo: "rafaga", factoresPotencia: [1, 0.8, 0.6] },
     huella: { tipo: "circular", radio: 24, signo: "restar" },
-    efecto: { tipo: "danio", radioEfectoPx: 28, danioMaximo: 14 },
+    efecto: { tipo: "danio", radioEfectoPx: 18, danioMaximo: 14 },
     fiabilidad: 1,
     coste: 75,
     notaAyuda: "Tres tiros seguidos, cada uno más corto: tantea y corrige en el mismo turno.",
