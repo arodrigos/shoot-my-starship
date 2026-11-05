@@ -83,7 +83,7 @@ export interface ResultadoDisparo {
 // simulado sea el mismo que el que usa un disparo real (ia-2, ia-4).
 export const ALTURA_CANON_PX = 26;
 
-function clonarMascara(mascara: Mascara): Mascara {
+export function clonarMascara(mascara: Mascara): Mascara {
   return { ancho: mascara.ancho, alto: mascara.alto, datos: new Uint8Array(mascara.datos) };
 }
 
@@ -661,6 +661,47 @@ function resolverPuntosDeImpacto(
   };
 }
 
+// Ráfaga secuencial: cada vuelo se simula sobre la máscara que dejó el
+// anterior (la huella de cada punto se aplica antes de lanzar el siguiente) y
+// con un rastreador de casco nuevo, porque la gracia del casco propio es
+// estado de UN vuelo. Un vuelo perdido no invalida los demás.
+function resolverRafagaSecuencial(
+  arma: Arma,
+  factoresPotencia: readonly number[],
+  params: ParametrosResolverDisparo,
+  origenX: number,
+  origenCanonY: number,
+  anguloRad: number,
+  aleatorio: EstadoAleatorio,
+): ResultadoPuntosDeImpacto {
+  let mascara = params.mascara;
+  let clonada = false;
+  const puntos: PuntoDeImpacto[] = [];
+  let salida: SalidaDePantalla | undefined;
+  let pasosPrimero = 0;
+  let algunoLlego = false;
+  factoresPotencia.forEach((factor, i) => {
+    const v = velocidadDesdePotencia(params.potencia * factor);
+    const inicial = crearProyectil(origenX, origenCanonY, v * Math.cos(anguloRad), -v * Math.sin(anguloRad));
+    const rastreador =
+      params.naves && params.tiradorId !== undefined ? crearRastreadorImpactoNaves(params.naves, params.tiradorId) : undefined;
+    const r = resolverUnDisparo(arma, inicial, params.gravedad, params.deriva, mascara, params.ancho, params.alto, aleatorio, params.planetas, rastreador);
+    if (i === 0) pasosPrimero = r.pasos;
+    if (r.perdido) {
+      salida = salida ?? r.salida;
+      return;
+    }
+    algunoLlego = true;
+    puntos.push(...r.puntos);
+    if (!clonada) {
+      mascara = clonarMascara(mascara);
+      clonada = true;
+    }
+    for (const punto of r.puntos) aplicarHuellaDeArma(mascara, arma, punto);
+  });
+  return { puntos, perdido: !algunoLlego, salida: algunoLlego ? undefined : salida, aleatorio, pasos: pasosPrimero };
+}
+
 export function aplicarHuellaDeArma(mascara: Mascara, arma: Arma, punto: PuntoDeImpacto): void {
   if (arma.huella.tipo === "circular") {
     aplicarHuellaCircular(mascara, punto.x, punto.y, arma.huella.radio, arma.huella.signo);
@@ -788,18 +829,20 @@ export function resolverDisparo(params: ParametrosResolverDisparo): ResultadoDis
     puntosPenetrados,
     aleatorio: aleatorioTrasVuelo,
     pasos: pasosVuelo,
-  } = resolverPuntosDeImpacto(
-    arma,
-    inicial,
-    params.gravedad,
-    params.deriva,
-    mascara,
-    params.ancho,
-    params.alto,
-    aleatorio,
-    params.planetas,
-    rastreadorNaves,
-  );
+  } = arma.comportamiento.tipo === "rafaga"
+    ? resolverRafagaSecuencial(arma, arma.comportamiento.factoresPotencia, params, params.origenX, origenY - ALTURA_CANON_PX, rad, aleatorio)
+    : resolverPuntosDeImpacto(
+        arma,
+        inicial,
+        params.gravedad,
+        params.deriva,
+        mascara,
+        params.ancho,
+        params.alto,
+        aleatorio,
+        params.planetas,
+        rastreadorNaves,
+      );
 
   // minirobot: el vuelo acaba en un planeta y ahí se queda; ni cráter ni daño
   // hasta que avanzar() lo haga detonar en un turno posterior. Si ha tocado un

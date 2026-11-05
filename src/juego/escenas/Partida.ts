@@ -18,11 +18,13 @@ import { costeArma } from "@/sim/partida/economia";
 import { direccionDeNave } from "@/sim/naves/contacto";
 import { idsNavesVivas, type EntradaDeTurno, type EstadoPartida, type IdNave, type ModoJuego, type ParametrosMundo } from "@/sim/partida/tipos";
 import { TIPOS_EVENTO_HUMOR, type EventoSimulacion, type TipoEventoHumor } from "@/sim/partida/eventos";
-import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo } from "@/sim/armas/resolver";
+import { alturaSuperficie, detenerseEnSuelo, ALTURA_CANON_PX, resolverDisparo, aplicarHuellaDeArma, clonarMascara } from "@/sim/armas/resolver";
+import type { Mascara } from "@/sim/terreno/mascara";
+import { radioEfectoDeArma } from "@/sim/partida/detonaciones";
 import { buscarArma, CATALOGO_ARMAS } from "@/sim/armas/catalogo";
 import { resumenTurno } from "@/juego/escenas/resumenTurno";
 import type { Arma } from "@/sim/armas/tipos";
-import { crearRastreadorImpactoNaves } from "@/sim/naves/impacto";
+import { crearRastreadorImpactoNaves, type RastreadorImpactoNaves } from "@/sim/naves/impacto";
 import { RADIO_ENVOLVENTE_NAVE_PX, SEMIALTO_MAXIMO_NAVE_PX, cajaCasco } from "@/sim/naves/geometriaCasco";
 import { puntosSilueta, dimensionMayor } from "@/juego/proyectiles/geometriaProyectil";
 import { velocidadDesdePotencia } from "@/sim/balistica/potencia";
@@ -564,6 +566,8 @@ export class Partida extends Phaser.Scene {
   private previsClave = "";
   private previsEstadoPedido: EstadoPartida | null = null;
   private previsPendiente: { peticion: Parameters<ClienteSim["previsualizar"]>[0]; estado: EstadoPartida } | null = null;
+  // Ráfaga: explosiones de impactos intermedios ya pintadas en este turno.
+  private detonacionesMostradas = 0;
   private previsVigente: { estado: EstadoPartida; banda: BandaPrevisualizacion; abanico?: AbanicoPrevisualizacion; duracionMs: number } | null = null;
   // mira-oculta-timeouts: mientras la mira está oculta por presupuesto no se
   // recalcula con cada movimiento del apuntado; ver miraOculta.ts.
@@ -1566,6 +1570,13 @@ export class Partida extends Phaser.Scene {
       this.lineaPantalla(centro[i - 1], centro[i]);
     }
 
+    // Ráfaga: los arcos de los vuelos 2.º y 3.º, más tenues que el primero.
+    abanico.arcosRafaga.forEach((arco, i) => {
+      const puntos = cortarPorLongitudPantalla(aPantalla(arco), r2);
+      this.graficosPrevisualizacion.lineStyle(this.cssAMundo(ANCHO_MIRA_CSS_PX), 0x9ad1ff, i === 0 ? 0.55 : 0.3);
+      for (let k = 1; k < puntos.length; k += 2) this.lineaPantalla(puntos[k - 1], puntos[k]);
+    });
+
     const puntosMundo = centro.map((p) => pantallaCssAMundo(this, p));
     window.__debug!.previsualizacion = { puntos: puntosMundo.map((p) => ({ x: p.x, y: p.y })), visible: true };
     this.publicarTrayectoria(geometria, "simulada", longitudDeArco(centro));
@@ -2521,12 +2532,45 @@ export class Partida extends Phaser.Scene {
           ? { destino: { x: eventoImpacto.x, y: eventoImpacto.y }, cantidad: armaDisparada.comportamiento.cantidad }
           : null,
       );
+      // Ráfaga (Hipo Triple): un vuelo por factor, cada uno sobre el terreno
+      // que dejó el anterior. Con cualquier otra arma hay un único vuelo.
+      const factoresVuelo = armaDisparada.comportamiento.tipo === "rafaga" ? armaDisparada.comportamiento.factoresPotencia : [1];
+      const lanzarVuelo = (indiceVuelo: number, inicialVuelo: EstadoProyectil, detenerseVuelo: (p: EstadoProyectil) => boolean, rastreadorVuelo: RastreadorImpactoNaves | undefined, mascaraVuelo: Mascara): void => {
       this.animador.iniciar(
-        inicial,
+        inicialVuelo,
         estadoAntes.mundo.gravedad,
         estadoAntes.mundo.deriva,
-        detenerse,
+        detenerseVuelo,
         (final) => {
+        if (indiceVuelo < factoresVuelo.length - 1) {
+          const { ancho, alto } = estadoAntes.mundo;
+          const dentro = final.x >= 0 && final.x < ancho && final.y >= 0 && final.y < alto;
+          const siguienteMascara = clonarMascara(mascaraVuelo);
+          if (dentro) {
+            aplicarHuellaDeArma(siguienteMascara, armaDisparada, { x: final.x, y: final.y });
+            // La explosión del impacto intermedio se ve al aterrizar; la final
+            // omite las ya mostradas (manejarEventosVisuales).
+            reproducirDetonaciones(
+              [{ x: final.x, y: final.y, armaId: armaDisparada.id, radioEfectoU: radioEfectoDeArma(armaDisparada, ancho, alto), danioAplicado: 0, sobre: "planeta" }],
+              this.explosionPorCapas,
+              1 / this.scale.displayScale.x,
+              prefiereMovimientoReducido(),
+              (nombre) => this.medidorFrames.marcar(nombre),
+            );
+            this.detonacionesMostradas += 1;
+          }
+          const v = velocidadDesdePotencia(entrada.potencia * factoresVuelo[indiceVuelo + 1]);
+          const siguiente = crearProyectil(origenX, origenY - ALTURA_CANON_PX, v * Math.cos(rad), -v * Math.sin(rad));
+          reproducirEfecto("disparo", entrada.arma);
+          lanzarVuelo(
+            indiceVuelo + 1,
+            siguiente,
+            detenerseEnSuelo(siguienteMascara, ancho, alto),
+            navesVivas ? crearRastreadorImpactoNaves(navesVivas, tirador) : undefined,
+            siguienteMascara,
+          );
+          return;
+        }
         // humor-6: el punto donde la animación se detiene DE VERDAD puede no
         // coincidir píxel a píxel con eventoImpacto (la máscara que ve el
         // cliente ya lleva el cráter de este disparo tallado antes de que la
@@ -2585,12 +2629,14 @@ export class Partida extends Phaser.Scene {
         });
         },
         estadoAntes.planetas,
-        rastreadorNaves,
+        rastreadorVuelo,
         armaDisparada,
         perturbacion,
         pasosHastaDetonarMecha,
         pasosHastaDetonarTrasAdherencia,
       );
+      };
+      lanzarVuelo(0, inicial, detenerse, rastreadorNaves, estadoAntes.mascara);
     };
     // respuesta-200ms: los hooks de prueba que encadenan turnos a mano piden el
     // camino síncrono; el juego real resuelve en el trabajador.
@@ -3110,12 +3156,13 @@ export class Partida extends Phaser.Scene {
     }
     if (eventos.some((evento) => evento.tipo === "proyectil-perdido")) this.medidorFrames.marcar("salida");
     const lanzadas = reproducirDetonaciones(
-      detonaciones,
+      detonaciones.slice(this.detonacionesMostradas),
       this.explosionPorCapas,
       1 / this.scale.displayScale.x,
       movimientoReducido,
       (nombre) => this.medidorFrames.marcar(nombre),
     );
+    this.detonacionesMostradas = 0;
     const ultima = lanzadas[lanzadas.length - 1];
     if (ultima) window.__debug!.ultimaExplosionPorCapas = ultima;
     const explosiones = lanzadas.map((datos) => ({

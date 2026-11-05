@@ -4,7 +4,7 @@ import { abrirSelector, dispararConSolucionExacta, empezarPresupuesto, esperarJu
 // cat-3: de punta a punta por la UI real, a 360x640. Una celda con icono por
 // arma, pulsable con comodidad, y el arma elegida es la que se dispara.
 // armas-recorte bajó el catálogo de 15 a 12 armas: el conteo es parte de lo que se comprueba.
-const ARMAS_EN_CATALOGO = 12;
+const ARMAS_EN_CATALOGO = 13;
 
 test("selector-iconos: una celda con icono por arma, ≥ 44 px y 6 px de separación, sin scroll horizontal", async ({ page }) => {
   test.setTimeout(240000);

@@ -2,7 +2,7 @@
 
 Artillería espacial por turnos: de dos a cuatro naves flotando entre los
 planetas de un sistema generado por semilla, con la gravedad de esos mismos
-planetas curvando el tiro. Terreno destructible, doce armas con precio
+planetas curvando el tiro. Terreno destructible, trece armas con precio
 y papel propios, dos modos de juego, partidas de 1 a 4 humanos en el mismo
 dispositivo y rivales de IA con mala idea. Next.js (App Router) + Phaser 4,
 100% cliente, sin cuenta y sin instalar nada.
@@ -191,7 +191,7 @@ no gasta turnos en tiros que salen.
 
 ### Los dos modos
 
-- **Barra libre**: las doce armas están disponibles desde el primer
+- **Barra libre**: las trece armas están disponibles desde el primer
   turno, sin coste.
 - **Con presupuesto** (economía por ronda): todos los asientos, también las
   IAs, parten del mismo presupuesto (`PRESUPUESTO_BASE` = 600 créditos,
@@ -246,7 +246,7 @@ no hay relevo), se para durante el disparo, el relevo y los turnos de la IA,
 y se pausa si sales de la app o abres ⚙ (el panel muestra «Reloj en pausa ·
 m:ss»; las dos pausas se componen y el reloj reanuda al quitarse ambas).
 
-### El catálogo: doce armas, cada una con su papel
+### El catálogo: trece armas, cada una con su papel
 
 El precio sale de la combinación de daño y facilidad de acierto medida con el
 simulador real (`npm run medir:armas`, informe en `docs/facilidad-armas.md`):
@@ -269,6 +269,7 @@ fondo de armario. Los motivos de las tres armas retiradas están en
 | Mosca Cojonera | 50 | trayectoria errática: difícil de planear, castiga bien si llega |
 | Gancho Pegajoso | 75 | se agarra a planeta o nave y su onda de un octavo de pantalla daña a todo lo cercano, menos cuanto más lejos |
 | Minirobot Saltaplanetas | 60 | lento pero seguro: tarda unos turnos en llegar y te deja jugar mientras tanto |
+| Hipo Triple | 75 | tantea y corrige en el mismo turno: tres impactos pequeños a distancias decrecientes |
 
 ### Qué le pasa a un planeta al que le arrancas un trozo
 

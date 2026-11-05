@@ -77,6 +77,7 @@ export const ALMIRANTE_BISAGRA: Personalidad = {
   ordenPreferenciaArmas: [
     "racimo-de-tuppers",
     "despedida",
+    "hipo-triple",
     "pepinazo-cortesia",
     "pelota-de-chatarra",
     "zanjadora-manolita",

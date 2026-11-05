@@ -17,4 +17,5 @@ export const FACILIDAD_MEDIDA_PCT: Readonly<Record<string, number>> = {
   "mosca-cojonera": 2.9,
   "gancho-pegajoso": 6.9,
   "minirobot-saltaplanetas": 2.4,
+  "hipo-triple": 8.3,
 };
