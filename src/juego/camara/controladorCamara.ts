@@ -469,11 +469,18 @@ export class ControladorCamara {
   }
 
   // Lleva la cámara al encuadre dado, con transición o sin ella. Si ya está ahí
-  // no hace nada ni cuenta como reencuadre (idempotente).
+  // no cuenta como reencuadre (idempotente), pero se asienta en la meta exacta:
+  // «cerca» admite el residuo de coma flotante de un gesto (zoom
+  // 1.0000000000000002) y, sin asentarlo, «Ver todo» dejaba la cámara fuera de
+  // la vista completa para siempre.
   private irA(meta: Encuadre, motivo: MotivoReencuadre, animar: boolean): void {
     const yaEstaba = cercanos(meta, this.encuadre) && this.vuelta === null;
     this.modo = "auto";
-    if (yaEstaba) return;
+    if (yaEstaba) {
+      this.encuadre = meta;
+      this.aplicar();
+      return;
+    }
     this.reencuadres += 1;
     this.motivo = motivo;
     this.movimientoPorUsuario = motivo === "usuario" || motivo === "ver-todo";
