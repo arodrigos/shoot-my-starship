@@ -80,6 +80,22 @@ test("invariante: tras verTodo() o alCambiarTurno() el encuadre es la vista comp
   );
 });
 
+// Contraejemplo que fast-check encontraba solo a veces: el residuo de coma
+// flotante deja el encuadre «cerca» del preferido y sin asentar.
+test("tras una rueda con factor 1 + ε, verTodo() y alCambiarTurno() dejan el zoom en 1 exacto", () => {
+  for (const cambiarTurno of [false, true]) {
+    const camara = camaraFalsa();
+    const ctl = new ControladorCamara(DIM, camara, () => false);
+    ctl.transformar({ fx: 0.3, fy: 0.3 }, { fx: 0.3, fy: 0.3 }, 1.0000000000000002);
+    if (cambiarTurno) ctl.alCambiarTurno();
+    else {
+      ctl.verTodo();
+      ctl.avanzar(DURACION_VER_TODO_MS);
+    }
+    assert.equal(camara.zoom, 1);
+  }
+});
+
 test("invariante: el punto del mundo bajo el dedo sigue bajo el dedo tras un zoom anclado", () => {
   fc.assert(
     fc.property(fc.array(paso, { maxLength: 10 }), fraccion, fc.double({ min: 1, max: 2, noNaN: true }), (pasos, f, factor) => {
