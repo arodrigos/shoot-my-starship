@@ -102,6 +102,11 @@ export interface EstadoPartida {
   // llevan saldo, también las IAs, y cada arma de pago se cobra al usarla.
   readonly modo?: ModoJuego;
   readonly saldos?: readonly (number | undefined)[];
+  // B2 (11/11): cuántas veces ha disparado cada nave cada arma con usos
+  // limitados (la Despedida). Ausente mientras nadie gaste una: así las
+  // partidas sin esas armas no cambian. El núcleo rechaza el disparo de un arma
+  // agotada, igual que rechaza el que no cabe en el saldo.
+  readonly usosArmas?: readonly Readonly<Record<string, number>>[];
   // minirobot: robots posados en un planeta que se mueven al empezar el turno
   // de su dueño. Ausente (no vacío) mientras no haya ninguno, para que las
   // partidas sin robots serialicen exactamente igual que antes.

@@ -8,6 +8,9 @@ import { casoDeSemilla, huellaDeTurno, huellasDePartidaGuionizada } from "../uti
 
 // Golden tomado con el avanzar() de antes de partir el turno (commit de
 // bug-movimiento-naves): hash por semilla y hash por turno de una partida.
+// Regenerado el 12/11 al añadir usosArmas al estado (B2): sin ese campo, las
+// 200 semillas y los 12 primeros turnos de la partida coinciden con las de antes;
+// desde el 13 cambian porque el guion ya no puede repetir Despedida con la misma nave.
 const golden = JSON.parse(readFileSync(new URL("./golden/turno-partido.json", `file://${__dirname}/`), "utf8")) as {
   casos: Record<string, string>;
   partida: string[];

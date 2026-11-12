@@ -434,7 +434,12 @@ export function publicarJugable(valor: boolean): void {
 // hud-canales-2: la escena la llama en los mismos puntos donde ya fijaba
 // window.__debug.turno -- el canal de estado cambia de nave resaltada en
 // cuanto la escena decide que el turno pasó, sin duplicar esa decisión aquí.
-export function publicarTurno(turno: IdNave): void {
+// B2/B4 (11/11): `usos` son los del asiento que juega, según el estado de la
+// partida (EstadoPartida.usosArmas): así una partida reanudada o un segundo
+// humano no heredan los usos de otro, y el HUD no ofrece lo que el núcleo
+// rechazaría.
+export function publicarTurno(turno: IdNave, usos?: Readonly<Record<string, number>>): void {
+  if (usos !== undefined) fijar({ usosPorArma: { ...usos } });
   if (estado.turno === turno) return;
   // El asiento que acaba de jugar ya vio la ayuda de apuntado (si la había).
   asientosConAyudaApuntadoVista.add(estado.turno);
@@ -484,6 +489,14 @@ export function publicarDisparoJugadorResuelto(ajuste: EstadoAjuste): void {
     ultimoDisparo: ajuste,
     usosPorArma: { ...estado.usosPorArma, [ajuste.armaId]: (estado.usosPorArma[ajuste.armaId] ?? 0) + 1 },
   });
+  // B2 (11/11): un arma que se acaba de agotar no se queda seleccionada.
+  if (estado.ajuste.armaId === ajuste.armaId && armaEstaAgotada(ajuste.armaId)) {
+    fijarAjuste({ armaId: primeraArmaGratisDisponible() });
+  }
+}
+
+function primeraArmaGratisDisponible(): string {
+  return (CATALOGO_ARMAS.find((arma) => costeArma(arma) === 0 && !armaEstaAgotada(arma.id)) ?? CATALOGO_ARMAS[0]).id;
 }
 
 export function cerrarAyuda(): void {
@@ -564,6 +577,12 @@ export function solicitarDisparo(): void {
     const equipoId = estado.equipoId;
     fijar({ equipoId: null });
     manejadorDisparo({ accion: equipoId, arma: equipoId, anguloGrados: estado.ajuste.anguloGrados, potencia: estado.ajuste.potencia, objetivoId: 1 });
+    return;
+  }
+  // B2 (11/11): el arma agotada no se dispara aunque siga seleccionada (p. ej.
+  // una partida reanudada); se cambia a la primera gratis y el jugador vuelve a pulsar.
+  if (armaEstaAgotada(estado.ajuste.armaId)) {
+    fijarAjuste({ armaId: primeraArmaGratisDisponible() });
     return;
   }
   // Dentro del mismo manejador del clic: navigator.vibrate exige activación.
