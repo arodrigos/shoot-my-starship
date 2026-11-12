@@ -128,7 +128,12 @@ export function huellasDePartidaGuionizada(semilla: number, turnos: number, juga
   let estado = estadoParaSemilla(semilla, 2);
   const huellas: string[] = [];
   for (let t = 0; t < turnos && estado.resultado.tipo === "en-curso"; t++) {
-    const entrada = entradaDeTurno(estado, azar, t % 7 === 3 ? "escudo" : t % 7 === 5 ? "propulsores" : "disparo");
+    const guion = entradaDeTurno(estado, azar, t % 7 === 3 ? "escudo" : t % 7 === 5 ? "propulsores" : "disparo");
+    // B2 (12/11): si el guion repite un arma ya agotada por esa nave, dispara la
+    // gratuita sin tirar del azar, para que la partida siga los 30 turnos.
+    const maximo = buscarArma(guion.arma).usosMaximos;
+    const agotada = maximo !== undefined && (estado.usosArmas?.[estado.turno]?.[guion.arma] ?? 0) >= maximo;
+    const entrada = agotada ? { ...guion, arma: "pepinazo-cortesia" } : guion;
     huellas.push(huellaDeTurno(estado, entrada, jugar));
     try {
       estado = jugar(estado, entrada).estado;

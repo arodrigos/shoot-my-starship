@@ -4424,6 +4424,14 @@ export class Partida extends Phaser.Scene {
         this.estado = { ...this.estado, saldos: saldos.map((saldo, nave) => (nave === this.estado.turno ? precioDesenlace : saldo)) };
       }
 
+      // Igual que el saldo: Despedida es de un solo uso por nave (B2), así que
+      // el gancho le devuelve el uso a quien dispara para poder repetirla.
+      const usos = this.estado.usosArmas?.[this.estado.turno];
+      if (usos?.[ARMA_DESENLACE] !== undefined) {
+        const resto = Object.fromEntries(Object.entries(usos).filter(([armaId]) => armaId !== ARMA_DESENLACE));
+        this.estado = { ...this.estado, usosArmas: this.estado.usosArmas!.map((u, nave) => (nave === this.estado.turno ? resto : u)) };
+      }
+
       const objetivoId = this.objetivoDe(this.estado.turno);
       // salida-pantalla: la solución balística de suelo llano ignora los pozos
       // del modo espacial, y un tiro que sale del encuadre se pierde sin
