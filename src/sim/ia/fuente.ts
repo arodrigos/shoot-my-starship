@@ -91,8 +91,13 @@ export function crearFuenteIA(
   // turnos anteriores); por defecto la IA no se protege, que es lo de siempre.
   danioRecibidoDesdeSuTurno = false,
 ): FuenteDeTurno {
+  const usosDeQuienLlama = usosPorArma;
   return (estado: EstadoPartida) => {
     const tirador = estado.turno;
+    // B2 (11/11): el núcleo lleva la cuenta en el estado (y rechaza un arma
+    // agotada); se toma lo mayor de las dos para no proponer nunca un disparo
+    // que avanzar() vaya a rechazar.
+    const usosPorArma = masUsos(usosDeQuienLlama, estado.usosArmas?.[tirador]);
     const naveTiradora = estado.naves[tirador];
     const { objetivoId, vuelosGastados } = elegirObjetivo(tirador, estado);
     const naveObjetivo = estado.naves[objetivoId];
@@ -152,4 +157,11 @@ export function crearFuenteIA(
       estado: { ...estado, aleatorio: resultado.aleatorio },
     };
   };
+}
+
+function masUsos(a: Readonly<Record<string, number>>, b: Readonly<Record<string, number>> | undefined): Readonly<Record<string, number>> {
+  if (b === undefined) return a;
+  const total: Record<string, number> = { ...a };
+  for (const [id, n] of Object.entries(b)) total[id] = Math.max(total[id] ?? 0, n);
+  return total;
 }

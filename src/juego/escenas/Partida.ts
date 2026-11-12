@@ -1321,7 +1321,7 @@ export class Partida extends Phaser.Scene {
     window.__debug.camara = { x: 0, y: 0, ancho: this.scale.width, alto: this.scale.height };
     window.__debug.remate = { activo: false, completados: 0, destellosCamara: [], ultimo: null };
     window.__debug.turno = this.estado.turno;
-    publicarTurno(this.estado.turno);
+    publicarTurno(this.estado.turno, this.estado.usosArmas?.[this.estado.turno] ?? {});
     window.__debug.numeroTurno = this.estado.numeroTurno;
     this.refrescarEconomia();
     this.refrescarRobots();
@@ -3377,7 +3377,7 @@ export class Partida extends Phaser.Scene {
       window.__debug!.numeroTurno = this.estado.numeroTurno;
       // cam-4: el turno nuevo siempre empieza en la vista completa.
       this.alCambiarTurnoCamara();
-      publicarTurno(this.estado.turno);
+      publicarTurno(this.estado.turno, this.estado.usosArmas?.[this.estado.turno] ?? {});
       publicarJugable(this.puedeJugarAhora());
       // Turno cerrado y aún sin vuelo ni relevo: el único momento en que el
       // estado es una foto limpia (nunca un proyectil a medias).
@@ -4469,6 +4469,14 @@ export class Partida extends Phaser.Scene {
       const precioDesenlace = costeArma(buscarArma(ARMA_DESENLACE));
       if (saldos?.[this.estado.turno] !== undefined && saldos[this.estado.turno]! < precioDesenlace) {
         this.estado = { ...this.estado, saldos: saldos.map((saldo, nave) => (nave === this.estado.turno ? precioDesenlace : saldo)) };
+      }
+
+      // Igual que el saldo: Despedida es de un solo uso por nave (B2), así que
+      // el gancho le devuelve el uso a quien dispara para poder repetirla.
+      const usos = this.estado.usosArmas?.[this.estado.turno];
+      if (usos?.[ARMA_DESENLACE] !== undefined) {
+        const resto = Object.fromEntries(Object.entries(usos).filter(([armaId]) => armaId !== ARMA_DESENLACE));
+        this.estado = { ...this.estado, usosArmas: this.estado.usosArmas!.map((u, nave) => (nave === this.estado.turno ? resto : u)) };
       }
 
       const objetivoId = this.objetivoDe(this.estado.turno);

@@ -92,6 +92,13 @@ test("economia-rectificada-2/3 (propiedad): el saldo nunca es negativo, cada arm
           const antes = estado.saldos![tirador]!;
           const solucion = resolverSolucionesBalisticas(estado.naves[tirador].x, ALTURA_SUELO, estado.naves[1 - tirador].x, ALTURA_SUELO, estado.mundo.gravedad)[0];
           const entrada = { arma: id, anguloGrados: solucion.anguloGrados, potencia: solucion.potencia, objetivoId: 1 - tirador };
+          if (arma.usosMaximos !== undefined && (estado.usosArmas?.[tirador]?.[id] ?? 0) >= arma.usosMaximos) {
+            // B2 (11/11): un arma agotada se rechaza igual que una que no se puede pagar.
+            const serializado = serializarEstado(estado);
+            assert.throws(() => avanzar(estado, entrada), /agotada/);
+            assert.equal(serializarEstado(estado), serializado, "la entrada rechazada no muta el estado");
+            continue;
+          }
           if (costeArma(arma) > antes) {
             const serializado = serializarEstado(estado);
             assert.throws(() => avanzar(estado, entrada), /cuesta/);

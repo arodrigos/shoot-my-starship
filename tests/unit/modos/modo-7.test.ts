@@ -48,7 +48,10 @@ function fuenteJugadorConSaldo(): FuenteDeTurno {
     });
 
     const saldo = estado.saldos?.[0] ?? 0;
-    const asequibles = CATALOGO_ARMAS.filter((arma) => costeArma(arma) <= saldo);
+    // B2 (11/11): un arma de usos limitados ya agotada no se puede elegir.
+    const asequibles = CATALOGO_ARMAS.filter(
+      (arma) => costeArma(arma) <= saldo && (arma.usosMaximos === undefined || (estado.usosArmas?.[0]?.[arma.id] ?? 0) < arma.usosMaximos),
+    );
     const elegida = asequibles.reduce((mejor, candidata) => {
       const danioMejor = mejor.efecto.tipo === "empuje" ? 0 : mejor.efecto.danioMaximo;
       const danioCandidata = candidata.efecto.tipo === "empuje" ? 0 : candidata.efecto.danioMaximo;

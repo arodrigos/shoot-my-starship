@@ -139,7 +139,14 @@ export function cerrarTurnoTrasImpacto(fase: FaseImpacto, opciones: OpcionesCier
   const termina = asentamiento.destruidas.length > 0 && turno.estado.resultado.tipo === "en-curso" && vivos.length <= 1;
   if (termina) eventos.push({ tipo: "partida-fin", ganador: vivos.length === 1 ? vivos[0] : null });
   const resultado = termina ? { tipo: "terminada" as const, ganador: vivos.length === 1 ? vivos[0] : null } : turno.estado.resultado;
-  return { ...turno, estado: { ...turno.estado, naves: asentamiento.naves, resultado }, eventos };
+  // B1 (11/11): una nave sin sitio puede ser la del turno siguiente.
+  let turnoFinal = turno.estado.turno;
+  if (resultado.tipo === "en-curso" && asentamiento.naves[turnoFinal].integridad <= 0) {
+    turnoFinal = siguienteTurno({ ...turno.estado, naves: asentamiento.naves }, turnoFinal);
+    const i = eventos.findIndex((e) => e.tipo === "turno-fin");
+    if (i >= 0) eventos[i] = { tipo: "turno-fin", siguienteTurno: turnoFinal };
+  }
+  return { ...turno, estado: { ...turno.estado, naves: asentamiento.naves, resultado, turno: turnoFinal }, eventos };
 }
 
 export function resolverImpacto(estado: EstadoPartida, entrada: EntradaDeTurno): FaseImpacto {
@@ -148,6 +155,9 @@ export function resolverImpacto(estado: EstadoPartida, entrada: EntradaDeTurno):
   }
 
   const tirador: IdNave = estado.turno;
+  if (estado.naves[tirador] === undefined || estado.naves[tirador].integridad <= 0) {
+    throw new Error(`avanzar: la nave ${tirador} del turno está destruida y no puede actuar`);
+  }
   if (entrada.accion !== undefined && entrada.accion !== "disparo") {
     return impactoDeEquipo(estado, entrada.accion, entrada);
   }
@@ -157,6 +167,10 @@ export function resolverImpacto(estado: EstadoPartida, entrada: EntradaDeTurno):
   }
   const presupuesto = estado.modo === "presupuesto";
   const arma = armaDelTurno(estado, entrada);
+  const usados = estado.usosArmas?.[tirador]?.[arma.id] ?? 0;
+  if (arma.usosMaximos !== undefined && usados >= arma.usosMaximos) {
+    throw new Error(`avanzar: "${arma.nombre}" ya está agotada para la nave ${tirador} (${usados} de ${arma.usosMaximos})`);
+  }
 
   // economia-rectificada: el arma de pago se cobra al usarla, no al elegirla.
   // El guardián vive aquí (y no solo en el HUD) porque avanzar() es la fuente
@@ -419,7 +433,7 @@ export function resolverImpacto(estado: EstadoPartida, entrada: EntradaDeTurno):
   });
 
   return {
-    estadoInicial: estado,
+    estadoInicial: arma.usosMaximos === undefined ? estado : conUso(estado, tirador, arma.id, usados + 1),
     entrada,
     tirador,
     objetivoId,
@@ -441,6 +455,12 @@ export function resolverImpacto(estado: EstadoPartida, entrada: EntradaDeTurno):
 // El arma que de verdad se dispara este turno: la del catálogo, con el precio
 // del modo presupuesto y el factor de daño del universo. Las dos fases la
 // necesitan y recalcularla es más barato que viajar con ella.
+function conUso(estado: EstadoPartida, nave: IdNave, armaId: string, usos: number): EstadoPartida {
+  // Sin huecos undefined: la partida guardada pasa por JSON y los volvería null.
+  const usosArmas = estado.naves.map((_, id) => (id === nave ? { ...(estado.usosArmas?.[id] ?? {}), [armaId]: usos } : (estado.usosArmas?.[id] ?? {})));
+  return { ...estado, usosArmas };
+}
+
 function armaDelTurno(estado: EstadoPartida, entrada: EntradaDeTurno) {
   const presupuesto = estado.modo === "presupuesto";
   const armaBase = armaEfectiva(buscarArma(entrada.arma), presupuesto);
@@ -773,8 +793,8 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
     };
   }
 
-  const proximoTurno = siguienteTurno({ ...estado, naves: navesFinal }, tirador);
-  eventos.push({ tipo: "turno-fin", siguienteTurno: proximoTurno });
+  let proximoTurno = siguienteTurno({ ...estado, naves: navesFinal }, tirador);
+  const indiceTurnoFin = eventos.push({ tipo: "turno-fin", siguienteTurno: proximoTurno }) - 1;
 
   // muerte-subita: al empezar una ronda nueva todas las vivas pagan el drenaje
   // a la vez, sin que el escudo lo pare. Si las últimas caen juntas, empate.
@@ -808,6 +828,12 @@ function cerrarTurno(contexto: ContextoCierre): ReturnType<typeof avanzar> {
         categoriaBroma,
         detonaciones: detonacionesFinal,
       };
+    }
+    // B1 (11/11): el drenaje puede matar justo a la nave que iba a jugar; el turno
+    // pasa a la siguiente viva y el evento lo anuncia así.
+    if (navesFinal[proximoTurno].integridad <= 0) {
+      proximoTurno = siguienteTurno({ ...estado, naves: navesFinal }, proximoTurno);
+      eventos[indiceTurnoFin] = { tipo: "turno-fin", siguienteTurno: proximoTurno };
     }
     if (faseMuerteSubita !== true && drenajeDeRonda(rondaFinal) > 0) {
       faseMuerteSubita = true;
