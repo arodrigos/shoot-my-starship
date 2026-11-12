@@ -15,6 +15,7 @@ import {
   publicarJugable,
   publicarNombreRival,
   publicarPreparando,
+  publicarTurno,
   publicarVueloPropulsores,
   registrarManejadorDisparo,
   reiniciarControl,
@@ -98,6 +99,31 @@ describe("store: selección de arma y equipo", () => {
     seleccionarArma(GRATIS.id);
     seleccionarArma(UN_USO.id);
     assert.equal(obtenerEstadoControl().ajuste.armaId, GRATIS.id);
+  });
+
+  // B2/B6 (11/11): el caso real, con el arma agotada todavía seleccionada.
+  it("tras gastar la Despedida no queda seleccionada y Disparar no la vuelve a mandar", () => {
+    const enviadas: EntradaDeTurno[] = [];
+    registrarManejadorDisparo((entrada) => enviadas.push(entrada));
+    publicarJugable(true);
+    seleccionarArma(UN_USO.id);
+    publicarDisparoJugadorResuelto({ ...obtenerEstadoControl().ajuste, armaId: UN_USO.id });
+    assert.notEqual(obtenerEstadoControl().ajuste.armaId, UN_USO.id, "se cambia sola a otra arma");
+    solicitarDisparo();
+    assert.equal(enviadas.length, 1);
+    assert.notEqual(enviadas[0].arma, UN_USO.id);
+  });
+
+  it("los usos que trae el turno mandan: una partida reanudada no ofrece la Despedida gastada", () => {
+    const enviadas: EntradaDeTurno[] = [];
+    registrarManejadorDisparo((entrada) => enviadas.push(entrada));
+    publicarJugable(true);
+    seleccionarArma(UN_USO.id);
+    publicarTurno(1, { [UN_USO.id]: 1 });
+    assert.equal(armaEstaAgotada(UN_USO.id), true);
+    solicitarDisparo();
+    assert.equal(enviadas.length, 0, "el primer clic solo cambia de arma");
+    assert.notEqual(obtenerEstadoControl().ajuste.armaId, UN_USO.id);
   });
 
   it("un arma sin tope de usos o desconocida nunca está agotada", () => {

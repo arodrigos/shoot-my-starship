@@ -1317,7 +1317,7 @@ export class Partida extends Phaser.Scene {
     window.__debug.camara = { x: 0, y: 0, ancho: this.scale.width, alto: this.scale.height };
     window.__debug.remate = { activo: false, completados: 0, destellosCamara: [], ultimo: null };
     window.__debug.turno = this.estado.turno;
-    publicarTurno(this.estado.turno);
+    publicarTurno(this.estado.turno, this.estado.usosArmas?.[this.estado.turno] ?? {});
     window.__debug.numeroTurno = this.estado.numeroTurno;
     this.refrescarEconomia();
     this.refrescarRobots();
@@ -3330,7 +3330,7 @@ export class Partida extends Phaser.Scene {
       window.__debug!.numeroTurno = this.estado.numeroTurno;
       // cam-4: el turno nuevo siempre empieza en la vista completa.
       this.alCambiarTurnoCamara();
-      publicarTurno(this.estado.turno);
+      publicarTurno(this.estado.turno, this.estado.usosArmas?.[this.estado.turno] ?? {});
       publicarJugable(this.puedeJugarAhora());
       // Turno cerrado y aún sin vuelo ni relevo: el único momento en que el
       // estado es una foto limpia (nunca un proyectil a medias).

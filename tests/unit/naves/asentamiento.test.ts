@@ -127,7 +127,9 @@ test("inc-1: partidas reales con armas al azar nunca dejan una nave viva en posi
       const a = sorteo();
       const potencia = sorteo() * 100;
       const angulo = sorteo() * 180;
-      const arma = CATALOGO_ARMAS[Math.floor(sorteo() * CATALOGO_ARMAS.length)];
+      // B2 (11/11): solo armas que la nave aún puede usar.
+      const legales = CATALOGO_ARMAS.filter((c) => c.usosMaximos === undefined || (e.usosArmas?.[e.turno]?.[c.id] ?? 0) < c.usosMaximos);
+      const arma = legales[Math.floor(sorteo() * legales.length)];
       const vivos = e.naves.flatMap((n, i) => (n.integridad > 0 && i !== e.turno ? [i] : []));
       e = avanzar(e, { arma: arma.id, anguloGrados: angulo, potencia, objetivoId: vivos[Math.floor(a * vivos.length)] }).estado;
       e.naves.forEach((n, i) => {

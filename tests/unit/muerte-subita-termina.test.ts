@@ -58,7 +58,9 @@ function jugadaArbitraria(estado: EstadoPartida, azar: () => number): EntradaDeT
     return { ...base, accion: "escudo", arma: "escudo" };
   }
   if (eleccion < 0.2 && saldo >= buscarEquipo("propulsores").coste) return { ...base, accion: "propulsores", arma: "propulsores" };
-  const asequibles = CATALOGO_ARMAS.filter((arma) => costeArma(arma) <= saldo);
+  // B2 (11/11): un arma de usos limitados ya agotada deja de ser legal.
+  const usos = estado.usosArmas?.[tirador];
+  const asequibles = CATALOGO_ARMAS.filter((arma) => costeArma(arma) <= saldo && (arma.usosMaximos === undefined || (usos?.[arma.id] ?? 0) < arma.usosMaximos));
   return { ...base, arma: asequibles[Math.floor(azar() * asequibles.length)].id };
 }
 
@@ -93,6 +95,8 @@ test("ms-1: toda partida termina antes de la ronda RONDA_MUERTE_SUBITA + 9 y no 
         const entrada = jugadaArbitraria(estado, azar);
         const turno = avanzar(estado, entrada);
         estado = turno.estado;
+        // B1/B6 (11/11): mientras siga en curso, el turno nunca es de una nave muerta.
+        if (estado.resultado.tipo === "en-curso") assert.ok(estado.naves[estado.turno].integridad > 0, `turno ${estado.numeroTurno} de una nave muerta`);
         if (estado.muerteSubita === true) {
           const curas = turno.eventos.filter((evento) => evento.tipo === "evento-universo" && evento.perdido !== true && buscarEvento(evento.evento).curativo);
           assert.deepEqual(curas, [], "ningún evento curativo ocurre en muerte súbita");
@@ -130,4 +134,42 @@ test("ms-1: antes de la ronda 14 el drenaje es 0 y la ronda 13 avisa", () => {
   const base = partida(1, 2, "barra-libre");
   const fase = avanzarRonda({ ...base, ronda: RONDA_MUERTE_SUBITA - 2 }, base.naves);
   assert.deepEqual(fase.eventos, [{ tipo: "muerte-subita", fase: "aviso", ronda: RONDA_MUERTE_SUBITA - 1, danio: 0 }]);
+});
+
+// B1 (11/11): el drenaje de la ronda nueva mata a la nave que iba a jugar; el turno
+// pasa a la siguiente viva y el evento turno-fin lo anuncia.
+test("ms-1: si el drenaje mata a la nave que iba a jugar, el turno pasa a la siguiente viva", () => {
+  const base = partida(1, 3, "barra-libre");
+  const naves = base.naves.map((nave, id) => ({ ...nave, integridad: id === 0 ? 3 : 40 }));
+  const estado: EstadoPartida = { ...base, naves, ronda: RONDA_MUERTE_SUBITA - 1, turno: 2 };
+  const turno = avanzar(estado, { anguloGrados: 0, potencia: 10, objetivoId: 1, accion: "escudo", arma: "escudo" });
+  assert.equal(turno.estado.resultado.tipo, "en-curso");
+  assert.equal(turno.estado.naves[0].integridad, 0, "la nave 0 cae con el drenaje de la ronda 14");
+  assert.equal(turno.estado.turno, 1);
+  const fin = turno.eventos.find((evento) => evento.tipo === "turno-fin");
+  assert.deepEqual(fin, { tipo: "turno-fin", siguienteTurno: 1 });
+});
+
+test("B1: una nave muerta no puede actuar aunque el estado diga que es su turno", () => {
+  const base = partida(1, 3, "barra-libre");
+  const naves = base.naves.map((nave, id) => ({ ...nave, integridad: id === 0 ? 0 : 40 }));
+  assert.throws(() => avanzar({ ...base, naves, turno: 0 }, { anguloGrados: 0, potencia: 10, objetivoId: 1, arma: CATALOGO_ARMAS[0].id }), /destruida/);
+});
+
+test("B2: el núcleo rechaza un segundo disparo de un arma de un solo uso y lo apunta por nave", () => {
+  const unUso = CATALOGO_ARMAS.find((arma) => arma.usosMaximos === 1)!;
+  const base = partida(1, 3, "barra-libre");
+  const primero = avanzar(base, { anguloGrados: 45, potencia: 30, objetivoId: 1, arma: unUso.id });
+  assert.deepEqual(primero.estado.usosArmas?.[0], { [unUso.id]: 1 });
+  const otraVez = { ...primero.estado, turno: 0 as IdNave };
+  assert.throws(() => avanzar(otraVez, { anguloGrados: 45, potencia: 30, objetivoId: 1, arma: unUso.id }), /agotada/);
+  // Otra nave sí puede usar la suya.
+  const deLaUno = { ...primero.estado, turno: 1 as IdNave };
+  if (deLaUno.naves[1].integridad > 0) assert.doesNotThrow(() => avanzar(deLaUno, { anguloGrados: 45, potencia: 30, objetivoId: 2, arma: unUso.id }));
+});
+
+test("B2: un arma sin tope de usos no deja rastro en el estado", () => {
+  const sinTope = CATALOGO_ARMAS.find((arma) => arma.usosMaximos === undefined)!;
+  const turno = avanzar(partida(1, 2, "barra-libre"), { anguloGrados: 45, potencia: 30, objetivoId: 1, arma: sinTope.id });
+  assert.equal(turno.estado.usosArmas, undefined);
 });
