@@ -106,7 +106,7 @@ export interface EstadoPartida {
   // limitados (la Despedida). Ausente mientras nadie gaste una: así las
   // partidas sin esas armas no cambian. El núcleo rechaza el disparo de un arma
   // agotada, igual que rechaza el que no cabe en el saldo.
-  readonly usosArmas?: readonly (Readonly<Record<string, number>> | undefined)[];
+  readonly usosArmas?: readonly Readonly<Record<string, number>>[];
   // minirobot: robots posados en un planeta que se mueven al empezar el turno
   // de su dueño. Ausente (no vacío) mientras no haya ninguno, para que las
   // partidas sin robots serialicen exactamente igual que antes.

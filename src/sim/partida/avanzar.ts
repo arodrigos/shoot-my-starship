@@ -456,7 +456,8 @@ export function resolverImpacto(estado: EstadoPartida, entrada: EntradaDeTurno):
 // del modo presupuesto y el factor de daño del universo. Las dos fases la
 // necesitan y recalcularla es más barato que viajar con ella.
 function conUso(estado: EstadoPartida, nave: IdNave, armaId: string, usos: number): EstadoPartida {
-  const usosArmas = estado.naves.map((_, id) => (id === nave ? { ...(estado.usosArmas?.[id] ?? {}), [armaId]: usos } : estado.usosArmas?.[id]));
+  // Sin huecos undefined: la partida guardada pasa por JSON y los volvería null.
+  const usosArmas = estado.naves.map((_, id) => (id === nave ? { ...(estado.usosArmas?.[id] ?? {}), [armaId]: usos } : (estado.usosArmas?.[id] ?? {})));
   return { ...estado, usosArmas };
 }
 
