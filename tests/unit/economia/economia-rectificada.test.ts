@@ -68,11 +68,11 @@ test("economia-rectificada-1 (propiedad): el daño de las gratis es el 25 % del 
   );
 });
 
-test("economia-rectificada-1: con el catálogo real las dos gratis hacen 4,5 de daño máximo (25 % del Pepinazo, la de pago más floja)", () => {
+test("economia-rectificada-1: con el catálogo real las dos gratis hacen 3,5 de daño máximo (25 % de Hipo Triple, la de pago más floja)", () => {
   assert.equal(armasGratis().length, 2);
-  assert.equal(danioMaximoGratis(), 4.5);
+  assert.equal(danioMaximoGratis(), 3.5);
   for (const gratis of armasGratis()) {
-    assert.ok(danioDeclarado(armaEfectiva(gratis, true)) <= 4.5);
+    assert.ok(danioDeclarado(armaEfectiva(gratis, true)) <= 3.5);
   }
 });
 

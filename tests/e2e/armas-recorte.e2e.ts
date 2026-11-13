@@ -3,21 +3,21 @@ import { abrirSelector, empezarPresupuesto } from "./utilesCompra";
 
 const ELIMINADAS = ["mortero-lamentable", "petardo-de-feria", "granada-de-espoleta"];
 
-// arm-r1: el selector enseña las 12 armas que quedan, a los tamaños de móvil
+// arm-r1: el selector enseña las 13 armas del catálogo, a los tamaños de móvil
 // y de iPad en horizontal. Las capturas (CAPTURAS_DIR) son para el juicio
 // visual del gatekeeper.
 for (const tamano of [
   { ancho: 360, alto: 640 },
   { ancho: 1180, alto: 820 },
 ]) {
-  test(`arm-r1: el selector enseña 12 armas a ${tamano.ancho}x${tamano.alto}`, async ({ page }) => {
+  test(`arm-r1: el selector enseña 13 armas a ${tamano.ancho}x${tamano.alto}`, async ({ page }) => {
     test.setTimeout(180000);
     await empezarPresupuesto(page);
     await page.setViewportSize({ width: tamano.ancho, height: tamano.alto });
     await abrirSelector(page);
 
     const celdas = page.locator('[data-testid^="arma-"]');
-    expect(await celdas.count()).toBe(12);
+    expect(await celdas.count()).toBe(13);
     for (const id of ELIMINADAS) await expect(page.getByTestId(`arma-${id}`)).toHaveCount(0);
     await expect(page.getByTestId("arma-racimo-de-tuppers")).toHaveCount(1);
 

@@ -251,6 +251,10 @@ export interface AbanicoPrevisualizacion {
     // lados se quedaba sin superficie que pintar.
     readonly rayos: readonly (readonly PuntoPrevisualizacion[])[];
   };
+  // Ráfaga: los arcos de los vuelos 2.º y 3.º (potencia × factor, mismo ángulo)
+  // sobre el terreno actual; el real los vuela sobre el cráter del anterior,
+  // así que son una guía, no una promesa. Vacío en el resto de armas.
+  readonly arcosRafaga: readonly (readonly PuntoPrevisualizacion[])[];
 }
 
 export const RAYOS_POR_LADO_TRAMO2 = 4;
@@ -269,9 +273,14 @@ export function calcularAbanicoPrevisualizacion(
   for (let k = -RAYOS_POR_LADO_TRAMO2; k <= RAYOS_POR_LADO_TRAMO2; k++) {
     rayos.push(k === 0 ? centro : en((semiapertura2 * k) / RAYOS_POR_LADO_TRAMO2));
   }
+  const arcosRafaga =
+    params.comportamiento.tipo === "rafaga"
+      ? params.comportamiento.factoresPotencia.slice(1).map((factor) => calcularPrevisualizacion({ ...params, potencia: params.potencia * factor }))
+      : [];
   return {
     centro,
     tramo1: { menor: en(-semiapertura1), mayor: en(semiapertura1) },
     tramo2: { menor: rayos[0], mayor: rayos[rayos.length - 1], rayos },
+    arcosRafaga,
   };
 }
