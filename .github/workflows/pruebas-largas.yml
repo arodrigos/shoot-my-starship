@@ -25,3 +25,6 @@ jobs:
       - run: npm run test:unit
         env:
           PRUEBA_LARGA: "1"
+          # ms-4 comprueba los patrones privados del repo público (S-04): sin
+          # este secret falla, igual que en ci.yml.
+          COMPROBAR_PUBLICO_PATRONES: ${{ secrets.COMPROBAR_PUBLICO_PATRONES }}
